@@ -1,0 +1,239 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.bg-grid-pattern {
+  background-color: #1a202c;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Custom styles for the wedge monitor */
+.monitor-wedge {
+  clip-path: polygon(0 0, 100% 0, 100% 90%, 50% 100%, 0 90%);
+}
+
+/* Custom styles for range inputs */
+input[type=range] {
+  -webkit-appearance: none;
+  height: 8px;
+  background: #4b5563;
+  border-radius: 5px;
+  background-image: linear-gradient(#4f46e5, #4f46e5);
+  background-repeat: no-repeat;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  box-shadow: 0 0 2px 0 #555;
+}
+
+input[type=range]::-webkit-slider-runnable-track {
+  -webkit-appearance: none;
+  box-shadow: none;
+  border: none;
+  background: transparent;
+}
+
+/* Custom scroll for canvas container */
+.canvas-container {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(107, 114, 128, 0.5) transparent;
+  overflow: auto !important;
+  max-height: 70vh !important;
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.canvas-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.canvas-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.canvas-container::-webkit-scrollbar-thumb {
+  background-color: rgba(107, 114, 128, 0.5);
+  border-radius: 20px;
+}
+
+/* Improved visibility for text elements */
+.text-label {
+  background-color: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  padding: 6px 12px;
+  min-width: 120px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.text-label:hover {
+  border-color: rgba(99, 102, 241, 0.8);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Fix for stage element rotation */
+.stage-element {
+  transform-origin: center center;
+}
+
+/* Stage element label styles */
+.element-label {
+  background-color: rgba(17, 24, 39, 0.9);
+  border: 1px solid rgba(75, 85, 99, 0.5);
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Element control buttons */
+.element-controls button {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-center: center;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+/* Export specific styles */
+.export-wrapper {
+  max-width: none !important;
+  max-height: none !important;
+}
+
+.export-wrapper svg {
+  display: inline-block !important;
+  visibility: visible !important;
+}
+
+/* Better touch handling for mobile */
+.touch-manipulation {
+  touch-action: manipulation;
+}
+
+/* Media queries for responsive design */
+@media (max-width: 640px) {
+  .canvas-container {
+    padding: 10px;
+    max-height: 60vh !important;
+  }
+  
+  .text-label {
+    min-width: 100px;
+    padding: 4px 8px;
+  }
+  
+  /* Better scrolling for tables on mobile */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Prevent fixed positioned elements from jumping when keyboard appears */
+  .fixed {
+    position: fixed !important;
+  }
+  
+  /* Ensure dropdowns don't go off-screen on mobile */
+  .z-[9999], .z-[40] {
+    max-width: 90vw;
+    max-height: 50vh;
+  }
+}
+
+/* Adjust spacing for smaller screens */
+@media (max-width: 480px) {
+  .p-3 {
+    padding: 0.5rem;
+  }
+  
+  .px-3 {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  
+  .py-3 {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  
+  .text-xl {
+    font-size: 1.2rem;
+  }
+  
+  .max-w-[220px] {
+    max-width: 160px;
+  }
+}
+
+/* Image upload container styles */
+.image-upload-container {
+  border: 2px dashed #4b5563;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.image-upload-container:hover {
+  border-color: #6366f1;
+  background-color: rgba(99, 102, 241, 0.05);
+}
+
+.image-upload-container.drag-active {
+  border-color: #6366f1;
+  background-color: rgba(99, 102, 241, 0.1);
+}
+
+/* Resize handle styles */
+.resize-handle {
+  width: 10px;
+  height: 10px;
+  background-color: white;
+  border: 2px solid #6366f1;
+  position: absolute;
+  border-radius: 50%;
+  z-index: 30;
+}
+
+.resize-handle-se {
+  bottom: -5px;
+  right: -5px;
+  cursor: nwse-resize;
+}
+
+.resize-handle-sw {
+  bottom: -5px;
+  left: -5px;
+  cursor: nesw-resize;
+}
+
+.resize-handle-ne {
+  top: -5px;
+  right: -5px;
+  cursor: nesw-resize;
+}
+
+.resize-handle-nw {
+  top: -5px;
+  left: -5px;
+  cursor: nwse-resize;
+}

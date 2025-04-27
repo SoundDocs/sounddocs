@@ -1,0 +1,6 @@
+# www.robotstxt.org
+
+User-agent: *
+Allow: /
+
+Sitemap: https://sounddocs.org/sitemap.xml
