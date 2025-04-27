@@ -53,15 +53,16 @@ SoundDocs is a modern web application designed for audio engineers to create pro
 
 ### Installation
 1. Clone the repository:
-   git clone https://github.com/cj-vana/sounddocs.git
-   cd sounddocs
+   - git clone https://github.com/cj-vana/sounddocs.git
+   - cd sounddocs
 2. Install Dependancies
-   npm install
+   - npm install
 3. Set up environment variables in your .env file:
-   VITE_SUPABASE_URL=your-supabase-url
-   VITE_SUPABASE_ANON_KEY=your-supabase-key
+   - VITE_SUPABASE_URL=your-supabase-url
+   - VITE_SUPABASE_ANON_KEY=your-supabase-key
 4. Start the development server:
-   npm run dev
+   - npm run dev
+5. Run the migration files in Supabase SQL editor
 
 ## 📖 Usage
 
