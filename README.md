@@ -45,7 +45,7 @@ SoundDocs is a modern web application designed for audio engineers to create pro
 - **Real-time Updates**: Supabase Realtime
 - **Storage**: Supabase Storage
 
-## 🚀 Getting Started
+## 🚀 Self Host
 
 ### Prerequisites
 - Node.js v16+
@@ -66,6 +66,7 @@ SoundDocs is a modern web application designed for audio engineers to create pro
 
 ## 📖 Usage
 
+- Visit https://sounddocs.org
 - Create Account
 - Sign up using email
 - New Document
