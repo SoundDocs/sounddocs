@@ -7,7 +7,7 @@
 
 SoundDocs is a modern web application designed for audio engineers to create professional technical documentation for live events. Create detailed patch lists, design stage plots, and share your setups with venues and production teams effortlessly.
 
-![Hero Preview](https://i.ibb.co/PGhQmGkd/Screenshot-2025-04-27-at-11-37-16.png))
+![Hero Preview](https://i.ibb.co/PGhQmGkd/Screenshot-2025-04-27-at-11-37-16.png)
 
 ## ✨ Features
 
