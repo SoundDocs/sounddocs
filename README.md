@@ -65,25 +65,19 @@ SoundDocs is a modern web application designed for audio engineers to create pro
 
 ## 📖 Usage
 
-Create Account
-Sign up using email
-New Document
-Choose between Patch Sheet or Stage Plot
-Build Your Setup
-Patch Sheets: Add inputs, outputs, and technical specs
-Stage Plots: Drag-and-drop elements on stage canvas
-Export & Share
-Download as PNG/PDF or generate shareable link
+- Create Account
+- Sign up using email
+- New Document
+- Choose between Patch Sheet or Stage Plot
+- Build Your Setup
+- Patch Sheets: Add inputs, outputs, and technical specs
+- Stage Plots: Drag-and-drop elements on stage canvas
+- Export & Share
+- Download as PNG/PDF or generate shareable link
 
 ## 🤝 Contributing
 
-We welcome contributions! Please follow these steps:
-
-Fork the project
-Create your feature branch (git checkout -b feature/AmazingFeature)
-Commit changes (git commit -m 'Add some AmazingFeature')
-Push to branch (git push origin feature/AmazingFeature)
-Open a Pull Request
+We welcome any and all contributions!
 
 ## 📄 License
 
