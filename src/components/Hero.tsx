@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, Headphones, Music, Bookmark, Calendar, Mic, ChevronsRight } from 'lucide-react';
+import { ArrowRight, Headphones, Music, Bookmark, Calendar, Mic, ChevronsRight, Github } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
@@ -34,7 +34,8 @@ const Hero: React.FC = () => {
             </h1>
             
             <p className="text-gray-300 text-lg md:text-xl leading-relaxed">
-              The tool that helps audio engineers document, organize, and share technical requirements for live performances and studio sessions.
+              The tool that helps audio engineers document, organize, and share technical requirements for live performances and studio sessions. 
+              <span className="text-indigo-300"> 100% free and open source.</span>
             </p>
             
             <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
@@ -61,6 +62,18 @@ const Hero: React.FC = () => {
               >
                 Log In
               </Link>
+            </div>
+
+            <div className="flex items-center">
+              <a 
+                href="https://github.com/cj-vana/sounddocs" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center text-gray-400 hover:text-indigo-400 transition-colors duration-200"
+              >
+                <Github className="h-5 w-5 mr-2" />
+                <span>Open source on GitHub</span>
+              </a>
             </div>
           </div>
           

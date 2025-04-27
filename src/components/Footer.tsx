@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bookmark, Mail } from 'lucide-react';
+import { Bookmark, Mail, Github, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Footer: React.FC = () => {
@@ -12,13 +12,31 @@ const Footer: React.FC = () => {
             <span className="text-white text-xl font-bold">SoundDocs</span>
           </div>
           
-          <div className="flex items-center">
+          <div className="flex items-center space-x-4">
             <a 
               href="mailto:contact@sounddocs.org" 
-              className="flex items-center bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+              className="flex items-center text-gray-300 hover:text-white transition-all duration-200"
             >
-              <Mail className="h-4 w-4 mr-2" />
-              Contact Us
+              <Mail className="h-5 w-5 mr-2" />
+              <span>Contact</span>
+            </a>
+            <a 
+              href="https://github.com/cj-vana/sounddocs" 
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center text-gray-300 hover:text-white transition-all duration-200"
+            >
+              <Github className="h-5 w-5 mr-2" />
+              <span>GitHub</span>
+            </a>
+            <a 
+              href="https://discord.gg/HV7kYYVWMu" 
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center text-gray-300 hover:text-white transition-all duration-200"
+            >
+              <MessageSquare className="h-5 w-5 mr-2" />
+              <span>Discord</span>
             </a>
           </div>
         </div>
