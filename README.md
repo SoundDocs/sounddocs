@@ -87,7 +87,7 @@ Distributed under the MIT License.
 
 ## 🙏 Acknowledgements
 
-Supabase for backend services
-Lucide for beautiful icons
-React Draggable for stage elements
-html2canvas for export functionality
+- Supabase for backend services
+- Lucide for beautiful icons
+- React Draggable for stage elements
+- html2canvas for export functionality
