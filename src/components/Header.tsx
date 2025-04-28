@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X, Bookmark, LogOut } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 interface HeaderProps {
@@ -10,9 +10,11 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const isSharedRoute = location.pathname.includes('/shared/');
 
   useEffect(() => {
     const handleScroll = () => {
@@ -59,6 +61,17 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
     setIsMenuOpen(false);
   };
 
+  const goToHome = () => {
+    // If on a shared route, go to root domain
+    if (isSharedRoute) {
+      window.location.href = "https://sounddocs.org/";
+      return;
+    }
+    
+    // Otherwise use normal navigation
+    navigate('/');
+  };
+
   return (
     <header 
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out ${
@@ -66,10 +79,14 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
       }`}
     >
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-        <Link to="/" className="flex items-center space-x-2" aria-label="SoundDocs Home">
+        <div 
+          onClick={goToHome} 
+          className="flex items-center space-x-2 cursor-pointer" 
+          aria-label="SoundDocs Home"
+        >
           <Bookmark className="h-8 w-8 text-indigo-400" />
           <span className="text-white text-xl font-bold">SoundDocs</span>
-        </Link>
+        </div>
         
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center space-x-8" aria-label="Main Navigation">
@@ -83,6 +100,14 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
                 Sign Out
               </button>
             </>
+          ) : isSharedRoute ? (
+            // For shared routes, just show a button to main site
+            <a 
+              href="https://sounddocs.org/"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-md font-medium transition-all duration-200"
+            >
+              Go to SoundDocs
+            </a>
           ) : (
             <>
               <a href="#features" className="text-gray-300 hover:text-white transition-colors duration-200">Features</a>
@@ -127,6 +152,14 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
                     Sign Out
                   </button>
                 </>
+              ) : isSharedRoute ? (
+                // For shared routes on mobile
+                <a 
+                  href="https://sounddocs.org/"
+                  className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-md font-medium transition-all duration-200 text-center"
+                >
+                  Go to SoundDocs
+                </a>
               ) : (
                 <>
                   <a href="#features" onClick={() => setIsMenuOpen(false)} className="text-gray-300 hover:text-white transition-colors duration-200">Features</a>

@@ -160,36 +160,61 @@ export const verifyShareLink = async (shareCode: string) => {
 // Get shared resource data
 export const getSharedResource = async (shareCode: string) => {
   try {
-    // Verify the share link and get details
-    const shareLink = await verifyShareLink(shareCode);
+    // Get the link details directly
+    const { data: shareLink, error: linkError } = await supabase
+      .from('shared_links')
+      .select('*')
+      .eq('share_code', shareCode)
+      .single();
     
+    if (linkError) throw linkError;
     if (!shareLink) throw new Error('Invalid share link');
     
+    // Check if link is expired
+    if (shareLink.expires_at && new Date(shareLink.expires_at) < new Date()) {
+      throw new Error('Share link has expired');
+    }
+    
     // Fetch the appropriate resource based on resource_type
-    let data;
-    let error;
+    let resourceData;
+    let resourceError;
     
     if (shareLink.resource_type === 'patch_sheet') {
-      ({ data, error } = await supabase
+      const { data, error } = await supabase
         .from('patch_sheets')
         .select('*')
         .eq('id', shareLink.resource_id)
-        .single());
+        .single();
+      
+      resourceData = data;
+      resourceError = error;
     } else if (shareLink.resource_type === 'stage_plot') {
-      ({ data, error } = await supabase
+      const { data, error } = await supabase
         .from('stage_plots')
         .select('*')
         .eq('id', shareLink.resource_id)
-        .single());
+        .single();
+      
+      resourceData = data;
+      resourceError = error;
     } else {
       throw new Error('Invalid resource type');
     }
     
-    if (error) throw error;
-    if (!data) throw new Error('Resource not found');
+    if (resourceError) throw resourceError;
+    if (!resourceData) throw new Error('Resource not found');
+    
+    // Update access count and last accessed
+    await supabase
+      .from('shared_links')
+      .update({ 
+        last_accessed: new Date().toISOString(),
+        access_count: (shareLink.access_count || 0) + 1
+      })
+      .eq('id', shareLink.id);
     
     return {
-      resource: data,
+      resource: resourceData,
       shareLink
     };
   } catch (error) {
@@ -200,7 +225,7 @@ export const getSharedResource = async (shareCode: string) => {
 
 // Generate frontend URL for a share link
 export const getShareUrl = (shareCode: string) => {
-  // Use sounddocs.org domain for share links
+  // Always use sounddocs.org domain for share links
   return `https://sounddocs.org/shared/${shareCode}`;
 };
 
@@ -212,11 +237,21 @@ export const updateSharedResource = async (
 ) => {
   try {
     // First verify the share link and permissions
-    const shareLink = await verifyShareLink(shareCode);
+    const { data: shareLink, error: linkError } = await supabase
+      .from('shared_links')
+      .select('*')
+      .eq('share_code', shareCode)
+      .single();
     
+    if (linkError) throw linkError;
     if (!shareLink) throw new Error('Invalid share link');
     if (shareLink.link_type !== 'edit') throw new Error('This link does not have edit permissions');
     if (shareLink.resource_type !== resourceType) throw new Error('Resource type mismatch');
+    
+    // Check if link is expired
+    if (shareLink.expires_at && new Date(shareLink.expires_at) < new Date()) {
+      throw new Error('Share link has expired');
+    }
     
     // Update the appropriate resource
     let data;

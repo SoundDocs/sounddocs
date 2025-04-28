@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -9,6 +9,7 @@ import PatchSheetOutputs from '../components/patch-sheet/PatchSheetOutputs';
 import MobileScreenWarning from '../components/MobileScreenWarning';
 import { useScreenSize } from '../hooks/useScreenSize';
 import { Loader, ArrowLeft, Save, AlertCircle } from 'lucide-react';
+import { getSharedResource, updateSharedResource } from '../lib/shareUtils';
 
 interface InputChannel {
   id: string;
@@ -48,8 +49,9 @@ interface OutputChannel {
 }
 
 const PatchSheetEditor = () => {
-  const { id } = useParams();
+  const { id, shareCode } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const screenSize = useScreenSize();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -61,13 +63,19 @@ const PatchSheetEditor = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showMobileWarning, setShowMobileWarning] = useState(false);
+  const [isSharedEdit, setIsSharedEdit] = useState(false);
+  const [shareLink, setShareLink] = useState<any>(null);
 
   useEffect(() => {
     // Show mobile warning on smaller screens
     if (screenSize === 'mobile' || screenSize === 'tablet') {
       setShowMobileWarning(true);
     }
-  }, [screenSize]);
+
+    // Check if this is a shared edit route
+    const isSharedEditRoute = location.pathname.includes('/shared/edit/');
+    setIsSharedEdit(isSharedEditRoute);
+  }, [screenSize, location.pathname]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -78,6 +86,49 @@ const PatchSheetEditor = () => {
     };
 
     const fetchPatchSheet = async () => {
+      // If this is a shared edit route, handle it differently
+      if (isSharedEdit && shareCode) {
+        try {
+          const { resource, shareLink } = await getSharedResource(shareCode);
+          
+          if (shareLink.link_type !== 'edit') {
+            // This link doesn't have edit permissions
+            window.location.href = `https://sounddocs.org/shared/${shareCode}`;
+            return;
+          }
+          
+          setPatchSheet(resource);
+          setShareLink(shareLink);
+          
+          // Set inputs if they exist in the data
+          if (resource.inputs && Array.isArray(resource.inputs)) {
+            setInputs(resource.inputs);
+          } else {
+            setInputs([]);
+          }
+          
+          // Set outputs if they exist in the data
+          if (resource.outputs && Array.isArray(resource.outputs)) {
+            // Add destinationGear field if it doesn't exist in older outputs
+            const updatedOutputs = resource.outputs.map((output: any) => ({
+              ...output,
+              destinationGear: output.destinationGear || ''
+            }));
+            setOutputs(updatedOutputs);
+          } else {
+            setOutputs([]);
+          }
+          
+          setLoading(false);
+          return;
+        } catch (error) {
+          console.error('Error fetching shared patch sheet:', error);
+          // If we can't find the shared patch sheet, go back to home
+          window.location.href = "https://sounddocs.org/";
+          return;
+        }
+      }
+
       if (id === 'new') {
         // Creating a new patch sheet with comprehensive default values
         setPatchSheet({
@@ -172,11 +223,9 @@ const PatchSheetEditor = () => {
 
     fetchUser();
     fetchPatchSheet();
-  }, [id, navigate]);
+  }, [id, navigate, isSharedEdit, shareCode, location.pathname]);
 
   const handleSave = async () => {
-    if (!user) return;
-    
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
@@ -212,49 +261,79 @@ const PatchSheetEditor = () => {
         last_edited: new Date().toISOString()
       };
       
-      if (id === 'new') {
-        // Create new patch sheet
-        const { data, error } = await supabase
-          .from('patch_sheets')
-          .insert([
-            { 
-              ...patchSheetData,
-              user_id: user.id
-            }
-          ])
-          .select();
-
-        if (error) throw error;
+      // Handle shared edit case
+      if (isSharedEdit && shareCode) {
+        const result = await updateSharedResource(
+          shareCode,
+          'patch_sheet',
+          patchSheetData
+        );
         
-        // Redirect to the new patch sheet
-        if (data && data[0]) {
-          navigate(`/patch-sheet/${data[0].id}`);
+        if (result) {
+          // Update local state with the updated data
+          setInputs(updatedInputs);
+          setOutputs(updatedOutputs);
+          setPatchSheet({
+            ...patchSheet,
+            inputs: updatedInputs,
+            outputs: updatedOutputs,
+            last_edited: new Date().toISOString()
+          });
+          
+          setSaveSuccess(true);
+          
+          // Hide the success message after 3 seconds
+          setTimeout(() => {
+            setSaveSuccess(false);
+          }, 3000);
         }
-      } else {
-        // Update existing patch sheet
-        const { error } = await supabase
-          .from('patch_sheets')
-          .update(patchSheetData)
-          .eq('id', id);
+      }
+      // Handle normal authenticated save case
+      else if (user) {
+        if (id === 'new') {
+          // Create new patch sheet
+          const { data, error } = await supabase
+            .from('patch_sheets')
+            .insert([
+              { 
+                ...patchSheetData,
+                user_id: user.id
+              }
+            ])
+            .select();
 
-        if (error) throw error;
-        
-        // Update local state with the updated data
-        setInputs(updatedInputs);
-        setOutputs(updatedOutputs);
-        setPatchSheet({
-          ...patchSheet,
-          inputs: updatedInputs,
-          outputs: updatedOutputs,
-          last_edited: new Date().toISOString()
-        });
-        
-        setSaveSuccess(true);
-        
-        // Hide the success message after 3 seconds
-        setTimeout(() => {
-          setSaveSuccess(false);
-        }, 3000);
+          if (error) throw error;
+          
+          // Redirect to the new patch sheet
+          if (data && data[0]) {
+            navigate(`/patch-sheet/${data[0].id}`);
+          }
+        } else {
+          // Update existing patch sheet
+          const { error } = await supabase
+            .from('patch_sheets')
+            .update(patchSheetData)
+            .eq('id', id);
+
+          if (error) throw error;
+          
+          // Update local state with the updated data
+          setInputs(updatedInputs);
+          setOutputs(updatedOutputs);
+          setPatchSheet({
+            ...patchSheet,
+            inputs: updatedInputs,
+            outputs: updatedOutputs,
+            last_edited: new Date().toISOString()
+          });
+          
+          setSaveSuccess(true);
+          
+          // Hide the success message after 3 seconds
+          setTimeout(() => {
+            setSaveSuccess(false);
+          }, 3000);
+        }
       }
     } catch (error) {
       console.error('Error saving patch sheet:', error);
@@ -303,13 +382,13 @@ const PatchSheetEditor = () => {
         />
       )}
       
-      <Header dashboard={true} />
+      <Header dashboard={!isSharedEdit} />
       
       <main className="flex-grow container mx-auto px-4 py-6 md:py-12 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
           <div className="flex items-center">
             <button 
-              onClick={() => navigate('/dashboard')}
+              onClick={() => isSharedEdit ? window.location.href = `https://sounddocs.org/shared/${shareCode}` : navigate('/dashboard')}
               className="mr-2 md:mr-4 flex items-center text-gray-400 hover:text-white transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />

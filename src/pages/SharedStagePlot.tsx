@@ -157,7 +157,7 @@ const SharedStagePlot = () => {
   const handleEditRedirect = () => {
     // If this is an edit link, redirect to the editor
     if (shareLink?.link_type === 'edit') {
-      window.location.href = `/shared/stage-plot/edit/${shareCode}`;
+      window.location.href = `https://sounddocs.org/shared/stage-plot/edit/${shareCode}`;
     }
   };
 
@@ -176,7 +176,7 @@ const SharedStagePlot = () => {
         <h1 className="text-2xl font-bold text-white mb-2">Error Loading Document</h1>
         <p className="text-gray-300 mb-6">{error || 'This shared document could not be loaded'}</p>
         <button 
-          onClick={() => navigate('/')}
+          onClick={() => window.location.href = "https://sounddocs.org/"}
           className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-md font-medium transition-all duration-200"
         >
           Go to Homepage
@@ -251,7 +251,7 @@ const SharedStagePlot = () => {
               <span className="sm:hidden">Save</span>
             </button>
             <button
-              onClick={() => navigate('/')}
+              onClick={() => window.location.href = "https://sounddocs.org/"}
               className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-3 sm:px-4 py-2 rounded-md font-medium transition-all duration-200 text-sm"
             >
               <ExternalLink className="h-4 w-4 mr-1 sm:mr-2" />
@@ -373,18 +373,6 @@ const SharedStagePlot = () => {
             </div>
           </div>
         </div>
-        
-        {/* Export components */}
-        <div className="hidden">
-          <StagePlotExport 
-            ref={exportRef} 
-            stagePlot={stagePlot} 
-          />
-          <PrintStagePlotExport
-            ref={printExportRef}
-            stagePlot={stagePlot}
-          />
-        </div>
       </main>
       
       {/* Export Modal */}
@@ -396,6 +384,18 @@ const SharedStagePlot = () => {
         title="Stage Plot"
       />
       
+      {/* Hidden Export Components */}
+      <div className="hidden">
+        <StagePlotExport 
+          ref={exportRef} 
+          stagePlot={stagePlot} 
+        />
+        <PrintStagePlotExport
+          ref={printExportRef}
+          stagePlot={stagePlot}
+        />
+      </div>
+      
       {/* Sign up banner */}
       <div className="bg-indigo-600 py-6 px-4">
         <div className="container mx-auto flex flex-col sm:flex-row items-center justify-between">
@@ -404,7 +404,7 @@ const SharedStagePlot = () => {
             <p className="text-indigo-200">Sign up for free and start creating professional patch sheets and stage plots.</p>
           </div>
           <a 
-            href="/"
+            href="https://sounddocs.org/"
             className="inline-flex items-center bg-white text-indigo-700 px-5 py-2 rounded-md font-medium transition-all duration-200 hover:bg-indigo-100"
           >
             <Share2 className="h-5 w-5 mr-2" />
