@@ -79,7 +79,7 @@ SoundDocs is a modern web application designed for audio engineers to create pro
 
 ## 🤝 Contributing
 
-We welcome any and all contributions!
+We welcome any and all contributions! Please join our discord server before making any contributions. discord.gg/hVk6tctuHM
 
 ## 📄 License
 
