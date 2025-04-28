@@ -74,9 +74,10 @@ function App() {
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
             
-            {/* Shared resource routes */}
-            <Route path="/shared/:shareCode" element={<SharedPatchSheet />} />
+            {/* Shared resource routes - ORDER MATTERS! 
+                More specific routes must come before more generic ones */}
             <Route path="/shared/stage-plot/:shareCode" element={<SharedStagePlot />} />
+            <Route path="/shared/:shareCode" element={<SharedPatchSheet />} />
           </Routes>
         </Router>
       </AuthProvider>
