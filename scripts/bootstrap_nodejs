@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -euxo pipefail
+
+APP_ROOT=$(dirname $(dirname $(readlink -f $0)))
+NODE_VERSION=$(cat ${APP_ROOT}/.node-version | sed 's/^v//')
+NODE_BUILD_VERSION=v5.3.34
+
+curl -L https://github.com/nodenv/node-build/archive/refs/tags/${NODE_BUILD_VERSION}.tar.gz -o /tmp/node-build.tar.gz
+
+mkdir -p /tmp/node-build-src
+tar xzv -C /tmp/node-build-src --strip-components=1 -f /tmp/node-build.tar.gz
+
+mkdir -p /tmp/node-build-bin
+PREFIX=/tmp/node-build-bin /tmp/node-build-src/install.sh
+
+/tmp/node-build-bin/bin/node-build ${NODE_VERSION} /usr/local
+
+rm -rf /tmp/node-build*

@@ -1,0 +1,14 @@
+{
+  "name": "sounddocs",
+  "privileged": true,
+  "build": {
+    "dockerfile": "../Dockerfile"
+  },
+  "mounts": [
+    {
+      "source": "sounddocs",
+      "target": "/var/lib/docker",
+      "type": "volume"
+    }
+  ]
+}
