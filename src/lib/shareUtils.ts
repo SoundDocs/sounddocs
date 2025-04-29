@@ -124,18 +124,24 @@ export const updateShareLinkExpiration = async (linkId: string, expirationDays: 
 // Verify a share link and increment access count
 export const verifyShareLink = async (shareCode: string) => {
   try {
-    // First get the link details
+    // Use the database function to get the share link
     const { data, error } = await supabase
-      .from('shared_links')
-      .select('*')
-      .eq('share_code', shareCode)
-      .single();
+      .rpc('get_shared_link_by_code', { p_share_code: shareCode });
     
-    if (error) throw error;
-    if (!data) throw new Error('Share link not found');
+    if (error) {
+      console.error('Error fetching share link:', error);
+      throw new Error('Share link not found');
+    }
+    
+    if (!data || data.length === 0) {
+      throw new Error('Share link not found');
+    }
+    
+    // Get the first (and should be only) result
+    const shareLink = data[0];
     
     // Check if link is expired
-    if (data.expires_at && new Date(data.expires_at) < new Date()) {
+    if (shareLink.expires_at && new Date(shareLink.expires_at) < new Date()) {
       throw new Error('Share link has expired');
     }
     
@@ -144,13 +150,13 @@ export const verifyShareLink = async (shareCode: string) => {
       .from('shared_links')
       .update({ 
         last_accessed: new Date().toISOString(),
-        access_count: (data.access_count || 0) + 1
+        access_count: (shareLink.access_count || 0) + 1
       })
-      .eq('id', data.id);
+      .eq('id', shareLink.id);
     
     if (updateError) throw updateError;
     
-    return data;
+    return shareLink;
   } catch (error) {
     console.error('Error verifying share link:', error);
     throw error;
@@ -160,51 +166,54 @@ export const verifyShareLink = async (shareCode: string) => {
 // Get shared resource data
 export const getSharedResource = async (shareCode: string) => {
   try {
-    // Get the link details directly
-    const { data: shareLink, error: linkError } = await supabase
-      .from('shared_links')
-      .select('*')
-      .eq('share_code', shareCode)
-      .single();
+    if (!shareCode) {
+      throw new Error('Share code is required');
+    }
     
-    if (linkError) throw linkError;
-    if (!shareLink) throw new Error('Invalid share link');
+    // Use the database function to reliably fetch the share link
+    const { data: shareLinkData, error: shareLinkError } = await supabase
+      .rpc('get_shared_link_by_code', { p_share_code: shareCode });
+      
+    if (shareLinkError) {
+      console.error('Link error:', shareLinkError);
+      throw new Error('Error fetching share link: ' + shareLinkError.message);
+    }
+    
+    if (!shareLinkData || shareLinkData.length === 0) {
+      throw new Error('Share link not found');
+    }
+    
+    // Get the first (and should be only) result
+    const shareLink = shareLinkData[0];
     
     // Check if link is expired
     if (shareLink.expires_at && new Date(shareLink.expires_at) < new Date()) {
       throw new Error('Share link has expired');
     }
     
-    // Fetch the appropriate resource based on resource_type
-    let resourceData;
-    let resourceError;
+    // Fetch the resource using the resource_id from the link
+    const { data: resourceData, error: resourceError } = shareLink.resource_type === 'patch_sheet'
+      ? await supabase
+          .from('patch_sheets')
+          .select('*')
+          .eq('id', shareLink.resource_id)
+          .single()
+      : await supabase
+          .from('stage_plots')
+          .select('*')
+          .eq('id', shareLink.resource_id)
+          .single();
     
-    if (shareLink.resource_type === 'patch_sheet') {
-      const { data, error } = await supabase
-        .from('patch_sheets')
-        .select('*')
-        .eq('id', shareLink.resource_id)
-        .single();
-      
-      resourceData = data;
-      resourceError = error;
-    } else if (shareLink.resource_type === 'stage_plot') {
-      const { data, error } = await supabase
-        .from('stage_plots')
-        .select('*')
-        .eq('id', shareLink.resource_id)
-        .single();
-      
-      resourceData = data;
-      resourceError = error;
-    } else {
-      throw new Error('Invalid resource type');
+    if (resourceError) {
+      console.error('Resource error:', resourceError);
+      throw new Error('Error fetching resource: ' + resourceError.message);
     }
     
-    if (resourceError) throw resourceError;
-    if (!resourceData) throw new Error('Resource not found');
+    if (!resourceData) {
+      throw new Error('Resource not found');
+    }
     
-    // Update access count and last accessed
+    // Update access count and last accessed timestamp
     await supabase
       .from('shared_links')
       .update({ 
@@ -236,26 +245,38 @@ export const updateSharedResource = async (
   updates: any
 ) => {
   try {
-    // First verify the share link and permissions
-    const { data: shareLink, error: linkError } = await supabase
-      .from('shared_links')
-      .select('*')
-      .eq('share_code', shareCode)
-      .single();
+    if (!shareCode) {
+      throw new Error('Share code is required');
+    }
     
-    if (linkError) throw linkError;
-    if (!shareLink) throw new Error('Invalid share link');
-    if (shareLink.link_type !== 'edit') throw new Error('This link does not have edit permissions');
-    if (shareLink.resource_type !== resourceType) throw new Error('Resource type mismatch');
+    // First verify the share link and permissions using our database function
+    const { data: shareLinkData, error: linkError } = await supabase
+      .rpc('get_shared_link_by_code', { p_share_code: shareCode });
+    
+    if (linkError) {
+      console.error('Link error:', linkError);
+      throw new Error('Error fetching share link: ' + linkError.message);
+    }
+    
+    if (!shareLinkData || shareLinkData.length === 0) {
+      throw new Error('Share link not found');
+    }
+    
+    // Get the first (and should be only) result
+    const shareLink = shareLinkData[0];
+    
+    if (shareLink.link_type !== 'edit') {
+      throw new Error('This link does not have edit permissions');
+    }
+    
+    if (shareLink.resource_type !== resourceType) {
+      throw new Error('Resource type mismatch');
+    }
     
     // Check if link is expired
     if (shareLink.expires_at && new Date(shareLink.expires_at) < new Date()) {
       throw new Error('Share link has expired');
     }
-    
-    // Update the appropriate resource
-    let data;
-    let error;
     
     // Add last_edited field to updates
     const updatesWithTimestamp = {
@@ -263,23 +284,25 @@ export const updateSharedResource = async (
       last_edited: new Date().toISOString()
     };
     
-    if (resourceType === 'patch_sheet') {
-      ({ data, error } = await supabase
-        .from('patch_sheets')
-        .update(updatesWithTimestamp)
-        .eq('id', shareLink.resource_id)
-        .select());
-    } else if (resourceType === 'stage_plot') {
-      ({ data, error } = await supabase
-        .from('stage_plots')
-        .update(updatesWithTimestamp)
-        .eq('id', shareLink.resource_id)
-        .select());
+    // Update the appropriate resource
+    const { data, error } = resourceType === 'patch_sheet'
+      ? await supabase
+          .from('patch_sheets')
+          .update(updatesWithTimestamp)
+          .eq('id', shareLink.resource_id)
+          .select()
+      : await supabase
+          .from('stage_plots')
+          .update(updatesWithTimestamp)
+          .eq('id', shareLink.resource_id)
+          .select();
+    
+    if (error) {
+      console.error('Update error:', error);
+      throw new Error('Error updating shared resource: ' + error.message);
     }
     
-    if (error) throw error;
-    
-    return data;
+    return data?.[0] || null;
   } catch (error) {
     console.error('Error updating shared resource:', error);
     throw error;
