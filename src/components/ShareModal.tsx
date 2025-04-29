@@ -106,8 +106,8 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, resourceId, re
       
       // Reset copy indication after 3 seconds
       setTimeout(() => {
-        setCopiedLinkId(null);
-      }, 3000);
+          setCopiedLinkId(null);
+        }, 3000);
     } catch (err) {
       console.error('Error copying link:', err);
       setError('Failed to copy link to clipboard');
@@ -201,16 +201,22 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, resourceId, re
                 >
                   View Only
                 </button>
-                <button
-                  className={`px-4 py-2 rounded-md flex-1 ${
-                    newLinkType === 'edit' 
-                      ? 'bg-indigo-600 text-white' 
-                      : 'bg-gray-600 text-gray-300 hover:bg-gray-550'
-                  }`}
-                  onClick={() => setNewLinkType('edit')}
-                >
-                  View & Edit
-                </button>
+                <div className="relative flex-1 group">
+                  <button
+                    className={`w-full px-4 py-2 rounded-md ${
+                      newLinkType === 'edit' 
+                        ? 'bg-indigo-600 text-white' 
+                        : 'bg-gray-600 text-gray-300 hover:bg-gray-550'
+                    } opacity-50 cursor-not-allowed`}
+                    onClick={() => setNewLinkType('edit')}
+                    disabled
+                  >
+                    View & Edit
+                  </button>
+                  <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-100 pointer-events-none">
+                    Work in progress
+                  </span>
+                </div>
               </div>
             </div>
             
