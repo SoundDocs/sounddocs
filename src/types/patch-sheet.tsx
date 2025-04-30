@@ -53,6 +53,26 @@ export interface InputChannel {
     isStereo?: boolean;
     stereoChannelNumber?: string;
   }
+
+export  interface OutputChannel {
+  id: string;
+  channelNumber: string;
+  name: string;
+  sourceType: string;
+  sourceDetails?: {
+    outputNumber?: string;
+    snakeType?: string;
+    networkType?: string;
+    networkPatch?: string;
+    consoleType?: string;
+    consoleOutputNumber?: string;
+  };
+  destinationType: string;
+  destinationGear: string;
+  notes: string;
+  isStereo?: boolean;
+  stereoChannelNumber?: string;
+}
   
   
   export type ConnectionType = 'Console Direct' | 'Analog Snake' | 'Digital Snake' | 'Digital Network';

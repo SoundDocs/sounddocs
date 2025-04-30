@@ -7,6 +7,7 @@ import PatchSheetInfo from '../components/patch-sheet/PatchSheetInfo';
 import PatchSheetInputs from '../components/patch-sheet/PatchSheetInputs';
 import PatchSheetOutputs from '../components/patch-sheet/PatchSheetOutputs';
 import PatchSheetInputsTable from '../components/patch-sheet/PatchSheetInputsTable';
+import PatchSheetOutputsTable from '../components/patch-sheet/PatchSheetOutputsTable';
 import MobileScreenWarning from '../components/MobileScreenWarning';
 import { useScreenSize } from '../hooks/useScreenSize';
 import { Loader, ArrowLeft, Save, AlertCircle } from 'lucide-react';
@@ -494,6 +495,17 @@ const PatchSheetEditor = () => {
               >
                 Outputs
               </button>
+
+              <button
+                className={`px-3 md:px-6 py-3 text-sm md:text-base font-medium transition-colors whitespace-nowrap ${
+                  activeTab === 'outputs-table' 
+                    ? 'text-white border-b-2 border-indigo-500' 
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                onClick={() => setActiveTab('outputs-table')}
+              >
+                Outputs Table
+              </button>
             </nav>
           </div>
           
@@ -521,6 +533,13 @@ const PatchSheetEditor = () => {
 
               {activeTab === 'outputs' && (
                 <PatchSheetOutputs 
+                  outputs={outputs} 
+                  updateOutputs={updateOutputs} 
+                />
+              )}
+
+              {activeTab === 'outputs-table' && (
+                <PatchSheetOutputsTable 
                   outputs={outputs} 
                   updateOutputs={updateOutputs} 
                 />
