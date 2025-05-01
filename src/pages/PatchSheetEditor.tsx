@@ -4,12 +4,12 @@ import { supabase } from '../lib/supabase';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import PatchSheetInfo from '../components/patch-sheet/PatchSheetInfo';
-import PatchSheetInputs from '../components/patch-sheet/PatchSheetInputs';
-import PatchSheetOutputs from '../components/patch-sheet/PatchSheetOutputs';
+import PatchSheetInputsWrapper from '../components/patch-sheet/PatchSheetInputsWrapper';
 import MobileScreenWarning from '../components/MobileScreenWarning';
 import { useScreenSize } from '../hooks/useScreenSize';
 import { Loader, ArrowLeft, Save, AlertCircle } from 'lucide-react';
 import { getSharedResource, updateSharedResource } from '../lib/shareUtils';
+import PatchSheetOutputsWrapper from '../components/patch-sheet/PatchSheetOutputsWrapper';
 
 interface InputChannel {
   id: string;
@@ -471,6 +471,7 @@ const PatchSheetEditor = () => {
               >
                 Inputs
               </button>
+
               <button
                 className={`px-3 md:px-6 py-3 text-sm md:text-base font-medium transition-colors whitespace-nowrap ${
                   activeTab === 'outputs' 
@@ -493,13 +494,13 @@ const PatchSheetEditor = () => {
                 />
               )}
               {activeTab === 'inputs' && (
-                <PatchSheetInputs 
+                <PatchSheetInputsWrapper 
                   inputs={inputs} 
                   updateInputs={updateInputs} 
                 />
               )}
               {activeTab === 'outputs' && (
-                <PatchSheetOutputs 
+                <PatchSheetOutputsWrapper 
                   outputs={outputs} 
                   updateOutputs={updateOutputs} 
                 />
