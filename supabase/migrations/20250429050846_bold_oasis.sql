@@ -6,6 +6,7 @@
 */
 
 -- Create a function to reliably fetch a shared link by code
+DROP FUNCTION IF EXISTS get_shared_link_by_code;
 CREATE OR REPLACE FUNCTION get_shared_link_by_code(
   p_share_code TEXT
 )
