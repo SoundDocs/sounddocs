@@ -21,7 +21,7 @@ const Footer: React.FC = () => {
               <span>Contact</span>
             </a>
             <a 
-              href="https://github.com/cj-vana/sounddocs" 
+              href="https://github.com/SoundDocs/sounddocs" 
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center text-gray-300 hover:text-white transition-all duration-200"
