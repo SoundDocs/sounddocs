@@ -16,7 +16,7 @@ interface StageCanvasProps {
   onElementResize?: (id: string, width: number, height: number) => void;
 }
 
-const StageCanvas: React.FC<StageCanvasProps> = ({ 
+const StageCanvas: React.FC<StageCanvasProps> = ({
   stageSize,
   elements,
   selectedElementId,
@@ -43,19 +43,19 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
       setIsMobile(mobile);
       setIsViewMode(mobile); // On mobile, it's view-only
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    
+
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-  
+
   useEffect(() => {
     if (!containerRef.current || !isMobile) return;
-    
+
     // Setup touch handlers for zooming
     const container = containerRef.current;
-    
+
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
         const distance = Math.hypot(
@@ -65,33 +65,33 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
         setStartDistance(distance);
       }
     };
-    
+
     const handleTouchMove = (e: TouchEvent) => {
       if (e.touches.length === 2 && startDistance !== null) {
         e.preventDefault(); // Prevent default to stop scrolling
-        
+
         const distance = Math.hypot(
           e.touches[0].pageX - e.touches[1].pageX,
           e.touches[0].pageY - e.touches[1].pageY
         );
-        
+
         const delta = distance / startDistance;
         const newScale = Math.min(Math.max(scale * delta, 0.5), 2); // Limit zoom 0.5x to 2x
-        
+
         setScale(newScale);
         setStartDistance(distance);
       }
     };
-    
+
     const handleTouchEnd = () => {
       setStartDistance(null);
     };
-    
+
     // Add event listeners
     container.addEventListener('touchstart', handleTouchStart, { passive: false });
     container.addEventListener('touchmove', handleTouchMove, { passive: false });
     container.addEventListener('touchend', handleTouchEnd);
-    
+
     return () => {
       // Clean up
       container.removeEventListener('touchstart', handleTouchStart);
@@ -130,7 +130,7 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
 
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (isViewMode) return;
-    
+
     // Only deselect if clicking directly on the canvas, not on an element
     if (e.currentTarget === e.target) {
       onSelectElement(null);
@@ -143,7 +143,7 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
   }, [stageSize]);
 
   const dimensions = getStageDimensions();
-  
+
   // Determine responsive width based on screen size
   const mobileCanvasPadding = 16; // 8px on each side
   const getCanvasWidth = () => {
@@ -153,100 +153,100 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
     }
     return `${dimensions.width}px`;
   };
-  
+
   return (
-    <div 
+    <div
       className="bg-gray-850 rounded-lg border border-gray-700 overflow-auto canvas-container"
       style={{ maxHeight: '65vh' }}
       ref={containerRef}
     >
-      <div className="flex justify-center">
+      <div className="flex flex-col items-center"> {/* Main container for labels and canvas */}
         {isMobile && (
           <div className="text-xs text-gray-400 py-2">
             {isViewMode ? "Pinch to zoom, view only mode" : "Pinch to zoom, drag elements to position"}
           </div>
         )}
-      </div>
-      
-      {/* Back of stage label - MOVED OUTSIDE THE STAGE */}
-      <div className="flex justify-center mb-2">
-        <div className="bg-gray-800/80 text-white text-xs md:text-sm px-4 py-1.5 rounded-full shadow-md">
-          Back of Stage
+
+        {/* Back of stage label - Positioned ABOVE the canvas */}
+        <div className="flex justify-center mb-2 w-full">
+          <div className="bg-gray-800/80 text-white text-xs md:text-sm px-4 py-1.5 rounded-full shadow-md">
+            Back of Stage
+          </div>
         </div>
-      </div>
-      
-      <div 
-        className="relative mx-auto bg-grid-pattern overflow-hidden"
-        style={{ 
-          width: isMobile ? getCanvasWidth() : `${dimensions.width}px`,
-          height: `${dimensions.height}px`,
-          minWidth: isMobile ? getCanvasWidth() : `${dimensions.width}px`, 
-          minHeight: `${dimensions.height}px`, 
-          transform: `scale(${scale})`,
-          transformOrigin: 'center center',
-          transition: 'transform 0.1s ease-out'
-        }}
-        onClick={handleCanvasClick}
-      >
-        {/* Background image if present */}
-        {backgroundImage && (
-          <div 
-            className="absolute inset-0 bg-center bg-no-repeat bg-contain pointer-events-none"
-            style={{ 
-              backgroundImage: `url(${backgroundImage})`,
-              opacity: backgroundOpacity / 100,
-              zIndex: 1
-            }}
-          />
+
+        <div
+          className="relative mx-auto bg-grid-pattern overflow-hidden"
+          style={{
+            width: isMobile ? getCanvasWidth() : `${dimensions.width}px`,
+            height: `${dimensions.height}px`,
+            minWidth: isMobile ? getCanvasWidth() : `${dimensions.width}px`,
+            minHeight: `${dimensions.height}px`,
+            transform: `scale(${scale})`,
+            transformOrigin: 'center center',
+            transition: 'transform 0.1s ease-out'
+          }}
+          onClick={handleCanvasClick}
+        >
+          {/* Background image if present */}
+          {backgroundImage && (
+            <div
+              className="absolute inset-0 bg-center bg-no-repeat bg-contain pointer-events-none"
+              style={{
+                backgroundImage: `url(${backgroundImage})`,
+                opacity: backgroundOpacity / 100,
+                zIndex: 1
+              }}
+            />
+          )}
+
+          {/* Stage elements */}
+          {elements.map((element) => (
+            <StageElement
+              key={element.id}
+              {...element}
+              selected={selectedElementId === element.id}
+              onClick={onSelectElement}
+              onDragStop={onElementDragStop}
+              onRotate={onElementRotate}
+              onLabelChange={onElementLabelChange}
+              onDelete={onElementDelete}
+              onDuplicate={onElementDuplicate}
+              onResize={onElementResize}
+              disabled={isViewMode}
+            />
+          ))}
+        </div>
+
+        {/* Front of stage label - Positioned BELOW the canvas */}
+        <div className="flex justify-center mt-2 w-full">
+          <div className="bg-gray-800/80 text-white text-xs md:text-sm px-4 py-1.5 rounded-full shadow-md">
+            Front of Stage / Audience
+          </div>
+        </div>
+
+        {isMobile && (
+          <div className="flex justify-center gap-3 py-3">
+            <button
+              onClick={() => setScale(Math.max(scale - 0.1, 0.5))}
+              className="bg-gray-700 rounded-full w-8 h-8 flex items-center justify-center text-white text-xl leading-none"
+            >
+              -
+            </button>
+            <button
+              onClick={() => setScale(1)}
+              className="bg-gray-700 rounded px-3 py-1 text-white text-sm"
+            >
+              Reset
+            </button>
+            <button
+              onClick={() => setScale(Math.min(scale + 0.1, 2))}
+              className="bg-gray-700 rounded-full w-8 h-8 flex items-center justify-center text-white text-xl leading-none"
+            >
+              +
+            </button>
+          </div>
         )}
-        
-        {/* Stage elements */}
-        {elements.map((element) => (
-          <StageElement
-            key={element.id}
-            {...element}
-            selected={selectedElementId === element.id}
-            onClick={onSelectElement}
-            onDragStop={onElementDragStop}
-            onRotate={onElementRotate}
-            onLabelChange={onElementLabelChange}
-            onDelete={onElementDelete}
-            onDuplicate={onElementDuplicate}
-            onResize={onElementResize}
-            disabled={isViewMode}
-          />
-        ))}
       </div>
-      
-      {/* Front of stage label - MOVED OUTSIDE THE STAGE */}
-      <div className="flex justify-center mt-2">
-        <div className="bg-gray-800/80 text-white text-xs md:text-sm px-4 py-1.5 rounded-full shadow-md">
-          Front of Stage / Audience
-        </div>
-      </div>
-      
-      {isMobile && (
-        <div className="flex justify-center gap-3 py-3">
-          <button 
-            onClick={() => setScale(Math.max(scale - 0.1, 0.5))} 
-            className="bg-gray-700 rounded-full w-8 h-8 flex items-center justify-center text-white text-xl leading-none"
-          >
-            -
-          </button>
-          <button
-            onClick={() => setScale(1)}
-            className="bg-gray-700 rounded px-3 py-1 text-white text-sm"
-          >
-            Reset
-          </button>
-          <button 
-            onClick={() => setScale(Math.min(scale + 0.1, 2))} 
-            className="bg-gray-700 rounded-full w-8 h-8 flex items-center justify-center text-white text-xl leading-none"
-          >
-            +
-          </button>
-        </div>
-      )}
     </div>
   );
 };
