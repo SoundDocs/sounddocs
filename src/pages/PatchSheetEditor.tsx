@@ -4,9 +4,8 @@ import { supabase } from '../lib/supabase';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import PatchSheetInfo from '../components/patch-sheet/PatchSheetInfo';
-import PatchSheetInputs from '../components/patch-sheet/PatchSheetInputs';
+import PatchSheetInputsWrapper from '../components/patch-sheet/PatchSheetInputsWrapper';
 import PatchSheetOutputs from '../components/patch-sheet/PatchSheetOutputs';
-import PatchSheetInputsTable from '../components/patch-sheet/PatchSheetInputsTable';
 import PatchSheetOutputsTable from '../components/patch-sheet/PatchSheetOutputsTable';
 import MobileScreenWarning from '../components/MobileScreenWarning';
 import { useScreenSize } from '../hooks/useScreenSize';
@@ -476,17 +475,6 @@ const PatchSheetEditor = () => {
 
               <button
                 className={`px-3 md:px-6 py-3 text-sm md:text-base font-medium transition-colors whitespace-nowrap ${
-                  activeTab === 'inputs-table' 
-                    ? 'text-white border-b-2 border-indigo-500' 
-                    : 'text-gray-400 hover:text-white'
-                }`}
-                onClick={() => setActiveTab('inputs-table')}
-              >
-                Inputs Table
-              </button>
-
-              <button
-                className={`px-3 md:px-6 py-3 text-sm md:text-base font-medium transition-colors whitespace-nowrap ${
                   activeTab === 'outputs' 
                     ? 'text-white border-b-2 border-indigo-500' 
                     : 'text-gray-400 hover:text-white'
@@ -518,14 +506,7 @@ const PatchSheetEditor = () => {
                 />
               )}
               {activeTab === 'inputs' && (
-                <PatchSheetInputs 
-                  inputs={inputs} 
-                  updateInputs={updateInputs} 
-                />
-              )}
-
-              {activeTab === 'inputs-table' && (
-                <PatchSheetInputsTable 
+                <PatchSheetInputsWrapper 
                   inputs={inputs} 
                   updateInputs={updateInputs} 
                 />

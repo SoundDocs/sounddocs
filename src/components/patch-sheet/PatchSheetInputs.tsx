@@ -850,11 +850,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-xl font-semibold text-white">Input List</h2>
-          <p className="text-gray-400 text-sm mt-1">Define your audio inputs and signal path</p>
-        </div>
+      <div className="flex justify-end items-center">
         <div className="flex space-x-3">
           <button
             onClick={() => setShowBulkAddModal(true)}
