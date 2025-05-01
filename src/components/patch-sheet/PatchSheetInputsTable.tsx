@@ -43,7 +43,7 @@ import {
 } from '../../constants/inputTypes';
 import { Combobox } from '../ui/Combobox';
 import { Button } from '../ui/Button';
-import { Plus, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2 } from 'lucide-react';
 
 interface PatchSheetInputsTableProps {
   inputs: InputChannel[];
@@ -298,13 +298,12 @@ export const PatchSheetInputsTable: React.FC<PatchSheetInputsTableProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
+      <div className="flex justify-end gap-2">
         <Button
           onClick={handleAddRow}
-          className="flex items-center gap-2"
         >
-          <Plus className="w-4 h-4" />
-          Add Row
+          <PlusCircle className="h-4 w-4 mr-2" />
+          Add Input
         </Button>
       </div>
 

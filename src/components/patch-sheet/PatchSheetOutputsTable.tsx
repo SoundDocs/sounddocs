@@ -38,7 +38,7 @@ import { OutputChannel } from '../../types/patch-sheet';
 import { DESTINATION_TYPES } from '../../constants/outputTypes'; 
 import { Combobox } from '../ui/Combobox';
 import { Button } from '../ui/Button';
-import { Plus, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2 } from 'lucide-react';
 
 interface PatchSheetOutputsTableProps {
   outputs: OutputChannel[];
@@ -177,14 +177,13 @@ export const PatchSheetOutputsTable: React.FC<PatchSheetOutputsTableProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        <Button
-          onClick={handleAddRow}
-          className="flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add Row
-        </Button>
+      <div className="flex justify-end gap-2">
+          <Button
+            onClick={handleAddRow}
+          >
+            <PlusCircle className="h-4 w-4 mr-2" />
+            Add Output
+          </Button>
       </div>
 
       <div className="rounded-md border border-gray-700">
