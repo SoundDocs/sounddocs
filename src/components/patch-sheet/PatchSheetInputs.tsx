@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { PlusCircle, Trash2, Save, ChevronDown, Edit, ChevronRight, ChevronUp, Link, Link2 } from 'lucide-react';
+import { PlusCircle, Trash2, Edit, ChevronRight, ChevronUp, Link, Link2 } from 'lucide-react';
 import NumberInput from '@form/NumberInput';
 
 interface InputChannel {
@@ -29,10 +29,8 @@ interface PatchSheetInputsProps {
 }
 
 const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInputs }) => {
-  const [showConnectionTypeOptions, setShowConnectionTypeOptions] = useState<{[key: string]: boolean}>({});
   const [editModeInputs, setEditModeInputs] = useState<{[key: string]: boolean}>({});
   const [editingInputs, setEditingInputs] = useState<{[key: string]: InputChannel}>({});
-  const [isMobile, setIsMobile] = useState(false);
 
   // Bulk add state
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
@@ -52,17 +50,6 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
   const [bulkStartChannel, setBulkStartChannel] = useState(1);
   const [bulkPrefix, setBulkPrefix] = useState('');
   const [bulkIsStereo, setBulkIsStereo] = useState(false);
-
-  // Check for mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   // Static input types - SIMPLIFIED to just 3 types
   const inputTypeOptions = [
@@ -189,23 +176,6 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
       }));
     });
     setEditModeInputs(initialEditMode);
-  }, []);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      // Close connection type dropdowns
-      Object.keys(connectionTypeDropdownRefs.current).forEach(id => {
-        if (connectionTypeDropdownRefs.current[id] && !connectionTypeDropdownRefs.current[id]?.contains(event.target as Node)) {
-          setShowConnectionTypeOptions(prev => ({...prev, [id]: false}));
-        }
-      });
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
   }, []);
 
   // Load custom types from inputs on initial load
@@ -464,11 +434,10 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     }));
   };
 
-  const handleEditingInputChange = (id: string, field: keyof InputChannel, value: any) => {
+  const handleEditingInputChange = (id: string, field: keyof InputChannel, value: unknown) => {
     const updatedInput = { ...editingInputs[id] };
-
-    // Update the field
-    updatedInput[field] = value;
+    // Update the field with proper type assertion
+    (updatedInput[field] as unknown) = value;
 
     // Reset connection details when changing connection type
     if (field === 'connection') {
@@ -538,14 +507,6 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
       }));
   };
 
-  // Handle selection of connection type
-  const handleSelectConnectionType = (id: string, value: string) => {
-    handleEditingInputChange(id, 'connection', value);
-
-    // Close the dropdown
-    setShowConnectionTypeOptions(prev => ({...prev, [id]: false}));
-  };
-
   // Handle key press for various inputs to capture custom values
   const handleCustomTypeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, id: string, type: string) => {
     if (e.key === 'Enter') {
@@ -587,27 +548,6 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
         }
       }
     }
-  };
-
-  const toggleConnectionTypeOptions = (id: string) => {
-    // Toggle this dropdown
-    setShowConnectionTypeOptions(prev => ({
-      ...prev,
-      [id]: !prev[id]
-    }));
-  };
-
-  // Get all input types combining default and custom options
-  const getAllInputTypes = () => {
-    return [...inputTypeOptions, ...customInputTypes];
-  };
-
-  // Get all device options for a specific input type
-  const getDeviceOptionsForType = (type: string) => {
-    if (type && deviceOptionsByType[type]) {
-      return [...deviceOptionsByType[type], ...customDevices];
-    }
-    return [...deviceOptions, ...customDevices];
   };
 
   // Get all device options combining default and custom options
