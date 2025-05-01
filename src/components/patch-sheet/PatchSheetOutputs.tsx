@@ -256,9 +256,13 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
   }, [editingOutputs]);
 
   const handleAddOutput = () => {
+    const nextChannelNumber = outputs.length > 0
+      ? Math.max(...outputs.map(output => parseInt(output.channelNumber, 10) || 0)) + 1
+      : 1;
+
     const newOutput: OutputChannel = {
       id: `output-${Date.now()}`, // Generate a unique ID
-      channelNumber: `${outputs.length + 1}`,
+      channelNumber: `${nextChannelNumber}`,
       name: '',
       sourceType: '',
       sourceDetails: {},
@@ -624,6 +628,15 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
     return null;
   };
 
+  // Handle opening the bulk add modal
+  const openBulkAddModal = () => {
+    const nextChannelNumber = outputs.length > 0
+      ? Math.max(...outputs.map(output => parseInt(output.channelNumber, 10) || 0)) + 1
+      : 1;
+    setBulkStartChannel(nextChannelNumber);
+    setShowBulkAddModal(true);
+  };
+
   // Handle bulk add outputs
   const handleBulkAdd = () => {
     const quantity = parseInt(String(bulkQuantity), 10);
@@ -715,7 +728,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
     // Reset bulk add form
     setBulkQuantity(8); // Reset to default
-    setBulkStartChannel(1); // Reset to default
+    setBulkStartChannel(1); // Reset to default (will be recalculated next time)
     setBulkPrefix('');
     setBulkSourceType('');
     setBulkDestinationType('');
@@ -751,7 +764,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
         </div>
         <div className="flex space-x-3">
           <button
-            onClick={() => setShowBulkAddModal(true)}
+            onClick={openBulkAddModal}
             className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 text-sm"
           >
             <PlusCircle className="h-4 w-4 mr-2" />
@@ -773,7 +786,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
           <p className="text-gray-300 mb-6 text-lg">No outputs have been added yet.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
-              onClick={() => setShowBulkAddModal(true)}
+              onClick={openBulkAddModal}
               className="inline-flex items-center bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
             >
               <PlusCircle className="h-5 w-5 mr-2" />
