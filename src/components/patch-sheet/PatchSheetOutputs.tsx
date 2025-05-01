@@ -35,7 +35,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
   // Bulk add state
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
   const [bulkQuantity, setBulkQuantity] = useState<number | string>(8); // Allow string for empty input
-  const [bulkStartChannel, setBulkStartChannel] = useState(1);
+  const [bulkStartChannel, setBulkStartChannel] = useState<number | string>(1); // Allow string for empty input
   const [bulkPrefix, setBulkPrefix] = useState('');
   const [bulkSourceType, setBulkSourceType] = useState('');
   const [bulkDestinationType, setBulkDestinationType] = useState('');
@@ -626,14 +626,19 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
   // Handle bulk add outputs
   const handleBulkAdd = () => {
-    const quantity = parseInt(String(bulkQuantity), 10); // Parse string or number
-    if (isNaN(quantity) || quantity <= 0) return; // Ensure valid positive number
+    const quantity = parseInt(String(bulkQuantity), 10);
+    const startNum = parseInt(String(bulkStartChannel), 10);
+
+    if (isNaN(quantity) || quantity <= 0 || isNaN(startNum) || startNum <= 0) {
+      // Optionally show an error message
+      console.error("Invalid quantity or starting channel number");
+      return;
+    }
 
     const newOutputs: OutputChannel[] = [];
-    const startChannelNum = bulkStartChannel;
 
     for (let i = 0; i < quantity; i++) {
-      const channelNum = startChannelNum + i;
+      const channelNum = startNum + i;
 
       // For console output numbers and network patches, increment if provided
       let consoleOutputNumber = bulkSourceDetails.consoleOutputNumber;
@@ -669,10 +674,10 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
       if (bulkIsStereo) {
         if (i % 2 === 0 && i + 1 < quantity) { // Even index and not the last one
           currentName += " L"; // Left channel
-          stereoChannelNumber = (startChannelNum + i + 1).toString(); // Link to next channel
+          stereoChannelNumber = (startNum + i + 1).toString(); // Link to next channel
         } else if (i % 2 === 1) { // Odd index
           currentName += " R"; // Right channel
-          stereoChannelNumber = (startChannelNum + i - 1).toString(); // Link to previous channel
+          stereoChannelNumber = (startNum + i - 1).toString(); // Link to previous channel
         }
       }
 
@@ -710,13 +715,13 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
     // Reset bulk add form
     setBulkQuantity(8); // Reset to default
+    setBulkStartChannel(1); // Reset to default
+    setBulkPrefix('');
     setBulkSourceType('');
     setBulkDestinationType('');
     setBulkDestinationGear('');
     setBulkSourceDetails({});
     setBulkIsStereo(false);
-    setBulkStartChannel(1);
-    setBulkPrefix('');
   };
 
   // Handle bulk source type change
@@ -734,23 +739,8 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
     }));
   };
 
-  // Handle change for bulk quantity input
-  const handleBulkQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    // Allow empty string or positive integers
-    if (value === '' || /^[1-9]\d*$/.test(value)) {
-      setBulkQuantity(value);
-    } else if (value === '0') {
-        // Allow '0' temporarily but it won't be valid for adding
-        setBulkQuantity(value);
-    }
-  };
-
-  // Get the numeric value of bulkQuantity, defaulting to 0 if invalid/empty
-  const getNumericBulkQuantity = () => {
-    const num = parseInt(String(bulkQuantity), 10);
-    return isNaN(num) ? 0 : num;
-  };
+  const parsedBulkQuantity = parseInt(String(bulkQuantity), 10);
+  const isBulkAddDisabled = isNaN(parsedBulkQuantity) || parsedBulkQuantity <= 0 || !bulkSourceType;
 
   return (
     <div className="space-y-8">
@@ -1254,8 +1244,8 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                   <input
                     type="number"
                     value={bulkQuantity}
-                    min="1" // Keep min for validation hint, but onChange allows more
-                    onChange={handleBulkQuantityChange}
+                    min="0" // Allow 0 temporarily
+                    onChange={(e) => setBulkQuantity(e.target.value)} // Allow empty string or 0
                     className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
@@ -1267,8 +1257,8 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                   <input
                     type="number"
                     value={bulkStartChannel}
-                    min="1"
-                    onChange={(e) => setBulkStartChannel(Math.max(1, parseInt(e.target.value) || 1))}
+                    min="0" // Allow 0 temporarily
+                    onChange={(e) => setBulkStartChannel(e.target.value)} // Allow empty string or 0
                     className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
@@ -1494,10 +1484,10 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
               </button>
               <button
                 onClick={handleBulkAdd}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={getNumericBulkQuantity() <= 0 || !bulkSourceType} // Disable if quantity is 0 or invalid, or source type not selected
+                className={`bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors ${isBulkAddDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={isBulkAddDisabled}
               >
-                Add {getNumericBulkQuantity() || 0} {getNumericBulkQuantity() === 1 ? 'Output' : 'Outputs'}
+                Add {isBulkAddDisabled ? '' : parsedBulkQuantity} {parsedBulkQuantity === 1 ? 'Output' : 'Outputs'}
               </button>
             </div>
           </div>
