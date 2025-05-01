@@ -47,6 +47,11 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+            {/* Shared Edit Route for Patch Sheets (assuming /shared/edit/ is for patch sheets) */}
+            <Route 
+              path="/shared/edit/:shareCode" 
+              element={<PatchSheetEditor />} 
+            />
             <Route 
               path="/all-patch-sheets" 
               element={
@@ -63,6 +68,11 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+             {/* Shared Edit Route for Stage Plots */}
+            <Route 
+              path="/shared/stage-plot/edit/:shareCode" 
+              element={<StagePlotEditor />} 
+            />
             <Route 
               path="/all-stage-plots" 
               element={
@@ -74,11 +84,10 @@ function App() {
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
             
-            {/* Shared resource routes - more specific routes must come first */}
-            <Route path="/shared/stage-plot/edit/:shareCode" element={<StagePlotEditor />} />
+            {/* Shared resource view routes - Specific routes MUST come BEFORE generic ones */}
             <Route path="/shared/stage-plot/:shareCode" element={<SharedStagePlot />} />
-            <Route path="/shared/edit/:shareCode" element={<PatchSheetEditor />} />
-            <Route path="/shared/:shareCode" element={<SharedPatchSheet />} />
+            {/* Generic shared route (should now only catch patch sheets if stage plot route didn't match) */}
+            <Route path="/shared/:shareCode" element={<SharedPatchSheet />} /> 
           </Routes>
         </Router>
       </AuthProvider>
