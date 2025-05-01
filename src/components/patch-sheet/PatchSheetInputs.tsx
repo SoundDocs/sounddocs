@@ -35,7 +35,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
   // Bulk add state
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
-  const [bulkQuantity, setBulkQuantity] = useState(8);
+  const [bulkQuantity, setBulkQuantity] = useState<number | string>(8); // Allow string for empty input
   const [bulkType, setBulkType] = useState('');
   const [bulkDevice, setBulkDevice] = useState('');
   const [bulkPhantom, setBulkPhantom] = useState(false);
@@ -48,7 +48,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     consoleType?: string;
     consoleInputNumber?: string;
   }>({});
-  const [bulkStartChannel, setBulkStartChannel] = useState(1);
+  const [bulkStartChannel, setBulkStartChannel] = useState<number | string>(1); // Allow string for empty input
   const [bulkPrefix, setBulkPrefix] = useState('');
   const [bulkIsStereo, setBulkIsStereo] = useState(false);
 
@@ -705,13 +705,19 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
   // Handle bulk add inputs
   const handleBulkAdd = () => {
-    if (bulkQuantity <= 0) return;
+    const quantity = parseInt(String(bulkQuantity), 10);
+    const startNum = parseInt(String(bulkStartChannel), 10);
+
+    if (isNaN(quantity) || quantity <= 0 || isNaN(startNum) || startNum <= 0) {
+      // Optionally show an error message
+      console.error("Invalid quantity or starting channel number");
+      return;
+    }
 
     const newInputs: InputChannel[] = [];
-    const startChannelNum = bulkStartChannel;
 
-    for (let i = 0; i < bulkQuantity; i++) {
-      const channelNum = startChannelNum + i;
+    for (let i = 0; i < quantity; i++) {
+      const channelNum = startNum + i;
 
       // For console input numbers and network patches, increment if provided
       let consoleInputNumber = bulkConnectionDetails.consoleInputNumber;
@@ -745,12 +751,12 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
       // If creating stereo pairs and this is an odd index, link to the next channel
       // If even index, link to the previous channel
       if (bulkIsStereo) {
-        if (i % 2 === 0 && i + 1 < bulkQuantity) { // Even index and not the last one
+        if (i % 2 === 0 && i + 1 < quantity) { // Even index and not the last one
           currentName += " L"; // Left channel
-          stereoChannelNumber = (startChannelNum + i + 1).toString(); // Link to next channel
+          stereoChannelNumber = (startNum + i + 1).toString(); // Link to next channel
         } else if (i % 2 === 1) { // Odd index
           currentName += " R"; // Right channel
-          stereoChannelNumber = (startChannelNum + i - 1).toString(); // Link to previous channel
+          stereoChannelNumber = (startNum + i - 1).toString(); // Link to previous channel
         }
       }
 
@@ -790,6 +796,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     setShowBulkAddModal(false);
 
     // Reset bulk add form
+    setBulkQuantity(8); // Reset to default
+    setBulkStartChannel(1); // Reset to default
+    setBulkPrefix('');
     setBulkType('');
     setBulkDevice('');
     setBulkPhantom(false);
@@ -835,6 +844,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     }
     return [];
   };
+
+  const parsedBulkQuantity = parseInt(String(bulkQuantity), 10);
+  const isBulkAddDisabled = isNaN(parsedBulkQuantity) || parsedBulkQuantity <= 0;
 
   return (
     <div className="space-y-8">
@@ -1348,8 +1360,8 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                   <input
                     type="number"
                     value={bulkQuantity}
-                    min="1"
-                    onChange={(e) => setBulkQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    min="0" // Allow 0 temporarily
+                    onChange={(e) => setBulkQuantity(e.target.value)} // Allow empty string or 0
                     className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
@@ -1361,8 +1373,8 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                   <input
                     type="number"
                     value={bulkStartChannel}
-                    min="1"
-                    onChange={(e) => setBulkStartChannel(Math.max(1, parseInt(e.target.value) || 1))}
+                    min="0" // Allow 0 temporarily
+                    onChange={(e) => setBulkStartChannel(e.target.value)} // Allow empty string or 0
                     className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
@@ -1626,9 +1638,10 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
               </button>
               <button
                 onClick={handleBulkAdd}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors"
+                className={`bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors ${isBulkAddDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={isBulkAddDisabled}
               >
-                Add {bulkQuantity} {bulkQuantity === 1 ? 'Input' : 'Inputs'}
+                Add {isBulkAddDisabled ? '' : parsedBulkQuantity} {parsedBulkQuantity === 1 ? 'Input' : 'Inputs'}
               </button>
             </div>
           </div>
