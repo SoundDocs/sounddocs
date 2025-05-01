@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PlusCircle, Trash2, Save, ChevronDown, Edit, ChevronRight, ChevronUp, Link, Link2 } from 'lucide-react';
+import NumberInput from '@form/NumberInput';
 
 interface InputChannel {
   id: string;
@@ -739,7 +740,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
       // Handle stereo pairs (L/R)
       let currentName = bulkPrefix ? `${bulkPrefix} ${channelNum}` : `Input ${channelNum}`;
-      let isStereo = bulkIsStereo;
+      const isStereo = bulkIsStereo;
       let stereoChannelNumber = undefined;
 
       // If creating stereo pairs and this is an odd index, link to the next channel
@@ -1345,12 +1346,12 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                   <label className="block text-gray-300 text-sm mb-2">
                     Number of Inputs to Add
                   </label>
-                  <input
-                    type="number"
+                  <NumberInput
                     value={bulkQuantity}
-                    min="1"
-                    onChange={(e) => setBulkQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    onChange={(value) => setBulkQuantity(value)}
+                    min={1}
+                    allowEmpty
+                    className="w-full"
                   />
                 </div>
 
