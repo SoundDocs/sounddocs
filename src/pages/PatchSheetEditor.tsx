@@ -5,8 +5,6 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import PatchSheetInfo from '../components/patch-sheet/PatchSheetInfo';
 import PatchSheetInputsWrapper from '../components/patch-sheet/PatchSheetInputsWrapper';
-import PatchSheetOutputs from '../components/patch-sheet/PatchSheetOutputs';
-import PatchSheetOutputsTable from '../components/patch-sheet/PatchSheetOutputsTable';
 import MobileScreenWarning from '../components/MobileScreenWarning';
 import { useScreenSize } from '../hooks/useScreenSize';
 import { Loader, ArrowLeft, Save, AlertCircle } from 'lucide-react';
