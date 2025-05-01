@@ -34,7 +34,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
   // Bulk add state
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
-  const [bulkQuantity, setBulkQuantity] = useState(8);
+  const [bulkQuantity, setBulkQuantity] = useState<number | string>(8); // Allow string for empty input
   const [bulkStartChannel, setBulkStartChannel] = useState(1);
   const [bulkPrefix, setBulkPrefix] = useState('');
   const [bulkSourceType, setBulkSourceType] = useState('');
@@ -626,12 +626,13 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
   // Handle bulk add outputs
   const handleBulkAdd = () => {
-    if (bulkQuantity <= 0) return;
+    const quantity = parseInt(String(bulkQuantity), 10); // Parse string or number
+    if (isNaN(quantity) || quantity <= 0) return; // Ensure valid positive number
 
     const newOutputs: OutputChannel[] = [];
     const startChannelNum = bulkStartChannel;
 
-    for (let i = 0; i < bulkQuantity; i++) {
+    for (let i = 0; i < quantity; i++) {
       const channelNum = startChannelNum + i;
 
       // For console output numbers and network patches, increment if provided
@@ -666,7 +667,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
       // If creating stereo pairs and this is an odd index, link to the next channel
       // If even index, link to the previous channel
       if (bulkIsStereo) {
-        if (i % 2 === 0 && i + 1 < bulkQuantity) { // Even index and not the last one
+        if (i % 2 === 0 && i + 1 < quantity) { // Even index and not the last one
           currentName += " L"; // Left channel
           stereoChannelNumber = (startChannelNum + i + 1).toString(); // Link to next channel
         } else if (i % 2 === 1) { // Odd index
@@ -708,11 +709,14 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
     setShowBulkAddModal(false);
 
     // Reset bulk add form
+    setBulkQuantity(8); // Reset to default
     setBulkSourceType('');
     setBulkDestinationType('');
     setBulkDestinationGear('');
     setBulkSourceDetails({});
     setBulkIsStereo(false);
+    setBulkStartChannel(1);
+    setBulkPrefix('');
   };
 
   // Handle bulk source type change
@@ -728,6 +732,24 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
       ...prev,
       [detailKey]: value
     }));
+  };
+
+  // Handle change for bulk quantity input
+  const handleBulkQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Allow empty string or positive integers
+    if (value === '' || /^[1-9]\d*$/.test(value)) {
+      setBulkQuantity(value);
+    } else if (value === '0') {
+        // Allow '0' temporarily but it won't be valid for adding
+        setBulkQuantity(value);
+    }
+  };
+
+  // Get the numeric value of bulkQuantity, defaulting to 0 if invalid/empty
+  const getNumericBulkQuantity = () => {
+    const num = parseInt(String(bulkQuantity), 10);
+    return isNaN(num) ? 0 : num;
   };
 
   return (
@@ -1232,8 +1254,8 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                   <input
                     type="number"
                     value={bulkQuantity}
-                    min="1"
-                    onChange={(e) => setBulkQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    min="1" // Keep min for validation hint, but onChange allows more
+                    onChange={handleBulkQuantityChange}
                     className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
@@ -1472,10 +1494,10 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
               </button>
               <button
                 onClick={handleBulkAdd}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors"
-                disabled={!bulkSourceType || bulkQuantity <= 0}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={getNumericBulkQuantity() <= 0 || !bulkSourceType} // Disable if quantity is 0 or invalid, or source type not selected
               >
-                Add {bulkQuantity} {bulkQuantity === 1 ? 'Output' : 'Outputs'}
+                Add {getNumericBulkQuantity() || 0} {getNumericBulkQuantity() === 1 ? 'Output' : 'Outputs'}
               </button>
             </div>
           </div>
