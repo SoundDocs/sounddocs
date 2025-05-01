@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PlusCircle, Trash2, Edit, ChevronRight, ChevronUp, Link, Link2 } from 'lucide-react';
 import NumberInput from '@form/NumberInput';
 
@@ -28,6 +28,110 @@ interface PatchSheetInputsProps {
   updateInputs: (inputs: InputChannel[]) => void;
 }
 
+// Static input types - SIMPLIFIED to just 3 types
+const inputTypeOptions = [
+  "Microphone",
+  "DI",
+  "Wireless"
+];
+
+// Static device types by category
+const deviceOptionsByType: Record<string, string[]> = {
+  "Microphone": [
+    "SM58",
+    "SM57",
+    "Beta 58A",
+    "Beta 57A",
+    "Beta 52A",
+    "KSM137",
+    "C414",
+    "MD421",
+    "e835",
+    "e945",
+    "AT4050",
+    "Neumann KMS105"
+  ],
+  "DI": [
+    "Active DI",
+    "Passive DI",
+    "Radial J48",
+    "BSS AR133",
+    "Radial ProDI",
+    "Countryman Type 85",
+    "Radial ProD2",
+    "Avalon U5"
+  ],
+  "Wireless": [
+    "Shure ULXD",
+    "Shure QLXD",
+    "Shure SLX",
+    "Sennheiser EW500",
+    "Sennheiser G4",
+    "Shure Axient Digital",
+    "Sennheiser Digital 6000",
+    "Line 6 XD-V"
+  ]
+};
+
+// All device options combined
+const deviceOptions = [
+  ...deviceOptionsByType["Microphone"],
+  ...deviceOptionsByType["DI"],
+  ...deviceOptionsByType["Wireless"],
+  "Other"
+];
+
+// Static connection types
+const connectionTypeOptions = [
+  "Console Direct",
+  "Analog Snake",
+  "Digital Snake",
+  "Digital Network"
+];
+
+// Default analog snake types
+const analogSnakeTypes = [
+  "Multicore",
+  "XLR Harness",
+  "Sub Snake"
+];
+
+// Default digital snake types
+const digitalSnakeTypes = [
+  "Yamaha Rio",
+  "Allen & Heath DX168",
+  "Behringer S16",
+  "Midas DL16",
+  "PreSonus NSB"
+];
+
+// Default network type options
+const networkTypeOptions = [
+  "Dante",
+  "AVB",
+  "MADI",
+  "AES50",
+  "Ravenna",
+  "AES67"
+];
+
+// Default console types
+const consoleTypeOptions = [
+  "Avid S6L",
+  "Avid Profile",
+  "Avid SC48",
+  "DiGiCo SD12",
+  "DiGiCo SD10",
+  "DiGiCo SD5",
+  "Yamaha CL5",
+  "Yamaha QL5",
+  "Allen & Heath dLive",
+  "Allen & Heath SQ7",
+  "Midas PRO X",
+  "Midas M32",
+  "Behringer X32"
+];
+
 const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInputs }) => {
   const [editModeInputs, setEditModeInputs] = useState<{[key: string]: boolean}>({});
   const [editingInputs, setEditingInputs] = useState<{[key: string]: InputChannel}>({});
@@ -51,110 +155,6 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
   const [bulkPrefix, setBulkPrefix] = useState('');
   const [bulkIsStereo, setBulkIsStereo] = useState(false);
 
-  // Static input types - SIMPLIFIED to just 3 types
-  const inputTypeOptions = [
-    "Microphone",
-    "DI",
-    "Wireless"
-  ];
-
-  // Static device types by category
-  const deviceOptionsByType: Record<string, string[]> = {
-    "Microphone": [
-      "SM58",
-      "SM57",
-      "Beta 58A",
-      "Beta 57A",
-      "Beta 52A",
-      "KSM137",
-      "C414",
-      "MD421",
-      "e835",
-      "e945",
-      "AT4050",
-      "Neumann KMS105"
-    ],
-    "DI": [
-      "Active DI",
-      "Passive DI",
-      "Radial J48",
-      "BSS AR133",
-      "Radial ProDI",
-      "Countryman Type 85",
-      "Radial ProD2",
-      "Avalon U5"
-    ],
-    "Wireless": [
-      "Shure ULXD",
-      "Shure QLXD",
-      "Shure SLX",
-      "Sennheiser EW500",
-      "Sennheiser G4",
-      "Shure Axient Digital",
-      "Sennheiser Digital 6000",
-      "Line 6 XD-V"
-    ]
-  };
-
-  // All device options combined
-  const deviceOptions = [
-    ...deviceOptionsByType["Microphone"],
-    ...deviceOptionsByType["DI"],
-    ...deviceOptionsByType["Wireless"],
-    "Other"
-  ];
-
-  // Static connection types
-  const connectionTypeOptions = [
-    "Console Direct",
-    "Analog Snake",
-    "Digital Snake",
-    "Digital Network"
-  ];
-
-  // Default analog snake types
-  const analogSnakeTypes = [
-    "Multicore",
-    "XLR Harness",
-    "Sub Snake"
-  ];
-
-  // Default digital snake types
-  const digitalSnakeTypes = [
-    "Yamaha Rio",
-    "Allen & Heath DX168",
-    "Behringer S16",
-    "Midas DL16",
-    "PreSonus NSB"
-  ];
-
-  // Default network type options
-  const networkTypeOptions = [
-    "Dante",
-    "AVB",
-    "MADI",
-    "AES50",
-    "Ravenna",
-    "AES67"
-  ];
-
-  // Default console types
-  const consoleTypeOptions = [
-    "Avid S6L",
-    "Avid Profile",
-    "Avid SC48",
-    "DiGiCo SD12",
-    "DiGiCo SD10",
-    "DiGiCo SD5",
-    "Yamaha CL5",
-    "Yamaha QL5",
-    "Allen & Heath dLive",
-    "Allen & Heath SQ7",
-    "Midas PRO X",
-    "Midas M32",
-    "Behringer X32"
-  ];
-
   // Store custom types
   const [customInputTypes, setCustomInputTypes] = useState<string[]>([]);
   const [customDevices, setCustomDevices] = useState<string[]>([]);
@@ -176,7 +176,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
       }));
     });
     setEditModeInputs(initialEditMode);
-  }, []);
+  }, [inputs]);
 
   // Load custom types from inputs on initial load
   useEffect(() => {
@@ -231,7 +231,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     setCustomDigitalSnakeTypes(Array.from(digitalSnakeTypesSet));
     setCustomNetworkTypes(Array.from(networkTypesSet));
     setCustomConsoleTypes(Array.from(consoleTypesSet));
-  }, []);
+  }, [inputs]);
 
   // Update editing inputs when actual inputs change
   useEffect(() => {
@@ -253,10 +253,10 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
         }));
       }
     });
-  }, [inputs]);
+  }, [editModeInputs, editingInputs, inputs]);
 
   // Function to update parent component's inputs array
-  const updateParentInputs = () => {
+  const updateParentInputs = useCallback(() => {
     const updatedInputs = inputs.map(input => {
       // If the input is in edit mode, use the editing version
       if (editModeInputs[input.id]) {
@@ -265,7 +265,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
       return input;
     });
     updateInputs(updatedInputs);
-  };
+  }, [inputs, editingInputs, editModeInputs, updateInputs]);
 
   // Effect to update parent component's inputs when editing inputs change
   useEffect(() => {
@@ -275,7 +275,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [editingInputs]);
+  }, [editingInputs, updateParentInputs]);
 
   const handleAddInput = () => {
     const newInput: InputChannel = {
