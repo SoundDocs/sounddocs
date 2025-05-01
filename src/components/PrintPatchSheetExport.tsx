@@ -225,21 +225,19 @@ const PrintPatchSheetExport = forwardRef<HTMLDivElement, PrintPatchSheetExportPr
                     : '';
                     
                   const snakeInput = input.connection && ['Analog Snake', 'Digital Snake'].includes(input.connection)
-                    ? `#${input.connectionDetails?.inputNumber || ''}`
+                    ? input.connectionDetails?.inputNumber ? `#${input.connectionDetails.inputNumber}` : ''
                     : '';
                   
-                  // Show "-" for console type when digital snake/network is used
-                  const consoleType = input.connection && ['Digital Snake', 'Digital Network'].includes(input.connection)
-                    ? '-'
-                    : input.connection && ['Analog Snake', 'Console Direct'].includes(input.connection)
-                      ? `${input.connectionDetails?.consoleType || ''}`
+                  const consoleType = input.connection && ['Analog Snake', 'Console Direct'].includes(input.connection)
+                    ? `${input.connectionDetails?.consoleType || ''}`
+                    : input.connection && ['Digital Snake', 'Digital Network'].includes(input.connection)
+                      ? '-'
                       : '';
                     
-                  // Show "-" for console input when digital snake/network is used
-                  const consoleInput = input.connection && ['Digital Snake', 'Digital Network'].includes(input.connection)
-                    ? '-'
-                    : input.connection && ['Analog Snake', 'Console Direct'].includes(input.connection)
-                      ? `#${input.connectionDetails?.consoleInputNumber || ''}`
+                  const consoleInput = input.connection && ['Analog Snake', 'Console Direct'].includes(input.connection)
+                    ? input.connectionDetails?.consoleInputNumber ? `#${input.connectionDetails.consoleInputNumber}` : ''
+                    : input.connection && ['Digital Snake', 'Digital Network'].includes(input.connection)
+                      ? '-'
                       : '';
                     
                   const networkType = input.connection && ['Digital Snake', 'Digital Network'].includes(input.connection)
@@ -247,7 +245,7 @@ const PrintPatchSheetExport = forwardRef<HTMLDivElement, PrintPatchSheetExportPr
                     : '';
                     
                   const networkPatch = input.connection && ['Digital Snake', 'Digital Network'].includes(input.connection)
-                    ? `${input.connectionDetails?.networkPatch ? `#${input.connectionDetails.networkPatch}` : ''}`
+                    ? input.connectionDetails?.networkPatch ? `#${input.connectionDetails.networkPatch}` : ''
                     : '';
                   
                   const rowStyle = {
@@ -338,23 +336,21 @@ const PrintPatchSheetExport = forwardRef<HTMLDivElement, PrintPatchSheetExportPr
                     : '';
                     
                   const snakeOutput = output.sourceType && ['Analog Snake', 'Digital Snake'].includes(output.sourceType)
-                    ? `#${output.sourceDetails?.outputNumber || ''}`
+                    ? output.sourceDetails?.outputNumber ? `#${output.sourceDetails.outputNumber}` : ''
                     : '';
 
-                  // Show "-" for console type when digital snake/network is used
-                  const consoleType = output.sourceType && ['Digital Snake', 'Digital Network'].includes(output.sourceType)
-                    ? '-'
-                    : output.sourceType && ['Analog Snake', 'Console Output'].includes(output.sourceType)
-                      ? output.sourceType === 'Console Output' 
-                        ? 'Console'
-                        : `${output.sourceDetails?.consoleType || ''}`
+                  // Correctly determine Console Type
+                  const consoleType = (output.sourceType === 'Console Output' || output.sourceType === 'Analog Snake') && output.sourceDetails?.consoleType
+                    ? output.sourceDetails.consoleType
+                    : (output.sourceType === 'Digital Snake' || output.sourceType === 'Digital Network')
+                      ? '-'
                       : '';
 
-                  // Show "-" for console output when digital snake/network is used
-                  const consoleOutput = output.sourceType && ['Digital Snake', 'Digital Network'].includes(output.sourceType)
-                    ? '-'
-                    : output.sourceType && ['Analog Snake', 'Console Output'].includes(output.sourceType)
-                      ? `#${output.sourceDetails?.outputNumber || output.sourceDetails?.consoleOutputNumber || ''}`
+                  // Correctly determine Console Output Number
+                  const consoleOutput = (output.sourceType === 'Console Output' || output.sourceType === 'Analog Snake') && output.sourceDetails?.consoleOutputNumber
+                    ? `#${output.sourceDetails.consoleOutputNumber}`
+                    : (output.sourceType === 'Digital Snake' || output.sourceType === 'Digital Network')
+                      ? '-'
                       : '';
                     
                   const networkType = output.sourceType && ['Digital Snake', 'Digital Network'].includes(output.sourceType)
@@ -362,7 +358,7 @@ const PrintPatchSheetExport = forwardRef<HTMLDivElement, PrintPatchSheetExportPr
                     : '';
                     
                   const networkPatch = output.sourceType && ['Digital Snake', 'Digital Network'].includes(output.sourceType)
-                    ? `${output.sourceDetails?.networkPatch ? `#${output.sourceDetails.networkPatch}` : ''}`
+                    ? output.sourceDetails?.networkPatch ? `#${output.sourceDetails.networkPatch}` : ''
                     : '';
                   
                   const rowStyle = {

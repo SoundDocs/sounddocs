@@ -327,12 +327,13 @@ const SharedStagePlot = () => {
           </div>
         </div>
         
-        {/* Legend */}
+        {/* REMOVED: Stage Plot Summary Section */}
+        {/* 
         <div className="bg-gray-800 rounded-xl shadow-md p-6 mb-8">
           <h3 className="text-lg font-semibold text-white mb-4">Stage Plot Summary</h3>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {/* Stage details */}
+            // Stage details
             <div>
               <h4 className="text-md font-medium text-indigo-400 mb-2">Stage Information</h4>
               <div className="bg-gray-750 rounded-lg p-4">
@@ -353,7 +354,7 @@ const SharedStagePlot = () => {
               </div>
             </div>
             
-            {/* Element summary */}
+            // Element summary
             <div>
               <h4 className="text-md font-medium text-indigo-400 mb-2">Element Breakdown</h4>
               <div className="bg-gray-750 rounded-lg p-4">
@@ -372,7 +373,8 @@ const SharedStagePlot = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div> 
+        */}
       </main>
       
       {/* Export Modal */}
@@ -430,7 +432,7 @@ const SharedStagePlot = () => {
   );
 };
 
-// Helper function to summarize elements by type
+// Helper function to summarize elements by type (kept for potential future use, but not rendered)
 const summarizeElements = (elements: any[]) => {
   const counts: Record<string, number> = {};
   const elementLabels: Record<string, string> = {

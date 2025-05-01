@@ -307,9 +307,13 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
   }, [editingInputs]);
 
   const handleAddInput = () => {
+    const nextChannelNumber = inputs.length > 0
+      ? Math.max(...inputs.map(input => parseInt(input.channelNumber, 10) || 0)) + 1
+      : 1;
+
     const newInput: InputChannel = {
       id: `input-${Date.now()}`, // Generate a unique ID
-      channelNumber: `${inputs.length + 1}`,
+      channelNumber: `${nextChannelNumber}`,
       name: '',
       type: '',
       device: '',
@@ -703,6 +707,15 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     return null;
   };
 
+  // Handle opening the bulk add modal
+  const openBulkAddModal = () => {
+    const nextChannelNumber = inputs.length > 0
+      ? Math.max(...inputs.map(input => parseInt(input.channelNumber, 10) || 0)) + 1
+      : 1;
+    setBulkStartChannel(nextChannelNumber);
+    setShowBulkAddModal(true);
+  };
+
   // Handle bulk add inputs
   const handleBulkAdd = () => {
     const quantity = parseInt(String(bulkQuantity), 10);
@@ -797,7 +810,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
     // Reset bulk add form
     setBulkQuantity(8); // Reset to default
-    setBulkStartChannel(1); // Reset to default
+    setBulkStartChannel(1); // Reset to default (will be recalculated next time)
     setBulkPrefix('');
     setBulkType('');
     setBulkDevice('');
@@ -853,7 +866,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
       <div className="flex justify-end items-center">
         <div className="flex space-x-3">
           <button
-            onClick={() => setShowBulkAddModal(true)}
+            onClick={openBulkAddModal}
             className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 text-sm"
           >
             <PlusCircle className="h-4 w-4 mr-2" />
@@ -875,7 +888,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
           <p className="text-gray-300 mb-6 text-lg">No inputs have been added yet.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
-              onClick={() => setShowBulkAddModal(true)}
+              onClick={openBulkAddModal}
               className="inline-flex items-center bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
             >
               <PlusCircle className="h-5 w-5 mr-2" />
