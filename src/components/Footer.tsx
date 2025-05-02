@@ -30,7 +30,7 @@ const Footer: React.FC = () => {
               <span>GitHub</span>
             </a>
             <a 
-              href="https://discord.gg/hVk6tctuHM" 
+              href="https://discord.gg/NRcRtyxFQa" 
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center text-gray-300 hover:text-white transition-all duration-200"
