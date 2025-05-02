@@ -4,10 +4,11 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "./bin/injecting-supabase-env vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "local-db": "npx supabase start"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.38.2",

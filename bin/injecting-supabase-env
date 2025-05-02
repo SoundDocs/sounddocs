@@ -1,0 +1,28 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# Work out where this script is being run from, and where the application root is.
+CURRENT_PATH=$(pwd)
+APPLICATION_ROOT_PATH=$(dirname $(dirname $(readlink -f $0)))
+
+# Supabase's CLI only works in the root of the project, so we need to cd to that.
+cd $APPLICATION_ROOT_PATH
+
+# This is kinda dodgy – we just `eval` the output of `supabase status --output env`, which should give us a bunch of env
+# vars related to Supabase. We prefix each one with `SUPABASE_` via some sed trickery to ensure that we don't
+# accidentally override any existing env vars.
+echo "Retrieving Supabase environment variables..."
+eval $(npx supabase status --output env | sed "s/^/SUPABASE_/")
+echo
+
+# Now we've got what we need, we can cd back to wherever the script was run from.
+cd $CURRENT_PATH
+
+# This exposes the Supabase env vars we're interested in to our app, via Vite's `import.meta.env` object.
+export VITE_SUPABASE_URL=$SUPABASE_API_URL
+export VITE_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+
+# Run whatever command was passed to this script.
+echo "Running command: $@"
+eval "$@"
