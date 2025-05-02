@@ -12,16 +12,18 @@ SoundDocs is a modern web application designed for audio engineers to create pro
 ## ✨ Features
 
 ### Core Functionality
-- **Patch Sheet Editor**  
+
+- **Patch Sheet Editor**
   Document input/output lists, signal flow, equipment specs, and technical notes
-- **Stage Plot Designer**  
+- **Stage Plot Designer**
   Create visual stage layouts with draggable elements (instruments, mics, monitors)
-- **Smart Export System**  
+- **Smart Export System**
   Generate high-quality PNG/PDF exports with dark/light mode options
-- **Collaboration Tools**  
+- **Collaboration Tools**
   Share documents via secure links with clients and crew
 
 ### Professional Features
+
 - Customizable templates for different venue sizes
 - Auto-save functionality with version history
 - Equipment database with common audio gear presets
@@ -31,6 +33,7 @@ SoundDocs is a modern web application designed for audio engineers to create pro
 ## 🛠️ Tech Stack
 
 ### Frontend
+
 - **Framework**: React 18 + TypeScript
 - **Build Tool**: Vite
 - **Styling**: Tailwind CSS + CSS Modules
@@ -40,6 +43,7 @@ SoundDocs is a modern web application designed for audio engineers to create pro
 - **PDF/Image Export**: html2canvas
 
 ### Backend
+
 - **Authentication**: Supabase Auth
 - **Database**: Supabase PostgreSQL
 - **Real-time Updates**: Supabase Realtime
@@ -48,10 +52,12 @@ SoundDocs is a modern web application designed for audio engineers to create pro
 ## 🚀 Self Host
 
 ### Prerequisites
+
 - Node.js v16+
 - Supabase account (free tier works)
 
 ### Installation
+
 1. Clone the repository:
    - git clone https://github.com/cj-vana/sounddocs.git
    - cd sounddocs
@@ -80,6 +86,23 @@ SoundDocs is a modern web application designed for audio engineers to create pro
 ## 🤝 Contributing
 
 We welcome any and all contributions! Please join our discord server before making any contributions. discord.gg/hVk6tctuHM
+
+### Local Development
+
+Getting set up for local development is currently a _tad_ convoluted. There's an [issue to make it better](https://github.com/SoundDocs/sounddocs/issues/16).
+
+Assuming you're on a Mac:
+
+- Install either Docker Desktop or OrbStack if you don't have it already
+- Install Homebrew (https://brew.sh/) if you don't have it already
+- Install nvm (`brew install nvm`) if you don't have it already
+- Install Node.js LTS Iron (`nvm install --lts=iron`)
+- Clone the codebase (`git clone https://github.com/SoundDocs/sounddocs.git`)
+- `cd` into that directory
+- Ensure you're using Node.js LTS Iron (`nvm use --lts=iron`)
+- Run `npm install`
+- Start Supabase locally using `npm run local-db`
+- Start the app locally using `npm run dev`
 
 ## 📄 License
 
