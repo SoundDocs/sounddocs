@@ -9,11 +9,54 @@ interface StagePlotExportProps {
     created_at: string;
     last_edited?: string;
     stage_size: string;
-    elements: any[];
+    elements: any[]; // Use any[] for now as element structure might vary slightly
     backgroundImage?: string;
     backgroundOpacity?: number;
   };
 }
+
+// Default dimensions for elements if not specified
+const getDefaultDimensions = (type: string) => {
+  if (
+    type === 'electric-guitar' ||
+    type === 'acoustic-guitar' ||
+    type === 'bass-guitar' ||
+    type === 'keyboard' ||
+    type === 'drums' ||
+    type === 'percussion' ||
+    type === 'violin' ||
+    type === 'cello' ||
+    type === 'trumpet' ||
+    type === 'saxophone' ||
+    type === 'generic-instrument'
+  ) {
+    return { width: 64, height: 64 };
+  }
+
+  switch (type) {
+    case 'microphone':
+      return { width: 32, height: 32 };
+    case 'power-strip':
+      return { width: 64, height: 24 };
+    case 'monitor-wedge':
+      return { width: 48, height: 32 };
+    case 'amplifier':
+      return { width: 56, height: 40 };
+    case 'speaker':
+      return { width: 40, height: 64 };
+    case 'di-box':
+      return { width: 24, height: 24 };
+    case 'iem':
+      return { width: 32, height: 32 };
+    case 'person':
+      return { width: 40, height: 40 };
+    case 'text':
+      return { width: 120, height: 40 };
+    default:
+      return { width: 40, height: 40 };
+  }
+};
+
 
 const StagePlotExport = forwardRef<HTMLDivElement, StagePlotExportProps>(({ stagePlot }, ref) => {
   // Format date for display
@@ -25,7 +68,7 @@ const StagePlotExport = forwardRef<HTMLDivElement, StagePlotExportProps>(({ stag
       day: 'numeric'
     });
   };
-  
+
   // Get stage dimensions
   const getStageDimensions = (stageSize: string) => {
     // Using fixed pixel values for consistency
@@ -50,49 +93,37 @@ const StagePlotExport = forwardRef<HTMLDivElement, StagePlotExportProps>(({ stag
         return { width: 700, height: 700 };
       case 'x-large-wide':
         return { width: 1200, height: 700 };
-      case 'small':
+      case 'small': // Handle legacy sizes
         return { width: 600, height: 400 };
-      case 'medium':
+      case 'medium': // Handle legacy sizes
         return { width: 800, height: 500 };
-      case 'large':
+      case 'large': // Handle legacy sizes
         return { width: 1000, height: 600 };
-      default:
+      default: // Default to medium-wide if size is unknown
         return { width: 800, height: 500 };
     }
   };
 
   // Function to render element
   const renderElement = (element: any) => {
+    const defaultDims = getDefaultDimensions(element.type);
+    const elementWidth = element.width || defaultDims.width;
+    const elementHeight = element.height || defaultDims.height;
+
     // Calculate label width based on element size
     const getLabelWidth = () => {
-      const elementWidth = element.width || 
-        (element.type === 'text' ? 120 : 
-          ['microphone', 'di-box', 'iem'].includes(element.type) ? 32 : 
-          ['speaker'].includes(element.type) ? 40 : 
-          ['monitor-wedge'].includes(element.type) ? 48 : 
-          ['amplifier'].includes(element.type) ? 56 : 
-          ['power-strip', 'electric-guitar', 'acoustic-guitar', 'bass-guitar', 'keyboard', 'drums', 'percussion', 'violin', 'cello', 'trumpet', 'saxophone', 'generic-instrument'].includes(element.type) ? 64 : 40);
-      
       // Return proportional width based on element size
-      return Math.max(80, elementWidth * 1.5);
+      return Math.max(60, elementWidth * 1.2); // 120% of width, min 60px
     };
-    
+
     // Scale font size based on element dimensions
     const getFontSize = () => {
       if (element.type === 'text') {
         // For text elements, scale font size based on height
-        const elementHeight = element.height || 40;
         return Math.max(12, Math.min(18, elementHeight * 0.3)); // 30% of height, min 12px, max 18px
       } else {
         // For other elements, scale based on width
-        const elementWidth = element.width || 
-          (['microphone', 'di-box', 'iem'].includes(element.type) ? 32 : 
-          ['speaker', 'person'].includes(element.type) ? 40 : 
-          ['monitor-wedge'].includes(element.type) ? 48 : 
-          ['amplifier'].includes(element.type) ? 56 : 
-          ['power-strip', 'electric-guitar', 'acoustic-guitar', 'bass-guitar', 'keyboard', 'drums', 'percussion', 'violin', 'cello', 'trumpet', 'saxophone', 'generic-instrument'].includes(element.type) ? 64 : 40);
-        
-        return Math.max(10, Math.min(14, elementWidth * 0.2));
+        return Math.max(10, Math.min(14, elementWidth * 0.2)); // 20% of width, min 10px, max 14px
       }
     };
 
@@ -100,171 +131,173 @@ const StagePlotExport = forwardRef<HTMLDivElement, StagePlotExportProps>(({ stag
     const getElementStyles = () => {
       // Instrument types
       if (
-        element.type === 'electric-guitar' || 
-        element.type === 'acoustic-guitar' || 
-        element.type === 'bass-guitar' || 
-        element.type === 'keyboard' || 
-        element.type === 'drums' || 
-        element.type === 'percussion' || 
-        element.type === 'violin' || 
-        element.type === 'cello' || 
+        element.type === 'electric-guitar' ||
+        element.type === 'acoustic-guitar' ||
+        element.type === 'bass-guitar' ||
+        element.type === 'keyboard' ||
+        element.type === 'drums' ||
+        element.type === 'percussion' ||
+        element.type === 'violin' ||
+        element.type === 'cello' ||
         element.type === 'trumpet' ||
         element.type === 'saxophone' ||
         element.type === 'generic-instrument'
       ) {
         return {
           className: `rounded-lg flex items-center justify-center`,
-          style: { 
+          style: {
             backgroundColor: element.color || '#4f46e5',
-            width: element.width ? `${element.width}px` : '64px',
-            height: element.height ? `${element.height}px` : '64px'
+            width: `${elementWidth}px`, // Use calculated width
+            height: `${elementHeight}px` // Use calculated height
           }
         };
       }
-      
+
       // Other specific types
       switch (element.type) {
         case 'microphone':
           return {
             className: 'rounded-full flex items-center justify-center',
-            style: { 
+            style: {
               backgroundColor: element.color || '#4f46e5',
-              width: element.width ? `${element.width}px` : '32px',
-              height: element.height ? `${element.height}px` : '32px'
+              width: `${elementWidth}px`,
+              height: `${elementHeight}px`
             }
           };
         case 'power-strip':
           return {
             className: 'rounded-sm flex items-center justify-center',
-            style: { 
+            style: {
               backgroundColor: element.color || '#dc2626',
-              width: element.width ? `${element.width}px` : '64px',
-              height: element.height ? `${element.height}px` : '24px'
+              width: `${elementWidth}px`,
+              height: `${elementHeight}px`
             }
           };
         case 'monitor-wedge':
           return {
             className: 'monitor-wedge flex items-center justify-center transform rotate-[15deg]',
-            style: { 
+            style: {
               backgroundColor: element.color || '#16a34a',
-              width: element.width ? `${element.width}px` : '48px',
-              height: element.height ? `${element.height}px` : '32px'
+              width: `${elementWidth}px`,
+              height: `${elementHeight}px`
             }
           };
         case 'amplifier':
           return {
             className: 'rounded-md flex items-center justify-center',
-            style: { 
+            style: {
               backgroundColor: element.color || '#7e22ce',
-              width: element.width ? `${element.width}px` : '56px',
-              height: element.height ? `${element.height}px` : '40px'
+              width: `${elementWidth}px`,
+              height: `${elementHeight}px`
             }
           };
         case 'speaker':
           return {
             className: 'rounded-md flex items-center justify-center',
-            style: { 
+            style: {
               backgroundColor: element.color || '#0891b2',
-              width: element.width ? `${element.width}px` : '40px',
-              height: element.height ? `${element.height}px` : '64px'
+              width: `${elementWidth}px`,
+              height: `${elementHeight}px`
             }
           };
         case 'di-box':
           return {
             className: 'rounded-sm flex items-center justify-center',
-            style: { 
+            style: {
               backgroundColor: element.color || '#eab308',
-              width: element.width ? `${element.width}px` : '24px',
-              height: element.height ? `${element.height}px` : '24px'
+              width: `${elementWidth}px`,
+              height: `${elementHeight}px`
             }
           };
         case 'iem':
           return {
             className: 'rounded-full flex items-center justify-center',
-            style: { 
+            style: {
               backgroundColor: element.color || '#ea580c',
-              width: element.width ? `${element.width}px` : '32px',
-              height: element.height ? `${element.height}px` : '32px'
+              width: `${elementWidth}px`,
+              height: `${elementHeight}px`
             }
           };
         case 'person':
           return {
             className: 'rounded-full flex items-center justify-center',
-            style: { 
+            style: {
               backgroundColor: element.color || '#be185d',
-              width: element.width ? `${element.width}px` : '40px',
-              height: element.height ? `${element.height}px` : '40px'
+              width: `${elementWidth}px`,
+              height: `${elementHeight}px`
             }
           };
         case 'text':
           return {
             className: 'text-label',
-            style: { 
+            style: {
               backgroundColor: 'rgba(30, 41, 59, 0.9)',
               border: '1px solid rgba(99, 102, 241, 0.5)',
-              width: element.width ? `${element.width}px` : '120px',
-              height: element.height ? `${element.height}px` : '40px',
+              width: `${elementWidth}px`,
+              height: `${elementHeight}px`,
               display: 'flex',
-              alignItems: 'center', 
+              alignItems: 'center',
               justifyContent: 'center'
             }
           };
         default:
           return {
             className: 'rounded-md flex items-center justify-center',
-            style: { 
+            style: {
               backgroundColor: element.color || '#6b7280',
-              width: element.width ? `${element.width}px` : '40px',
-              height: element.height ? `${element.height}px` : '40px'
+              width: `${elementWidth}px`,
+              height: `${elementHeight}px`
             }
           };
       }
     };
 
-    // Get icon for element type
+    // Get icon for element type, scale based on size
     const getIconForType = () => {
+      const iconSize = Math.max(12, Math.min(24, elementWidth * 0.5)); // Scale icon size based on width
+
       switch (element.type) {
         case 'microphone':
-          return <Mic className="h-4 w-4 text-white" />;
+          return <Mic style={{ height: `${iconSize}px`, width: `${iconSize}px` }} className="text-white" />;
         case 'power-strip':
-          return <Plug className="h-4 w-4 text-white" />;
+          return <Plug style={{ height: `${iconSize}px`, width: `${iconSize}px` }} className="text-white" />;
         case 'electric-guitar':
         case 'acoustic-guitar':
         case 'bass-guitar':
-          return <Guitar className="h-5 w-5 text-white" />;
+          return <Guitar style={{ height: `${iconSize}px`, width: `${iconSize}px` }} className="text-white" />;
         case 'keyboard':
-          return <Piano className="h-5 w-5 text-white" />;
+          return <Piano style={{ height: `${iconSize}px`, width: `${iconSize}px` }} className="text-white" />;
         case 'drums':
         case 'percussion':
-          return <Drum className="h-5 w-5 text-white" />;
+          return <Drum style={{ height: `${iconSize}px`, width: `${iconSize}px` }} className="text-white" />;
         case 'violin':
         case 'cello':
-          return <Violin className="h-5 w-5 text-white" />;
+          return <Violin style={{ height: `${iconSize}px`, width: `${iconSize}px` }} className="text-white" />;
         case 'trumpet':
         case 'saxophone':
-          return <Music className="h-5 w-5 text-white" />;
+          return <Music style={{ height: `${iconSize}px`, width: `${iconSize}px` }} className="text-white" />;
         case 'generic-instrument':
-          return <CircleEllipsis className="h-5 w-5 text-white" />;
+          return <CircleEllipsis style={{ height: `${iconSize}px`, width: `${iconSize}px` }} className="text-white" />;
         case 'amplifier':
-          return <Volume2 className="h-5 w-5 text-white" />;
+          return <Volume2 style={{ height: `${iconSize}px`, width: `${iconSize}px` }} className="text-white" />;
         case 'monitor-wedge':
           return (
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="white" strokeWidth="2" fill="none">
+            <svg viewBox="0 0 24 24" style={{ width: `${iconSize}px`, height: `${iconSize}px` }} stroke="white" strokeWidth="2" fill="none">
               <path d="M4 6h16l-2 10H6L4 6z" />
               <path d="M4 6l-2 3" />
               <path d="M20 6l2 3" />
             </svg>
           );
         case 'speaker':
-          return <Speaker className="h-5 w-5 text-white" />;
+          return <Speaker style={{ height: `${iconSize}px`, width: `${iconSize}px` }} className="text-white" />;
         case 'di-box':
-          return <Square className="h-3 w-3 text-white" />;
+          return <Square style={{ height: `${iconSize * 0.75}px`, width: `${iconSize * 0.75}px` }} className="text-white" />; // Slightly smaller
         case 'iem':
-          return <Headphones className="h-4 w-4 text-white" />;
+          return <Headphones style={{ height: `${iconSize}px`, width: `${iconSize}px` }} className="text-white" />;
         case 'person':
-          return <Users className="h-4 w-4 text-white" />;
+          return <Users style={{ height: `${iconSize}px`, width: `${iconSize}px` }} className="text-white" />;
         case 'text':
-          return <Type className="h-4 w-4 text-white" />;
+          return <Type style={{ height: `${iconSize}px`, width: `${iconSize}px` }} className="text-white" />;
         default:
           return null;
       }
@@ -273,41 +306,49 @@ const StagePlotExport = forwardRef<HTMLDivElement, StagePlotExportProps>(({ stag
     const styles = getElementStyles();
     const labelWidth = getLabelWidth();
     const fontSize = getFontSize();
-    
+
     return (
-      <div 
-        key={element.id} 
+      <div
+        key={element.id}
         style={{
           position: 'absolute',
           left: `${element.x}px`,
           top: `${element.y}px`,
+          // Apply width/height to the container for correct positioning and rotation origin
+          width: `${elementWidth}px`,
+          height: `${elementHeight}px`,
           transform: `rotate(${element.rotation}deg)`,
           transformOrigin: 'center center',
           zIndex: element.type === 'text' ? 15 : 10
         }}
       >
         {element.type === 'text' ? (
-          <div style={styles.style}>
-            <span style={{ 
-              color: 'white', 
-              fontSize: `${fontSize}px`, 
-              fontWeight: 500 
+          <div style={{ ...styles.style, width: '100%', height: '100%' }}>
+            <span style={{
+              color: 'white',
+              fontSize: `${fontSize}px`,
+              fontWeight: 500,
+              padding: '2px', // Add padding for text
+              overflow: 'hidden', // Prevent text overflow
+              textAlign: 'center' // Center text
             }}>
               {element.label}
             </span>
           </div>
         ) : (
-          <div>
-            <div className={styles.className} style={styles.style}>
+          // Wrapper div for non-text elements to handle label positioning correctly with rotation
+          <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+            <div className={styles.className} style={{ ...styles.style, width: '100%', height: '100%' }}>
               {getIconForType()}
             </div>
-            
+
+            {/* Label positioned below the element */}
             <div style={{
               position: 'absolute',
-              top: '100%',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              marginTop: '8px',
+              top: '100%', // Position below the element
+              left: '50%', // Center horizontally relative to the element
+              transform: 'translateX(-50%)', // Adjust centering
+              marginTop: '8px', // Space between element and label
               whiteSpace: 'nowrap',
               zIndex: 20
             }}>
@@ -321,7 +362,7 @@ const StagePlotExport = forwardRef<HTMLDivElement, StagePlotExportProps>(({ stag
                 boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
                 display: 'inline-block',
                 minWidth: `${labelWidth}px`,
-                maxWidth: `${labelWidth * 1.5}px`,
+                maxWidth: `${labelWidth * 1.5}px`, // Limit max width
                 textAlign: 'center',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis'
@@ -336,22 +377,22 @@ const StagePlotExport = forwardRef<HTMLDivElement, StagePlotExportProps>(({ stag
   };
 
   const dimensions = getStageDimensions(stagePlot.stage_size);
-  
+
   return (
-    <div 
-      ref={ref} 
+    <div
+      ref={ref}
       className="export-wrapper text-white p-8 rounded-lg shadow-xl"
-      style={{ 
-        width: '1600px', 
-        position: 'absolute', 
-        left: '-9999px', 
+      style={{
+        width: '1600px',
+        position: 'absolute',
+        left: '-9999px',
         fontFamily: 'Inter, sans-serif',
         background: 'linear-gradient(to bottom, #111827, #0f172a)',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
       }}
     >
       {/* Header with enhanced branding */}
-      <div 
+      <div
         className="flex justify-between items-center mb-8 pb-6 relative overflow-hidden"
         style={{
           borderBottom: '2px solid rgba(99, 102, 241, 0.4)',
@@ -361,7 +402,7 @@ const StagePlotExport = forwardRef<HTMLDivElement, StagePlotExportProps>(({ stag
         }}
       >
         {/* Background decorative elements */}
-        <div 
+        <div
           style={{
             position: 'absolute',
             top: '-50px',
@@ -373,10 +414,10 @@ const StagePlotExport = forwardRef<HTMLDivElement, StagePlotExportProps>(({ stag
             zIndex: 0
           }}
         ></div>
-        
+
         {/* Brand logo and name */}
         <div className="flex items-center z-10">
-          <div 
+          <div
             className="p-3 rounded-lg mr-4"
             style={{
               background: 'linear-gradient(145deg, #4f46e5, #4338ca)',
@@ -390,7 +431,7 @@ const StagePlotExport = forwardRef<HTMLDivElement, StagePlotExportProps>(({ stag
             <p className="text-indigo-400 font-medium">Professional Audio Documentation</p>
           </div>
         </div>
-        
+
         {/* Document title and date */}
         <div className="text-right z-10 flex flex-col items-end">
           <h2 className="text-2xl font-bold text-white">{stagePlot.name}</h2>
@@ -403,27 +444,27 @@ const StagePlotExport = forwardRef<HTMLDivElement, StagePlotExportProps>(({ stag
           </p>
         </div>
       </div>
-      
+
       {/* Back of stage label - MOVED OUTSIDE THE STAGE */}
-      <div 
+      <div
         className="text-center mb-2 flex items-center justify-center"
         style={{
           zIndex: 20
         }}
       >
-        <span 
+        <span
           className="bg-gray-800/80 text-white text-sm px-4 py-1.5 rounded-full shadow-md"
           style={{ border: '1px solid rgba(99, 102, 241, 0.3)' }}
         >
           Back of Stage
         </span>
       </div>
-      
+
       {/* Stage Plot Canvas */}
       <div className="mb-2">
-        <div 
+        <div
           className="bg-gray-850 rounded-lg border border-gray-700 mx-auto overflow-hidden"
-          style={{ 
+          style={{
             width: dimensions.width,
             height: dimensions.height,
             position: 'relative',
@@ -437,29 +478,29 @@ const StagePlotExport = forwardRef<HTMLDivElement, StagePlotExportProps>(({ stag
         >
           {/* Background image if present */}
           {stagePlot.backgroundImage && (
-            <div 
+            <div
               className="absolute inset-0 bg-center bg-no-repeat bg-contain pointer-events-none"
-              style={{ 
+              style={{
                 backgroundImage: `url(${stagePlot.backgroundImage})`,
                 opacity: (stagePlot.backgroundOpacity !== undefined ? stagePlot.backgroundOpacity : 50) / 100,
                 zIndex: 1
               }}
             />
           )}
-          
+
           {/* Stage elements */}
           {stagePlot.elements && stagePlot.elements.map(renderElement)}
         </div>
       </div>
-      
+
       {/* Front of stage label - MOVED OUTSIDE THE STAGE */}
-      <div 
+      <div
         className="text-center mt-2 mb-8 flex items-center justify-center"
         style={{
           zIndex: 20
         }}
       >
-        <span 
+        <span
           className="bg-gray-800/80 text-white text-sm px-4 py-1.5 rounded-full shadow-md"
           style={{ border: '1px solid rgba(99, 102, 241, 0.3)' }}
         >
@@ -470,7 +511,7 @@ const StagePlotExport = forwardRef<HTMLDivElement, StagePlotExportProps>(({ stag
       {/* Footer with enhanced branding */}
       <div className="relative mt-8 pt-6 overflow-hidden rounded-lg">
         {/* Decorative background */}
-        <div 
+        <div
           style={{
             position: 'absolute',
             inset: 0,
@@ -480,10 +521,10 @@ const StagePlotExport = forwardRef<HTMLDivElement, StagePlotExportProps>(({ stag
             zIndex: -1
           }}
         ></div>
-        
+
         <div className="flex justify-between items-center p-4">
           <div className="flex items-center">
-            <div 
+            <div
               className="p-2 rounded-md mr-2"
               style={{
                 background: 'linear-gradient(145deg, #4f46e5, #4338ca)',
@@ -499,9 +540,9 @@ const StagePlotExport = forwardRef<HTMLDivElement, StagePlotExportProps>(({ stag
             <span>Generated on {new Date().toLocaleDateString()}</span>
           </div>
         </div>
-        
+
         {/* Watermark */}
-        <div 
+        <div
           style={{
             position: 'absolute',
             bottom: '-30px',
