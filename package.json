@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "local-db": "npx supabase start"
+    "local-db": "npx supabase start",
+    "prepare": "husky"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
@@ -36,10 +37,16 @@
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",
     "globals": "^15.9.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.1",
     "postcss": "^8.4.35",
+    "prettier": "3.5.3",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
     "vite": "^5.4.2"
+  },
+  "lint-staged": {
+    "**/*": "prettier --write --ignore-unknown"
   }
 }
