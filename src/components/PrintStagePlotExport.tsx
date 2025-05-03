@@ -6,11 +6,53 @@ interface PrintStagePlotExportProps {
     created_at: string;
     last_edited?: string;
     stage_size: string;
-    elements: any[];
+    elements: any[]; // Use any[] for now
     backgroundImage?: string;
     backgroundOpacity?: number;
   };
 }
+
+// Default dimensions for elements if not specified
+const getDefaultDimensions = (type: string) => {
+  if (
+    type === 'electric-guitar' ||
+    type === 'acoustic-guitar' ||
+    type === 'bass-guitar' ||
+    type === 'keyboard' ||
+    type === 'drums' ||
+    type === 'percussion' ||
+    type === 'violin' ||
+    type === 'cello' ||
+    type === 'trumpet' ||
+    type === 'saxophone' ||
+    type === 'generic-instrument'
+  ) {
+    return { width: 64, height: 64 };
+  }
+
+  switch (type) {
+    case 'microphone':
+      return { width: 32, height: 32 };
+    case 'power-strip':
+      return { width: 64, height: 24 };
+    case 'monitor-wedge':
+      return { width: 48, height: 32 };
+    case 'amplifier':
+      return { width: 56, height: 40 };
+    case 'speaker':
+      return { width: 40, height: 64 };
+    case 'di-box':
+      return { width: 24, height: 24 };
+    case 'iem':
+      return { width: 32, height: 32 };
+    case 'person':
+      return { width: 40, height: 40 };
+    case 'text':
+      return { width: 120, height: 40 };
+    default:
+      return { width: 40, height: 40 };
+  }
+};
 
 const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProps>(({ stagePlot }, ref) => {
   // Format date for display
@@ -22,7 +64,7 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
       day: 'numeric'
     });
   };
-  
+
   // Get stage dimensions
   const getStageDimensions = (stageSize: string) => {
     // Using fixed pixel values for consistency
@@ -47,117 +89,129 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
         return { width: 700, height: 700 };
       case 'x-large-wide':
         return { width: 1200, height: 700 };
-      case 'small':
+      case 'small': // Handle legacy sizes
         return { width: 600, height: 400 };
-      case 'medium':
+      case 'medium': // Handle legacy sizes
         return { width: 800, height: 500 };
-      case 'large':
+      case 'large': // Handle legacy sizes
         return { width: 1000, height: 600 };
-      default:
+      default: // Default to medium-wide if size is unknown
         return { width: 800, height: 500 };
     }
   };
 
   // Function to render element
   const renderElement = (element: any) => {
+    const defaultDims = getDefaultDimensions(element.type);
+    const elementWidth = element.width || defaultDims.width;
+    const elementHeight = element.height || defaultDims.height;
+
     // Calculate label width based on element size
     const getLabelWidth = () => {
-      const elementWidth = element.width || 
-        (element.type === 'text' ? 120 : 
-          ['microphone', 'di-box', 'iem'].includes(element.type) ? 32 : 
-          ['speaker'].includes(element.type) ? 40 : 
-          ['monitor-wedge'].includes(element.type) ? 48 : 
-          ['amplifier'].includes(element.type) ? 56 : 
-          ['power-strip', 'electric-guitar', 'acoustic-guitar', 'bass-guitar', 'keyboard', 'drums', 'percussion', 'violin', 'cello', 'trumpet', 'saxophone', 'generic-instrument'].includes(element.type) ? 64 : 40);
-      
       // Return proportional width based on element size
-      return Math.max(80, elementWidth * 1.5);
+      return Math.max(60, elementWidth * 1.2); // 120% of width, min 60px
+    };
+
+    // Scale font size based on element dimensions
+    const getFontSize = () => {
+      if (element.type === 'text') {
+        // For text elements, scale font size based on height
+        return Math.max(12, Math.min(18, elementHeight * 0.3)); // 30% of height, min 12px, max 18px
+      } else {
+        // For other elements, scale based on width
+        return Math.max(10, Math.min(14, elementWidth * 0.2)); // 20% of width, min 10px, max 14px
+      }
     };
 
     if (element.type === 'text') {
-      // Scale font size based on element dimensions
-      const fontSize = Math.max(12, Math.min(18, (element.height || 40) * 0.3));
-      
+      const fontSize = getFontSize();
       return (
-        <div 
+        <div
           key={element.id}
           style={{
             position: 'absolute',
             left: `${element.x}px`,
             top: `${element.y}px`,
+            width: `${elementWidth}px`, // Use calculated width
+            height: `${elementHeight}px`, // Use calculated height
             transform: `rotate(${element.rotation}deg)`,
             transformOrigin: 'center center',
             zIndex: 15,
             backgroundColor: 'rgba(245, 245, 245, 0.9)',
             border: '1px solid #999',
             padding: '6px 12px',
-            minWidth: element.width ? `${element.width}px` : '120px',
-            minHeight: element.height ? `${element.height}px` : '40px',
             display: 'flex',
-            alignItems: 'center', 
+            alignItems: 'center',
             justifyContent: 'center',
             borderRadius: '4px',
             boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
           }}
         >
-          <span style={{ 
-            color: '#111', 
-            fontSize: `${fontSize}px`, 
-            fontWeight: 500 
+          <span style={{
+            color: '#111',
+            fontSize: `${fontSize}px`,
+            fontWeight: 500,
+            textAlign: 'center', // Center text
+            overflow: 'hidden' // Hide overflow
           }}>
             {element.label}
           </span>
         </div>
       );
     }
-    
+
     // Determine element style based on type
     let elementStyle: React.CSSProperties = {
       position: 'absolute',
       left: `${element.x}px`,
       top: `${element.y}px`,
+      width: `${elementWidth}px`, // Apply width to the main container
+      height: `${elementHeight}px`, // Apply height to the main container
       zIndex: 10
     };
 
     // Wrapper for rotation
     let wrapperStyle: React.CSSProperties = {
       transform: `rotate(${element.rotation}deg)`,
-      transformOrigin: 'center center'
+      transformOrigin: 'center center',
+      width: '100%', // Ensure wrapper takes full size
+      height: '100%', // Ensure wrapper takes full size
+      position: 'relative' // Needed for absolute positioning of label
     };
 
-    // Inner element style
+    // Inner element style (the visual shape)
     let innerStyle: React.CSSProperties = {
       backgroundColor: '#777',
       border: '1px solid #666',
       boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'center'
+      justifyContent: 'center',
+      width: '100%', // Inner element takes full size of wrapper
+      height: '100%' // Inner element takes full size of wrapper
     };
 
     // Symbol/icon style
     let symbolStyle: React.CSSProperties = {
       color: '#fff',
-      fontSize: '14px',
+      fontSize: '14px', // Base size
       fontWeight: 'bold'
     };
 
     // Scale icon/symbol size based on element dimensions
-    if (element.width && element.height) {
-      const size = Math.min(element.width, element.height);
-      symbolStyle.fontSize = `${Math.max(10, Math.min(16, size * 0.25))}px`;
-    }
+    const size = Math.min(elementWidth, elementHeight);
+    symbolStyle.fontSize = `${Math.max(10, Math.min(16, size * 0.25))}px`; // Scale based on smaller dimension
 
     // Label style
     const labelWidth = getLabelWidth();
-    const fontSize = Math.max(10, Math.min(14, (element.width || 40) * 0.2));
+    const fontSize = getFontSize();
 
     let labelStyle: React.CSSProperties = {
       position: 'absolute',
-      top: '100%',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      marginTop: '8px',
+      top: '100%', // Position below the element
+      left: '50%', // Center horizontally relative to the element
+      transform: 'translateX(-50%)', // Adjust centering
+      marginTop: '8px', // Space between element and label
       backgroundColor: 'white',
       border: '1px solid #aaa',
       padding: '3px 8px',
@@ -167,12 +221,14 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
       whiteSpace: 'nowrap',
       textAlign: 'center',
       minWidth: `${labelWidth}px`,
-      maxWidth: `${labelWidth * 1.5}px`,
+      maxWidth: `${labelWidth * 1.5}px`, // Limit max width
       zIndex: 20,
-      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
+      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+      overflow: 'hidden', // Hide overflow
+      textOverflow: 'ellipsis' // Add ellipsis for overflow
     };
 
-    // Customize based on element type
+    // Customize shape based on element type
     switch (element.type) {
       // Instruments - larger squares
       case 'electric-guitar':
@@ -186,91 +242,37 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
       case 'trumpet':
       case 'saxophone':
       case 'generic-instrument':
-        innerStyle = {
-          ...innerStyle,
-          width: element.width ? `${element.width}px` : '64px',
-          height: element.height ? `${element.height}px` : '64px',
-          borderRadius: '8px'
-        };
+        innerStyle.borderRadius = '8px';
         break;
 
       // Circular elements
       case 'microphone':
       case 'iem':
-        innerStyle = {
-          ...innerStyle,
-          width: element.width ? `${element.width}px` : '32px',
-          height: element.height ? `${element.height}px` : '32px',
-          borderRadius: '50%' 
-        };
-        break;
-
       case 'person':
-        innerStyle = {
-          ...innerStyle,
-          width: element.width ? `${element.width}px` : '40px',
-          height: element.height ? `${element.height}px` : '40px',
-          borderRadius: '50%'
-        };
+        innerStyle.borderRadius = '50%';
         break;
 
       // Rectangular elements
       case 'power-strip':
-        innerStyle = {
-          ...innerStyle,
-          width: element.width ? `${element.width}px` : '64px',
-          height: element.height ? `${element.height}px` : '24px',
-          borderRadius: '4px'
-        };
-        break;
-
       case 'amplifier':
-        innerStyle = {
-          ...innerStyle,
-          width: element.width ? `${element.width}px` : '56px',
-          height: element.height ? `${element.height}px` : '40px',
-          borderRadius: '4px'
-        };
-        break;
-
       case 'speaker':
-        innerStyle = {
-          ...innerStyle,
-          width: element.width ? `${element.width}px` : '40px',
-          height: element.height ? `${element.height}px` : '64px',
-          borderRadius: '4px'
-        };
-        break;
-
       case 'di-box':
-        innerStyle = {
-          ...innerStyle,
-          width: element.width ? `${element.width}px` : '24px',
-          height: element.height ? `${element.height}px` : '24px',
-          borderRadius: '4px'
-        };
+        innerStyle.borderRadius = '4px';
         break;
 
       // Special shapes
       case 'monitor-wedge':
-        innerStyle = {
-          ...innerStyle,
-          width: element.width ? `${element.width}px` : '48px',
-          height: element.height ? `${element.height}px` : '32px',
-          borderRadius: '4px',
-          clipPath: 'polygon(0 0, 100% 0, 100% 90%, 50% 100%, 0 90%)',
-          transform: 'rotate(15deg)'
-        };
+        innerStyle.borderRadius = '4px';
+        innerStyle.clipPath = 'polygon(0 0, 100% 0, 100% 90%, 50% 100%, 0 90%)';
+        // Apply rotation directly to the inner style for wedge
+        innerStyle.transform = 'rotate(15deg)';
+        // Reset wrapper rotation if inner element handles it
+        wrapperStyle.transform = `rotate(${element.rotation}deg)`;
         break;
 
       // Default fallback
       default:
-        innerStyle = {
-          ...innerStyle,
-          width: element.width ? `${element.width}px` : '40px',
-          height: element.height ? `${element.height}px` : '40px',
-          borderRadius: '4px'
-        };
+        innerStyle.borderRadius = '4px';
     }
 
     // Get appropriate symbol for the element type
@@ -313,15 +315,15 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
   };
 
   const dimensions = getStageDimensions(stagePlot.stage_size);
-  
+
   return (
-    <div 
-      ref={ref} 
+    <div
+      ref={ref}
       className="print-stage-plot-export"
-      style={{ 
-        width: '1600px', 
-        position: 'absolute', 
-        left: '-9999px', 
+      style={{
+        width: '1600px',
+        position: 'absolute',
+        left: '-9999px',
         fontFamily: 'Inter, sans-serif',
         backgroundColor: 'white',
         color: '#111',
@@ -338,12 +340,12 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
       }}>
         {/* Brand */}
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <div style={{ 
-            padding: '12px', 
-            marginRight: '16px', 
-            background: '#eee', 
-            borderRadius: '8px', 
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)' 
+          <div style={{
+            padding: '12px',
+            marginRight: '16px',
+            background: '#eee',
+            borderRadius: '8px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
           }}>
             {/* Bookmark icon */}
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -355,7 +357,7 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
             <p style={{ color: '#666', margin: 0 }}>Professional Audio Documentation</p>
           </div>
         </div>
-        
+
         {/* Document title and date */}
         <div style={{ textAlign: 'right' }}>
           <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '5px' }}>{stagePlot.name}</h2>
@@ -367,10 +369,10 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
           </p>
         </div>
       </div>
-      
+
       {/* Back of stage label - MOVED OUTSIDE THE STAGE */}
-      <div style={{ 
-        textAlign: 'center', 
+      <div style={{
+        textAlign: 'center',
         marginBottom: '10px',
         display: 'flex',
         justifyContent: 'center'
@@ -387,9 +389,9 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
           Back of Stage
         </div>
       </div>
-      
+
       {/* Stage Plot Canvas */}
-      <div style={{ 
+      <div style={{
         width: dimensions.width,
         height: dimensions.height,
         margin: '0 auto',
@@ -406,7 +408,7 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
       }}>
         {/* Background image if present */}
         {stagePlot.backgroundImage && (
-          <div 
+          <div
             style={{
               position: 'absolute',
               top: 0,
@@ -422,14 +424,14 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
             }}
           />
         )}
-        
+
         {/* Render each element */}
         {stagePlot.elements && stagePlot.elements.map(renderElement)}
       </div>
-      
+
       {/* Front of stage label - MOVED OUTSIDE THE STAGE */}
-      <div style={{ 
-        textAlign: 'center', 
+      <div style={{
+        textAlign: 'center',
         marginTop: '10px',
         marginBottom: '30px',
         display: 'flex',
@@ -447,11 +449,11 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
           Front of Stage / Audience
         </div>
       </div>
-      
+
       {/* Footer */}
-      <div style={{ 
-        marginTop: '40px', 
-        borderTop: '1px solid #eee', 
+      <div style={{
+        marginTop: '40px',
+        borderTop: '1px solid #eee',
         paddingTop: '20px',
         display: 'flex',
         justifyContent: 'space-between',
