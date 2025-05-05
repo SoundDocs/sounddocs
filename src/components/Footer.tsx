@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bookmark, Mail, Github, MessageSquare } from 'lucide-react';
+import { Bookmark, Mail, Github, MessageSquare, Heart } from 'lucide-react'; // Added Heart
 import { Link } from 'react-router-dom';
 
 const Footer: React.FC = () => {
@@ -37,6 +37,16 @@ const Footer: React.FC = () => {
             >
               <MessageSquare className="h-5 w-5 mr-2" />
               <span>Discord</span>
+            </a>
+            {/* Added Donation Link */}
+            <a 
+              href="https://buy.stripe.com/7sIaFxgFu7ulawEbIJ" 
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center text-pink-400 hover:text-pink-300 transition-all duration-200"
+            >
+              <Heart className="h-5 w-5 mr-2" />
+              <span>Donate</span>
             </a>
           </div>
         </div>

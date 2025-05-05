@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, Headphones, Music, Bookmark, Calendar, Mic, ChevronsRight, Github } from 'lucide-react';
+import { ArrowRight, Headphones, Music, Bookmark, Calendar, Mic, ChevronsRight, Github, Heart } from 'lucide-react'; // Added Heart
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
@@ -64,15 +64,25 @@ const Hero: React.FC = () => {
               </Link>
             </div>
 
-            <div className="flex items-center">
+            <div className="flex items-center space-x-6"> {/* Added space-x-6 */}
               <a 
-                href="https://github.com/cj-vana/sounddocs" 
+                href="https://github.com/SoundDocs/sounddocs" 
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center text-gray-400 hover:text-indigo-400 transition-colors duration-200"
               >
                 <Github className="h-5 w-5 mr-2" />
                 <span>Open source on GitHub</span>
+              </a>
+              {/* Added Donation Link */}
+              <a 
+                href="https://buy.stripe.com/7sIaFxgFu7ulawEbIJ" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center text-pink-400 hover:text-pink-300 transition-colors duration-200"
+              >
+                <Heart className="h-5 w-5 mr-2" />
+                <span>Support the Project</span>
               </a>
             </div>
           </div>
