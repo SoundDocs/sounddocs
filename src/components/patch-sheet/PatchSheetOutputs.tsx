@@ -571,6 +571,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
         return (
           <div className="flex space-x-4 text-sm">
             <span className="text-gray-400">
+              {output.sourceDetails.consoleType ? `${output.sourceDetails.consoleType} - ` : ""}
               {output.sourceDetails.outputNumber ? `Output #${output.sourceDetails.outputNumber}` : ""}
             </span>
           </div>
@@ -671,7 +672,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
       }
 
       const sourceDetails = {
-        ...bulkSourceDetails,
+        ...bulkSourceDetails, // This will include consoleType if set
         consoleOutputNumber,
         networkPatch,
         outputNumber
@@ -966,16 +967,35 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
                         {/* Additional fields based on source type */}
                         {editingOutput.sourceType === "Console Output" && (
-                          <div>
-                            <label className="block text-gray-300 text-sm mb-2">Output #</label>
-                            <input
-                              type="text"
-                              value={editingOutput.sourceDetails?.outputNumber || ""}
-                              onChange={(e) => handleSourceDetailChange(output.id, 'outputNumber', e.target.value)}
-                              className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                              placeholder="e.g., 12"
-                            />
-                          </div>
+                          <>
+                            <div>
+                              <label className="block text-gray-300 text-sm mb-2">Console Type</label>
+                              <input
+                                type="text"
+                                value={editingOutput.sourceDetails?.consoleType || ""}
+                                onChange={(e) => handleSourceDetailChange(output.id, 'consoleType', e.target.value)}
+                                onKeyDown={(e) => handleCustomTypeKeyDown(e, output.id, 'consoleType')}
+                                className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                placeholder="e.g., Avid S6L, DiGiCo SD12"
+                                list={`consoleTypes-${output.id}`}
+                              />
+                              <datalist id={`consoleTypes-${output.id}`}>
+                                {getAllConsoleTypes().map((type, idx) => (
+                                  <option key={idx} value={type} />
+                                ))}
+                              </datalist>
+                            </div>
+                            <div>
+                              <label className="block text-gray-300 text-sm mb-2">Output #</label>
+                              <input
+                                type="text"
+                                value={editingOutput.sourceDetails?.outputNumber || ""}
+                                onChange={(e) => handleSourceDetailChange(output.id, 'outputNumber', e.target.value)}
+                                className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                placeholder="e.g., 12"
+                              />
+                            </div>
+                          </>
                         )}
 
                         {editingOutput.sourceType === "Analog Snake" && (
@@ -1245,7 +1265,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
       {showBulkAddModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold text-white mb-6 sticky top-0 bg-gray-800 z-10 pb-2">Bulk Add Outputs</h3>
+            <h3 className="text-xl font-semibold text-white mb-6 sticky top-0 bg-gray-800 z-20 pb-2">Bulk Add Outputs</h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Basic Settings Section */}
@@ -1257,8 +1277,8 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                   <input
                     type="number"
                     value={bulkQuantity}
-                    min="0" // Allow 0 temporarily
-                    onChange={(e) => setBulkQuantity(e.target.value)} // Allow empty string or 0
+                    min="0" 
+                    onChange={(e) => setBulkQuantity(e.target.value)} 
                     className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
@@ -1270,8 +1290,8 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                   <input
                     type="number"
                     value={bulkStartChannel}
-                    min="0" // Allow 0 temporarily
-                    onChange={(e) => setBulkStartChannel(e.target.value)} // Allow empty string or 0
+                    min="0" 
+                    onChange={(e) => setBulkStartChannel(e.target.value)} 
                     className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
@@ -1295,12 +1315,12 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                 <div className="flex items-center mt-2">
                   <input
                     type="checkbox"
-                    id="bulkIsStereo"
+                    id="bulkIsStereoOutput"
                     checked={bulkIsStereo}
                     onChange={(e) => setBulkIsStereo(e.target.checked)}
                     className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-500 rounded"
                   />
-                  <label htmlFor="bulkIsStereo" className="text-gray-300 text-sm ml-2 flex items-center">
+                  <label htmlFor="bulkIsStereoOutput" className="text-gray-300 text-sm ml-2 flex items-center">
                     <Link className="h-4 w-4 mr-1 text-indigo-400" />
                     Create as stereo pairs (L/R)
                   </label>
@@ -1326,18 +1346,35 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
               {/* Source Details Section */}
               <div className="space-y-4">
-                {/* Source Type Specific Fields */}
                 {bulkSourceType === "Console Output" && (
-                  <div>
-                    <label className="block text-gray-300 text-sm mb-2">Output # (Starting)</label>
-                    <input
-                      type="text"
-                      value={bulkSourceDetails.outputNumber || ""}
-                      onChange={(e) => handleBulkSourceDetailChange('outputNumber', e.target.value)}
-                      className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="e.g., 1 (will increment with each output)"
-                    />
-                  </div>
+                  <>
+                    <div>
+                      <label className="block text-gray-300 text-sm mb-2">Console Type</label>
+                      <input
+                        type="text"
+                        value={bulkSourceDetails.consoleType || ""}
+                        onChange={(e) => handleBulkSourceDetailChange('consoleType', e.target.value)}
+                        className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        placeholder="e.g., Avid S6L"
+                        list="bulkConsoleTypesOutputDatalist"
+                      />
+                      <datalist id="bulkConsoleTypesOutputDatalist">
+                        {getAllConsoleTypes().map((type, idx) => (
+                          <option key={`bulk-console-type-${idx}`} value={type} />
+                        ))}
+                      </datalist>
+                    </div>
+                    <div>
+                      <label className="block text-gray-300 text-sm mb-2">Output # (Starting)</label>
+                      <input
+                        type="text"
+                        value={bulkSourceDetails.outputNumber || ""}
+                        onChange={(e) => handleBulkSourceDetailChange('outputNumber', e.target.value)}
+                        className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        placeholder="e.g., 1 (will increment)"
+                      />
+                    </div>
+                  </>
                 )}
 
                 {bulkSourceType === "Analog Snake" && (
@@ -1349,10 +1386,10 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                         value={bulkSourceDetails.snakeType || ""}
                         onChange={(e) => handleBulkSourceDetailChange('snakeType', e.target.value)}
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        placeholder="e.g., Multicore, XLR Harness"
-                        list="bulkAnalogSnakeTypes"
+                        placeholder="e.g., Multicore"
+                        list="bulkAnalogSnakeTypesOutputDatalist"
                       />
-                      <datalist id="bulkAnalogSnakeTypes">
+                      <datalist id="bulkAnalogSnakeTypesOutputDatalist">
                         {getAllAnalogSnakeTypes().map((type, idx) => (
                           <option key={idx} value={type} />
                         ))}
@@ -1365,7 +1402,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                         value={bulkSourceDetails.outputNumber || ""}
                         onChange={(e) => handleBulkSourceDetailChange('outputNumber', e.target.value)}
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        placeholder="e.g., 1 (will increment with each output)"
+                        placeholder="e.g., 1 (will increment)"
                       />
                     </div>
                     <div>
@@ -1375,10 +1412,10 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                         value={bulkSourceDetails.consoleType || ""}
                         onChange={(e) => handleBulkSourceDetailChange('consoleType', e.target.value)}
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        placeholder="e.g., Avid S6L, DiGiCo SD12"
-                        list="bulkConsoleTypes"
+                        placeholder="e.g., Avid S6L"
+                        list="bulkConsoleTypesOutputDatalist"
                       />
-                      <datalist id="bulkConsoleTypes">
+                      <datalist id="bulkConsoleTypesOutputDatalist">
                         {getAllConsoleTypes().map((type, idx) => (
                           <option key={idx} value={type} />
                         ))}
@@ -1391,7 +1428,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                         value={bulkSourceDetails.consoleOutputNumber || ""}
                         onChange={(e) => handleBulkSourceDetailChange('consoleOutputNumber', e.target.value)}
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        placeholder="e.g., 1 (will increment with each output)"
+                        placeholder="e.g., 1 (will increment)"
                       />
                     </div>
                   </>
@@ -1406,10 +1443,10 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                         value={bulkSourceDetails.snakeType || ""}
                         onChange={(e) => handleBulkSourceDetailChange('snakeType', e.target.value)}
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        placeholder="e.g., Yamaha Rio, DL16"
-                        list="bulkDigitalSnakeTypes"
+                        placeholder="e.g., Yamaha Rio"
+                        list="bulkDigitalSnakeTypesOutputDatalist"
                       />
-                      <datalist id="bulkDigitalSnakeTypes">
+                      <datalist id="bulkDigitalSnakeTypesOutputDatalist">
                         {getAllDigitalSnakeTypes().map((type, idx) => (
                           <option key={idx} value={type} />
                         ))}
@@ -1422,7 +1459,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                         value={bulkSourceDetails.outputNumber || ""}
                         onChange={(e) => handleBulkSourceDetailChange('outputNumber', e.target.value)}
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        placeholder="e.g., 1 (will increment with each output)"
+                        placeholder="e.g., 1 (will increment)"
                       />
                     </div>
                   </>
@@ -1438,9 +1475,9 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                         onChange={(e) => handleBulkSourceDetailChange('networkType', e.target.value)}
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., Dante, AVB"
-                        list="bulkNetworkTypes"
+                        list="bulkNetworkTypesOutputDatalist"
                       />
-                      <datalist id="bulkNetworkTypes">
+                      <datalist id="bulkNetworkTypesOutputDatalist">
                         {getAllNetworkTypes().map((type, idx) => (
                           <option key={idx} value={type} />
                         ))}
@@ -1453,7 +1490,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                         value={bulkSourceDetails.networkPatch || ""}
                         onChange={(e) => handleBulkSourceDetailChange('networkPatch', e.target.value)}
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        placeholder="e.g., 1 (will increment with each output)"
+                        placeholder="e.g., 1 (will increment)"
                       />
                     </div>
                   </>
@@ -1488,7 +1525,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
               </div>
             </div>
 
-            <div className="mt-8 pt-4 border-t border-gray-700 flex justify-end sticky bottom-0 bg-gray-800 z-10">
+            <div className="mt-8 pt-4 border-t border-gray-700 flex justify-end sticky bottom-0 bg-gray-800 z-20">
               <button
                 onClick={() => setShowBulkAddModal(false)}
                 className="px-5 py-2.5 text-gray-300 hover:text-white transition-all mr-4"

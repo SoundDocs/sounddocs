@@ -31,7 +31,7 @@ interface InputChannel {
 }
 
 interface OutputChannel {
-  id: string;
+  id:string;
   channelNumber: string;
   name: string;
   sourceType: string;
@@ -506,6 +506,27 @@ const PatchSheetEditor = () => {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Bottom Save Button */}
+        <div className="flex justify-center py-8">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg text-base"
+          >
+            {saving ? (
+              <>
+                <Loader className="h-5 w-5 mr-2 animate-spin" />
+                Saving Patch Sheet...
+              </>
+            ) : (
+              <>
+                <Save className="h-5 w-5 mr-2" />
+                Save Patch Sheet
+              </>
+            )}
+          </button>
         </div>
       </main>
       

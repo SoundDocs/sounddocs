@@ -1361,9 +1361,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
       {showBulkAddModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold text-white mb-6 sticky top-0 bg-gray-800 z-10 pb-2">Bulk Add Inputs</h3>
+            <h3 className="text-xl font-semibold text-white mb-6 sticky top-0 bg-gray-800 z-20 pb-2">Bulk Add Inputs</h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Basic Settings Section */}
               <div className="space-y-4">
                 <div>
@@ -1373,8 +1373,8 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                   <input
                     type="number"
                     value={bulkQuantity}
-                    min="0" // Allow 0 temporarily
-                    onChange={(e) => setBulkQuantity(e.target.value)} // Allow empty string or 0
+                    min="0" 
+                    onChange={(e) => setBulkQuantity(e.target.value)} 
                     className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
@@ -1386,8 +1386,8 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                   <input
                     type="number"
                     value={bulkStartChannel}
-                    min="0" // Allow 0 temporarily
-                    onChange={(e) => setBulkStartChannel(e.target.value)} // Allow empty string or 0
+                    min="0" 
+                    onChange={(e) => setBulkStartChannel(e.target.value)} 
                     className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
@@ -1433,7 +1433,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                     className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   >
                     <option value="">Select Input Type</option>
-                    {inputTypeOptions.map((type, index) => (
+                    {getAllInputTypes().map((type, index) => (
                       <option key={index} value={type}>{type}</option>
                     ))}
                   </select>
@@ -1442,16 +1442,19 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                 {bulkType && (
                   <div>
                     <label className="block text-gray-300 text-sm mb-2">Device/Mic</label>
-                    <select
+                    <input
+                      type="text"
                       value={bulkDevice}
                       onChange={(e) => setBulkDevice(e.target.value)}
                       className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    >
-                      <option value="">Select Device</option>
-                      {getSuggestedDevicesForBulkType().map((device, index) => (
-                        <option key={index} value={device}>{device}</option>
+                      placeholder="e.g., SM58, DI Box"
+                      list="bulkDeviceOptionsDatalist"
+                    />
+                    <datalist id="bulkDeviceOptionsDatalist">
+                      {(getSuggestedDevicesForBulkType().length > 0 ? getSuggestedDevicesForBulkType() : getAllDevices()).map((device, idx) => (
+                        <option key={idx} value={device} />
                       ))}
-                    </select>
+                    </datalist>
                   </div>
                 )}
 
@@ -1498,9 +1501,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                         onChange={(e) => handleBulkConnectionDetailChange('consoleType', e.target.value)}
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., Avid S6L, DiGiCo SD12"
-                        list="bulkConsoleTypes"
+                        list="bulkConsoleTypesDatalist"
                       />
-                      <datalist id="bulkConsoleTypes">
+                      <datalist id="bulkConsoleTypesDatalist">
                         {getAllConsoleTypes().map((type, idx) => (
                           <option key={idx} value={type} />
                         ))}
@@ -1529,9 +1532,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                         onChange={(e) => handleBulkConnectionDetailChange('snakeType', e.target.value)}
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., Multicore, XLR Harness"
-                        list="bulkAnalogSnakeTypes"
+                        list="bulkAnalogSnakeTypesDatalist"
                       />
-                      <datalist id="bulkAnalogSnakeTypes">
+                      <datalist id="bulkAnalogSnakeTypesDatalist">
                         {getAllAnalogSnakeTypes().map((type, idx) => (
                           <option key={idx} value={type} />
                         ))}
@@ -1555,9 +1558,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                         onChange={(e) => handleBulkConnectionDetailChange('consoleType', e.target.value)}
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., Avid S6L, DiGiCo SD12"
-                        list="bulkConsoleTypes"
+                        list="bulkConsoleTypesDatalist" 
                       />
-                      <datalist id="bulkConsoleTypes">
+                      <datalist id="bulkConsoleTypesDatalist"> 
                         {getAllConsoleTypes().map((type, idx) => (
                           <option key={idx} value={type} />
                         ))}
@@ -1575,6 +1578,37 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                     </div>
                   </>
                 )}
+                
+                {bulkConnection === "Digital Snake" && (
+                  <>
+                    <div>
+                      <label className="block text-gray-300 text-sm mb-2">Snake Type</label>
+                      <input
+                        type="text"
+                        value={bulkConnectionDetails.snakeType || ""}
+                        onChange={(e) => handleBulkConnectionDetailChange('snakeType', e.target.value)}
+                        className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        placeholder="e.g., Yamaha Rio, DL16"
+                        list="bulkDigitalSnakeTypesDatalist"
+                      />
+                      <datalist id="bulkDigitalSnakeTypesDatalist">
+                        {getAllDigitalSnakeTypes().map((type, idx) => (
+                          <option key={idx} value={type} />
+                        ))}
+                      </datalist>
+                    </div>
+                    <div>
+                      <label className="block text-gray-300 text-sm mb-2">Input # (Starting)</label>
+                      <input
+                        type="text"
+                        value={bulkConnectionDetails.inputNumber || ""}
+                        onChange={(e) => handleBulkConnectionDetailChange('inputNumber', e.target.value)}
+                        className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        placeholder="e.g., 1 (will increment with each input)"
+                      />
+                    </div>
+                  </>
+                )}
 
                 {(bulkConnection === "Digital Snake" || bulkConnection === "Digital Network") && (
                   <div>
@@ -1585,37 +1619,18 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                       onChange={(e) => handleBulkConnectionDetailChange('networkType', e.target.value)}
                       className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="e.g., Dante, AVB"
-                      list="bulkNetworkTypes"
+                      list="bulkNetworkTypesDatalist"
                     />
-                    <datalist id="bulkNetworkTypes">
+                    <datalist id="bulkNetworkTypesDatalist">
                       {getAllNetworkTypes().map((type, idx) => (
                         <option key={idx} value={type} />
                       ))}
                     </datalist>
                   </div>
                 )}
-
-                {bulkConnection === "Digital Snake" && (
-                  <div>
-                    <label className="block text-gray-300 text-sm mb-2">Snake Type</label>
-                    <input
-                      type="text"
-                      value={bulkConnectionDetails.snakeType || ""}
-                      onChange={(e) => handleBulkConnectionDetailChange('snakeType', e.target.value)}
-                      className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="e.g., Yamaha Rio, DL16"
-                      list="bulkDigitalSnakeTypes"
-                    />
-                    <datalist id="bulkDigitalSnakeTypes">
-                      {getAllDigitalSnakeTypes().map((type, idx) => (
-                        <option key={idx} value={type} />
-                      ))}
-                    </datalist>
-                  </div>
-                )}
-
+                
                 {(bulkConnection === "Digital Snake" || bulkConnection === "Digital Network") && (
-                  <div>
+                   <div>
                     <label className="block text-gray-300 text-sm mb-2">Network Patch # (Starting)</label>
                     <input
                       type="text"
@@ -1626,23 +1641,10 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                     />
                   </div>
                 )}
-
-                {bulkConnection === "Digital Snake" && (
-                  <div>
-                    <label className="block text-gray-300 text-sm mb-2">Input # (Starting)</label>
-                    <input
-                      type="text"
-                      value={bulkConnectionDetails.inputNumber || ""}
-                      onChange={(e) => handleBulkConnectionDetailChange('inputNumber', e.target.value)}
-                      className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="e.g., 1 (will increment with each input)"
-                    />
-                  </div>
-                )}
               </div>
             </div>
 
-            <div className="mt-8 pt-4 border-t border-gray-700 flex justify-end sticky bottom-0 bg-gray-800 z-10">
+            <div className="mt-8 pt-4 border-t border-gray-700 flex justify-end sticky bottom-0 bg-gray-800 z-20">
               <button
                 onClick={() => setShowBulkAddModal(false)}
                 className="px-5 py-2.5 text-gray-300 hover:text-white transition-all mr-4"
