@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase, validateSupabaseConfig } from '../lib/supabase';
 import Header from './Header';
 import Footer from './Footer';
-import { PlusCircle, FileText, Layout, Info, Trash2, Edit, Download, List } from 'lucide-react';
+import { PlusCircle, FileText, Layout, Info, Trash2, Edit, Download, List, AlertTriangle } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import PatchSheetExport from './PatchSheetExport';
 import StagePlotExport from './StagePlotExport';
@@ -49,7 +49,7 @@ const Dashboard = () => {
   const [showStagePlotExportModal, setShowStagePlotExportModal] = useState(false);
   const [exportStagePlotId, setExportStagePlotId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [documentToDelete, setDocumentToDelete] = useState<{ id: string; type: 'patch' | 'stage' } | null>(null);
+  const [documentToDelete, setDocumentToDelete] = useState<{ id: string; type: 'patch' | 'stage'; name: string } | null>(null);
   const [supabaseWarning, setSupabaseWarning] = useState(false);
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
   
@@ -200,13 +200,8 @@ const Dashboard = () => {
     }
   };
 
-  const handleDeletePatchList = async (id: string) => {
-    setDocumentToDelete({ id, type: 'patch' });
-    setShowDeleteConfirm(true);
-  };
-
-  const handleDeleteStagePlot = async (id: string) => {
-    setDocumentToDelete({ id, type: 'stage' });
+  const handleDeleteRequest = (id: string, type: 'patch' | 'stage', name: string) => {
+    setDocumentToDelete({ id, type, name });
     setShowDeleteConfirm(true);
   };
 
@@ -622,7 +617,7 @@ const Dashboard = () => {
                           title="Delete"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeletePatchList(patchList.id);
+                            handleDeleteRequest(patchList.id, 'patch', patchList.name);
                           }}
                         >
                           <Trash2 className="h-5 w-5" />
@@ -711,7 +706,7 @@ const Dashboard = () => {
                         <button 
                           className="p-2 text-gray-400 hover:text-red-400"
                           title="Delete"
-                          onClick={() => handleDeleteStagePlot(stagePlot.id)}
+                          onClick={() => handleDeleteRequest(stagePlot.id, 'stage', stagePlot.name)}
                         >
                           <Trash2 className="h-5 w-5" />
                         </button>
@@ -894,25 +889,39 @@ const Dashboard = () => {
       )}
 
       {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">Confirm Deletion</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this document? This action cannot be undone.
-            </p>
-            <div className="flex justify-end space-x-4">
+      {showDeleteConfirm && documentToDelete && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl">
+            <div className="flex items-start">
+              <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-500/20 sm:mx-0 sm:h-10 sm:w-10">
+                <AlertTriangle className="h-6 w-6 text-red-400" aria-hidden="true" />
+              </div>
+              <div className="ml-4 text-left">
+                <h3 className="text-lg font-medium text-white" id="modal-title">
+                  Delete {documentToDelete.type === 'patch' ? 'Patch List' : 'Stage Plot'}
+                </h3>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-300">
+                    Are you sure you want to delete "{documentToDelete.name}"? 
+                    This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 sm:mt-8 sm:flex sm:flex-row-reverse">
               <button
-                onClick={cancelDelete}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
+                type="button"
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
                 onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
               >
                 Delete
+              </button>
+              <button
+                type="button"
+                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-600 shadow-sm px-4 py-2 bg-gray-700 text-base font-medium text-gray-300 hover:bg-gray-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors"
+                onClick={cancelDelete}
+              >
+                Cancel
               </button>
             </div>
           </div>

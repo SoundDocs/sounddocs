@@ -5,7 +5,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import MobileScreenWarning from '../components/MobileScreenWarning';
 import { useScreenSize } from '../hooks/useScreenSize';
-import { ArrowLeft, PlusCircle, FileText, Trash2, Edit, Download, Search, SortAsc, SortDesc, Filter, Copy, LayoutTemplate, Share2 } from 'lucide-react';
+import { ArrowLeft, PlusCircle, FileText, Trash2, Edit, Download, Search, SortAsc, SortDesc, Filter, Copy, LayoutTemplate, Share2, AlertTriangle } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import PatchSheetExport from '../components/PatchSheetExport';
 import PrintPatchSheetExport from '../components/PrintPatchSheetExport';
@@ -44,6 +44,8 @@ const AllPatchSheets = () => {
   const [selectedSharePatchSheet, setSelectedSharePatchSheet] = useState<PatchSheet | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportPatchSheetId, setExportPatchSheetId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<{ id: string; name: string } | null>(null);
   
   // Refs for the exportable components
   const exportRef = useRef<HTMLDivElement>(null);
@@ -105,22 +107,37 @@ const AllPatchSheets = () => {
     }
   };
 
-  const handleDeletePatchSheet = async (id: string) => {
+  const handleDeleteRequest = (id: string, name: string) => {
+    setDocumentToDelete({ id, name });
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!documentToDelete) return;
+
     try {
       const { error } = await supabase
         .from('patch_sheets')
         .delete()
-        .eq('id', id);
+        .eq('id', documentToDelete.id);
 
       if (error) throw error;
       
       // Update the local state
-      setPatchSheets(patchSheets.filter(item => item.id !== id));
-      setFilteredPatchSheets(filteredPatchSheets.filter(item => item.id !== id));
+      setPatchSheets(patchSheets.filter(item => item.id !== documentToDelete.id));
+      setFilteredPatchSheets(filteredPatchSheets.filter(item => item.id !== documentToDelete.id));
     } catch (error) {
       console.error('Error deleting patch sheet:', error);
       alert('Failed to delete patch sheet. Please try again.');
+    } finally {
+      setShowDeleteConfirm(false);
+      setDocumentToDelete(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setDocumentToDelete(null);
   };
 
   const handleEditPatchSheet = (id: string) => {
@@ -606,7 +623,7 @@ const AllPatchSheets = () => {
                           <button 
                             className="p-2 text-gray-400 hover:text-red-400 transition-colors"
                             title="Delete"
-                            onClick={() => handleDeletePatchSheet(sheet.id)}
+                            onClick={() => handleDeleteRequest(sheet.id, sheet.name)}
                           >
                             <Trash2 className="h-5 w-5" />
                           </button>
@@ -715,6 +732,46 @@ const AllPatchSheets = () => {
             patchSheet={currentExportPatchSheet}
           />
         </>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && documentToDelete && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl">
+            <div className="flex items-start">
+              <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-500/20 sm:mx-0 sm:h-10 sm:w-10">
+                <AlertTriangle className="h-6 w-6 text-red-400" aria-hidden="true" />
+              </div>
+              <div className="ml-4 text-left">
+                <h3 className="text-lg font-medium text-white" id="modal-title">
+                  Delete Patch Sheet
+                </h3>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-300">
+                    Are you sure you want to delete "{documentToDelete.name}"? 
+                    This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 sm:mt-8 sm:flex sm:flex-row-reverse">
+              <button
+                type="button"
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
+                onClick={confirmDelete}
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-600 shadow-sm px-4 py-2 bg-gray-700 text-base font-medium text-gray-300 hover:bg-gray-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors"
+                onClick={cancelDelete}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <Footer />
