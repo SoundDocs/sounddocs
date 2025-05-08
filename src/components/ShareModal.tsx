@@ -48,55 +48,64 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, resourceId, re
   };
 
   const handleCreateNewLink = async () => {
+    let newLinkCreated: SharedLink | null = null;
     try {
       setLoading(true);
       setError(null);
       
-      // Check if a link of this type already exists
       const existingLink = shareLinks.find(link => link.link_type === newLinkType);
-      
       if (existingLink) {
         setError(`A ${newLinkType} link already exists for this ${resourceTypeLabel.toLowerCase()}. Please delete it first or modify its expiration.`);
         setLoading(false);
         return;
       }
       
-      // Determine the expiration days to use
       let expiration = newLinkExpiration;
       if (showCustomExpirationInput) {
-        expiration = customExpirationDays > 0 ? customExpirationDays : null; // Use custom days, or null if invalid/zero
+        expiration = customExpirationDays > 0 ? customExpirationDays : null;
       }
 
       console.log(`Creating link: type=${newLinkType}, expiration=${expiration} days`);
 
-      const newLink = await createShareLink(
+      // Step 1: Create the link. If this fails, the main catch block will handle it.
+      newLinkCreated = await createShareLink(
         resourceId, 
         resourceType, 
         newLinkType, 
-        expiration // Use the determined expiration
+        expiration
       );
       
-      if (newLink) {
-        // Add the new link to the list
-        setShareLinks([newLink, ...shareLinks]);
-        // Copy the new link to clipboard
-        const shareUrl = getShareUrl(newLink.share_code, newLink.resource_type, newLink.link_type);
-        await navigator.clipboard.writeText(shareUrl);
-        setCopiedLinkId(newLink.id);
-        
-        // Reset copy indication after 3 seconds
-        setTimeout(() => {
-          setCopiedLinkId(null);
-        }, 3000);
+      // If createShareLink was successful, newLinkCreated is populated.
+      // The link is now created. Add it to the UI.
+      setShareLinks(prevLinks => [newLinkCreated!, ...prevLinks]);
 
-        // Reset form state
-        setNewLinkType('view');
-        setNewLinkExpiration(7);
-        setShowCustomExpirationInput(false);
+      // Step 2: Attempt to copy to clipboard. This is a "nice-to-have".
+      const shareUrl = getShareUrl(newLinkCreated!.share_code, newLinkCreated!.resource_type, newLinkCreated!.link_type);
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopiedLinkId(newLinkCreated!.id); // Show "Copied!" feedback
+        setTimeout(() => setCopiedLinkId(null), 3000);
+      } catch (clipboardError) {
+        console.warn('Automatic copy to clipboard failed. User can copy manually.', clipboardError);
+        // Do NOT set the main `error` state here, as the link was created successfully.
+        // The "Copied!" feedback will simply not appear.
       }
+
+      // Reset form state
+      setNewLinkType('view');
+      setNewLinkExpiration(7);
+      setShowCustomExpirationInput(false);
+
     } catch (err: any) {
-      console.error('Error creating share link:', err);
-      setError(`Failed to create share link: ${err.message || 'Please try again.'}`);
+      console.error('Error in handleCreateNewLink:', err);
+      // Only set the error if the link itself wasn't successfully created.
+      if (!newLinkCreated) {
+         setError(`Failed to create share link: ${err.message || 'Please try again.'}`);
+      } else {
+        // Link was created, but some other error occurred post-creation (e.g., in UI update).
+        // This is less likely for the original problem but good for robustness.
+        console.warn("Link created, but an unexpected error occurred afterwards in handleCreateNewLink:", err);
+      }
     } finally {
       setLoading(false);
     }
@@ -125,13 +134,12 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, resourceId, re
       await navigator.clipboard.writeText(shareUrl);
       setCopiedLinkId(linkId);
       
-      // Reset copy indication after 3 seconds
       setTimeout(() => {
           setCopiedLinkId(null);
         }, 3000);
     } catch (err) {
       console.error('Error copying link:', err);
-      setError('Failed to copy link to clipboard');
+      setError('Failed to copy link to clipboard. Please copy it manually.');
     }
   };
 
@@ -142,7 +150,6 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, resourceId, re
       const updatedLink = await updateShareLinkExpiration(linkId, expirationDays);
       
       if (updatedLink) {
-        // Update the link in the list
         setShareLinks(shareLinks.map(link => 
           link.id === linkId ? updatedLink : link
         ));
@@ -155,43 +162,39 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, resourceId, re
     }
   };
 
-  // Format expiration date for display
   const formatExpirationDate = (date: string | null) => {
     if (!date) return 'Never expires';
     
     const expirationDate = new Date(date);
     const now = new Date();
     
-    // Calculate days remaining
     const diffTime = expirationDate.getTime() - now.getTime();
     
-    if (diffTime < 0) return 'Expired'; // Already expired
+    if (diffTime < 0) return 'Expired';
 
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    if (diffDays === 0) return 'Expires today'; // Expires within the next 24 hours
+    if (diffDays === 0) return 'Expires today';
     if (diffDays === 1) return 'Expires tomorrow';
     return `Expires in ${diffDays} days`;
   };
 
-  // Get status color based on expiration
   const getExpirationStatusColor = (date: string | null) => {
-    if (!date) return 'text-green-400'; // Never expires
+    if (!date) return 'text-green-400';
     
     const expirationDate = new Date(date);
     const now = new Date();
     
     const diffTime = expirationDate.getTime() - now.getTime();
     
-    if (diffTime < 0) return 'text-red-400'; // Expired
+    if (diffTime < 0) return 'text-red-400';
 
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    if (diffDays < 3) return 'text-yellow-400'; // Almost expired (less than 3 days)
-    return 'text-green-400'; // Healthy
+    if (diffDays < 3) return 'text-yellow-400';
+    return 'text-green-400';
   };
 
-  // Calculate expiration value for the select dropdown
   const getExpirationSelectValue = (date: string | null): string => {
     if (!date) return 'never';
     
@@ -199,18 +202,14 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, resourceId, re
     const now = new Date();
     const diffTime = expirationDate.getTime() - now.getTime();
     
-    if (diffTime <= 0) return 'expired'; // Handle expired case for select if needed
+    if (diffTime <= 0) return 'expired';
 
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    // Check against standard options
     if ([1, 7, 30, 90].includes(diffDays)) {
       return diffDays.toString();
     }
     
-    // If it's not a standard option or never, consider it custom or handle appropriately
-    // For simplicity, if it's a valid future date not matching standard, maybe default to nearest or just show current state
-    // Let's just return the days for now, might need refinement
     return diffDays.toString(); 
   };
 
@@ -235,7 +234,6 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, resourceId, re
           </div>
         )}
         
-        {/* Create new share link section */}
         <div className="bg-gray-700 rounded-lg p-4 mb-6">
           <h3 className="text-lg font-medium text-white mb-4">Create New Share Link</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -260,12 +258,11 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, resourceId, re
                         : 'bg-gray-600 text-gray-300 hover:bg-gray-550'
                     } opacity-50 cursor-not-allowed`}
                     onClick={() => setNewLinkType('edit')}
-                    disabled // Keep disabled for now
+                    disabled 
                     title="Edit links are currently under development"
                   >
                     View & Edit
                   </button>
-                  {/* Tooltip for disabled edit button */}
                   <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-100 pointer-events-none">
                     Edit links coming soon!
                   </span>
@@ -281,8 +278,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, resourceId, re
                   const value = e.target.value;
                   if (value === 'custom') {
                     setShowCustomExpirationInput(true);
-                    // Optionally set a default custom value or keep the last one
-                    setNewLinkExpiration(null); // Indicate custom mode is active
+                    setNewLinkExpiration(null); 
                   } else {
                     setShowCustomExpirationInput(false);
                     setNewLinkExpiration(value === 'never' ? null : parseInt(value, 10));
@@ -299,7 +295,6 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, resourceId, re
               </select>
             </div>
             
-            {/* Custom expiration input */}
             {showCustomExpirationInput && (
               <div className="md:col-span-2">
                 <label className="block text-gray-300 mb-2 text-sm">Custom Expiration (days)</label>
@@ -307,7 +302,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, resourceId, re
                   <input
                     type="number"
                     min="1"
-                    max="365" // Set a reasonable max
+                    max="365"
                     value={customExpirationDays}
                     onChange={(e) => {
                       let days = parseInt(e.target.value, 10);
@@ -318,7 +313,6 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, resourceId, re
                     className="w-full bg-gray-600 text-white border border-gray-500 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="Enter days (1-365)"
                   />
-                  {/* No separate "Set" button needed, value is used on Create */}
                 </div>
                  <p className="text-xs text-gray-400 mt-1">Link will expire after the specified number of days.</p>
               </div>
@@ -343,18 +337,17 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, resourceId, re
           </div>
         </div>
         
-        {/* Existing share links section */}
         <div>
           <h3 className="text-lg font-medium text-white mb-4">Existing Share Links</h3>
           
-          {loading && shareLinks.length === 0 && ( // Show loading indicator only if list is empty
+          {loading && shareLinks.length === 0 && (
              <div className="text-center py-4">
                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-400 mx-auto"></div>
                <p className="text-gray-400 mt-2 text-sm">Loading links...</p>
              </div>
           )}
 
-          {!loading && shareLinks.length === 0 && ( // Show empty state only when not loading
+          {!loading && shareLinks.length === 0 && (
             <div className="bg-gray-700/50 border border-gray-600 rounded-lg p-6 text-center">
               <CalendarClock className="h-8 w-8 text-gray-500 mx-auto mb-2" />
               <p className="text-gray-400 text-sm">No share links have been created yet for this {resourceTypeLabel.toLowerCase()}.</p>
@@ -412,14 +405,13 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, resourceId, re
                     </div>
                   </div>
                   
-                  {/* Link URL Input */}
                    <div className="mb-3 bg-gray-800 p-2 rounded-lg flex items-center justify-between">
                     <input
                       type="text"
                       readOnly
                       value={getShareUrl(link.share_code, link.resource_type, link.link_type)}
                       className="flex-grow bg-transparent border-none outline-none text-indigo-300 text-sm px-2 overflow-x-auto"
-                      onClick={(e) => (e.target as HTMLInputElement).select()} // Select text on click
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
                     />
                     <button
                       onClick={() => handleCopyLink(link.share_code, link.id, link.resource_type, link.link_type)}
@@ -433,7 +425,6 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, resourceId, re
                     </button>
                   </div>
 
-                  {/* Stats and Expiration Update */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                      <div className="col-span-1 sm:col-span-2 grid grid-cols-3 gap-2">
                         <div>
@@ -467,14 +458,12 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, resourceId, re
                           value={getExpirationSelectValue(link.expires_at)}
                           disabled={loading}
                         >
-                          {/* Add an option reflecting the current state if it's expired or custom */}
                           {link.expires_at && new Date(link.expires_at) < new Date() && <option value="expired" disabled>Expired</option>}
                           
                           <option value="1">1 day</option>
                           <option value="7">7 days</option>
                           <option value="30">30 days</option>
                           <option value="90">90 days</option>
-                          {/* Consider adding a 'Custom' display if getExpirationSelectValue returns non-standard */}
                           <option value="never">Never expires</option>
                         </select>
                      </div>
