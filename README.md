@@ -59,7 +59,7 @@ SoundDocs is a modern web application designed for audio engineers to create pro
 ### Installation
 
 1. Clone the repository:
-   - git clone https://github.com/cj-vana/sounddocs.git
+   - git clone [https://github.com/SoundDocs/sounddocs.git](https://github.com/SoundDocs/sounddocs)
    - cd sounddocs
 2. Install Dependancies
    - npm install
@@ -85,7 +85,7 @@ SoundDocs is a modern web application designed for audio engineers to create pro
 
 ## 🤝 Contributing
 
-We welcome any and all contributions! Please join our discord server before making any contributions. discord.gg/hVk6tctuHM
+We welcome any and all contributions! Please join our discord server before making any contributions. [discord.gg/hVk6tctuHM](https://discord.com/invite/NRcRtyxFQa)
 
 ### Local Development
 
