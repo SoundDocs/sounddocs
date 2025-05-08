@@ -4,14 +4,14 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "./bin/injecting-supabase-env vite",
+    "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "local-db": "npx supabase start"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.38.2",
+    "@supabase/supabase-js": "^2.49.4",
     "html2canvas": "^1.4.1",
     "lucide-react": "^0.344.0",
     "nanoid": "^5.0.6",
