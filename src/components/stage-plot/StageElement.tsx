@@ -260,7 +260,7 @@ const StageElement: React.FC<StageElementProps> = ({
   };
 
   const mobileProps = isMobile && !disabled ? { onTouchEnd: handleTap } : {};
-  const isResizable = !['monitor-wedge'].includes(type) && !disabled;
+  const isResizable = !disabled; // Allow all non-disabled elements to be resizable
   const elementVisualStyles = type !== 'text' ? getElementStyles() : null;
 
   const getFontSize = () => {
