@@ -1,27 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Image as ImageIcon, Trash2 } from 'lucide-react';
+import { StageElementProps } from './StageElement'; // Assuming StageElementProps is exported
 
-interface ElementPropertiesProps {
-  selectedElement: {
-    id: string;
-    type: string;
-    label: string;
-    x: number;
-    y: number;
-    rotation: number;
-    color?: string;
-  } | null;
+interface ElementPropertiesPanelProps { // Renamed from ElementPropertiesProps to avoid conflict
+  selectedElement: StageElementProps | null;
   onPropertyChange: (id: string, property: string, value: any) => void;
 }
 
-const ElementProperties: React.FC<ElementPropertiesProps> = ({ 
+const ElementProperties: React.FC<ElementPropertiesPanelProps> = ({ 
   selectedElement,
   onPropertyChange
 }) => {
   const [label, setLabel] = useState('');
   const [color, setColor] = useState('#4f46e5');
   const [rotation, setRotation] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Update local state when selected element changes
   useEffect(() => {
     if (selectedElement) {
       setLabel(selectedElement.label);
@@ -63,9 +57,42 @@ const ElementProperties: React.FC<ElementPropertiesProps> = ({
     setRotation(normalizedRotation);
     onPropertyChange(selectedElement.id, 'rotation', normalizedRotation);
   };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedElement) return;
+
+    if (file.size > 2 * 1024 * 1024) { // 2MB limit for data URL
+      alert('Image size should be less than 2MB.');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        onPropertyChange(selectedElement.id, 'customImageUrl', event.target.result as string);
+        // Optionally, if you want to change the element type to 'custom-image' upon uploading an image:
+        // onPropertyChange(selectedElement.id, 'type', 'custom-image');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveCustomImage = () => {
+    if (selectedElement) {
+      onPropertyChange(selectedElement.id, 'customImageUrl', null);
+      // Optionally, revert type if it was changed to 'custom-image'
+      // if (selectedElement.type === 'custom-image') {
+      //   onPropertyChange(selectedElement.id, 'type', 'generic-instrument'); // or some default
+      // }
+    }
+  };
   
   const elementTypes: Record<string, string> = {
-    // Instruments
     'electric-guitar': 'Electric Guitar',
     'acoustic-guitar': 'Acoustic Guitar',
     'bass-guitar': 'Bass Guitar',
@@ -77,8 +104,7 @@ const ElementProperties: React.FC<ElementPropertiesProps> = ({
     'trumpet': 'Trumpet/Brass',
     'saxophone': 'Saxophone',
     'generic-instrument': 'Other Instrument',
-    
-    // Basic elements
+    'custom-image': 'Custom Image', // Added
     'microphone': 'Microphone',
     'monitor-wedge': 'Wedge Monitor',
     'amplifier': 'Amplifier',
@@ -115,7 +141,7 @@ const ElementProperties: React.FC<ElementPropertiesProps> = ({
           />
         </div>
         
-        {selectedElement.type !== 'text' && (
+        {selectedElement.type !== 'text' && !selectedElement.customImageUrl && (
           <div>
             <label className="block text-gray-300 mb-2 text-sm" htmlFor="elementColor">
               Color
@@ -135,6 +161,42 @@ const ElementProperties: React.FC<ElementPropertiesProps> = ({
                 className="flex-grow bg-gray-700 text-white border border-gray-600 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
               />
             </div>
+          </div>
+        )}
+
+        {selectedElement.type !== 'text' && (
+          <div>
+            <label className="block text-gray-300 mb-2 text-sm">Custom Image</label>
+            {selectedElement.customImageUrl ? (
+              <div className="space-y-2">
+                <img src={selectedElement.customImageUrl} alt="Custom element" className="max-w-full h-auto rounded border border-gray-600 max-h-32 object-contain" />
+                <button
+                  onClick={handleRemoveCustomImage}
+                  className="w-full inline-flex items-center justify-center bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md font-medium text-sm transition-all duration-200"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Remove Image
+                </button>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  ref={fileInputRef}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-md font-medium text-sm transition-all duration-200"
+                >
+                  <ImageIcon className="h-4 w-4 mr-2" />
+                  Upload Image
+                </button>
+                <p className="text-xs text-gray-400 mt-1">Max 2MB. Replaces element color.</p>
+              </>
+            )}
           </div>
         )}
         
