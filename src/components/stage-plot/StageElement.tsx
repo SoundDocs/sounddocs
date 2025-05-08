@@ -1,8 +1,6 @@
 import React, { useState, useRef } from 'react';
 import Draggable from 'react-draggable';
-import { Mic, Music, Speaker, Square, Type, Users, Headphones, Volume2, Piano, Guitar, Blinds as Violin, Drum, Plug, CircleEllipsis } from 'lucide-react';
-// Resizable and ResizeCallbackData are not used from 'react-resizable' in the current code,
-// as there's a custom resize handle. If react-resizable was intended, it's not implemented.
+import { Mic, Music, Speaker, Square, Type, Users, Headphones, Volume2, Piano, Guitar, Blinds as Violin, Drum, Plug, CircleEllipsis, Image as ImageIcon } from 'lucide-react';
 
 export interface StageElementProps {
   id: string;
@@ -11,19 +9,20 @@ export interface StageElementProps {
   x: number;
   y: number;
   rotation: number;
-  icon?: React.ReactNode; // This is optional and will be generated internally if not provided
+  icon?: React.ReactNode; 
   color?: string;
   width?: number;
   height?: number;
+  customImageUrl?: string | null; // New property for custom image
   selected?: boolean;
-  disabled?: boolean; // New prop to handle view-only mode
+  disabled?: boolean; 
   onClick?: (id: string) => void;
   onDragStop?: (id: string, x: number, y: number) => void;
   onRotate?: (id: string, rotation: number) => void;
   onLabelChange?: (id: string, label: string) => void;
   onDelete?: (id: string) => void;
-  onDuplicate?: (id: string) => void; // New prop for duplicate functionality
-  onResize?: (id: string, width: number, height: number) => void; // New prop for resize functionality
+  onDuplicate?: (id: string) => void; 
+  onResize?: (id: string, width: number, height: number) => void; 
 }
 
 const StageElement: React.FC<StageElementProps> = ({
@@ -33,10 +32,10 @@ const StageElement: React.FC<StageElementProps> = ({
   x,
   y,
   rotation,
-  // icon prop is ignored, getIconForType is used
   color = '#4f46e5',
   width,
   height,
+  customImageUrl,
   selected = false,
   disabled = false,
   onClick,
@@ -51,7 +50,6 @@ const StageElement: React.FC<StageElementProps> = ({
   const [tempLabel, setTempLabel] = useState(label);
   const [isResizing, setIsResizing] = useState(false);
   const isMobile = window.innerWidth < 768;
-  // const elementRef = useRef<HTMLDivElement>(null); // elementRef is not used
 
   const getDefaultDimensions = () => {
     if (
@@ -65,7 +63,8 @@ const StageElement: React.FC<StageElementProps> = ({
       type === 'cello' ||
       type === 'trumpet' ||
       type === 'saxophone' ||
-      type === 'generic-instrument'
+      type === 'generic-instrument' ||
+      type === 'custom-image' // Added for custom image type
     ) {
       return { width: 64, height: 64 };
     }
@@ -105,7 +104,12 @@ const StageElement: React.FC<StageElementProps> = ({
   const dimensions = getElementDimensions();
 
   const getElementStyles = () => {
-    // These styles are for the icon/shape container, not the text label itself for 'text' type
+    if (customImageUrl) {
+      return {
+        className: 'rounded-md flex items-center justify-center overflow-hidden',
+        style: { backgroundColor: 'transparent' } // No background color if custom image
+      };
+    }
     if (
       type === 'electric-guitar' ||
       type === 'acoustic-guitar' ||
@@ -117,11 +121,12 @@ const StageElement: React.FC<StageElementProps> = ({
       type === 'cello' ||
       type === 'trumpet' ||
       type === 'saxophone' ||
-      type === 'generic-instrument'
+      type === 'generic-instrument' ||
+      type === 'custom-image'
     ) {
       return {
         className: 'rounded-lg flex items-center justify-center',
-        style: { backgroundColor: color } // Width/height will be 100% of parent
+        style: { backgroundColor: color } 
       };
     }
 
@@ -138,7 +143,7 @@ const StageElement: React.FC<StageElementProps> = ({
         };
       case 'monitor-wedge':
         return {
-          className: 'monitor-wedge flex items-center justify-center transform rotate-[15deg]', // Intrinsic rotation
+          className: 'monitor-wedge flex items-center justify-center transform rotate-[15deg]',
           style: { backgroundColor: color }
         };
       case 'amplifier':
@@ -158,7 +163,6 @@ const StageElement: React.FC<StageElementProps> = ({
           className: 'rounded-full flex items-center justify-center',
           style: { backgroundColor: color }
         };
-      // 'text' type styling is handled directly in the JSX for the text box
       default:
         return {
           className: 'rounded-md flex items-center justify-center',
@@ -168,6 +172,8 @@ const StageElement: React.FC<StageElementProps> = ({
   };
 
   const getIconForType = () => {
+    if (customImageUrl) return null; // No icon if custom image is used
+
     const iconSize = Math.max(12, Math.min(24, dimensions.width * 0.5));
     const iconProps = { style: { height: `${iconSize}px`, width: `${iconSize}px` }, className: "text-white" };
 
@@ -180,6 +186,7 @@ const StageElement: React.FC<StageElementProps> = ({
       case 'violin': case 'cello': return <Violin {...iconProps} />;
       case 'trumpet': case 'saxophone': return <Music {...iconProps} />;
       case 'generic-instrument': return <CircleEllipsis {...iconProps} />;
+      case 'custom-image': return <ImageIcon {...iconProps} />; // Icon for the "Custom Image" type itself
       case 'amplifier': return <Volume2 {...iconProps} />;
       case 'monitor-wedge':
         return (
@@ -191,7 +198,7 @@ const StageElement: React.FC<StageElementProps> = ({
       case 'di-box': return <Square {...iconProps} style={{ ...iconProps.style, height: `${iconSize * 0.75}px`, width: `${iconSize * 0.75}px` }} />;
       case 'iem': return <Headphones {...iconProps} />;
       case 'person': return <Users {...iconProps} />;
-      case 'text': return <Type {...iconProps} />; // Icon for text type, though the box itself is the primary visual
+      case 'text': return <Type {...iconProps} />;
       default: return null;
     }
   };
@@ -221,10 +228,9 @@ const StageElement: React.FC<StageElementProps> = ({
     if (disabled) return;
     e.stopPropagation();
     setEditingLabel(true);
-    setTempLabel(label); // Ensure tempLabel is current label when starting edit
+    setTempLabel(label);
   };
 
-  // Specifically for text elements, double-clicking the element itself edits its content
   const handleTextElementDoubleClick = (e: React.MouseEvent) => {
     if (disabled || type !== 'text') return;
     e.stopPropagation();
@@ -254,7 +260,7 @@ const StageElement: React.FC<StageElementProps> = ({
   };
 
   const mobileProps = isMobile && !disabled ? { onTouchEnd: handleTap } : {};
-  const isResizable = !['monitor-wedge'].includes(type) && !disabled;
+  const isResizable = !disabled; // Allow all non-disabled elements to be resizable
   const elementVisualStyles = type !== 'text' ? getElementStyles() : null;
 
   const getFontSize = () => {
@@ -278,9 +284,9 @@ const StageElement: React.FC<StageElementProps> = ({
       bounds="parent"
       grid={[5, 5]}
       disabled={disabled || isResizing}
-      cancel=".resize-handle, input, button, span, textarea" // Added textarea
+      cancel=".resize-handle, input, button, span, textarea"
     >
-      <div // Main draggable wrapper
+      <div
         className={`absolute ${!disabled ? 'cursor-move' : ''} touch-manipulation ${selected ? 'z-20' : 'z-10'}`}
         onClick={() => !disabled && !isResizing && onClick && onClick(id)}
         {...mobileProps}
@@ -289,7 +295,6 @@ const StageElement: React.FC<StageElementProps> = ({
           height: `${dimensions.height}px`,
         }}
       >
-        {/* Control buttons */}
         {selected && !disabled && (
           <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 flex items-center space-x-1 bg-gray-800 border border-gray-600 p-1 rounded-md shadow-lg z-30">
             <button
@@ -315,18 +320,17 @@ const StageElement: React.FC<StageElementProps> = ({
           </div>
         )}
 
-        {/* Visual Part of the Element (Icon or Text Box) */}
         <div
           className="element-visual-container"
           style={{
             width: '100%',
             height: '100%',
-            transform: type !== 'text' ? `rotate(${rotation}deg)` : 'none', // Rotate only if not text
+            transform: type !== 'text' ? `rotate(${rotation}deg)` : 'none',
             transformOrigin: 'center center',
           }}
         >
           {type === 'text' ? (
-            <div // Text Element: The "visual" is the text box itself. It does not rotate.
+            <div
               className="text-label flex items-center justify-center w-full h-full"
               onDoubleClick={!disabled ? handleTextElementDoubleClick : undefined}
               style={{
@@ -334,18 +338,16 @@ const StageElement: React.FC<StageElementProps> = ({
                 boxShadow: selected ? '0 0 0 2px rgba(99, 102, 241, 0.5)' : 'none',
                 backgroundColor: 'rgba(30, 41, 59, 0.9)',
                 fontSize: `${getFontSize()}px`,
-                overflow: 'hidden', // Changed from 'auto' to 'hidden' to prevent scrollbars if text too long
+                overflow: 'hidden',
                 textAlign: 'center',
-                color: 'white', // Ensure text is white
+                color: 'white',
               }}
             >
               {editingLabel && !disabled ? (
-                <textarea // Using textarea for potentially multi-line text, styled like an input
+                <textarea
                   value={tempLabel}
                   onChange={(e) => setTempLabel(e.target.value)}
                   onBlur={handleLabelChange}
-                  // Enter key submits for single line, for textarea it's usually for new line.
-                  // Consider Shift+Enter for new line and Enter to submit, or just rely on blur.
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleLabelChange(); } }}
                   className="bg-transparent text-white border-none focus:outline-none text-center w-full h-full p-1 resize-none"
                   onClick={(e) => e.stopPropagation()}
@@ -359,24 +361,33 @@ const StageElement: React.FC<StageElementProps> = ({
               )}
             </div>
           ) : (
-            elementVisualStyles && ( // Non-Text Element: The "visual" is the icon/shape.
+            elementVisualStyles && (
               <div
-                className={`${elementVisualStyles.className} ${selected ? 'ring-2 ring-white ring-opacity-80' : ''} w-full h-full`}
+                className={`${elementVisualStyles.className} ${selected && !customImageUrl ? 'ring-2 ring-white ring-opacity-80' : ''} ${selected && customImageUrl ? 'ring-2 ring-indigo-500 ring-opacity-80' : ''} w-full h-full`}
                 style={elementVisualStyles.style}
               >
-                {getIconForType()}
+                {customImageUrl ? (
+                  <img 
+                    src={customImageUrl} 
+                    alt={label || 'Custom image'} 
+                    className="object-contain w-full h-full"
+                    style={{ pointerEvents: 'none' }} // Prevent image from interfering with drag
+                    draggable="false" // Prevent native browser drag
+                  />
+                ) : (
+                  getIconForType()
+                )}
               </div>
             )
           )}
         </div>
 
-        {/* Label for Non-Text Elements - Positioned below the visual, does not rotate */}
         {type !== 'text' && (
           <div
             className="absolute left-1/2 transform -translate-x-1/2 mt-1 whitespace-nowrap flex justify-center"
             style={{
-              top: `${dimensions.height}px`, // Positioned right below the visual container
-              zIndex: 5, // Lower z-index than controls but above other elements if needed
+              top: `${dimensions.height}px`,
+              zIndex: 5,
             }}
           >
             {editingLabel && !disabled ? (
@@ -409,7 +420,6 @@ const StageElement: React.FC<StageElementProps> = ({
           </div>
         )}
 
-        {/* Resize Handle */}
         {selected && isResizable && (
           <div className="resize-handle absolute -right-2 -bottom-2 w-4 h-4 bg-white rounded-full border-2 border-indigo-500 cursor-nwse-resize z-30"
             onMouseDown={(e) => {
@@ -425,7 +435,7 @@ const StageElement: React.FC<StageElementProps> = ({
               const handleMouseMove = (moveEvent: MouseEvent) => {
                 const deltaX = moveEvent.clientX - startX;
                 const deltaY = moveEvent.clientY - startY;
-                const delta = Math.max(deltaX, deltaY); // Simple aspect ratio lock, could be improved
+                const delta = Math.max(deltaX, deltaY); 
 
                 const newWidth = Math.max(20, startWidth + delta);
                 const newHeight = Math.max(20, startHeight + delta);
