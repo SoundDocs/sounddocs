@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase, validateSupabaseConfig } from '../lib/supabase';
 import Header from './Header';
 import Footer from './Footer';
 import { PlusCircle, FileText, Layout, Info, Trash2, Edit, Download, List } from 'lucide-react';
@@ -25,8 +25,10 @@ interface StagePlot {
   name: string;
   created_at: string;
   last_edited?: string;
-  stage_size?: string;
-  elements?: any[];
+  stage_size: string;
+  elements: any[];
+  backgroundImage?: string;
+  backgroundOpacity?: number;
 }
 
 const Dashboard = () => {
@@ -46,6 +48,10 @@ const Dashboard = () => {
   const [exportPatchSheetId, setExportPatchSheetId] = useState<string | null>(null);
   const [showStagePlotExportModal, setShowStagePlotExportModal] = useState(false);
   const [exportStagePlotId, setExportStagePlotId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<{ id: string; type: 'patch' | 'stage' } | null>(null);
+  const [supabaseWarning, setSupabaseWarning] = useState(false);
+  const [supabaseError, setSupabaseError] = useState<string | null>(null);
   
   // Refs for the exportable components
   const patchSheetExportRef = useRef<HTMLDivElement>(null);
@@ -54,22 +60,30 @@ const Dashboard = () => {
   const printStagePlotExportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Validate Supabase configuration
+    const isValid = validateSupabaseConfig();
+    setSupabaseWarning(!isValid);
+
     // Check if user is authenticated
     const checkUser = async () => {
       try {
-        const { data } = await supabase.auth.getUser();
+        const { data, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        
         if (data.user) {
           setUser(data.user);
-          
-          // Fetch patch lists for the user
-          fetchPatchLists(data.user.id);
-          fetchRecentDocuments(data.user.id);
-          fetchStagePlots(data.user.id);
+          // Fetch user data
+          await Promise.all([
+            fetchPatchLists(data.user.id),
+            fetchRecentDocuments(data.user.id),
+            fetchStagePlots(data.user.id)
+          ]);
         } else {
           navigate('/login');
         }
       } catch (error) {
         console.error('Error checking auth status:', error);
+        setSupabaseError('Failed to connect to Supabase. Please check your configuration.');
         navigate('/login');
       } finally {
         setLoading(false);
@@ -187,38 +201,53 @@ const Dashboard = () => {
   };
 
   const handleDeletePatchList = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('patch_sheets')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      
-      // Update the local state
-      setPatchLists(patchLists.filter(item => item.id !== id));
-      setRecentDocuments(recentDocuments.filter(item => item.id !== id));
-    } catch (error) {
-      console.error('Error deleting patch list:', error);
-      alert('Failed to delete patch list. Please try again.');
-    }
+    setDocumentToDelete({ id, type: 'patch' });
+    setShowDeleteConfirm(true);
   };
 
   const handleDeleteStagePlot = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('stage_plots')
-        .delete()
-        .eq('id', id);
+    setDocumentToDelete({ id, type: 'stage' });
+    setShowDeleteConfirm(true);
+  };
 
-      if (error) throw error;
-      
-      // Update the local state
-      setStagePlots(stagePlots.filter(item => item.id !== id));
+  const confirmDelete = async () => {
+    if (!documentToDelete) return;
+
+    try {
+      if (documentToDelete.type === 'patch') {
+        const { error } = await supabase
+          .from('patch_sheets')
+          .delete()
+          .eq('id', documentToDelete.id);
+
+        if (error) throw error;
+        
+        // Update the local state
+        setPatchLists(patchLists.filter(item => item.id !== documentToDelete.id));
+        setRecentDocuments(recentDocuments.filter(item => item.id !== documentToDelete.id));
+      } else {
+        const { error } = await supabase
+          .from('stage_plots')
+          .delete()
+          .eq('id', documentToDelete.id);
+
+        if (error) throw error;
+        
+        // Update the local state
+        setStagePlots(stagePlots.filter(item => item.id !== documentToDelete.id));
+      }
     } catch (error) {
-      console.error('Error deleting stage plot:', error);
-      alert('Failed to delete stage plot. Please try again.');
+      console.error('Error deleting document:', error);
+      alert('Failed to delete document. Please try again.');
+    } finally {
+      setShowDeleteConfirm(false);
+      setDocumentToDelete(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setDocumentToDelete(null);
   };
 
   const handleEditPatchList = (id: string) => {
@@ -376,11 +405,20 @@ const Dashboard = () => {
           .single();
           
         if (error) throw error;
-        fullStagePlot = data;
+        if (!data) throw new Error('Stage plot not found');
+        
+        // Ensure required fields are present
+        fullStagePlot = {
+          ...data,
+          stage_size: data.stage_size || 'medium-wide',
+          elements: data.elements || []
+        };
       }
       
       // Set the current stage plot to be exported
-      setCurrentExportStagePlot(fullStagePlot);
+      if (fullStagePlot) {
+        setCurrentExportStagePlot(fullStagePlot);
+      }
       
       // Wait for the component to render
       setTimeout(async () => {
@@ -435,11 +473,20 @@ const Dashboard = () => {
           .single();
           
         if (error) throw error;
-        fullStagePlot = data;
+        if (!data) throw new Error('Stage plot not found');
+        
+        // Ensure required fields are present
+        fullStagePlot = {
+          ...data,
+          stage_size: data.stage_size || 'medium-wide',
+          elements: data.elements || []
+        };
       }
       
       // Set the current stage plot to be exported
-      setCurrentExportStagePlot(fullStagePlot);
+      if (fullStagePlot) {
+        setCurrentExportStagePlot(fullStagePlot);
+      }
       
       // Wait for the component to render
       setTimeout(async () => {
@@ -489,6 +536,36 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gray-900 flex flex-col">
       <Header dashboard={true} onSignOut={handleSignOut} />
       
+      {supabaseWarning && (
+        <div className="bg-yellow-500 text-yellow-900 px-4 py-3 shadow-sm">
+          <div className="container mx-auto">
+            <div className="flex items-center">
+              <Info className="h-5 w-5 mr-2" />
+              <div>
+                <p className="font-medium">Supabase Configuration Required</p>
+                <p className="text-sm">
+                  Please set up your Supabase environment variables. Check the console for instructions.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {supabaseError && (
+        <div className="bg-red-500 text-white px-4 py-3 shadow-sm">
+          <div className="container mx-auto">
+            <div className="flex items-center">
+              <Info className="h-5 w-5 mr-2" />
+              <div>
+                <p className="font-medium">Connection Error</p>
+                <p className="text-sm">{supabaseError}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="flex-grow container mx-auto px-4 py-12 mt-12">
         <div className="mb-12">
           <h1 className="text-3xl font-bold text-white mb-2">Welcome to SoundDocs</h1>
@@ -814,6 +891,32 @@ const Dashboard = () => {
             stagePlot={currentExportStagePlot}
           />
         </>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4">Confirm Deletion</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this document? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <Footer />
