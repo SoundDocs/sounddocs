@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
-import { Bookmark, AlertCircle } from 'lucide-react';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "../../lib/supabase";
+import { Bookmark, AlertCircle } from "lucide-react";
 
 const SignUp = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -26,10 +26,10 @@ const SignUp = () => {
         setError(error.message);
       } else if (data.user) {
         // Redirect to dashboard immediately instead of showing success message
-        navigate('/dashboard');
+        navigate("/dashboard");
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError("An unexpected error occurred");
       console.error(err);
     } finally {
       setLoading(false);
@@ -100,14 +100,14 @@ const SignUp = () => {
                 disabled={loading}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {loading ? 'Creating account...' : 'Sign Up'}
+                {loading ? "Creating account..." : "Sign Up"}
               </button>
             </form>
           )}
         </div>
 
         <p className="text-center text-gray-400">
-          Already have an account?{' '}
+          Already have an account?{" "}
           <Link to="/login" className="text-indigo-400 hover:text-indigo-300">
             Log in
           </Link>

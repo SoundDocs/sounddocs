@@ -1,16 +1,29 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
-import MobileScreenWarning from '../components/MobileScreenWarning';
-import { useScreenSize } from '../hooks/useScreenSize';
-import { ArrowLeft, PlusCircle, Layout, Trash2, Edit, Download, Search, SortAsc, SortDesc, Copy, Share2, AlertTriangle } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import StagePlotExport from '../components/StagePlotExport';
-import PrintStagePlotExport from '../components/PrintStagePlotExport';
-import ShareModal from '../components/ShareModal';
-import ExportModal from '../components/ExportModal';
+import React, { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+import Header from "../components/Header";
+import Footer from "../components/Footer";
+import MobileScreenWarning from "../components/MobileScreenWarning";
+import { useScreenSize } from "../hooks/useScreenSize";
+import {
+  ArrowLeft,
+  PlusCircle,
+  Layout,
+  Trash2,
+  Edit,
+  Download,
+  Search,
+  SortAsc,
+  SortDesc,
+  Copy,
+  Share2,
+  AlertTriangle,
+} from "lucide-react";
+import html2canvas from "html2canvas";
+import StagePlotExport from "../components/StagePlotExport";
+import PrintStagePlotExport from "../components/PrintStagePlotExport";
+import ShareModal from "../components/ShareModal";
+import ExportModal from "../components/ExportModal";
 
 // Define type for our stage plots
 interface StagePlot {
@@ -29,9 +42,9 @@ const AllStagePlots = () => {
   const [loading, setLoading] = useState(true);
   const [stagePlots, setStagePlots] = useState<StagePlot[]>([]);
   const [filteredStagePlots, setFilteredStagePlots] = useState<StagePlot[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<'name' | 'created_at' | 'last_edited'>('last_edited');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortField, setSortField] = useState<"name" | "created_at" | "last_edited">("last_edited");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [currentExportStagePlot, setCurrentExportStagePlot] = useState<StagePlot | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
@@ -40,8 +53,10 @@ const AllStagePlots = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportStagePlotId, setExportStagePlotId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [documentToDelete, setDocumentToDelete] = useState<{ id: string; name: string } | null>(null);
-  
+  const [documentToDelete, setDocumentToDelete] = useState<{ id: string; name: string } | null>(
+    null,
+  );
+
   // Refs for the exportable components
   const exportRef = useRef<HTMLDivElement>(null);
   const printExportRef = useRef<HTMLDivElement>(null);
@@ -50,26 +65,26 @@ const AllStagePlots = () => {
     const fetchStagePlots = async () => {
       try {
         const { data: userData } = await supabase.auth.getUser();
-        
+
         if (!userData.user) {
-          navigate('/login');
+          navigate("/login");
           return;
         }
-        
+
         const { data, error } = await supabase
-          .from('stage_plots')
-          .select('*')
-          .eq('user_id', userData.user.id)
-          .order(sortField, { ascending: sortDirection === 'asc' });
+          .from("stage_plots")
+          .select("*")
+          .eq("user_id", userData.user.id)
+          .order(sortField, { ascending: sortDirection === "asc" });
 
         if (error) throw error;
-        
+
         if (data) {
           setStagePlots(data);
           setFilteredStagePlots(data);
         }
       } catch (error) {
-        console.error('Error fetching stage plots:', error);
+        console.error("Error fetching stage plots:", error);
       } finally {
         setLoading(false);
       }
@@ -80,25 +95,25 @@ const AllStagePlots = () => {
 
   // Filter stage plots when search term changes
   useEffect(() => {
-    if (searchTerm.trim() === '') {
+    if (searchTerm.trim() === "") {
       setFilteredStagePlots(stagePlots);
     } else {
       const lowercaseSearch = searchTerm.toLowerCase();
-      const filtered = stagePlots.filter(plot => 
-        plot.name.toLowerCase().includes(lowercaseSearch)
+      const filtered = stagePlots.filter((plot) =>
+        plot.name.toLowerCase().includes(lowercaseSearch),
       );
       setFilteredStagePlots(filtered);
     }
   }, [searchTerm, stagePlots]);
 
-  const handleSort = (field: 'name' | 'created_at' | 'last_edited') => {
+  const handleSort = (field: "name" | "created_at" | "last_edited") => {
     if (sortField === field) {
       // Toggle direction if same field
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       // Set new field and default to descending for dates, ascending for name
       setSortField(field);
-      setSortDirection(field === 'name' ? 'asc' : 'desc');
+      setSortDirection(field === "name" ? "asc" : "desc");
     }
   };
 
@@ -111,19 +126,16 @@ const AllStagePlots = () => {
     if (!documentToDelete) return;
 
     try {
-      const { error } = await supabase
-        .from('stage_plots')
-        .delete()
-        .eq('id', documentToDelete.id);
+      const { error } = await supabase.from("stage_plots").delete().eq("id", documentToDelete.id);
 
       if (error) throw error;
-      
+
       // Update the local state
-      setStagePlots(stagePlots.filter(item => item.id !== documentToDelete.id));
-      setFilteredStagePlots(filteredStagePlots.filter(item => item.id !== documentToDelete.id));
+      setStagePlots(stagePlots.filter((item) => item.id !== documentToDelete.id));
+      setFilteredStagePlots(filteredStagePlots.filter((item) => item.id !== documentToDelete.id));
     } catch (error) {
-      console.error('Error deleting stage plot:', error);
-      alert('Failed to delete stage plot. Please try again.');
+      console.error("Error deleting stage plot:", error);
+      alert("Failed to delete stage plot. Please try again.");
     } finally {
       setShowDeleteConfirm(false);
       setDocumentToDelete(null);
@@ -138,68 +150,68 @@ const AllStagePlots = () => {
   const handleEditStagePlot = (id: string) => {
     navigate(`/stage-plot/${id}`);
   };
-  
+
   const handleShareStagePlot = (stagePlot: StagePlot) => {
     setSelectedShareStagePlot(stagePlot);
     setShowShareModal(true);
   };
-  
+
   const handleDuplicateStagePlot = async (stagePlot: StagePlot) => {
     try {
       setDuplicatingId(stagePlot.id);
-      
+
       // Fetch complete stage plot data if needed
       let fullStagePlot = stagePlot;
       if (!stagePlot.elements) {
         const { data, error } = await supabase
-          .from('stage_plots')
-          .select('*')
-          .eq('id', stagePlot.id)
+          .from("stage_plots")
+          .select("*")
+          .eq("id", stagePlot.id)
           .single();
-          
+
         if (error) throw error;
         fullStagePlot = data;
       }
-      
+
       // Create new stage plot with the same data
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
-        throw new Error('User not authenticated');
+        throw new Error("User not authenticated");
       }
-      
+
       // Create a duplicate stage plot with "Copy of" prefix
       const { data: newStagePlot, error: insertError } = await supabase
-        .from('stage_plots')
+        .from("stage_plots")
         .insert([
           {
             name: `Copy of ${fullStagePlot.name}`,
             user_id: userData.user.id,
-            stage_size: fullStagePlot.stage_size || 'medium-wide',
+            stage_size: fullStagePlot.stage_size || "medium-wide",
             elements: fullStagePlot.elements || [],
             created_at: new Date().toISOString(),
-            last_edited: new Date().toISOString()
-          }
+            last_edited: new Date().toISOString(),
+          },
         ])
         .select();
-      
+
       if (insertError) throw insertError;
-      
+
       if (newStagePlot && newStagePlot[0]) {
         // Add the new stage plot to the local state
         setStagePlots([newStagePlot[0], ...stagePlots]);
         setFilteredStagePlots([newStagePlot[0], ...filteredStagePlots]);
-        
+
         // Navigate to the editor for the new stage plot
         navigate(`/stage-plot/${newStagePlot[0].id}`);
       }
     } catch (error) {
-      console.error('Error duplicating stage plot:', error);
-      alert('Failed to duplicate stage plot. Please try again.');
+      console.error("Error duplicating stage plot:", error);
+      alert("Failed to duplicate stage plot. Please try again.");
     } finally {
       setDuplicatingId(null);
     }
   };
-  
+
   const handleExportStagePlotClick = (stagePlot: StagePlot) => {
     setExportStagePlotId(stagePlot.id);
     setShowExportModal(true);
@@ -208,48 +220,48 @@ const AllStagePlots = () => {
   const handleExportStagePlotImage = async (stagePlotId: string) => {
     try {
       setDownloadingId(stagePlotId);
-      
+
       // Close the export modal
       setShowExportModal(false);
-      
+
       // Fetch complete stage plot data if needed
-      let fullStagePlot = stagePlots.find(p => p.id === stagePlotId);
+      let fullStagePlot = stagePlots.find((p) => p.id === stagePlotId);
       if (!fullStagePlot || !fullStagePlot.elements) {
         const { data, error } = await supabase
-          .from('stage_plots')
-          .select('*')
-          .eq('id', stagePlotId)
+          .from("stage_plots")
+          .select("*")
+          .eq("id", stagePlotId)
           .single();
-          
+
         if (error) throw error;
         fullStagePlot = data;
       }
-      
+
       // Set the current stage plot to be exported
       setCurrentExportStagePlot(fullStagePlot);
-      
+
       // Wait for the component to render
       setTimeout(async () => {
         if (exportRef.current) {
           const canvas = await html2canvas(exportRef.current, {
             scale: 2, // Higher scale for better quality
-            backgroundColor: '#111827', // Match the background color
+            backgroundColor: "#111827", // Match the background color
             logging: false,
             useCORS: true,
             allowTaint: true,
             windowHeight: document.documentElement.offsetHeight,
             windowWidth: document.documentElement.offsetWidth,
             height: exportRef.current.scrollHeight,
-            width: exportRef.current.offsetWidth
+            width: exportRef.current.offsetWidth,
           });
-          
+
           // Convert canvas to a data URL and trigger download
-          const imageURL = canvas.toDataURL('image/png');
-          const link = document.createElement('a');
+          const imageURL = canvas.toDataURL("image/png");
+          const link = document.createElement("a");
           link.href = imageURL;
-          link.download = `${fullStagePlot!.name.replace(/\s+/g, '-').toLowerCase()}-stage-plot.png`;
+          link.download = `${fullStagePlot!.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot.png`;
           link.click();
-          
+
           // Clean up
           setCurrentExportStagePlot(null);
           setDownloadingId(null);
@@ -257,8 +269,8 @@ const AllStagePlots = () => {
         }
       }, 100);
     } catch (error) {
-      console.error('Error downloading stage plot:', error);
-      alert('Failed to download stage plot. Please try again.');
+      console.error("Error downloading stage plot:", error);
+      alert("Failed to download stage plot. Please try again.");
       setDownloadingId(null);
       setExportStagePlotId(null);
     }
@@ -267,48 +279,48 @@ const AllStagePlots = () => {
   const handlePrintStagePlot = async (stagePlotId: string) => {
     try {
       setDownloadingId(stagePlotId);
-      
+
       // Close the export modal
       setShowExportModal(false);
-      
+
       // Fetch complete stage plot data if needed
-      let fullStagePlot = stagePlots.find(p => p.id === stagePlotId);
+      let fullStagePlot = stagePlots.find((p) => p.id === stagePlotId);
       if (!fullStagePlot || !fullStagePlot.elements) {
         const { data, error } = await supabase
-          .from('stage_plots')
-          .select('*')
-          .eq('id', stagePlotId)
+          .from("stage_plots")
+          .select("*")
+          .eq("id", stagePlotId)
           .single();
-          
+
         if (error) throw error;
         fullStagePlot = data;
       }
-      
+
       // Set the current stage plot to be exported
       setCurrentExportStagePlot(fullStagePlot);
-      
+
       // Wait for the component to render
       setTimeout(async () => {
         if (printExportRef.current) {
           const canvas = await html2canvas(printExportRef.current, {
             scale: 2, // Higher scale for better quality
-            backgroundColor: '#ffffff', // White background
+            backgroundColor: "#ffffff", // White background
             logging: false,
             useCORS: true,
             allowTaint: true,
             windowHeight: document.documentElement.offsetHeight,
             windowWidth: document.documentElement.offsetWidth,
             height: printExportRef.current.scrollHeight,
-            width: printExportRef.current.offsetWidth
+            width: printExportRef.current.offsetWidth,
           });
-          
+
           // Convert canvas to a data URL and trigger download
-          const imageURL = canvas.toDataURL('image/png');
-          const link = document.createElement('a');
+          const imageURL = canvas.toDataURL("image/png");
+          const link = document.createElement("a");
           link.href = imageURL;
-          link.download = `${fullStagePlot!.name.replace(/\s+/g, '-').toLowerCase()}-stage-plot-print.png`;
+          link.download = `${fullStagePlot!.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot-print.png`;
           link.click();
-          
+
           // Clean up
           setCurrentExportStagePlot(null);
           setDownloadingId(null);
@@ -316,15 +328,15 @@ const AllStagePlots = () => {
         }
       }, 100);
     } catch (error) {
-      console.error('Error exporting print-friendly stage plot:', error);
-      alert('Failed to export stage plot. Please try again.');
+      console.error("Error exporting print-friendly stage plot:", error);
+      alert("Failed to export stage plot. Please try again.");
       setDownloadingId(null);
       setExportStagePlotId(null);
     }
   };
 
   const handleCreateNewStagePlot = () => {
-    navigate('/dashboard');
+    navigate("/dashboard");
     // Use setTimeout to wait for navigation to complete
     setTimeout(() => {
       const newPlotButton = document.querySelector('[data-show-new-plot-modal="true"]');
@@ -343,9 +355,9 @@ const AllStagePlots = () => {
   }
 
   // Show warning on mobile screens
-  if (screenSize === 'mobile' || screenSize === 'tablet') {
+  if (screenSize === "mobile" || screenSize === "tablet") {
     return (
-      <MobileScreenWarning 
+      <MobileScreenWarning
         title="Screen Size Too Small"
         description="The Stage Plot management requires a larger screen to provide the best experience. Please use a desktop or laptop computer."
       />
@@ -355,17 +367,17 @@ const AllStagePlots = () => {
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       <Header dashboard={true} />
-      
+
       <main className="flex-grow container mx-auto px-4 py-12 mt-12">
         <div className="flex items-center justify-between mb-8">
-          <button 
-            onClick={() => navigate('/dashboard')}
+          <button
+            onClick={() => navigate("/dashboard")}
             className="flex items-center text-gray-400 hover:text-white transition-colors"
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
             Back to Dashboard
           </button>
-          
+
           <button
             onClick={handleCreateNewStagePlot}
             className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-md font-medium transition-all duration-200"
@@ -374,13 +386,13 @@ const AllStagePlots = () => {
             New Stage Plot
           </button>
         </div>
-        
+
         <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden mb-8">
           <div className="p-6 border-b border-gray-700">
             <h1 className="text-2xl font-bold text-white">All Stage Plots</h1>
             <p className="text-gray-400">Manage all your stage plots in one place</p>
           </div>
-          
+
           <div className="p-6 border-b border-gray-700">
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
               {/* Search */}
@@ -396,60 +408,63 @@ const AllStagePlots = () => {
                   placeholder="Search by name..."
                 />
               </div>
-              
+
               {/* Sort Controls */}
               <div className="flex space-x-2">
-                <button 
-                  onClick={() => handleSort('name')}
+                <button
+                  onClick={() => handleSort("name")}
                   className={`flex items-center px-3 py-2 rounded-md transition-colors ${
-                    sortField === 'name' 
-                      ? 'bg-indigo-600 text-white' 
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    sortField === "name"
+                      ? "bg-indigo-600 text-white"
+                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                   }`}
                 >
                   Name
-                  {sortField === 'name' && (
-                    sortDirection === 'asc' 
-                      ? <SortAsc className="h-4 w-4 ml-1" /> 
-                      : <SortDesc className="h-4 w-4 ml-1" />
-                  )}
+                  {sortField === "name" &&
+                    (sortDirection === "asc" ? (
+                      <SortAsc className="h-4 w-4 ml-1" />
+                    ) : (
+                      <SortDesc className="h-4 w-4 ml-1" />
+                    ))}
                 </button>
-                
-                <button 
-                  onClick={() => handleSort('created_at')}
+
+                <button
+                  onClick={() => handleSort("created_at")}
                   className={`flex items-center px-3 py-2 rounded-md transition-colors ${
-                    sortField === 'created_at' 
-                      ? 'bg-indigo-600 text-white' 
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    sortField === "created_at"
+                      ? "bg-indigo-600 text-white"
+                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                   }`}
                 >
                   Created
-                  {sortField === 'created_at' && (
-                    sortDirection === 'asc' 
-                      ? <SortAsc className="h-4 w-4 ml-1" /> 
-                      : <SortDesc className="h-4 w-4 ml-1" />
-                  )}
+                  {sortField === "created_at" &&
+                    (sortDirection === "asc" ? (
+                      <SortAsc className="h-4 w-4 ml-1" />
+                    ) : (
+                      <SortDesc className="h-4 w-4 ml-1" />
+                    ))}
                 </button>
-                
-                <button 
-                  onClick={() => handleSort('last_edited')}
+
+                <button
+                  onClick={() => handleSort("last_edited")}
                   className={`flex items-center px-3 py-2 rounded-md transition-colors ${
-                    sortField === 'last_edited' 
-                      ? 'bg-indigo-600 text-white' 
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    sortField === "last_edited"
+                      ? "bg-indigo-600 text-white"
+                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                   }`}
                 >
                   Last Edited
-                  {sortField === 'last_edited' && (
-                    sortDirection === 'asc' 
-                      ? <SortAsc className="h-4 w-4 ml-1" /> 
-                      : <SortDesc className="h-4 w-4 ml-1" />
-                  )}
+                  {sortField === "last_edited" &&
+                    (sortDirection === "asc" ? (
+                      <SortAsc className="h-4 w-4 ml-1" />
+                    ) : (
+                      <SortDesc className="h-4 w-4 ml-1" />
+                    ))}
                 </button>
               </div>
             </div>
           </div>
-          
+
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-750">
@@ -474,43 +489,47 @@ const AllStagePlots = () => {
                         {new Date(plot.created_at).toLocaleDateString()}
                       </td>
                       <td className="py-4 px-6 text-gray-300">
-                        {plot.last_edited 
-                          ? new Date(plot.last_edited).toLocaleDateString() 
+                        {plot.last_edited
+                          ? new Date(plot.last_edited).toLocaleDateString()
                           : new Date(plot.created_at).toLocaleDateString()}
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex justify-end space-x-2">
-                          <button 
+                          <button
                             className="p-2 text-gray-400 hover:text-indigo-400 transition-colors"
                             title="Share"
                             onClick={() => handleShareStagePlot(plot)}
                           >
                             <Share2 className="h-5 w-5" />
                           </button>
-                          <button 
+                          <button
                             className="p-2 text-gray-400 hover:text-indigo-400 transition-colors"
                             title="Duplicate"
                             onClick={() => handleDuplicateStagePlot(plot)}
                             disabled={duplicatingId === plot.id}
                           >
-                            <Copy className={`h-5 w-5 ${duplicatingId === plot.id ? 'animate-pulse' : ''}`} />
+                            <Copy
+                              className={`h-5 w-5 ${duplicatingId === plot.id ? "animate-pulse" : ""}`}
+                            />
                           </button>
-                          <button 
+                          <button
                             className="p-2 text-gray-400 hover:text-indigo-400 transition-colors"
                             title="Download"
                             onClick={() => handleExportStagePlotClick(plot)}
                             disabled={downloadingId === plot.id}
                           >
-                            <Download className={`h-5 w-5 ${downloadingId === plot.id ? 'animate-pulse' : ''}`} />
+                            <Download
+                              className={`h-5 w-5 ${downloadingId === plot.id ? "animate-pulse" : ""}`}
+                            />
                           </button>
-                          <button 
+                          <button
                             className="p-2 text-gray-400 hover:text-indigo-400 transition-colors"
                             title="Edit"
                             onClick={() => handleEditStagePlot(plot.id)}
                           >
                             <Edit className="h-5 w-5" />
                           </button>
-                          <button 
+                          <button
                             className="p-2 text-gray-400 hover:text-red-400 transition-colors"
                             title="Delete"
                             onClick={() => handleDeleteRequest(plot.id, plot.name)}
@@ -524,8 +543,8 @@ const AllStagePlots = () => {
                 ) : (
                   <tr>
                     <td colSpan={4} className="py-12 text-center text-gray-400">
-                      {searchTerm 
-                        ? "No stage plots match your search criteria" 
+                      {searchTerm
+                        ? "No stage plots match your search criteria"
                         : "You haven't created any stage plots yet"}
                     </td>
                   </tr>
@@ -533,7 +552,7 @@ const AllStagePlots = () => {
               </tbody>
             </table>
           </div>
-          
+
           {filteredStagePlots.length > 0 && (
             <div className="p-4 border-t border-gray-700 text-gray-400 text-sm">
               Showing {filteredStagePlots.length} of {stagePlots.length} stage plots
@@ -544,7 +563,7 @@ const AllStagePlots = () => {
 
       {/* Share Modal */}
       {showShareModal && selectedShareStagePlot && (
-        <ShareModal 
+        <ShareModal
           isOpen={showShareModal}
           onClose={() => {
             setShowShareModal(false);
@@ -568,14 +587,8 @@ const AllStagePlots = () => {
       {/* Hidden Export Components */}
       {currentExportStagePlot && (
         <>
-          <StagePlotExport
-            ref={exportRef}
-            stagePlot={currentExportStagePlot}
-          />
-          <PrintStagePlotExport
-            ref={printExportRef}
-            stagePlot={currentExportStagePlot}
-          />
+          <StagePlotExport ref={exportRef} stagePlot={currentExportStagePlot} />
+          <PrintStagePlotExport ref={printExportRef} stagePlot={currentExportStagePlot} />
         </>
       )}
 
@@ -593,8 +606,8 @@ const AllStagePlots = () => {
                 </h3>
                 <div className="mt-2">
                   <p className="text-sm text-gray-300">
-                    Are you sure you want to delete "{documentToDelete.name}"? 
-                    This action cannot be undone.
+                    Are you sure you want to delete "{documentToDelete.name}"? This action cannot be
+                    undone.
                   </p>
                 </div>
               </div>

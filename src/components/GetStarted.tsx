@@ -1,8 +1,8 @@
-import React from 'react';
-import { Bookmark, ChevronRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import { useEffect, useState } from 'react';
+import React from "react";
+import { Bookmark, ChevronRight } from "lucide-react";
+import { Link } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+import { useEffect, useState } from "react";
 
 const GetStarted: React.FC = () => {
   const [user, setUser] = useState<any>(null);
@@ -12,7 +12,7 @@ const GetStarted: React.FC = () => {
       const { data } = await supabase.auth.getUser();
       setUser(data.user);
     };
-    
+
     checkUser();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -32,19 +32,19 @@ const GetStarted: React.FC = () => {
             <Bookmark className="h-16 w-16 text-indigo-400" />
           </div>
         </div>
-        
+
         <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6">
           Ready to Simplify Your Documentation?
         </h2>
         <p className="text-gray-300 max-w-2xl mx-auto text-lg mb-10">
           Start creating professional patch lists and stage plots with SoundDocs.
         </p>
-        
+
         <div className="bg-gray-800/70 backdrop-blur-sm p-8 rounded-xl max-w-3xl mx-auto border border-gray-700 mb-12 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-indigo-500/30">
           <div className="flex flex-col items-center justify-center space-y-6">
             {user ? (
-              <Link 
-                to="/dashboard" 
+              <Link
+                to="/dashboard"
                 className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-md font-medium transition-all duration-200 text-xl shadow-md hover:shadow-lg"
               >
                 Go to Dashboard
@@ -52,14 +52,19 @@ const GetStarted: React.FC = () => {
               </Link>
             ) : (
               <>
-                <Link 
-                  to="/signup" 
+                <Link
+                  to="/signup"
                   className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-md font-medium transition-all duration-200 text-xl shadow-md hover:shadow-lg"
                 >
                   Get Started Now
                   <ChevronRight className="ml-2 h-5 w-5" />
                 </Link>
-                <p className="text-gray-400">Already have an account? <Link to="/login" className="text-indigo-400 hover:text-indigo-300">Log in</Link></p>
+                <p className="text-gray-400">
+                  Already have an account?{" "}
+                  <Link to="/login" className="text-indigo-400 hover:text-indigo-300">
+                    Log in
+                  </Link>
+                </p>
               </>
             )}
           </div>

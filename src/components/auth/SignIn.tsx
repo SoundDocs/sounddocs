@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
-import { Bookmark, AlertCircle } from 'lucide-react';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "../../lib/supabase";
+import { Bookmark, AlertCircle } from "lucide-react";
 
 const SignIn = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,10 +24,10 @@ const SignIn = () => {
       if (error) {
         setError(error.message);
       } else if (data.user) {
-        navigate('/dashboard');
+        navigate("/dashboard");
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError("An unexpected error occurred");
       console.error(err);
     } finally {
       setLoading(false);
@@ -90,13 +90,13 @@ const SignIn = () => {
               disabled={loading}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              {loading ? 'Logging in...' : 'Log In'}
+              {loading ? "Logging in..." : "Log In"}
             </button>
           </form>
         </div>
 
         <p className="text-center text-gray-400">
-          Don't have an account?{' '}
+          Don't have an account?{" "}
           <Link to="/signup" className="text-indigo-400 hover:text-indigo-300">
             Sign up
           </Link>

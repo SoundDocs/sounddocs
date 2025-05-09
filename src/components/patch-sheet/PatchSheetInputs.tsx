@@ -1,5 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { PlusCircle, Trash2, Save, ChevronDown, Edit, ChevronRight, ChevronUp, Link, Link2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from "react";
+import {
+  PlusCircle,
+  Trash2,
+  Save,
+  ChevronDown,
+  Edit,
+  ChevronRight,
+  ChevronUp,
+  Link,
+  Link2,
+} from "lucide-react";
 
 interface InputChannel {
   id: string;
@@ -28,18 +38,20 @@ interface PatchSheetInputsProps {
 }
 
 const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInputs }) => {
-  const [showConnectionTypeOptions, setShowConnectionTypeOptions] = useState<{[key: string]: boolean}>({});
-  const [editModeInputs, setEditModeInputs] = useState<{[key: string]: boolean}>({});
-  const [editingInputs, setEditingInputs] = useState<{[key: string]: InputChannel}>({});
+  const [showConnectionTypeOptions, setShowConnectionTypeOptions] = useState<{
+    [key: string]: boolean;
+  }>({});
+  const [editModeInputs, setEditModeInputs] = useState<{ [key: string]: boolean }>({});
+  const [editingInputs, setEditingInputs] = useState<{ [key: string]: InputChannel }>({});
   const [isMobile, setIsMobile] = useState(false);
 
   // Bulk add state
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
   const [bulkQuantity, setBulkQuantity] = useState<number | string>(8); // Allow string for empty input
-  const [bulkType, setBulkType] = useState('');
-  const [bulkDevice, setBulkDevice] = useState('');
+  const [bulkType, setBulkType] = useState("");
+  const [bulkDevice, setBulkDevice] = useState("");
   const [bulkPhantom, setBulkPhantom] = useState(false);
-  const [bulkConnection, setBulkConnection] = useState('');
+  const [bulkConnection, setBulkConnection] = useState("");
   const [bulkConnectionDetails, setBulkConnectionDetails] = useState<{
     snakeType?: string;
     inputNumber?: string;
@@ -49,7 +61,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     consoleInputNumber?: string;
   }>({});
   const [bulkStartChannel, setBulkStartChannel] = useState<number | string>(1); // Allow string for empty input
-  const [bulkPrefix, setBulkPrefix] = useState('');
+  const [bulkPrefix, setBulkPrefix] = useState("");
   const [bulkIsStereo, setBulkIsStereo] = useState(false);
 
   // Check for mobile
@@ -59,20 +71,16 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     };
 
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   // Static input types - SIMPLIFIED to just 3 types
-  const inputTypeOptions = [
-    "Microphone",
-    "DI",
-    "Wireless"
-  ];
+  const inputTypeOptions = ["Microphone", "DI", "Wireless"];
 
   // Static device types by category
   const deviceOptionsByType: Record<string, string[]> = {
-    "Microphone": [
+    Microphone: [
       "SM58",
       "SM57",
       "Beta 58A",
@@ -84,9 +92,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
       "e835",
       "e945",
       "AT4050",
-      "Neumann KMS105"
+      "Neumann KMS105",
     ],
-    "DI": [
+    DI: [
       "Active DI",
       "Passive DI",
       "Radial J48",
@@ -94,9 +102,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
       "Radial ProDI",
       "Countryman Type 85",
       "Radial ProD2",
-      "Avalon U5"
+      "Avalon U5",
     ],
-    "Wireless": [
+    Wireless: [
       "Shure ULXD",
       "Shure QLXD",
       "Shure SLX",
@@ -104,8 +112,8 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
       "Sennheiser G4",
       "Shure Axient Digital",
       "Sennheiser Digital 6000",
-      "Line 6 XD-V"
-    ]
+      "Line 6 XD-V",
+    ],
   };
 
   // All device options combined
@@ -113,7 +121,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     ...deviceOptionsByType["Microphone"],
     ...deviceOptionsByType["DI"],
     ...deviceOptionsByType["Wireless"],
-    "Other"
+    "Other",
   ];
 
   // Static connection types
@@ -121,15 +129,11 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     "Console Direct",
     "Analog Snake",
     "Digital Snake",
-    "Digital Network"
+    "Digital Network",
   ];
 
   // Default analog snake types
-  const analogSnakeTypes = [
-    "Multicore",
-    "XLR Harness",
-    "Sub Snake"
-  ];
+  const analogSnakeTypes = ["Multicore", "XLR Harness", "Sub Snake"];
 
   // Default digital snake types
   const digitalSnakeTypes = [
@@ -137,18 +141,11 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     "Allen & Heath DX168",
     "Behringer S16",
     "Midas DL16",
-    "PreSonus NSB"
+    "PreSonus NSB",
   ];
 
   // Default network type options
-  const networkTypeOptions = [
-    "Dante",
-    "AVB",
-    "MADI",
-    "AES50",
-    "Ravenna",
-    "AES67"
-  ];
+  const networkTypeOptions = ["Dante", "AVB", "MADI", "AES50", "Ravenna", "AES67"];
 
   // Default console types
   const consoleTypeOptions = [
@@ -164,7 +161,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     "Allen & Heath SQ7",
     "Midas PRO X",
     "Midas M32",
-    "Behringer X32"
+    "Behringer X32",
   ];
 
   // Store custom types
@@ -175,16 +172,16 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
   const [customNetworkTypes, setCustomNetworkTypes] = useState<string[]>([]);
   const [customConsoleTypes, setCustomConsoleTypes] = useState<string[]>([]);
 
-  const connectionTypeDropdownRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
+  const connectionTypeDropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Initialize all inputs to edit mode by default
   useEffect(() => {
-    const initialEditMode: {[key: string]: boolean} = {};
-    inputs.forEach(input => {
+    const initialEditMode: { [key: string]: boolean } = {};
+    inputs.forEach((input) => {
       initialEditMode[input.id] = true;
-      setEditingInputs(prev => ({
+      setEditingInputs((prev) => ({
         ...prev,
-        [input.id]: { ...input }
+        [input.id]: { ...input },
       }));
     });
     setEditModeInputs(initialEditMode);
@@ -194,16 +191,19 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       // Close connection type dropdowns
-      Object.keys(connectionTypeDropdownRefs.current).forEach(id => {
-        if (connectionTypeDropdownRefs.current[id] && !connectionTypeDropdownRefs.current[id]?.contains(event.target as Node)) {
-          setShowConnectionTypeOptions(prev => ({...prev, [id]: false}));
+      Object.keys(connectionTypeDropdownRefs.current).forEach((id) => {
+        if (
+          connectionTypeDropdownRefs.current[id] &&
+          !connectionTypeDropdownRefs.current[id]?.contains(event.target as Node)
+        ) {
+          setShowConnectionTypeOptions((prev) => ({ ...prev, [id]: false }));
         }
       });
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
@@ -216,7 +216,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     const networkTypesSet = new Set<string>();
     const consoleTypesSet = new Set<string>();
 
-    inputs.forEach(input => {
+    inputs.forEach((input) => {
       // Collect custom input types
       if (input.type && !inputTypeOptions.includes(input.type)) {
         inputTypesSet.add(input.type);
@@ -229,25 +229,33 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
       // Collect custom connection details
       if (input.connectionDetails) {
-        if (input.connection === "Analog Snake" &&
-            input.connectionDetails.snakeType &&
-            !analogSnakeTypes.includes(input.connectionDetails.snakeType)) {
+        if (
+          input.connection === "Analog Snake" &&
+          input.connectionDetails.snakeType &&
+          !analogSnakeTypes.includes(input.connectionDetails.snakeType)
+        ) {
           analogSnakeTypesSet.add(input.connectionDetails.snakeType);
         }
 
-        if (input.connection === "Digital Snake" &&
-            input.connectionDetails.snakeType &&
-            !digitalSnakeTypes.includes(input.connectionDetails.snakeType)) {
+        if (
+          input.connection === "Digital Snake" &&
+          input.connectionDetails.snakeType &&
+          !digitalSnakeTypes.includes(input.connectionDetails.snakeType)
+        ) {
           digitalSnakeTypesSet.add(input.connectionDetails.snakeType);
         }
 
-        if (input.connectionDetails.networkType &&
-            !networkTypeOptions.includes(input.connectionDetails.networkType)) {
+        if (
+          input.connectionDetails.networkType &&
+          !networkTypeOptions.includes(input.connectionDetails.networkType)
+        ) {
           networkTypesSet.add(input.connectionDetails.networkType);
         }
 
-        if (input.connectionDetails.consoleType &&
-            !consoleTypeOptions.includes(input.connectionDetails.consoleType)) {
+        if (
+          input.connectionDetails.consoleType &&
+          !consoleTypeOptions.includes(input.connectionDetails.consoleType)
+        ) {
           consoleTypesSet.add(input.connectionDetails.consoleType);
         }
       }
@@ -264,21 +272,23 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
   // Update editing inputs when actual inputs change
   useEffect(() => {
-    const newEditingInputs: {[key: string]: InputChannel} = {};
+    const newEditingInputs: { [key: string]: InputChannel } = {};
 
     // Add new inputs or update existing ones
-    inputs.forEach(input => {
-      newEditingInputs[input.id] = editingInputs[input.id] ? { ...editingInputs[input.id] } : { ...input };
+    inputs.forEach((input) => {
+      newEditingInputs[input.id] = editingInputs[input.id]
+        ? { ...editingInputs[input.id] }
+        : { ...input };
     });
 
     setEditingInputs(newEditingInputs);
 
     // Initialize edit mode for new inputs
-    inputs.forEach(input => {
+    inputs.forEach((input) => {
       if (editModeInputs[input.id] === undefined) {
-        setEditModeInputs(prev => ({
+        setEditModeInputs((prev) => ({
           ...prev,
-          [input.id]: true
+          [input.id]: true,
         }));
       }
     });
@@ -286,7 +296,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
   // Function to update parent component's inputs array
   const updateParentInputs = () => {
-    const updatedInputs = inputs.map(input => {
+    const updatedInputs = inputs.map((input) => {
       // If the input is in edit mode, use the editing version
       if (editModeInputs[input.id]) {
         return { ...editingInputs[input.id] };
@@ -307,55 +317,56 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
   }, [editingInputs]);
 
   const handleAddInput = () => {
-    const nextChannelNumber = inputs.length > 0
-      ? Math.max(...inputs.map(input => parseInt(input.channelNumber, 10) || 0)) + 1
-      : 1;
+    const nextChannelNumber =
+      inputs.length > 0
+        ? Math.max(...inputs.map((input) => parseInt(input.channelNumber, 10) || 0)) + 1
+        : 1;
 
     const newInput: InputChannel = {
       id: `input-${Date.now()}`, // Generate a unique ID
       channelNumber: `${nextChannelNumber}`,
-      name: '',
-      type: '',
-      device: '',
+      name: "",
+      type: "",
+      device: "",
       phantom: false,
-      connection: '',
+      connection: "",
       connectionDetails: {},
-      notes: '',
-      isStereo: false
+      notes: "",
+      isStereo: false,
     };
 
     // Update parent component directly
     updateInputs([...inputs, newInput]);
 
     // Set new input to edit mode
-    setEditModeInputs(prev => ({
+    setEditModeInputs((prev) => ({
       ...prev,
-      [newInput.id]: true
+      [newInput.id]: true,
     }));
 
     // Add to editing inputs
-    setEditingInputs(prev => ({
+    setEditingInputs((prev) => ({
       ...prev,
-      [newInput.id]: { ...newInput }
+      [newInput.id]: { ...newInput },
     }));
   };
 
   const handleDeleteInput = (id: string) => {
     // Check if this is a stereo channel and update its linked channel
-    const inputToDelete = inputs.find(input => input.id === id);
-    const updatedInputs = inputs.filter(input => input.id !== id);
+    const inputToDelete = inputs.find((input) => input.id === id);
+    const updatedInputs = inputs.filter((input) => input.id !== id);
 
     // If this is a stereo channel with a link, update the linked channel
     if (inputToDelete?.isStereo && inputToDelete?.stereoChannelNumber) {
       const linkedChannelIndex = updatedInputs.findIndex(
-        input => input.channelNumber === inputToDelete.stereoChannelNumber
+        (input) => input.channelNumber === inputToDelete.stereoChannelNumber,
       );
 
       if (linkedChannelIndex !== -1) {
         updatedInputs[linkedChannelIndex] = {
           ...updatedInputs[linkedChannelIndex],
           isStereo: false,
-          stereoChannelNumber: undefined
+          stereoChannelNumber: undefined,
         };
       }
     }
@@ -366,7 +377,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
         updatedInputs[index] = {
           ...updatedInputs[index],
           isStereo: false,
-          stereoChannelNumber: undefined
+          stereoChannelNumber: undefined,
         };
       }
     });
@@ -374,14 +385,14 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     updateInputs(updatedInputs);
 
     // Remove from edit mode tracking
-    setEditModeInputs(prev => {
+    setEditModeInputs((prev) => {
       const updated = { ...prev };
       delete updated[id];
       return updated;
     });
 
     // Remove from editing inputs
-    setEditingInputs(prev => {
+    setEditingInputs((prev) => {
       const updated = { ...prev };
       delete updated[id];
       return updated;
@@ -390,19 +401,19 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
   const handleEditInput = (id: string) => {
     // Find the input in the main inputs array
-    const input = inputs.find(input => input.id === id);
+    const input = inputs.find((input) => input.id === id);
     if (!input) return;
 
     // Set the editing input to match the current input state
-    setEditingInputs(prev => ({
+    setEditingInputs((prev) => ({
       ...prev,
-      [id]: { ...input }
+      [id]: { ...input },
     }));
 
     // Set to edit mode
-    setEditModeInputs(prev => ({
+    setEditModeInputs((prev) => ({
       ...prev,
-      [id]: true
+      [id]: true,
     }));
   };
 
@@ -414,12 +425,12 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     if (updatedInput.isStereo && updatedInput.stereoChannelNumber) {
       // Find the linked channel
       const linkedChannelIndex = inputs.findIndex(
-        input => input.channelNumber === updatedInput.stereoChannelNumber && input.id !== id
+        (input) => input.channelNumber === updatedInput.stereoChannelNumber && input.id !== id,
       );
 
       if (linkedChannelIndex !== -1) {
         // Update the linked channel to link back to this one
-        const linkedInput = {...inputs[linkedChannelIndex]};
+        const linkedInput = { ...inputs[linkedChannelIndex] };
         linkedInput.isStereo = true;
         linkedInput.stereoChannelNumber = updatedInput.channelNumber;
 
@@ -429,9 +440,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
         // Also update in editing inputs if it's in edit mode
         if (editModeInputs[linkedInput.id]) {
-          setEditingInputs(prev => ({
+          setEditingInputs((prev) => ({
             ...prev,
-            [linkedInput.id]: linkedInput
+            [linkedInput.id]: linkedInput,
           }));
         }
 
@@ -439,12 +450,12 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
       }
     } else if (!updatedInput.isStereo) {
       // If stereo is turned off, find any channels that were linked to this one and update them
-      const updatedInputs = inputs.map(input => {
+      const updatedInputs = inputs.map((input) => {
         if (input.stereoChannelNumber === updatedInput.channelNumber) {
           return {
             ...input,
             isStereo: false,
-            stereoChannelNumber: undefined
+            stereoChannelNumber: undefined,
           };
         }
         return input;
@@ -454,16 +465,16 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     }
 
     // Update the specific input
-    const finalUpdatedInputs = inputs.map(input =>
-      input.id === id ? { ...updatedInput } : input
+    const finalUpdatedInputs = inputs.map((input) =>
+      input.id === id ? { ...updatedInput } : input,
     );
 
     updateInputs(finalUpdatedInputs);
 
     // Exit edit mode
-    setEditModeInputs(prev => ({
+    setEditModeInputs((prev) => ({
       ...prev,
-      [id]: false
+      [id]: false,
     }));
   };
 
@@ -474,16 +485,16 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     updatedInput[field] = value;
 
     // Reset connection details when changing connection type
-    if (field === 'connection') {
+    if (field === "connection") {
       updatedInput.connectionDetails = {};
     }
 
     // Update device suggestions when type changes
-    if (field === 'type' && value !== updatedInput.type) {
+    if (field === "type" && value !== updatedInput.type) {
       // Only reset device if the type has changed and the current device isn't in the new type's suggestions
       const suggestedDevices = deviceOptionsByType[value as string] || [];
       if (suggestedDevices.length > 0 && !suggestedDevices.includes(updatedInput.device)) {
-        updatedInput.device = '';
+        updatedInput.device = "";
       }
 
       // Set phantom power based on new type
@@ -497,14 +508,14 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     }
 
     // If stereo is being toggled off, clear the stereo channel number
-    if (field === 'isStereo' && value === false) {
+    if (field === "isStereo" && value === false) {
       updatedInput.stereoChannelNumber = undefined;
     }
 
     // Update the editing inputs
-    setEditingInputs(prev => ({
+    setEditingInputs((prev) => ({
       ...prev,
-      [id]: updatedInput
+      [id]: updatedInput,
     }));
   };
 
@@ -517,76 +528,85 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     }
 
     // Update the detail
-    updatedInput.connectionDetails[detailKey as keyof typeof updatedInput.connectionDetails] = value;
+    updatedInput.connectionDetails[detailKey as keyof typeof updatedInput.connectionDetails] =
+      value;
 
     // Update the editing inputs
-    setEditingInputs(prev => ({
+    setEditingInputs((prev) => ({
       ...prev,
-      [id]: updatedInput
+      [id]: updatedInput,
     }));
   };
 
   // Get a list of available channels for stereo linking
-  const getAvailableChannelsForStereo = (currentChannelId: string, currentChannelNumber: string) => {
+  const getAvailableChannelsForStereo = (
+    currentChannelId: string,
+    currentChannelNumber: string,
+  ) => {
     return inputs
-      .filter(input =>
-        // Don't show the current channel
-        input.id !== currentChannelId &&
-        // Don't show channels that are already linked to another channel (except the current one)
-        (!input.isStereo || input.stereoChannelNumber === currentChannelNumber)
+      .filter(
+        (input) =>
+          // Don't show the current channel
+          input.id !== currentChannelId &&
+          // Don't show channels that are already linked to another channel (except the current one)
+          (!input.isStereo || input.stereoChannelNumber === currentChannelNumber),
       )
-      .map(input => ({
+      .map((input) => ({
         channelNumber: input.channelNumber,
-        name: input.name || `Channel ${input.channelNumber}`
+        name: input.name || `Channel ${input.channelNumber}`,
       }));
   };
 
   // Handle selection of connection type
   const handleSelectConnectionType = (id: string, value: string) => {
-    handleEditingInputChange(id, 'connection', value);
+    handleEditingInputChange(id, "connection", value);
 
     // Close the dropdown
-    setShowConnectionTypeOptions(prev => ({...prev, [id]: false}));
+    setShowConnectionTypeOptions((prev) => ({ ...prev, [id]: false }));
   };
 
   // Handle key press for various inputs to capture custom values
-  const handleCustomTypeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, id: string, type: string) => {
-    if (e.key === 'Enter') {
+  const handleCustomTypeKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    id: string,
+    type: string,
+  ) => {
+    if (e.key === "Enter") {
       e.preventDefault();
       const value = e.currentTarget.value;
 
       if (!value.trim()) return;
 
       // Handle different types of custom values
-      if (type === 'inputType') {
-        handleEditingInputChange(id, 'type', value);
+      if (type === "inputType") {
+        handleEditingInputChange(id, "type", value);
         if (!inputTypeOptions.includes(value) && !customInputTypes.includes(value)) {
-          setCustomInputTypes(prev => [...prev, value]);
+          setCustomInputTypes((prev) => [...prev, value]);
         }
-      } else if (type === 'device') {
-        handleEditingInputChange(id, 'device', value);
+      } else if (type === "device") {
+        handleEditingInputChange(id, "device", value);
         if (!deviceOptions.includes(value) && !customDevices.includes(value)) {
-          setCustomDevices(prev => [...prev, value]);
+          setCustomDevices((prev) => [...prev, value]);
         }
-      } else if (type === 'networkType') {
-        handleConnectionDetailChange(id, 'networkType', value);
+      } else if (type === "networkType") {
+        handleConnectionDetailChange(id, "networkType", value);
         if (!networkTypeOptions.includes(value) && !customNetworkTypes.includes(value)) {
-          setCustomNetworkTypes(prev => [...prev, value]);
+          setCustomNetworkTypes((prev) => [...prev, value]);
         }
-      } else if (type === 'analogSnakeType') {
-        handleConnectionDetailChange(id, 'snakeType', value);
+      } else if (type === "analogSnakeType") {
+        handleConnectionDetailChange(id, "snakeType", value);
         if (!analogSnakeTypes.includes(value) && !customAnalogSnakeTypes.includes(value)) {
-          setCustomAnalogSnakeTypes(prev => [...prev, value]);
+          setCustomAnalogSnakeTypes((prev) => [...prev, value]);
         }
-      } else if (type === 'digitalSnakeType') {
-        handleConnectionDetailChange(id, 'snakeType', value);
+      } else if (type === "digitalSnakeType") {
+        handleConnectionDetailChange(id, "snakeType", value);
         if (!digitalSnakeTypes.includes(value) && !customDigitalSnakeTypes.includes(value)) {
-          setCustomDigitalSnakeTypes(prev => [...prev, value]);
+          setCustomDigitalSnakeTypes((prev) => [...prev, value]);
         }
-      } else if (type === 'consoleType') {
-        handleConnectionDetailChange(id, 'consoleType', value);
+      } else if (type === "consoleType") {
+        handleConnectionDetailChange(id, "consoleType", value);
         if (!consoleTypeOptions.includes(value) && !customConsoleTypes.includes(value)) {
-          setCustomConsoleTypes(prev => [...prev, value]);
+          setCustomConsoleTypes((prev) => [...prev, value]);
         }
       }
     }
@@ -594,9 +614,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
   const toggleConnectionTypeOptions = (id: string) => {
     // Toggle this dropdown
-    setShowConnectionTypeOptions(prev => ({
+    setShowConnectionTypeOptions((prev) => ({
       ...prev,
-      [id]: !prev[id]
+      [id]: !prev[id],
     }));
   };
 
@@ -649,7 +669,8 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
             {input.connectionDetails.consoleType && (
               <span className="text-gray-400">
                 {input.connectionDetails.consoleType}
-                {input.connectionDetails.consoleInputNumber && ` - Input #${input.connectionDetails.consoleInputNumber}`}
+                {input.connectionDetails.consoleInputNumber &&
+                  ` - Input #${input.connectionDetails.consoleInputNumber}`}
               </span>
             )}
           </div>
@@ -660,7 +681,8 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
           <div className="flex space-x-4 text-sm">
             <span className="text-gray-400">
               {input.connectionDetails.snakeType || ""}
-              {input.connectionDetails.inputNumber && ` - Input #${input.connectionDetails.inputNumber}`}
+              {input.connectionDetails.inputNumber &&
+                ` - Input #${input.connectionDetails.inputNumber}`}
             </span>
           </div>
         );
@@ -670,9 +692,11 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
           <div className="flex space-x-4 text-sm">
             <span className="text-gray-400">
               {input.connectionDetails.snakeType || ""}
-              {input.connectionDetails.inputNumber && ` - Input #${input.connectionDetails.inputNumber}`}
+              {input.connectionDetails.inputNumber &&
+                ` - Input #${input.connectionDetails.inputNumber}`}
               {input.connectionDetails.networkType && ` - ${input.connectionDetails.networkType}`}
-              {input.connectionDetails.networkPatch && ` - Patch #${input.connectionDetails.networkPatch}`}
+              {input.connectionDetails.networkPatch &&
+                ` - Patch #${input.connectionDetails.networkPatch}`}
             </span>
           </div>
         );
@@ -682,7 +706,8 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
           <div className="flex space-x-4 text-sm">
             <span className="text-gray-400">
               {input.connectionDetails.networkType || ""}
-              {input.connectionDetails.networkPatch && ` - Patch #${input.connectionDetails.networkPatch}`}
+              {input.connectionDetails.networkPatch &&
+                ` - Patch #${input.connectionDetails.networkPatch}`}
             </span>
           </div>
         );
@@ -694,13 +719,16 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
   // Render console details for analog snake inputs
   const renderConsoleDetails = (input: InputChannel) => {
-    if (input.connection === "Analog Snake" &&
-        (input.connectionDetails?.consoleType || input.connectionDetails?.consoleInputNumber)) {
+    if (
+      input.connection === "Analog Snake" &&
+      (input.connectionDetails?.consoleType || input.connectionDetails?.consoleInputNumber)
+    ) {
       return (
         <div className="mt-1 text-gray-400 text-sm">
           <span>→ {input.connectionDetails?.consoleType || "Console"}</span>
-          {input.connectionDetails?.consoleInputNumber &&
-            <span> - Input #{input.connectionDetails.consoleInputNumber}</span>}
+          {input.connectionDetails?.consoleInputNumber && (
+            <span> - Input #{input.connectionDetails.consoleInputNumber}</span>
+          )}
         </div>
       );
     }
@@ -709,9 +737,10 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
   // Handle opening the bulk add modal
   const openBulkAddModal = () => {
-    const nextChannelNumber = inputs.length > 0
-      ? Math.max(...inputs.map(input => parseInt(input.channelNumber, 10) || 0)) + 1
-      : 1;
+    const nextChannelNumber =
+      inputs.length > 0
+        ? Math.max(...inputs.map((input) => parseInt(input.channelNumber, 10) || 0)) + 1
+        : 1;
     setBulkStartChannel(nextChannelNumber);
     setShowBulkAddModal(true);
   };
@@ -753,7 +782,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
         ...bulkConnectionDetails,
         consoleInputNumber,
         networkPatch,
-        inputNumber
+        inputNumber,
       };
 
       // Handle stereo pairs (L/R)
@@ -764,10 +793,12 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
       // If creating stereo pairs and this is an odd index, link to the next channel
       // If even index, link to the previous channel
       if (bulkIsStereo) {
-        if (i % 2 === 0 && i + 1 < quantity) { // Even index and not the last one
+        if (i % 2 === 0 && i + 1 < quantity) {
+          // Even index and not the last one
           currentName += " L"; // Left channel
           stereoChannelNumber = (startNum + i + 1).toString(); // Link to next channel
-        } else if (i % 2 === 1) { // Odd index
+        } else if (i % 2 === 1) {
+          // Odd index
           currentName += " R"; // Right channel
           stereoChannelNumber = (startNum + i - 1).toString(); // Link to previous channel
         }
@@ -782,9 +813,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
         phantom: bulkPhantom,
         connection: bulkConnection,
         connectionDetails,
-        notes: '',
+        notes: "",
         isStereo,
-        stereoChannelNumber
+        stereoChannelNumber,
       };
 
       newInputs.push(newInput);
@@ -797,7 +828,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     const newEditModeInputs = { ...editModeInputs };
     const newEditingInputs = { ...editingInputs };
 
-    newInputs.forEach(input => {
+    newInputs.forEach((input) => {
       newEditModeInputs[input.id] = true;
       newEditingInputs[input.id] = { ...input };
     });
@@ -811,11 +842,11 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     // Reset bulk add form
     setBulkQuantity(8); // Reset to default
     setBulkStartChannel(1); // Reset to default (will be recalculated next time)
-    setBulkPrefix('');
-    setBulkType('');
-    setBulkDevice('');
+    setBulkPrefix("");
+    setBulkType("");
+    setBulkDevice("");
     setBulkPhantom(false);
-    setBulkConnection('');
+    setBulkConnection("");
     setBulkConnectionDetails({});
     setBulkIsStereo(false);
   };
@@ -829,16 +860,16 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
   // Handle bulk connection detail change
   const handleBulkConnectionDetailChange = (detailKey: string, value: string) => {
-    setBulkConnectionDetails(prev => ({
+    setBulkConnectionDetails((prev) => ({
       ...prev,
-      [detailKey]: value
+      [detailKey]: value,
     }));
   };
 
   // Handle bulk input type change with automatic phantom setting
   const handleBulkTypeChange = (value: string) => {
     setBulkType(value);
-    setBulkDevice(''); // Reset device when type changes
+    setBulkDevice(""); // Reset device when type changes
 
     // Set default phantom power based on input type
     if (value === "Microphone") {
@@ -909,23 +940,27 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
         </div>
       ) : (
         <div className="space-y-4 overflow-x-auto">
-          <div className="min-w-[800px] md:min-w-0"> {/* Minimum width container */}
+          <div className="min-w-[800px] md:min-w-0">
+            {" "}
+            {/* Minimum width container */}
             {inputs.map((input) => {
               const editingInput = editingInputs[input.id] || input;
               const isEditMode = editModeInputs[input.id];
-              const availableStereoChannels = getAvailableChannelsForStereo(input.id, input.channelNumber);
+              const availableStereoChannels = getAvailableChannelsForStereo(
+                input.id,
+                input.channelNumber,
+              );
 
               // Find if this input has a linked stereo channel
               const linkedChannel = inputs.find(
-                otherInput =>
-                  otherInput.channelNumber === input.stereoChannelNumber &&
-                  otherInput.isStereo
+                (otherInput) =>
+                  otherInput.channelNumber === input.stereoChannelNumber && otherInput.isStereo,
               );
 
               return (
                 <div
                   key={input.id}
-                  className={`bg-gray-800 border border-gray-700 rounded-lg overflow-visible hover:border-gray-600 transition-colors ${input.isStereo ? 'border-l-4 border-l-indigo-500' : ''}`}
+                  className={`bg-gray-800 border border-gray-700 rounded-lg overflow-visible hover:border-gray-600 transition-colors ${input.isStereo ? "border-l-4 border-l-indigo-500" : ""}`}
                 >
                   <div className="bg-gray-750 py-3 px-4 sm:px-6 flex justify-between items-center">
                     <div className="flex items-center space-x-2 sm:space-x-4 overflow-hidden">
@@ -937,7 +972,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                             <input
                               type="text"
                               value={editingInput.channelNumber}
-                              onChange={(e) => handleEditingInputChange(input.id, 'channelNumber', e.target.value)}
+                              onChange={(e) =>
+                                handleEditingInputChange(input.id, "channelNumber", e.target.value)
+                              }
                               className="ml-1 sm:ml-2 bg-gray-700 text-white border border-gray-600 rounded-md px-1 sm:px-2 py-1 w-10 sm:w-16 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                             />
                           </>
@@ -954,7 +991,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                           <input
                             type="text"
                             value={editingInput.name}
-                            onChange={(e) => handleEditingInputChange(input.id, 'name', e.target.value)}
+                            onChange={(e) =>
+                              handleEditingInputChange(input.id, "name", e.target.value)
+                            }
                             className="bg-gray-700 text-white border border-gray-600 rounded-md px-2 sm:px-3 py-1 w-full max-w-[140px] sm:max-w-[220px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-medium"
                             placeholder="Name/Label"
                           />
@@ -967,10 +1006,11 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                           {input.isStereo && (
                             <div className="bg-indigo-500/20 text-indigo-300 text-xs px-2 py-0.5 rounded-full flex items-center">
                               <Link2 className="h-3 w-3 mr-1" />
-                              {input.stereoChannelNumber
-                                ? <span>Stereo w/ Ch {input.stereoChannelNumber}</span>
-                                : <span>Stereo</span>
-                              }
+                              {input.stereoChannelNumber ? (
+                                <span>Stereo w/ Ch {input.stereoChannelNumber}</span>
+                              ) : (
+                                <span>Stereo</span>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1023,15 +1063,21 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                           <label className="block text-gray-300 text-sm mb-2">Type</label>
                           <select
                             value={editingInput.type}
-                            onChange={(e) => handleEditingInputChange(input.id, 'type', e.target.value)}
+                            onChange={(e) =>
+                              handleEditingInputChange(input.id, "type", e.target.value)
+                            }
                             className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                           >
                             <option value="">Select Input Type</option>
                             {inputTypeOptions.map((type, index) => (
-                              <option key={index} value={type}>{type}</option>
+                              <option key={index} value={type}>
+                                {type}
+                              </option>
                             ))}
                             {customInputTypes.map((type, index) => (
-                              <option key={`custom-${index}`} value={type}>{type}</option>
+                              <option key={`custom-${index}`} value={type}>
+                                {type}
+                              </option>
                             ))}
                           </select>
                         </div>
@@ -1041,8 +1087,10 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                           <input
                             type="text"
                             value={editingInput.device}
-                            onChange={(e) => handleEditingInputChange(input.id, 'device', e.target.value)}
-                            onKeyDown={(e) => handleCustomTypeKeyDown(e, input.id, 'device')}
+                            onChange={(e) =>
+                              handleEditingInputChange(input.id, "device", e.target.value)
+                            }
+                            onKeyDown={(e) => handleCustomTypeKeyDown(e, input.id, "device")}
                             className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                             placeholder="e.g., SM58, DI Box"
                             list={`deviceOptions-${input.id}`}
@@ -1054,8 +1102,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                                 ))
                               : getAllDevices().map((device, idx) => (
                                   <option key={idx} value={device} />
-                                ))
-                            }
+                                ))}
                           </datalist>
                         </div>
 
@@ -1066,14 +1113,16 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                               <input
                                 type="checkbox"
                                 checked={editingInput.phantom}
-                                onChange={(e) => handleEditingInputChange(input.id, 'phantom', e.target.checked)}
+                                onChange={(e) =>
+                                  handleEditingInputChange(input.id, "phantom", e.target.checked)
+                                }
                                 className="mr-2 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-500 rounded"
                               />
                               <span className="text-gray-300 text-sm">48V</span>
                             </div>
                           </div>
                           <div className="bg-gray-700 p-3 rounded-md border border-gray-600 text-white">
-                            {editingInput.phantom ? '48V Enabled' : 'No Phantom Power'}
+                            {editingInput.phantom ? "48V Enabled" : "No Phantom Power"}
                           </div>
                         </div>
 
@@ -1085,7 +1134,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                               <input
                                 type="checkbox"
                                 checked={editingInput.isStereo}
-                                onChange={(e) => handleEditingInputChange(input.id, 'isStereo', e.target.checked)}
+                                onChange={(e) =>
+                                  handleEditingInputChange(input.id, "isStereo", e.target.checked)
+                                }
                                 className="mr-2 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-500 rounded"
                               />
                               <span className="text-gray-300 text-sm">Stereo</span>
@@ -1096,7 +1147,13 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                             <div className="mt-2">
                               <select
                                 value={editingInput.stereoChannelNumber || ""}
-                                onChange={(e) => handleEditingInputChange(input.id, 'stereoChannelNumber', e.target.value)}
+                                onChange={(e) =>
+                                  handleEditingInputChange(
+                                    input.id,
+                                    "stereoChannelNumber",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                               >
                                 <option value="">Link with Channel...</option>
@@ -1114,17 +1171,26 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                           )}
                         </div>
 
-                        <div className="relative" ref={el => connectionTypeDropdownRefs.current[input.id] = el}>
-                          <label className="block text-gray-300 text-sm mb-2">Connection Type</label>
+                        <div
+                          className="relative"
+                          ref={(el) => (connectionTypeDropdownRefs.current[input.id] = el)}
+                        >
+                          <label className="block text-gray-300 text-sm mb-2">
+                            Connection Type
+                          </label>
                           <div className="relative">
                             <select
                               value={editingInput.connection}
-                              onChange={(e) => handleEditingInputChange(input.id, 'connection', e.target.value)}
+                              onChange={(e) =>
+                                handleEditingInputChange(input.id, "connection", e.target.value)
+                              }
                               className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                             >
                               <option value="">Select Connection Type</option>
                               {connectionTypeOptions.map((type, index) => (
-                                <option key={index} value={type}>{type}</option>
+                                <option key={index} value={type}>
+                                  {type}
+                                </option>
                               ))}
                             </select>
                           </div>
@@ -1134,12 +1200,22 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                         {editingInput.connection === "Console Direct" && (
                           <>
                             <div>
-                              <label className="block text-gray-300 text-sm mb-2">Console Type</label>
+                              <label className="block text-gray-300 text-sm mb-2">
+                                Console Type
+                              </label>
                               <input
                                 type="text"
                                 value={editingInput.connectionDetails?.consoleType || ""}
-                                onChange={(e) => handleConnectionDetailChange(input.id, 'consoleType', e.target.value)}
-                                onKeyDown={(e) => handleCustomTypeKeyDown(e, input.id, 'consoleType')}
+                                onChange={(e) =>
+                                  handleConnectionDetailChange(
+                                    input.id,
+                                    "consoleType",
+                                    e.target.value,
+                                  )
+                                }
+                                onKeyDown={(e) =>
+                                  handleCustomTypeKeyDown(e, input.id, "consoleType")
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., Avid S6L, DiGiCo SD12"
                                 list={`consoleTypes-${input.id}`}
@@ -1155,7 +1231,13 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                               <input
                                 type="text"
                                 value={editingInput.connectionDetails?.consoleInputNumber || ""}
-                                onChange={(e) => handleConnectionDetailChange(input.id, 'consoleInputNumber', e.target.value)}
+                                onChange={(e) =>
+                                  handleConnectionDetailChange(
+                                    input.id,
+                                    "consoleInputNumber",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., 12"
                               />
@@ -1170,8 +1252,16 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                               <input
                                 type="text"
                                 value={editingInput.connectionDetails?.snakeType || ""}
-                                onChange={(e) => handleConnectionDetailChange(input.id, 'snakeType', e.target.value)}
-                                onKeyDown={(e) => handleCustomTypeKeyDown(e, input.id, 'analogSnakeType')}
+                                onChange={(e) =>
+                                  handleConnectionDetailChange(
+                                    input.id,
+                                    "snakeType",
+                                    e.target.value,
+                                  )
+                                }
+                                onKeyDown={(e) =>
+                                  handleCustomTypeKeyDown(e, input.id, "analogSnakeType")
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., Multicore, XLR Harness"
                                 list={`analogSnakeTypes-${input.id}`}
@@ -1187,18 +1277,34 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                               <input
                                 type="text"
                                 value={editingInput.connectionDetails?.inputNumber || ""}
-                                onChange={(e) => handleConnectionDetailChange(input.id, 'inputNumber', e.target.value)}
+                                onChange={(e) =>
+                                  handleConnectionDetailChange(
+                                    input.id,
+                                    "inputNumber",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., 12"
                               />
                             </div>
                             <div>
-                              <label className="block text-gray-300 text-sm mb-2">Console Type</label>
+                              <label className="block text-gray-300 text-sm mb-2">
+                                Console Type
+                              </label>
                               <input
                                 type="text"
                                 value={editingInput.connectionDetails?.consoleType || ""}
-                                onChange={(e) => handleConnectionDetailChange(input.id, 'consoleType', e.target.value)}
-                                onKeyDown={(e) => handleCustomTypeKeyDown(e, input.id, 'consoleType')}
+                                onChange={(e) =>
+                                  handleConnectionDetailChange(
+                                    input.id,
+                                    "consoleType",
+                                    e.target.value,
+                                  )
+                                }
+                                onKeyDown={(e) =>
+                                  handleCustomTypeKeyDown(e, input.id, "consoleType")
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., Avid S6L, DiGiCo SD12"
                                 list={`consoleTypes-${input.id}`}
@@ -1210,11 +1316,19 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                               </datalist>
                             </div>
                             <div>
-                              <label className="block text-gray-300 text-sm mb-2">Console Input #</label>
+                              <label className="block text-gray-300 text-sm mb-2">
+                                Console Input #
+                              </label>
                               <input
                                 type="text"
                                 value={editingInput.connectionDetails?.consoleInputNumber || ""}
-                                onChange={(e) => handleConnectionDetailChange(input.id, 'consoleInputNumber', e.target.value)}
+                                onChange={(e) =>
+                                  handleConnectionDetailChange(
+                                    input.id,
+                                    "consoleInputNumber",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., 8"
                               />
@@ -1229,8 +1343,16 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                               <input
                                 type="text"
                                 value={editingInput.connectionDetails?.snakeType || ""}
-                                onChange={(e) => handleConnectionDetailChange(input.id, 'snakeType', e.target.value)}
-                                onKeyDown={(e) => handleCustomTypeKeyDown(e, input.id, 'digitalSnakeType')}
+                                onChange={(e) =>
+                                  handleConnectionDetailChange(
+                                    input.id,
+                                    "snakeType",
+                                    e.target.value,
+                                  )
+                                }
+                                onKeyDown={(e) =>
+                                  handleCustomTypeKeyDown(e, input.id, "digitalSnakeType")
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., Yamaha Rio, DL16"
                                 list={`digitalSnakeTypes-${input.id}`}
@@ -1246,7 +1368,13 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                               <input
                                 type="text"
                                 value={editingInput.connectionDetails?.inputNumber || ""}
-                                onChange={(e) => handleConnectionDetailChange(input.id, 'inputNumber', e.target.value)}
+                                onChange={(e) =>
+                                  handleConnectionDetailChange(
+                                    input.id,
+                                    "inputNumber",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., 8"
                               />
@@ -1254,15 +1382,26 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                           </>
                         )}
 
-                        {(editingInput.connection === "Digital Snake" || editingInput.connection === "Digital Network") && (
+                        {(editingInput.connection === "Digital Snake" ||
+                          editingInput.connection === "Digital Network") && (
                           <>
                             <div>
-                              <label className="block text-gray-300 text-sm mb-2">Network Type</label>
+                              <label className="block text-gray-300 text-sm mb-2">
+                                Network Type
+                              </label>
                               <input
                                 type="text"
                                 value={editingInput.connectionDetails?.networkType || ""}
-                                onChange={(e) => handleConnectionDetailChange(input.id, 'networkType', e.target.value)}
-                                onKeyDown={(e) => handleCustomTypeKeyDown(e, input.id, 'networkType')}
+                                onChange={(e) =>
+                                  handleConnectionDetailChange(
+                                    input.id,
+                                    "networkType",
+                                    e.target.value,
+                                  )
+                                }
+                                onKeyDown={(e) =>
+                                  handleCustomTypeKeyDown(e, input.id, "networkType")
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., Dante, AVB"
                                 list={`networkTypes-${input.id}`}
@@ -1274,11 +1413,19 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                               </datalist>
                             </div>
                             <div>
-                              <label className="block text-gray-300 text-sm mb-2">Network Patch #</label>
+                              <label className="block text-gray-300 text-sm mb-2">
+                                Network Patch #
+                              </label>
                               <input
                                 type="text"
                                 value={editingInput.connectionDetails?.networkPatch || ""}
-                                onChange={(e) => handleConnectionDetailChange(input.id, 'networkPatch', e.target.value)}
+                                onChange={(e) =>
+                                  handleConnectionDetailChange(
+                                    input.id,
+                                    "networkPatch",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., 24"
                               />
@@ -1291,7 +1438,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                           <input
                             type="text"
                             value={editingInput.notes}
-                            onChange={(e) => handleEditingInputChange(input.id, 'notes', e.target.value)}
+                            onChange={(e) =>
+                              handleEditingInputChange(input.id, "notes", e.target.value)
+                            }
                             className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                             placeholder="Additional notes about this input"
                           />
@@ -1304,7 +1453,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                           <p className="text-gray-400 text-xs sm:text-sm">Type/Device</p>
-                          <p className="text-white">{input.type || "N/A"} - {input.device || "N/A"}</p>
+                          <p className="text-white">
+                            {input.type || "N/A"} - {input.device || "N/A"}
+                          </p>
                           {input.isStereo && (
                             <div className="mt-1 flex items-center">
                               <Link className="h-4 w-4 mr-1 text-indigo-400" />
@@ -1324,8 +1475,8 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
                         <div>
                           <p className="text-gray-400 text-xs sm:text-sm">Phantom Power</p>
-                          <p className={`text-white ${input.phantom ? 'text-indigo-300' : ''}`}>
-                            {input.phantom ? '48V Enabled' : 'No'}
+                          <p className={`text-white ${input.phantom ? "text-indigo-300" : ""}`}>
+                            {input.phantom ? "48V Enabled" : "No"}
                           </p>
                         </div>
 
@@ -1361,7 +1512,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
       {showBulkAddModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold text-white mb-6 sticky top-0 bg-gray-800 z-20 pb-2">Bulk Add Inputs</h3>
+            <h3 className="text-xl font-semibold text-white mb-6 sticky top-0 bg-gray-800 z-20 pb-2">
+              Bulk Add Inputs
+            </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Basic Settings Section */}
@@ -1373,8 +1526,8 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                   <input
                     type="number"
                     value={bulkQuantity}
-                    min="0" 
-                    onChange={(e) => setBulkQuantity(e.target.value)} 
+                    min="0"
+                    onChange={(e) => setBulkQuantity(e.target.value)}
                     className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
@@ -1386,16 +1539,14 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                   <input
                     type="number"
                     value={bulkStartChannel}
-                    min="0" 
-                    onChange={(e) => setBulkStartChannel(e.target.value)} 
+                    min="0"
+                    onChange={(e) => setBulkStartChannel(e.target.value)}
                     className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-gray-300 text-sm mb-2">
-                    Name Prefix (optional)
-                  </label>
+                  <label className="block text-gray-300 text-sm mb-2">Name Prefix (optional)</label>
                   <input
                     type="text"
                     value={bulkPrefix}
@@ -1416,7 +1567,10 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                     onChange={(e) => setBulkIsStereo(e.target.checked)}
                     className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-500 rounded"
                   />
-                  <label htmlFor="bulkIsStereo" className="text-gray-300 text-sm ml-2 flex items-center">
+                  <label
+                    htmlFor="bulkIsStereo"
+                    className="text-gray-300 text-sm ml-2 flex items-center"
+                  >
                     <Link className="h-4 w-4 mr-1 text-indigo-400" />
                     Create as stereo pairs (L/R)
                   </label>
@@ -1434,7 +1588,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                   >
                     <option value="">Select Input Type</option>
                     {getAllInputTypes().map((type, index) => (
-                      <option key={index} value={type}>{type}</option>
+                      <option key={index} value={type}>
+                        {type}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -1451,7 +1607,10 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                       list="bulkDeviceOptionsDatalist"
                     />
                     <datalist id="bulkDeviceOptionsDatalist">
-                      {(getSuggestedDevicesForBulkType().length > 0 ? getSuggestedDevicesForBulkType() : getAllDevices()).map((device, idx) => (
+                      {(getSuggestedDevicesForBulkType().length > 0
+                        ? getSuggestedDevicesForBulkType()
+                        : getAllDevices()
+                      ).map((device, idx) => (
                         <option key={idx} value={device} />
                       ))}
                     </datalist>
@@ -1485,7 +1644,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                   >
                     <option value="">Select Connection Type</option>
                     {connectionTypeOptions.map((type, index) => (
-                      <option key={index} value={type}>{type}</option>
+                      <option key={index} value={type}>
+                        {type}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -1498,7 +1659,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                       <input
                         type="text"
                         value={bulkConnectionDetails.consoleType || ""}
-                        onChange={(e) => handleBulkConnectionDetailChange('consoleType', e.target.value)}
+                        onChange={(e) =>
+                          handleBulkConnectionDetailChange("consoleType", e.target.value)
+                        }
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., Avid S6L, DiGiCo SD12"
                         list="bulkConsoleTypesDatalist"
@@ -1514,7 +1677,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                       <input
                         type="text"
                         value={bulkConnectionDetails.consoleInputNumber || ""}
-                        onChange={(e) => handleBulkConnectionDetailChange('consoleInputNumber', e.target.value)}
+                        onChange={(e) =>
+                          handleBulkConnectionDetailChange("consoleInputNumber", e.target.value)
+                        }
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., 1 (will increment with each input)"
                       />
@@ -1529,7 +1694,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                       <input
                         type="text"
                         value={bulkConnectionDetails.snakeType || ""}
-                        onChange={(e) => handleBulkConnectionDetailChange('snakeType', e.target.value)}
+                        onChange={(e) =>
+                          handleBulkConnectionDetailChange("snakeType", e.target.value)
+                        }
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., Multicore, XLR Harness"
                         list="bulkAnalogSnakeTypesDatalist"
@@ -1545,7 +1712,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                       <input
                         type="text"
                         value={bulkConnectionDetails.inputNumber || ""}
-                        onChange={(e) => handleBulkConnectionDetailChange('inputNumber', e.target.value)}
+                        onChange={(e) =>
+                          handleBulkConnectionDetailChange("inputNumber", e.target.value)
+                        }
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., 1 (will increment with each input)"
                       />
@@ -1555,30 +1724,36 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                       <input
                         type="text"
                         value={bulkConnectionDetails.consoleType || ""}
-                        onChange={(e) => handleBulkConnectionDetailChange('consoleType', e.target.value)}
+                        onChange={(e) =>
+                          handleBulkConnectionDetailChange("consoleType", e.target.value)
+                        }
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., Avid S6L, DiGiCo SD12"
-                        list="bulkConsoleTypesDatalist" 
+                        list="bulkConsoleTypesDatalist"
                       />
-                      <datalist id="bulkConsoleTypesDatalist"> 
+                      <datalist id="bulkConsoleTypesDatalist">
                         {getAllConsoleTypes().map((type, idx) => (
                           <option key={idx} value={type} />
                         ))}
                       </datalist>
                     </div>
                     <div>
-                      <label className="block text-gray-300 text-sm mb-2">Console Input # (Starting)</label>
+                      <label className="block text-gray-300 text-sm mb-2">
+                        Console Input # (Starting)
+                      </label>
                       <input
                         type="text"
                         value={bulkConnectionDetails.consoleInputNumber || ""}
-                        onChange={(e) => handleBulkConnectionDetailChange('consoleInputNumber', e.target.value)}
+                        onChange={(e) =>
+                          handleBulkConnectionDetailChange("consoleInputNumber", e.target.value)
+                        }
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., 1 (will increment with each input)"
                       />
                     </div>
                   </>
                 )}
-                
+
                 {bulkConnection === "Digital Snake" && (
                   <>
                     <div>
@@ -1586,7 +1761,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                       <input
                         type="text"
                         value={bulkConnectionDetails.snakeType || ""}
-                        onChange={(e) => handleBulkConnectionDetailChange('snakeType', e.target.value)}
+                        onChange={(e) =>
+                          handleBulkConnectionDetailChange("snakeType", e.target.value)
+                        }
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., Yamaha Rio, DL16"
                         list="bulkDigitalSnakeTypesDatalist"
@@ -1602,7 +1779,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                       <input
                         type="text"
                         value={bulkConnectionDetails.inputNumber || ""}
-                        onChange={(e) => handleBulkConnectionDetailChange('inputNumber', e.target.value)}
+                        onChange={(e) =>
+                          handleBulkConnectionDetailChange("inputNumber", e.target.value)
+                        }
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., 1 (will increment with each input)"
                       />
@@ -1616,7 +1795,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                     <input
                       type="text"
                       value={bulkConnectionDetails.networkType || ""}
-                      onChange={(e) => handleBulkConnectionDetailChange('networkType', e.target.value)}
+                      onChange={(e) =>
+                        handleBulkConnectionDetailChange("networkType", e.target.value)
+                      }
                       className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="e.g., Dante, AVB"
                       list="bulkNetworkTypesDatalist"
@@ -1628,14 +1809,18 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                     </datalist>
                   </div>
                 )}
-                
+
                 {(bulkConnection === "Digital Snake" || bulkConnection === "Digital Network") && (
-                   <div>
-                    <label className="block text-gray-300 text-sm mb-2">Network Patch # (Starting)</label>
+                  <div>
+                    <label className="block text-gray-300 text-sm mb-2">
+                      Network Patch # (Starting)
+                    </label>
                     <input
                       type="text"
                       value={bulkConnectionDetails.networkPatch || ""}
-                      onChange={(e) => handleBulkConnectionDetailChange('networkPatch', e.target.value)}
+                      onChange={(e) =>
+                        handleBulkConnectionDetailChange("networkPatch", e.target.value)
+                      }
                       className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="e.g., 1 (will increment with each input)"
                     />
@@ -1653,10 +1838,11 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
               </button>
               <button
                 onClick={handleBulkAdd}
-                className={`bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors ${isBulkAddDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors ${isBulkAddDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                 disabled={isBulkAddDisabled}
               >
-                Add {isBulkAddDisabled ? '' : parsedBulkQuantity} {parsedBulkQuantity === 1 ? 'Input' : 'Inputs'}
+                Add {isBulkAddDisabled ? "" : parsedBulkQuantity}{" "}
+                {parsedBulkQuantity === 1 ? "Input" : "Inputs"}
               </button>
             </div>
           </div>

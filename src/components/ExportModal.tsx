@@ -1,5 +1,5 @@
-import React from 'react';
-import { FileImage, Printer, X } from 'lucide-react';
+import React from "react";
+import { FileImage, Printer, X } from "lucide-react";
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -64,10 +64,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
         </div>
 
         <div className="mt-6 text-right">
-          <button
-            className="px-4 py-2 text-gray-300 hover:text-white"
-            onClick={onClose}
-          >
+          <button className="px-4 py-2 text-gray-300 hover:text-white" onClick={onClose}>
             Cancel
           </button>
         </div>
