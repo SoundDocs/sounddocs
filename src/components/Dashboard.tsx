@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase, validateSupabaseConfig } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
 import Header from "./Header";
 import Footer from "./Footer";
 import {
@@ -74,10 +74,6 @@ const Dashboard = () => {
   const printStagePlotExportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Validate Supabase configuration
-    const isValid = validateSupabaseConfig();
-    setSupabaseWarning(!isValid);
-
     // Check if user is authenticated
     const checkUser = async () => {
       try {
