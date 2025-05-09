@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import Header from "./Header";
-import Footer from "./Footer";
+import Header from "../components/Header";
+import Footer from "../components/Footer";
 import {
   PlusCircle,
   FileText,
@@ -15,11 +15,11 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import html2canvas from "html2canvas";
-import PatchSheetExport from "./PatchSheetExport";
-import StagePlotExport from "./StagePlotExport";
-import PrintPatchSheetExport from "./PrintPatchSheetExport";
-import PrintStagePlotExport from "./PrintStagePlotExport";
-import ExportModal from "./ExportModal";
+import PatchSheetExport from "../components/PatchSheetExport";
+import StagePlotExport from "../components/StagePlotExport";
+import PrintPatchSheetExport from "../components/PrintPatchSheetExport";
+import PrintStagePlotExport from "../components/PrintStagePlotExport";
+import ExportModal from "../components/ExportModal";
 
 // Define types for our documents
 interface PatchList {
