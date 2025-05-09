@@ -13,7 +13,7 @@ cd $APPLICATION_ROOT_PATH
 # vars related to Supabase. We prefix each one with `SUPABASE_` via some sed trickery to ensure that we don't
 # accidentally override any existing env vars.
 echo "Retrieving Supabase environment variables..."
-eval $(npx supabase status --output env | sed "s/^/SUPABASE_/")
+eval $(npx --yes supabase status --output env | sed "s/^/SUPABASE_/")
 echo
 
 # Now we've got what we need, we can cd back to wherever the script was run from.

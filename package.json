@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "local-db": "npx supabase start",
+    "local-db": "npx --yes supabase start",
     "prepare": "husky"
   },
   "dependencies": {
