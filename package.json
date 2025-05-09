@@ -4,11 +4,11 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "bash ./bin/injecting-supabase-env vite",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "local-db": "npx supabase start",
+    "local-db": "npx --yes supabase start",
     "prepare": "husky"
   },
   "dependencies": {
