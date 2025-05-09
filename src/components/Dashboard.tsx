@@ -1,15 +1,25 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase, validateSupabaseConfig } from '../lib/supabase';
-import Header from './Header';
-import Footer from './Footer';
-import { PlusCircle, FileText, Layout, Info, Trash2, Edit, Download, List, AlertTriangle } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import PatchSheetExport from './PatchSheetExport';
-import StagePlotExport from './StagePlotExport';
-import PrintPatchSheetExport from './PrintPatchSheetExport';
-import PrintStagePlotExport from './PrintStagePlotExport';
-import ExportModal from './ExportModal';
+import React, { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase, validateSupabaseConfig } from "../lib/supabase";
+import Header from "./Header";
+import Footer from "./Footer";
+import {
+  PlusCircle,
+  FileText,
+  Layout,
+  Info,
+  Trash2,
+  Edit,
+  Download,
+  List,
+  AlertTriangle,
+} from "lucide-react";
+import html2canvas from "html2canvas";
+import PatchSheetExport from "./PatchSheetExport";
+import StagePlotExport from "./StagePlotExport";
+import PrintPatchSheetExport from "./PrintPatchSheetExport";
+import PrintStagePlotExport from "./PrintStagePlotExport";
+import ExportModal from "./ExportModal";
 
 // Define types for our documents
 interface PatchList {
@@ -39,7 +49,7 @@ const Dashboard = () => {
   const [stagePlots, setStagePlots] = useState<StagePlot[]>([]);
   const [showNewPatchModal, setShowNewPatchModal] = useState(false);
   const [showNewPlotModal, setShowNewPlotModal] = useState(false);
-  const [newDocName, setNewDocName] = useState('');
+  const [newDocName, setNewDocName] = useState("");
   const [recentDocuments, setRecentDocuments] = useState<PatchList[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [currentExportPatchSheet, setCurrentExportPatchSheet] = useState<PatchList | null>(null);
@@ -49,10 +59,14 @@ const Dashboard = () => {
   const [showStagePlotExportModal, setShowStagePlotExportModal] = useState(false);
   const [exportStagePlotId, setExportStagePlotId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [documentToDelete, setDocumentToDelete] = useState<{ id: string; type: 'patch' | 'stage'; name: string } | null>(null);
+  const [documentToDelete, setDocumentToDelete] = useState<{
+    id: string;
+    type: "patch" | "stage";
+    name: string;
+  } | null>(null);
   const [supabaseWarning, setSupabaseWarning] = useState(false);
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
-  
+
   // Refs for the exportable components
   const patchSheetExportRef = useRef<HTMLDivElement>(null);
   const printPatchSheetExportRef = useRef<HTMLDivElement>(null);
@@ -69,22 +83,22 @@ const Dashboard = () => {
       try {
         const { data, error } = await supabase.auth.getUser();
         if (error) throw error;
-        
+
         if (data.user) {
           setUser(data.user);
           // Fetch user data
           await Promise.all([
             fetchPatchLists(data.user.id),
             fetchRecentDocuments(data.user.id),
-            fetchStagePlots(data.user.id)
+            fetchStagePlots(data.user.id),
           ]);
         } else {
-          navigate('/login');
+          navigate("/login");
         }
       } catch (error) {
-        console.error('Error checking auth status:', error);
-        setSupabaseError('Failed to connect to Supabase. Please check your configuration.');
-        navigate('/login');
+        console.error("Error checking auth status:", error);
+        setSupabaseError("Failed to connect to Supabase. Please check your configuration.");
+        navigate("/login");
       } finally {
         setLoading(false);
       }
@@ -96,111 +110,111 @@ const Dashboard = () => {
   const fetchPatchLists = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('patch_sheets')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .from("patch_sheets")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
-      
+
       if (data) {
         setPatchLists(data);
       }
     } catch (error) {
-      console.error('Error fetching patch lists:', error);
+      console.error("Error fetching patch lists:", error);
     }
   };
 
   const fetchStagePlots = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('stage_plots')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .from("stage_plots")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
-      
+
       if (data) {
         setStagePlots(data);
       }
     } catch (error) {
-      console.error('Error fetching stage plots:', error);
+      console.error("Error fetching stage plots:", error);
     }
   };
 
   const fetchRecentDocuments = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('patch_sheets')
-        .select('*')
-        .eq('user_id', userId)
-        .order('last_edited', { ascending: false })
+        .from("patch_sheets")
+        .select("*")
+        .eq("user_id", userId)
+        .order("last_edited", { ascending: false })
         .limit(2); // Limit to only 2 recent documents
 
       if (error) throw error;
-      
+
       if (data) {
         setRecentDocuments(data);
       }
     } catch (error) {
-      console.error('Error fetching recent documents:', error);
+      console.error("Error fetching recent documents:", error);
     }
   };
 
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
-      navigate('/');
+      navigate("/");
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error("Error signing out:", error);
     }
   };
 
   const handleCreatePatchList = () => {
     if (newDocName.trim()) {
-      navigate('/patch-sheet/new');
+      navigate("/patch-sheet/new");
       setShowNewPatchModal(false);
-      setNewDocName('');
+      setNewDocName("");
     }
   };
 
   const handleCreateStagePlot = async () => {
     if (newDocName.trim()) {
       setShowNewPlotModal(false);
-      
+
       try {
         // Create a new stage plot in the database
         const { data, error } = await supabase
-          .from('stage_plots')
+          .from("stage_plots")
           .insert([
-            { 
+            {
               name: newDocName,
               user_id: user.id,
-              stage_size: 'medium-wide',
+              stage_size: "medium-wide",
               elements: [],
               created_at: new Date().toISOString(),
-              last_edited: new Date().toISOString()
-            }
+              last_edited: new Date().toISOString(),
+            },
           ])
           .select();
 
         if (error) throw error;
-        
+
         if (data && data[0]) {
           // Navigate to the stage plot editor with the new ID
           navigate(`/stage-plot/${data[0].id}`);
         }
       } catch (error) {
-        console.error('Error creating stage plot:', error);
-        alert('Failed to create stage plot. Please try again.');
+        console.error("Error creating stage plot:", error);
+        alert("Failed to create stage plot. Please try again.");
       }
-      
-      setNewDocName('');
+
+      setNewDocName("");
     }
   };
 
-  const handleDeleteRequest = (id: string, type: 'patch' | 'stage', name: string) => {
+  const handleDeleteRequest = (id: string, type: "patch" | "stage", name: string) => {
     setDocumentToDelete({ id, type, name });
     setShowDeleteConfirm(true);
   };
@@ -209,31 +223,28 @@ const Dashboard = () => {
     if (!documentToDelete) return;
 
     try {
-      if (documentToDelete.type === 'patch') {
+      if (documentToDelete.type === "patch") {
         const { error } = await supabase
-          .from('patch_sheets')
+          .from("patch_sheets")
           .delete()
-          .eq('id', documentToDelete.id);
+          .eq("id", documentToDelete.id);
 
         if (error) throw error;
-        
+
         // Update the local state
-        setPatchLists(patchLists.filter(item => item.id !== documentToDelete.id));
-        setRecentDocuments(recentDocuments.filter(item => item.id !== documentToDelete.id));
+        setPatchLists(patchLists.filter((item) => item.id !== documentToDelete.id));
+        setRecentDocuments(recentDocuments.filter((item) => item.id !== documentToDelete.id));
       } else {
-        const { error } = await supabase
-          .from('stage_plots')
-          .delete()
-          .eq('id', documentToDelete.id);
+        const { error } = await supabase.from("stage_plots").delete().eq("id", documentToDelete.id);
 
         if (error) throw error;
-        
+
         // Update the local state
-        setStagePlots(stagePlots.filter(item => item.id !== documentToDelete.id));
+        setStagePlots(stagePlots.filter((item) => item.id !== documentToDelete.id));
       }
     } catch (error) {
-      console.error('Error deleting document:', error);
-      alert('Failed to delete document. Please try again.');
+      console.error("Error deleting document:", error);
+      alert("Failed to delete document. Please try again.");
     } finally {
       setShowDeleteConfirm(false);
       setDocumentToDelete(null);
@@ -248,67 +259,72 @@ const Dashboard = () => {
   const handleEditPatchList = (id: string) => {
     navigate(`/patch-sheet/${id}`);
   };
-  
+
   const handleEditStagePlot = (id: string) => {
     navigate(`/stage-plot/${id}`);
   };
-  
+
   const handleExportPatchListClick = (patchSheet: PatchList) => {
     setExportPatchSheetId(patchSheet.id);
     setShowExportModal(true);
   };
-  
+
   const handleExportStageplotClick = (stagePlot: StagePlot) => {
     setExportStagePlotId(stagePlot.id);
     setShowStagePlotExportModal(true);
   };
-  
+
   const handleExportDownload = async (patchSheetId: string) => {
     try {
       setDownloadingId(patchSheetId);
-      
+
       // Close the export modal
       setShowExportModal(false);
-      
+
       // Fetch complete patch sheet data if needed
-      let fullPatchSheet: PatchList | null = patchLists.find(p => p.id === patchSheetId) || null;
-      
-      if (!fullPatchSheet || !fullPatchSheet.inputs || !fullPatchSheet.outputs || !fullPatchSheet.info) {
+      let fullPatchSheet: PatchList | null = patchLists.find((p) => p.id === patchSheetId) || null;
+
+      if (
+        !fullPatchSheet ||
+        !fullPatchSheet.inputs ||
+        !fullPatchSheet.outputs ||
+        !fullPatchSheet.info
+      ) {
         const { data, error } = await supabase
-          .from('patch_sheets')
-          .select('*')
-          .eq('id', patchSheetId)
+          .from("patch_sheets")
+          .select("*")
+          .eq("id", patchSheetId)
           .single();
-          
+
         if (error) throw error;
         fullPatchSheet = data;
       }
-      
+
       // Set the current patch sheet to be exported
       setCurrentExportPatchSheet(fullPatchSheet);
-      
+
       // Wait for the component to render
       setTimeout(async () => {
         if (patchSheetExportRef.current) {
           const canvas = await html2canvas(patchSheetExportRef.current, {
             scale: 2, // Higher scale for better quality
-            backgroundColor: '#111827', // Match the background color
+            backgroundColor: "#111827", // Match the background color
             logging: false,
             useCORS: true,
             allowTaint: true,
             windowHeight: document.documentElement.offsetHeight,
             windowWidth: document.documentElement.offsetWidth,
             height: patchSheetExportRef.current.scrollHeight,
-            width: patchSheetExportRef.current.offsetWidth
+            width: patchSheetExportRef.current.offsetWidth,
           });
-          
+
           // Convert canvas to a data URL and trigger download
-          const imageURL = canvas.toDataURL('image/png');
-          const link = document.createElement('a');
+          const imageURL = canvas.toDataURL("image/png");
+          const link = document.createElement("a");
           link.href = imageURL;
-          link.download = `${fullPatchSheet!.name.replace(/\s+/g, '-').toLowerCase()}-patch-sheet.png`;
+          link.download = `${fullPatchSheet!.name.replace(/\s+/g, "-").toLowerCase()}-patch-sheet.png`;
           link.click();
-          
+
           // Clean up
           setCurrentExportPatchSheet(null);
           setDownloadingId(null);
@@ -316,8 +332,8 @@ const Dashboard = () => {
         }
       }, 100);
     } catch (error) {
-      console.error('Error downloading patch sheet:', error);
-      alert('Failed to download patch sheet. Please try again.');
+      console.error("Error downloading patch sheet:", error);
+      alert("Failed to download patch sheet. Please try again.");
       setDownloadingId(null);
       setExportPatchSheetId(null);
     }
@@ -326,49 +342,54 @@ const Dashboard = () => {
   const handlePrintExport = async (patchSheetId: string) => {
     try {
       setDownloadingId(patchSheetId);
-      
+
       // Close the export modal
       setShowExportModal(false);
-      
+
       // Fetch complete patch sheet data if needed
-      let fullPatchSheet: PatchList | null = patchLists.find(p => p.id === patchSheetId) || null;
-      
-      if (!fullPatchSheet || !fullPatchSheet.inputs || !fullPatchSheet.outputs || !fullPatchSheet.info) {
+      let fullPatchSheet: PatchList | null = patchLists.find((p) => p.id === patchSheetId) || null;
+
+      if (
+        !fullPatchSheet ||
+        !fullPatchSheet.inputs ||
+        !fullPatchSheet.outputs ||
+        !fullPatchSheet.info
+      ) {
         const { data, error } = await supabase
-          .from('patch_sheets')
-          .select('*')
-          .eq('id', patchSheetId)
+          .from("patch_sheets")
+          .select("*")
+          .eq("id", patchSheetId)
           .single();
-          
+
         if (error) throw error;
         fullPatchSheet = data;
       }
-      
+
       // Set the current patch sheet to be exported
       setCurrentExportPatchSheet(fullPatchSheet);
-      
+
       // Wait for the component to render
       setTimeout(async () => {
         if (printPatchSheetExportRef.current) {
           const canvas = await html2canvas(printPatchSheetExportRef.current, {
             scale: 2, // Higher scale for better quality
-            backgroundColor: '#ffffff', // White background
+            backgroundColor: "#ffffff", // White background
             logging: false,
             useCORS: true,
             allowTaint: true,
             windowHeight: document.documentElement.offsetHeight,
             windowWidth: document.documentElement.offsetWidth,
             height: printPatchSheetExportRef.current.scrollHeight,
-            width: printPatchSheetExportRef.current.offsetWidth
+            width: printPatchSheetExportRef.current.offsetWidth,
           });
-          
+
           // Convert canvas to a data URL and trigger download
-          const imageURL = canvas.toDataURL('image/png');
-          const link = document.createElement('a');
+          const imageURL = canvas.toDataURL("image/png");
+          const link = document.createElement("a");
           link.href = imageURL;
-          link.download = `${fullPatchSheet!.name.replace(/\s+/g, '-').toLowerCase()}-patch-sheet-print.png`;
+          link.download = `${fullPatchSheet!.name.replace(/\s+/g, "-").toLowerCase()}-patch-sheet-print.png`;
           link.click();
-          
+
           // Clean up
           setCurrentExportPatchSheet(null);
           setDownloadingId(null);
@@ -376,67 +397,67 @@ const Dashboard = () => {
         }
       }, 100);
     } catch (error) {
-      console.error('Error exporting print-friendly patch sheet:', error);
-      alert('Failed to export patch sheet. Please try again.');
+      console.error("Error exporting print-friendly patch sheet:", error);
+      alert("Failed to export patch sheet. Please try again.");
       setDownloadingId(null);
       setExportPatchSheetId(null);
     }
   };
-  
+
   const handleExportStagePlotImage = async (stagePlotId: string) => {
     try {
       setDownloadingId(stagePlotId);
-      
+
       // Close the export modal
       setShowStagePlotExportModal(false);
-      
+
       // Fetch complete stage plot data if needed
-      let fullStagePlot = stagePlots.find(p => p.id === stagePlotId);
+      let fullStagePlot = stagePlots.find((p) => p.id === stagePlotId);
       if (!fullStagePlot || !fullStagePlot.elements) {
         const { data, error } = await supabase
-          .from('stage_plots')
-          .select('*')
-          .eq('id', stagePlotId)
+          .from("stage_plots")
+          .select("*")
+          .eq("id", stagePlotId)
           .single();
-          
+
         if (error) throw error;
-        if (!data) throw new Error('Stage plot not found');
-        
+        if (!data) throw new Error("Stage plot not found");
+
         // Ensure required fields are present
         fullStagePlot = {
           ...data,
-          stage_size: data.stage_size || 'medium-wide',
-          elements: data.elements || []
+          stage_size: data.stage_size || "medium-wide",
+          elements: data.elements || [],
         };
       }
-      
+
       // Set the current stage plot to be exported
       if (fullStagePlot) {
         setCurrentExportStagePlot(fullStagePlot);
       }
-      
+
       // Wait for the component to render
       setTimeout(async () => {
         if (stagePlotExportRef.current) {
           const canvas = await html2canvas(stagePlotExportRef.current, {
             scale: 2, // Higher scale for better quality
-            backgroundColor: '#111827', // Match the background color
+            backgroundColor: "#111827", // Match the background color
             logging: false,
             useCORS: true,
             allowTaint: true,
             windowHeight: document.documentElement.offsetHeight,
             windowWidth: document.documentElement.offsetWidth,
             height: stagePlotExportRef.current.scrollHeight,
-            width: stagePlotExportRef.current.offsetWidth
+            width: stagePlotExportRef.current.offsetWidth,
           });
-          
+
           // Convert canvas to a data URL and trigger download
-          const imageURL = canvas.toDataURL('image/png');
-          const link = document.createElement('a');
+          const imageURL = canvas.toDataURL("image/png");
+          const link = document.createElement("a");
           link.href = imageURL;
-          link.download = `${fullStagePlot!.name.replace(/\s+/g, '-').toLowerCase()}-stage-plot.png`;
+          link.download = `${fullStagePlot!.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot.png`;
           link.click();
-          
+
           // Clean up
           setCurrentExportStagePlot(null);
           setDownloadingId(null);
@@ -444,8 +465,8 @@ const Dashboard = () => {
         }
       }, 100);
     } catch (error) {
-      console.error('Error downloading stage plot:', error);
-      alert('Failed to download stage plot. Please try again.');
+      console.error("Error downloading stage plot:", error);
+      alert("Failed to download stage plot. Please try again.");
       setDownloadingId(null);
       setExportStagePlotId(null);
     }
@@ -454,57 +475,57 @@ const Dashboard = () => {
   const handlePrintStagePlot = async (stagePlotId: string) => {
     try {
       setDownloadingId(stagePlotId);
-      
+
       // Close the export modal
       setShowStagePlotExportModal(false);
-      
+
       // Fetch complete stage plot data if needed
-      let fullStagePlot = stagePlots.find(p => p.id === stagePlotId);
+      let fullStagePlot = stagePlots.find((p) => p.id === stagePlotId);
       if (!fullStagePlot || !fullStagePlot.elements) {
         const { data, error } = await supabase
-          .from('stage_plots')
-          .select('*')
-          .eq('id', stagePlotId)
+          .from("stage_plots")
+          .select("*")
+          .eq("id", stagePlotId)
           .single();
-          
+
         if (error) throw error;
-        if (!data) throw new Error('Stage plot not found');
-        
+        if (!data) throw new Error("Stage plot not found");
+
         // Ensure required fields are present
         fullStagePlot = {
           ...data,
-          stage_size: data.stage_size || 'medium-wide',
-          elements: data.elements || []
+          stage_size: data.stage_size || "medium-wide",
+          elements: data.elements || [],
         };
       }
-      
+
       // Set the current stage plot to be exported
       if (fullStagePlot) {
         setCurrentExportStagePlot(fullStagePlot);
       }
-      
+
       // Wait for the component to render
       setTimeout(async () => {
         if (printStagePlotExportRef.current) {
           const canvas = await html2canvas(printStagePlotExportRef.current, {
             scale: 2, // Higher scale for better quality
-            backgroundColor: '#ffffff', // White background
+            backgroundColor: "#ffffff", // White background
             logging: false,
             useCORS: true,
             allowTaint: true,
             windowHeight: document.documentElement.offsetHeight,
             windowWidth: document.documentElement.offsetWidth,
             height: printStagePlotExportRef.current.scrollHeight,
-            width: printStagePlotExportRef.current.offsetWidth
+            width: printStagePlotExportRef.current.offsetWidth,
           });
-          
+
           // Convert canvas to a data URL and trigger download
-          const imageURL = canvas.toDataURL('image/png');
-          const link = document.createElement('a');
+          const imageURL = canvas.toDataURL("image/png");
+          const link = document.createElement("a");
           link.href = imageURL;
-          link.download = `${fullStagePlot!.name.replace(/\s+/g, '-').toLowerCase()}-stage-plot-print.png`;
+          link.download = `${fullStagePlot!.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot-print.png`;
           link.click();
-          
+
           // Clean up
           setCurrentExportStagePlot(null);
           setDownloadingId(null);
@@ -512,8 +533,8 @@ const Dashboard = () => {
         }
       }, 100);
     } catch (error) {
-      console.error('Error exporting print-friendly stage plot:', error);
-      alert('Failed to export stage plot. Please try again.');
+      console.error("Error exporting print-friendly stage plot:", error);
+      alert("Failed to export stage plot. Please try again.");
       setDownloadingId(null);
       setExportStagePlotId(null);
     }
@@ -530,7 +551,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       <Header dashboard={true} onSignOut={handleSignOut} />
-      
+
       {supabaseWarning && (
         <div className="bg-yellow-500 text-yellow-900 px-4 py-3 shadow-sm">
           <div className="container mx-auto">
@@ -539,7 +560,8 @@ const Dashboard = () => {
               <div>
                 <p className="font-medium">Supabase Configuration Required</p>
                 <p className="text-sm">
-                  Please set up your Supabase environment variables. Check the console for instructions.
+                  Please set up your Supabase environment variables. Check the console for
+                  instructions.
                 </p>
               </div>
             </div>
@@ -564,9 +586,7 @@ const Dashboard = () => {
       <main className="flex-grow container mx-auto px-4 py-12 mt-12">
         <div className="mb-12">
           <h1 className="text-3xl font-bold text-white mb-2">Welcome to SoundDocs</h1>
-          <p className="text-gray-300">
-            Create and manage your professional audio documentation
-          </p>
+          <p className="text-gray-300">Create and manage your professional audio documentation</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
@@ -582,19 +602,21 @@ const Dashboard = () => {
               {patchLists.length > 0 ? (
                 <div className="space-y-3">
                   {/* Only show preview of first 2 patch lists */}
-                  {patchLists.slice(0, 2).map(patchList => (
-                    <div key={patchList.id} className="bg-gray-700 p-4 rounded-lg flex justify-between items-center">
+                  {patchLists.slice(0, 2).map((patchList) => (
+                    <div
+                      key={patchList.id}
+                      className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
+                    >
                       <div>
                         <h3 className="text-white font-medium">{patchList.name}</h3>
                         <p className="text-gray-400 text-sm">
-                          {patchList.last_edited 
+                          {patchList.last_edited
                             ? `Edited ${new Date(patchList.last_edited).toLocaleDateString()}`
-                            : `Created ${new Date(patchList.created_at).toLocaleDateString()}`
-                          }
+                            : `Created ${new Date(patchList.created_at).toLocaleDateString()}`}
                         </p>
                       </div>
                       <div className="flex space-x-2">
-                        <button 
+                        <button
                           className="p-2 text-gray-400 hover:text-indigo-400"
                           title="Download"
                           onClick={(e) => {
@@ -603,21 +625,23 @@ const Dashboard = () => {
                           }}
                           disabled={downloadingId === patchList.id}
                         >
-                          <Download className={`h-5 w-5 ${downloadingId === patchList.id ? 'animate-pulse' : ''}`} />
+                          <Download
+                            className={`h-5 w-5 ${downloadingId === patchList.id ? "animate-pulse" : ""}`}
+                          />
                         </button>
-                        <button 
+                        <button
                           className="p-2 text-gray-400 hover:text-indigo-400"
                           title="Edit"
                           onClick={() => handleEditPatchList(patchList.id)}
                         >
                           <Edit className="h-5 w-5" />
                         </button>
-                        <button 
+                        <button
                           className="p-2 text-gray-400 hover:text-red-400"
                           title="Delete"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeleteRequest(patchList.id, 'patch', patchList.name);
+                            handleDeleteRequest(patchList.id, "patch", patchList.name);
                           }}
                         >
                           <Trash2 className="h-5 w-5" />
@@ -629,29 +653,29 @@ const Dashboard = () => {
               ) : (
                 <div className="p-4 bg-gray-700 rounded-lg text-center">
                   <p className="text-gray-300 mb-4">You haven't created any patch lists yet</p>
-                  <button 
+                  <button
                     className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                    onClick={() => navigate('/patch-sheet/new')}
+                    onClick={() => navigate("/patch-sheet/new")}
                   >
                     <PlusCircle className="h-5 w-5 mr-2" />
                     Create Patch List
                   </button>
                 </div>
               )}
-              
+
               <div className="pt-3 text-center">
                 <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
-                  <button 
+                  <button
                     className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                    onClick={() => navigate('/patch-sheet/new')}
+                    onClick={() => navigate("/patch-sheet/new")}
                   >
                     <PlusCircle className="h-5 w-5 mr-2" />
                     New Patch List
                   </button>
-                  
-                  <button 
+
+                  <button
                     className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                    onClick={() => navigate('/all-patch-sheets')}
+                    onClick={() => navigate("/all-patch-sheets")}
                   >
                     <List className="h-5 w-5 mr-2" />
                     View All {patchLists.length > 0 && `(${patchLists.length})`}
@@ -673,19 +697,21 @@ const Dashboard = () => {
               {stagePlots.length > 0 ? (
                 <div className="space-y-3">
                   {/* Only show preview of first 2 stage plots */}
-                  {stagePlots.slice(0, 2).map(stagePlot => (
-                    <div key={stagePlot.id} className="bg-gray-700 p-4 rounded-lg flex justify-between items-center">
+                  {stagePlots.slice(0, 2).map((stagePlot) => (
+                    <div
+                      key={stagePlot.id}
+                      className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
+                    >
                       <div>
                         <h3 className="text-white font-medium">{stagePlot.name}</h3>
                         <p className="text-gray-400 text-sm">
-                          {stagePlot.last_edited 
+                          {stagePlot.last_edited
                             ? `Edited ${new Date(stagePlot.last_edited).toLocaleDateString()}`
-                            : `Created ${new Date(stagePlot.created_at).toLocaleDateString()}`
-                          }
+                            : `Created ${new Date(stagePlot.created_at).toLocaleDateString()}`}
                         </p>
                       </div>
                       <div className="flex space-x-2">
-                        <button 
+                        <button
                           className="p-2 text-gray-400 hover:text-indigo-400"
                           title="Download"
                           onClick={(e) => {
@@ -694,19 +720,21 @@ const Dashboard = () => {
                           }}
                           disabled={downloadingId === stagePlot.id}
                         >
-                          <Download className={`h-5 w-5 ${downloadingId === stagePlot.id ? 'animate-pulse' : ''}`} />
+                          <Download
+                            className={`h-5 w-5 ${downloadingId === stagePlot.id ? "animate-pulse" : ""}`}
+                          />
                         </button>
-                        <button 
+                        <button
                           className="p-2 text-gray-400 hover:text-indigo-400"
                           title="Edit"
                           onClick={() => handleEditStagePlot(stagePlot.id)}
                         >
                           <Edit className="h-5 w-5" />
                         </button>
-                        <button 
+                        <button
                           className="p-2 text-gray-400 hover:text-red-400"
                           title="Delete"
-                          onClick={() => handleDeleteRequest(stagePlot.id, 'stage', stagePlot.name)}
+                          onClick={() => handleDeleteRequest(stagePlot.id, "stage", stagePlot.name)}
                         >
                           <Trash2 className="h-5 w-5" />
                         </button>
@@ -717,7 +745,7 @@ const Dashboard = () => {
               ) : (
                 <div className="p-4 bg-gray-700 rounded-lg text-center">
                   <p className="text-gray-300 mb-4">You haven't created any stage plots yet</p>
-                  <button 
+                  <button
                     className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
                     onClick={() => setShowNewPlotModal(true)}
                     data-show-new-plot-modal="true"
@@ -727,10 +755,10 @@ const Dashboard = () => {
                   </button>
                 </div>
               )}
-              
+
               <div className="pt-3 text-center">
                 <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
-                  <button 
+                  <button
                     className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
                     onClick={() => setShowNewPlotModal(true)}
                     data-show-new-plot-modal="true"
@@ -738,10 +766,10 @@ const Dashboard = () => {
                     <PlusCircle className="h-5 w-5 mr-2" />
                     New Stage Plot
                   </button>
-                  
-                  <button 
+
+                  <button
                     className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                    onClick={() => navigate('/all-stage-plots')}
+                    onClick={() => navigate("/all-stage-plots")}
                   >
                     <List className="h-5 w-5 mr-2" />
                     View All {stagePlots.length > 0 && `(${stagePlots.length})`}
@@ -786,7 +814,7 @@ const Dashboard = () => {
                 className="px-4 py-2 text-gray-300 hover:text-white"
                 onClick={() => {
                   setShowNewPatchModal(false);
-                  setNewDocName('');
+                  setNewDocName("");
                 }}
               >
                 Cancel
@@ -826,7 +854,7 @@ const Dashboard = () => {
                 className="px-4 py-2 text-gray-300 hover:text-white"
                 onClick={() => {
                   setShowNewPlotModal(false);
-                  setNewDocName('');
+                  setNewDocName("");
                 }}
               >
                 Cancel
@@ -864,27 +892,18 @@ const Dashboard = () => {
       {/* Hidden Export Components */}
       {currentExportPatchSheet && (
         <>
-          <PatchSheetExport
-            ref={patchSheetExportRef}
-            patchSheet={currentExportPatchSheet}
-          />
+          <PatchSheetExport ref={patchSheetExportRef} patchSheet={currentExportPatchSheet} />
           <PrintPatchSheetExport
             ref={printPatchSheetExportRef}
             patchSheet={currentExportPatchSheet}
           />
         </>
       )}
-      
+
       {currentExportStagePlot && (
         <>
-          <StagePlotExport
-            ref={stagePlotExportRef}
-            stagePlot={currentExportStagePlot}
-          />
-          <PrintStagePlotExport
-            ref={printStagePlotExportRef}
-            stagePlot={currentExportStagePlot}
-          />
+          <StagePlotExport ref={stagePlotExportRef} stagePlot={currentExportStagePlot} />
+          <PrintStagePlotExport ref={printStagePlotExportRef} stagePlot={currentExportStagePlot} />
         </>
       )}
 
@@ -898,12 +917,12 @@ const Dashboard = () => {
               </div>
               <div className="ml-4 text-left">
                 <h3 className="text-lg font-medium text-white" id="modal-title">
-                  Delete {documentToDelete.type === 'patch' ? 'Patch List' : 'Stage Plot'}
+                  Delete {documentToDelete.type === "patch" ? "Patch List" : "Stage Plot"}
                 </h3>
                 <div className="mt-2">
                   <p className="text-sm text-gray-300">
-                    Are you sure you want to delete "{documentToDelete.name}"? 
-                    This action cannot be undone.
+                    Are you sure you want to delete "{documentToDelete.name}"? This action cannot be
+                    undone.
                   </p>
                 </div>
               </div>

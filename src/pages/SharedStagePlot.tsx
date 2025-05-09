@@ -1,14 +1,25 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Helmet } from 'react-helmet';
-import { ArrowLeft, Download, Bookmark, Share2, ExternalLink, Edit, AlertTriangle, Info, Calendar, Clock } from 'lucide-react';
-import { getSharedResource, updateSharedResource } from '../lib/shareUtils';
-import { supabase } from '../lib/supabase';
-import StageElementStatic from '../components/stage-plot/StageElementStatic';
-import StagePlotExport from '../components/StagePlotExport';
-import PrintStagePlotExport from '../components/PrintStagePlotExport';
-import ExportModal from '../components/ExportModal';
-import html2canvas from 'html2canvas';
+import React, { useEffect, useState, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet";
+import {
+  ArrowLeft,
+  Download,
+  Bookmark,
+  Share2,
+  ExternalLink,
+  Edit,
+  AlertTriangle,
+  Info,
+  Calendar,
+  Clock,
+} from "lucide-react";
+import { getSharedResource, updateSharedResource } from "../lib/shareUtils";
+import { supabase } from "../lib/supabase";
+import StageElementStatic from "../components/stage-plot/StageElementStatic";
+import StagePlotExport from "../components/StagePlotExport";
+import PrintStagePlotExport from "../components/PrintStagePlotExport";
+import ExportModal from "../components/ExportModal";
+import html2canvas from "html2canvas";
 
 // Empty Header component for shared views
 const SharedHeader = ({ docName }: { docName: string }) => (
@@ -36,7 +47,7 @@ const SharedStagePlot = () => {
   const [expiryDays, setExpiryDays] = useState<number | null>(null);
   const [downloadingPlot, setDownloadingPlot] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
-  
+
   // Refs for the exportable components
   const exportRef = useRef<HTMLDivElement>(null);
   const printExportRef = useRef<HTMLDivElement>(null);
@@ -45,16 +56,16 @@ const SharedStagePlot = () => {
   useEffect(() => {
     const loadSharedStagePlot = async () => {
       if (!shareCode) {
-        setError('Invalid share code');
+        setError("Invalid share code");
         setLoading(false);
         return;
       }
-      
+
       try {
         const { resource, shareLink } = await getSharedResource(shareCode);
         setStagePlot(resource);
         setShareLink(shareLink);
-        
+
         // Calculate days until expiry if applicable
         if (shareLink.expires_at) {
           const expiryDate = new Date(shareLink.expires_at);
@@ -64,8 +75,8 @@ const SharedStagePlot = () => {
           setExpiryDays(diffDays > 0 ? diffDays : 0);
         }
       } catch (error: any) {
-        console.error('Error loading shared stage plot:', error);
-        setError(error.message || 'Failed to load shared stage plot');
+        console.error("Error loading shared stage plot:", error);
+        setError(error.message || "Failed to load shared stage plot");
       } finally {
         setLoading(false);
       }
@@ -80,37 +91,37 @@ const SharedStagePlot = () => {
 
   const handleExportImage = async () => {
     if (!stagePlot) return;
-    
+
     try {
       setDownloadingPlot(true);
       setShowExportModal(false);
-      
+
       // Wait for the component to render
       setTimeout(async () => {
         if (exportRef.current) {
           const canvas = await html2canvas(exportRef.current, {
             scale: 2, // Higher scale for better quality
-            backgroundColor: '#111827', // Match the background color
+            backgroundColor: "#111827", // Match the background color
             logging: false,
             useCORS: true,
             allowTaint: true,
             windowHeight: document.documentElement.offsetHeight,
             windowWidth: document.documentElement.offsetWidth,
             height: exportRef.current.scrollHeight,
-            width: exportRef.current.offsetWidth
+            width: exportRef.current.offsetWidth,
           });
-          
+
           // Convert canvas to a data URL and trigger download
-          const imageURL = canvas.toDataURL('image/png');
-          const link = document.createElement('a');
+          const imageURL = canvas.toDataURL("image/png");
+          const link = document.createElement("a");
           link.href = imageURL;
-          link.download = `${stagePlot.name.replace(/\s+/g, '-').toLowerCase()}-stage-plot.png`;
+          link.download = `${stagePlot.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot.png`;
           link.click();
         }
       }, 100);
     } catch (error) {
-      console.error('Error downloading stage plot:', error);
-      alert('Failed to download stage plot. Please try again.');
+      console.error("Error downloading stage plot:", error);
+      alert("Failed to download stage plot. Please try again.");
     } finally {
       setDownloadingPlot(false);
     }
@@ -118,37 +129,37 @@ const SharedStagePlot = () => {
 
   const handleExportPdf = async () => {
     if (!stagePlot) return;
-    
+
     try {
       setDownloadingPlot(true);
       setShowExportModal(false);
-      
+
       // Wait for the component to render
       setTimeout(async () => {
         if (printExportRef.current) {
           const canvas = await html2canvas(printExportRef.current, {
             scale: 2, // Higher scale for better quality
-            backgroundColor: '#ffffff', // White background for print
+            backgroundColor: "#ffffff", // White background for print
             logging: false,
             useCORS: true,
             allowTaint: true,
             windowHeight: document.documentElement.offsetHeight,
             windowWidth: document.documentElement.offsetWidth,
             height: printExportRef.current.scrollHeight,
-            width: printExportRef.current.offsetWidth
+            width: printExportRef.current.offsetWidth,
           });
-          
+
           // Convert canvas to a data URL and trigger download
-          const imageURL = canvas.toDataURL('image/png');
-          const link = document.createElement('a');
+          const imageURL = canvas.toDataURL("image/png");
+          const link = document.createElement("a");
           link.href = imageURL;
-          link.download = `${stagePlot.name.replace(/\s+/g, '-').toLowerCase()}-stage-plot-print.png`;
+          link.download = `${stagePlot.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot-print.png`;
           link.click();
         }
       }, 100);
     } catch (error) {
-      console.error('Error exporting PDF:', error);
-      alert('Failed to export PDF. Please try again.');
+      console.error("Error exporting PDF:", error);
+      alert("Failed to export PDF. Please try again.");
     } finally {
       setDownloadingPlot(false);
     }
@@ -156,7 +167,7 @@ const SharedStagePlot = () => {
 
   const handleEditRedirect = () => {
     // If this is an edit link, redirect to the editor
-    if (shareLink?.link_type === 'edit') {
+    if (shareLink?.link_type === "edit") {
       window.location.href = `https://sounddocs.org/shared/stage-plot/edit/${shareCode}`;
     }
   };
@@ -174,9 +185,9 @@ const SharedStagePlot = () => {
       <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
         <AlertTriangle className="h-16 w-16 text-red-500 mb-4" />
         <h1 className="text-2xl font-bold text-white mb-2">Error Loading Document</h1>
-        <p className="text-gray-300 mb-6">{error || 'This shared document could not be loaded'}</p>
-        <button 
-          onClick={() => window.location.href = "https://sounddocs.org/"}
+        <p className="text-gray-300 mb-6">{error || "This shared document could not be loaded"}</p>
+        <button
+          onClick={() => (window.location.href = "https://sounddocs.org/")}
           className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-md font-medium transition-all duration-200"
         >
           Go to Homepage
@@ -186,9 +197,10 @@ const SharedStagePlot = () => {
   }
 
   // Safely get stage size
-  const stageSize = stagePlot.stage_size && stagePlot.stage_size.includes('-')
-    ? stagePlot.stage_size
-    : `${stagePlot.stage_size || 'medium'}-wide`;
+  const stageSize =
+    stagePlot.stage_size && stagePlot.stage_size.includes("-")
+      ? stagePlot.stage_size
+      : `${stagePlot.stage_size || "medium"}-wide`;
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
@@ -196,42 +208,44 @@ const SharedStagePlot = () => {
         <title>{stagePlot.name} | Shared Stage Plot - SoundDocs</title>
         <meta name="robots" content="noindex" />
       </Helmet>
-      
+
       <SharedHeader docName={stagePlot.name} />
-      
+
       <main className="flex-grow container mx-auto px-4 py-12 mt-16">
         {/* Sharing Info Banner */}
         <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-lg p-4 mb-6 flex items-start">
           <Info className="h-5 w-5 text-indigo-400 mr-3 mt-0.5 flex-shrink-0" />
           <div>
             <p className="text-indigo-300 text-sm">
-              <span className="font-medium">Shared document:</span> You are viewing a shared stage plot.
-              {shareLink?.link_type === 'edit' && " You have edit permissions for this document."}
+              <span className="font-medium">Shared document:</span> You are viewing a shared stage
+              plot.
+              {shareLink?.link_type === "edit" && " You have edit permissions for this document."}
             </p>
             {expiryDays !== null && (
               <p className="text-indigo-300 text-sm mt-1">
                 <Clock className="h-3.5 w-3.5 inline mr-1" />
-                {expiryDays > 0 
-                  ? `This shared link expires in ${expiryDays} day${expiryDays !== 1 ? 's' : ''}`
+                {expiryDays > 0
+                  ? `This shared link expires in ${expiryDays} day${expiryDays !== 1 ? "s" : ""}`
                   : "This shared link has expired"}
               </p>
             )}
           </div>
         </div>
-        
+
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">{stagePlot.name}</h1>
             <div className="flex items-center text-gray-400 text-sm">
               <Calendar className="h-4 w-4 mr-1" />
               <span>
-                Last edited: {new Date(stagePlot.last_edited || stagePlot.created_at).toLocaleDateString()}
+                Last edited:{" "}
+                {new Date(stagePlot.last_edited || stagePlot.created_at).toLocaleDateString()}
               </span>
             </div>
           </div>
-          
+
           <div className="flex space-x-2">
-            {shareLink?.link_type === 'edit' && (
+            {shareLink?.link_type === "edit" && (
               <button
                 onClick={handleEditRedirect}
                 className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-3 sm:px-4 py-2 rounded-md font-medium transition-all duration-200 text-sm"
@@ -251,7 +265,7 @@ const SharedStagePlot = () => {
               <span className="sm:hidden">Save</span>
             </button>
             <button
-              onClick={() => window.location.href = "https://sounddocs.org/"}
+              onClick={() => (window.location.href = "https://sounddocs.org/")}
               className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-3 sm:px-4 py-2 rounded-md font-medium transition-all duration-200 text-sm"
             >
               <ExternalLink className="h-4 w-4 mr-1 sm:mr-2" />
@@ -260,7 +274,7 @@ const SharedStagePlot = () => {
             </button>
           </div>
         </div>
-        
+
         {/* Stage plot container */}
         <div className="bg-gray-850 rounded-xl shadow-xl overflow-hidden mb-8 max-w-full">
           <div className="p-4 bg-gray-800 border-b border-gray-700">
@@ -274,49 +288,54 @@ const SharedStagePlot = () => {
                   Back of Stage
                 </div>
               </div>
-              
-              <div 
+
+              <div
                 className="relative bg-grid-pattern overflow-hidden"
                 style={{
                   // Use same dimensions as the actual editor
                   width: getStageDimensions(stageSize).width,
                   height: getStageDimensions(stageSize).height,
-                  backgroundSize: '20px 20px',
-                  backgroundColor: '#1a202c',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                  borderRadius: '4px',
-                  border: '1px solid rgba(75, 85, 99, 0.5)'
+                  backgroundSize: "20px 20px",
+                  backgroundColor: "#1a202c",
+                  boxShadow:
+                    "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                  borderRadius: "4px",
+                  border: "1px solid rgba(75, 85, 99, 0.5)",
                 }}
               >
                 {/* Background image if present */}
                 {stagePlot.backgroundImage && (
-                  <div 
+                  <div
                     className="absolute inset-0 bg-center bg-no-repeat bg-contain pointer-events-none"
-                    style={{ 
+                    style={{
                       backgroundImage: `url(${stagePlot.backgroundImage})`,
-                      opacity: (stagePlot.backgroundOpacity !== undefined ? stagePlot.backgroundOpacity : 50) / 100,
-                      zIndex: 1
+                      opacity:
+                        (stagePlot.backgroundOpacity !== undefined
+                          ? stagePlot.backgroundOpacity
+                          : 50) / 100,
+                      zIndex: 1,
                     }}
                   />
                 )}
-                
+
                 {/* Stage elements */}
-                {stagePlot.elements && stagePlot.elements.map((element: any) => (
-                  <StageElementStatic
-                    key={element.id}
-                    id={element.id}
-                    type={element.type}
-                    label={element.label}
-                    x={element.x}
-                    y={element.y}
-                    rotation={element.rotation}
-                    color={element.color}
-                    width={element.width}
-                    height={element.height}
-                  />
-                ))}
+                {stagePlot.elements &&
+                  stagePlot.elements.map((element: any) => (
+                    <StageElementStatic
+                      key={element.id}
+                      id={element.id}
+                      type={element.type}
+                      label={element.label}
+                      x={element.x}
+                      y={element.y}
+                      rotation={element.rotation}
+                      color={element.color}
+                      width={element.width}
+                      height={element.height}
+                    />
+                  ))}
               </div>
-              
+
               {/* Front of stage label - OUTSIDE THE STAGE */}
               <div className="mt-2">
                 <div className="bg-gray-800/80 text-white text-sm px-4 py-1.5 rounded-full shadow-md">
@@ -326,7 +345,7 @@ const SharedStagePlot = () => {
             </div>
           </div>
         </div>
-        
+
         {/* REMOVED: Stage Plot Summary Section */}
         {/* 
         <div className="bg-gray-800 rounded-xl shadow-md p-6 mb-8">
@@ -376,7 +395,7 @@ const SharedStagePlot = () => {
         </div> 
         */}
       </main>
-      
+
       {/* Export Modal */}
       <ExportModal
         isOpen={showExportModal}
@@ -385,27 +404,23 @@ const SharedStagePlot = () => {
         onExportPdf={handleExportPdf}
         title="Stage Plot"
       />
-      
+
       {/* Hidden Export Components */}
       <div className="hidden">
-        <StagePlotExport 
-          ref={exportRef} 
-          stagePlot={stagePlot} 
-        />
-        <PrintStagePlotExport
-          ref={printExportRef}
-          stagePlot={stagePlot}
-        />
+        <StagePlotExport ref={exportRef} stagePlot={stagePlot} />
+        <PrintStagePlotExport ref={printExportRef} stagePlot={stagePlot} />
       </div>
-      
+
       {/* Sign up banner */}
       <div className="bg-indigo-600 py-6 px-4">
         <div className="container mx-auto flex flex-col sm:flex-row items-center justify-between">
           <div className="mb-4 sm:mb-0">
             <h3 className="text-lg font-medium text-white">Create Your Own Audio Documentation</h3>
-            <p className="text-indigo-200">Sign up for free and start creating professional patch sheets and stage plots.</p>
+            <p className="text-indigo-200">
+              Sign up for free and start creating professional patch sheets and stage plots.
+            </p>
           </div>
-          <a 
+          <a
             href="https://sounddocs.org/"
             className="inline-flex items-center bg-white text-indigo-700 px-5 py-2 rounded-md font-medium transition-all duration-200 hover:bg-indigo-100"
           >
@@ -414,7 +429,7 @@ const SharedStagePlot = () => {
           </a>
         </div>
       </div>
-      
+
       {/* Footer with attribution */}
       <footer className="bg-gray-950 py-6 px-4">
         <div className="container mx-auto flex flex-col md:flex-row items-center justify-between">
@@ -436,30 +451,30 @@ const SharedStagePlot = () => {
 const summarizeElements = (elements: any[]) => {
   const counts: Record<string, number> = {};
   const elementLabels: Record<string, string> = {
-    'microphone': 'Microphones',
-    'power-strip': 'Power Strips',
-    'electric-guitar': 'Electric Guitars',
-    'acoustic-guitar': 'Acoustic Guitars',
-    'bass-guitar': 'Bass Guitars',
-    'keyboard': 'Keyboards',
-    'drums': 'Drum Kits',
-    'percussion': 'Percussion',
-    'violin': 'Violins',
-    'cello': 'Cellos',
-    'trumpet': 'Brass',
-    'saxophone': 'Wind Instruments',
-    'amplifier': 'Amplifiers',
-    'monitor-wedge': 'Monitor Wedges',
-    'speaker': 'Speakers',
-    'di-box': 'DI Boxes',
-    'iem': 'IEMs',
-    'person': 'People',
-    'text': 'Text Labels',
-    'generic-instrument': 'Other Instruments'
+    microphone: "Microphones",
+    "power-strip": "Power Strips",
+    "electric-guitar": "Electric Guitars",
+    "acoustic-guitar": "Acoustic Guitars",
+    "bass-guitar": "Bass Guitars",
+    keyboard: "Keyboards",
+    drums: "Drum Kits",
+    percussion: "Percussion",
+    violin: "Violins",
+    cello: "Cellos",
+    trumpet: "Brass",
+    saxophone: "Wind Instruments",
+    amplifier: "Amplifiers",
+    "monitor-wedge": "Monitor Wedges",
+    speaker: "Speakers",
+    "di-box": "DI Boxes",
+    iem: "IEMs",
+    person: "People",
+    text: "Text Labels",
+    "generic-instrument": "Other Instruments",
   };
-  
+
   // Count elements by type
-  elements.forEach(element => {
+  elements.forEach((element) => {
     if (element.type) {
       if (counts[element.type]) {
         counts[element.type]++;
@@ -468,14 +483,14 @@ const summarizeElements = (elements: any[]) => {
       }
     }
   });
-  
+
   // Convert to array for rendering
   return Object.entries(counts)
     .filter(([type]) => type) // Filter out any undefined types
     .map(([type, count]) => ({
       type,
       label: elementLabels[type as keyof typeof elementLabels] || type,
-      count
+      count,
     }))
     .sort((a, b) => b.count - a.count);
 };
@@ -484,25 +499,25 @@ const summarizeElements = (elements: any[]) => {
 const getStageDimensions = (stageSize: string) => {
   // Using fixed pixel values for consistency
   switch (stageSize) {
-    case 'x-small-narrow':
+    case "x-small-narrow":
       return { width: 300, height: 300 };
-    case 'x-small-wide':
+    case "x-small-wide":
       return { width: 500, height: 300 };
-    case 'small-narrow':
+    case "small-narrow":
       return { width: 400, height: 400 };
-    case 'small-wide':
+    case "small-wide":
       return { width: 600, height: 400 };
-    case 'medium-narrow':
+    case "medium-narrow":
       return { width: 500, height: 500 };
-    case 'medium-wide':
+    case "medium-wide":
       return { width: 800, height: 500 };
-    case 'large-narrow':
+    case "large-narrow":
       return { width: 600, height: 600 };
-    case 'large-wide':
+    case "large-wide":
       return { width: 1000, height: 600 };
-    case 'x-large-narrow':
+    case "x-large-narrow":
       return { width: 700, height: 700 };
-    case 'x-large-wide':
+    case "x-large-wide":
       return { width: 1200, height: 700 };
     default:
       return { width: 800, height: 500 };

@@ -1,18 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
-type ScreenSize = 'mobile' | 'tablet' | 'desktop';
+type ScreenSize = "mobile" | "tablet" | "desktop";
 
 export const useScreenSize = (): ScreenSize => {
-  const [screenSize, setScreenSize] = useState<ScreenSize>('desktop');
+  const [screenSize, setScreenSize] = useState<ScreenSize>("desktop");
 
   useEffect(() => {
     const checkScreenSize = () => {
       if (window.innerWidth < 768) {
-        setScreenSize('mobile');
+        setScreenSize("mobile");
       } else if (window.innerWidth < 1024) {
-        setScreenSize('tablet');
+        setScreenSize("tablet");
       } else {
-        setScreenSize('desktop');
+        setScreenSize("desktop");
       }
     };
 
@@ -20,11 +20,11 @@ export const useScreenSize = (): ScreenSize => {
     checkScreenSize();
 
     // Add event listener for resize
-    window.addEventListener('resize', checkScreenSize);
+    window.addEventListener("resize", checkScreenSize);
 
     // Clean up event listener
     return () => {
-      window.removeEventListener('resize', checkScreenSize);
+      window.removeEventListener("resize", checkScreenSize);
     };
   }, []);
 

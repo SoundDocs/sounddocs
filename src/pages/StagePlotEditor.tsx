@@ -1,54 +1,64 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
-import StageCanvas from '../components/stage-plot/StageCanvas';
-import ElementToolbar from '../components/stage-plot/ElementToolbar';
-import ElementProperties from '../components/stage-plot/ElementProperties';
-import MobileScreenWarning from '../components/MobileScreenWarning';
-import { useScreenSize } from '../hooks/useScreenSize';
-import { StageElementProps } from '../components/stage-plot/StageElement';
-import { ArrowLeft, Save, Trash2, AlertCircle, Eye, Image, Upload, XCircle, Sliders as Slider } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
-import { getSharedResource, updateSharedResource } from '../lib/shareUtils';
+import React, { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+import Header from "../components/Header";
+import Footer from "../components/Footer";
+import StageCanvas from "../components/stage-plot/StageCanvas";
+import ElementToolbar from "../components/stage-plot/ElementToolbar";
+import ElementProperties from "../components/stage-plot/ElementProperties";
+import MobileScreenWarning from "../components/MobileScreenWarning";
+import { useScreenSize } from "../hooks/useScreenSize";
+import { StageElementProps } from "../components/stage-plot/StageElement";
+import {
+  ArrowLeft,
+  Save,
+  Trash2,
+  AlertCircle,
+  Eye,
+  Image,
+  Upload,
+  XCircle,
+  Sliders as Slider,
+} from "lucide-react";
+import { v4 as uuidv4 } from "uuid";
+import { getSharedResource, updateSharedResource } from "../lib/shareUtils";
 
 // Function to get stage dimensions based on the stage size
-const getStageDimensions = (stageSize = 'medium-wide') => {
-  const [depth, width] = stageSize.split('-');
-  
+const getStageDimensions = (stageSize = "medium-wide") => {
+  const [depth, width] = stageSize.split("-");
+
   // Base dimensions
   let baseWidth = 800;
   let baseHeight = 400;
-  
+
   // Adjust width based on the width parameter
-  if (width === 'narrow') {
+  if (width === "narrow") {
     baseWidth = 600;
-  } else if (width === 'wide') {
+  } else if (width === "wide") {
     baseWidth = 1000;
   }
-  
+
   // Adjust height based on the depth parameter
   switch (depth) {
-    case 'x-small':
+    case "x-small":
       baseHeight = 200;
       break;
-    case 'small':
+    case "small":
       baseHeight = 300;
       break;
-    case 'medium':
+    case "medium":
       baseHeight = 400;
       break;
-    case 'large':
+    case "large":
       baseHeight = 500;
       break;
-    case 'x-large':
+    case "x-large":
       baseHeight = 600;
       break;
     default:
       baseHeight = 400;
   }
-  
+
   return { width: baseWidth, height: baseHeight };
 };
 
@@ -60,7 +70,7 @@ const StagePlotEditor = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [stagePlot, setStagePlot] = useState<any>(null);
-  const [stageSize, setStageSize] = useState<string>('medium-wide');
+  const [stageSize, setStageSize] = useState<string>("medium-wide");
   const [elements, setElements] = useState<StageElementProps[]>([]);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
@@ -74,16 +84,16 @@ const StagePlotEditor = () => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isSharedEdit, setIsSharedEdit] = useState(false);
   const [shareLink, setShareLink] = useState<any>(null);
-  
+
   const canvasRef = useRef<HTMLDivElement>(null);
   const stagePlotRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const isSharedEditRoute = location.pathname.includes('/shared/stage-plot/edit/');
+    const isSharedEditRoute = location.pathname.includes("/shared/stage-plot/edit/");
     setIsSharedEdit(isSharedEditRoute);
 
-    if (screenSize === 'mobile' || screenSize === 'tablet') {
+    if (screenSize === "mobile" || screenSize === "tablet") {
       setIsViewMode(true);
     } else {
       setIsViewMode(false);
@@ -102,20 +112,24 @@ const StagePlotEditor = () => {
       if (isSharedEdit && shareCode) {
         try {
           const { resource, shareLink: fetchedShareLink } = await getSharedResource(shareCode);
-          
-          if (fetchedShareLink.link_type !== 'edit') {
+
+          if (fetchedShareLink.link_type !== "edit") {
             navigate(`/shared/stage-plot/${shareCode}`);
             return;
           }
-          
+
           setStagePlot(resource);
           setShareLink(fetchedShareLink);
-          setStageSize(resource.stage_size && resource.stage_size.includes('-') ? resource.stage_size : `${resource.stage_size || 'medium'}-wide`);
-          
+          setStageSize(
+            resource.stage_size && resource.stage_size.includes("-")
+              ? resource.stage_size
+              : `${resource.stage_size || "medium"}-wide`,
+          );
+
           if (resource.elements && Array.isArray(resource.elements)) {
             const cleanedElements = resource.elements.map((el: any) => ({
               ...el,
-              icon: undefined 
+              icon: undefined,
             }));
             setElements(cleanedElements);
           } else {
@@ -129,29 +143,29 @@ const StagePlotEditor = () => {
           if (resource.backgroundOpacity !== undefined) {
             setBackgroundOpacity(resource.backgroundOpacity);
           }
-          
+
           setLoading(false);
           return;
         } catch (error) {
-          console.error('Error fetching shared stage plot:', error);
+          console.error("Error fetching shared stage plot:", error);
           window.location.href = "https://sounddocs.org/";
           return;
         }
       }
 
-      if (id === 'new') {
-        if (screenSize === 'mobile' || screenSize === 'tablet') {
-          navigate('/dashboard');
+      if (id === "new") {
+        if (screenSize === "mobile" || screenSize === "tablet") {
+          navigate("/dashboard");
           return;
         }
-        
+
         setStagePlot({
-          name: 'Untitled Stage Plot',
+          name: "Untitled Stage Plot",
           created_at: new Date().toISOString(),
-          stage_size: 'medium-wide',
-          elements: []
+          stage_size: "medium-wide",
+          elements: [],
         });
-        setStageSize('medium-wide');
+        setStageSize("medium-wide");
         setElements([]);
         setLoading(false);
         return;
@@ -159,20 +173,24 @@ const StagePlotEditor = () => {
 
       try {
         const { data, error } = await supabase
-          .from('stage_plots')
-          .select('*')
-          .eq('id', id)
+          .from("stage_plots")
+          .select("*")
+          .eq("id", id)
           .single();
 
         if (error) throw error;
-        
+
         setStagePlot(data);
-        setStageSize(data.stage_size && data.stage_size.includes('-') ? data.stage_size : `${data.stage_size || 'medium'}-wide`);
-        
+        setStageSize(
+          data.stage_size && data.stage_size.includes("-")
+            ? data.stage_size
+            : `${data.stage_size || "medium"}-wide`,
+        );
+
         if (data.elements && Array.isArray(data.elements)) {
           const cleanedElements = data.elements.map((el: any) => ({
             ...el,
-            icon: undefined
+            icon: undefined,
           }));
           setElements(cleanedElements);
         } else {
@@ -187,8 +205,8 @@ const StagePlotEditor = () => {
           setBackgroundOpacity(data.backgroundOpacity);
         }
       } catch (error) {
-        console.error('Error fetching stage plot:', error);
-        navigate('/dashboard');
+        console.error("Error fetching stage plot:", error);
+        navigate("/dashboard");
       } finally {
         setLoading(false);
       }
@@ -199,29 +217,38 @@ const StagePlotEditor = () => {
   }, [id, navigate, screenSize, isSharedEdit, shareCode, location.pathname]);
 
   const getDefaultColorForType = (type: string): string => {
-    if (type === 'electric-guitar') return '#2563eb'; 
-    if (type === 'acoustic-guitar') return '#a16207';
-    if (type === 'bass-guitar') return '#1d4ed8';
-    if (type === 'keyboard') return '#0f766e';
-    if (type === 'drums') return '#9333ea';
-    if (type === 'percussion') return '#6d28d9';
-    if (type === 'violin') return '#c2410c';
-    if (type === 'cello') return '#9a3412';
-    if (type === 'trumpet') return '#b45309';
-    if (type === 'saxophone') return '#b91c1c';
-    if (type === 'generic-instrument') return '#2563eb';
-    if (type === 'custom-image') return '#6b7280'; // Default for custom image if no image yet
-    
+    if (type === "electric-guitar") return "#2563eb";
+    if (type === "acoustic-guitar") return "#a16207";
+    if (type === "bass-guitar") return "#1d4ed8";
+    if (type === "keyboard") return "#0f766e";
+    if (type === "drums") return "#9333ea";
+    if (type === "percussion") return "#6d28d9";
+    if (type === "violin") return "#c2410c";
+    if (type === "cello") return "#9a3412";
+    if (type === "trumpet") return "#b45309";
+    if (type === "saxophone") return "#b91c1c";
+    if (type === "generic-instrument") return "#2563eb";
+    if (type === "custom-image") return "#6b7280"; // Default for custom image if no image yet
+
     switch (type) {
-      case 'microphone': return '#4f46e5';
-      case 'power-strip': return '#dc2626';
-      case 'amplifier': return '#7e22ce';
-      case 'monitor-wedge': return '#16a34a';
-      case 'speaker': return '#0891b2';
-      case 'di-box': return '#eab308';
-      case 'iem': return '#ea580c';
-      case 'person': return '#be185d';
-      default: return '#6b7280';
+      case "microphone":
+        return "#4f46e5";
+      case "power-strip":
+        return "#dc2626";
+      case "amplifier":
+        return "#7e22ce";
+      case "monitor-wedge":
+        return "#16a34a";
+      case "speaker":
+        return "#0891b2";
+      case "di-box":
+        return "#eab308";
+      case "iem":
+        return "#ea580c";
+      case "person":
+        return "#be185d";
+      default:
+        return "#6b7280";
     }
   };
 
@@ -232,11 +259,11 @@ const StagePlotEditor = () => {
 
   const handleAddElement = (type: string, label: string) => {
     if (isViewMode) return;
-    
+
     const stageCanvas = canvasRef.current?.querySelector('[class*="bg-grid-pattern"]');
     const canvasWidth = stageCanvas?.clientWidth || 600;
     const canvasHeight = stageCanvas?.clientHeight || 400;
-    
+
     const newElement: StageElementProps = {
       id: uuidv4(),
       type,
@@ -245,9 +272,9 @@ const StagePlotEditor = () => {
       y: canvasHeight / 2 - 30,
       rotation: 0,
       color: getDefaultColorForType(type),
-      customImageUrl: type === 'custom-image' ? null : undefined, // Initialize if it's a custom image type
+      customImageUrl: type === "custom-image" ? null : undefined, // Initialize if it's a custom image type
     };
-    
+
     setElements([...elements, newElement]);
     setSelectedElementId(newElement.id);
   };
@@ -259,111 +286,93 @@ const StagePlotEditor = () => {
 
   const handleElementDragStop = (elementId: string, x: number, y: number) => {
     if (isViewMode) return;
-    setElements(elements.map(el => 
-      el.id === elementId ? { ...el, x, y } : el
-    ));
+    setElements(elements.map((el) => (el.id === elementId ? { ...el, x, y } : el)));
   };
 
   const handleElementRotate = (elementId: string, rotation: number) => {
     if (isViewMode) return;
-    setElements(elements.map(el => 
-      el.id === elementId ? { ...el, rotation } : el
-    ));
+    setElements(elements.map((el) => (el.id === elementId ? { ...el, rotation } : el)));
   };
 
   const handleElementLabelChange = (elementId: string, label: string) => {
     if (isViewMode) return;
-    setElements(elements.map(el => 
-      el.id === elementId ? { ...el, label } : el
-    ));
+    setElements(elements.map((el) => (el.id === elementId ? { ...el, label } : el)));
   };
 
   const handleElementDelete = (elementId: string) => {
     if (isViewMode) return;
-    setElements(elements.filter(el => el.id !== elementId));
+    setElements(elements.filter((el) => el.id !== elementId));
     if (selectedElementId === elementId) {
       setSelectedElementId(null);
     }
   };
-  
+
   const handleElementDuplicate = (elementId: string) => {
     if (isViewMode) return;
-    
-    const elementToDuplicate = elements.find(el => el.id === elementId);
+
+    const elementToDuplicate = elements.find((el) => el.id === elementId);
     if (!elementToDuplicate) return;
-    
+
     const newElement = {
       ...elementToDuplicate,
       id: uuidv4(),
       x: elementToDuplicate.x + 20,
-      y: elementToDuplicate.y + 20
+      y: elementToDuplicate.y + 20,
     };
-    
+
     setElements([...elements, newElement]);
     setSelectedElementId(newElement.id);
   };
-  
+
   const handleElementResize = (elementId: string, width: number, height: number) => {
     if (isViewMode) return;
-    
-    setElements(elements.map(el => 
-      el.id === elementId ? { ...el, width, height } : el
-    ));
+
+    setElements(elements.map((el) => (el.id === elementId ? { ...el, width, height } : el)));
   };
 
   const handlePropertyChange = (elementId: string, property: string, value: any) => {
     if (isViewMode) return;
-    setElements(elements.map(el => 
-      el.id === elementId ? { ...el, [property]: value } : el
-    ));
+    setElements(elements.map((el) => (el.id === elementId ? { ...el, [property]: value } : el)));
   };
 
   const handleSave = async () => {
     if (isViewMode) return;
-    
+
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
-    
+
     try {
       const cleanedElements = elements.map(({ icon, ...rest }) => rest);
-      
+
       const stagePlotData = {
         ...stagePlot,
         elements: cleanedElements,
         stage_size: stageSize,
         backgroundImage: backgroundImage,
         backgroundOpacity: backgroundOpacity,
-        last_edited: new Date().toISOString()
+        last_edited: new Date().toISOString(),
       };
-      
+
       if (isSharedEdit && shareCode) {
-        const result = await updateSharedResource(
-          shareCode,
-          'stage_plot',
-          stagePlotData
-        );
-        
+        const result = await updateSharedResource(shareCode, "stage_plot", stagePlotData);
+
         if (result) {
           setStagePlot(stagePlotData);
           setSaveSuccess(true);
           setTimeout(() => setSaveSuccess(false), 3000);
         }
-      }
-      else if (user) {
-        if (id === 'new') {
+      } else if (user) {
+        if (id === "new") {
           const { data, error } = await supabase
-            .from('stage_plots')
+            .from("stage_plots")
             .insert([{ ...stagePlotData, user_id: user.id }])
             .select();
 
           if (error) throw error;
           if (data && data[0]) navigate(`/stage-plot/${data[0].id}`);
         } else {
-          const { error } = await supabase
-            .from('stage_plots')
-            .update(stagePlotData)
-            .eq('id', id);
+          const { error } = await supabase.from("stage_plots").update(stagePlotData).eq("id", id);
 
           if (error) throw error;
           setStagePlot(stagePlotData);
@@ -372,8 +381,8 @@ const StagePlotEditor = () => {
         }
       }
     } catch (error) {
-      console.error('Error saving stage plot:', error);
-      setSaveError('Error saving stage plot. Please try again.');
+      console.error("Error saving stage plot:", error);
+      setSaveError("Error saving stage plot. Please try again.");
       setTimeout(() => setSaveError(null), 5000);
     } finally {
       setSaving(false);
@@ -382,32 +391,32 @@ const StagePlotEditor = () => {
 
   const handleClearAll = () => {
     if (isViewMode) return;
-    if (window.confirm('Are you sure you want to clear all elements from the stage plot?')) {
+    if (window.confirm("Are you sure you want to clear all elements from the stage plot?")) {
       setElements([]);
       setSelectedElementId(null);
     }
   };
-  
+
   const handleRemoveBackgroundImage = () => {
     if (isViewMode) return;
     setBackgroundImage(null);
     setImageUrl(null);
   };
-  
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isViewMode) return;
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     if (file.size > 5 * 1024 * 1024) {
-      alert('Image must be less than 5MB');
+      alert("Image must be less than 5MB");
       return;
     }
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file");
       return;
     }
-    
+
     const reader = new FileReader();
     reader.onload = (evt) => {
       if (!evt.target?.result) return;
@@ -423,26 +432,26 @@ const StagePlotEditor = () => {
     e.preventDefault();
     setIsDraggingImage(true);
   };
-  
+
   const handleDragLeave = () => {
     setIsDraggingImage(false);
   };
-  
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggingImage(false);
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
-    
+
     if (file.size > 5 * 1024 * 1024) {
-      alert('Image must be less than 5MB');
+      alert("Image must be less than 5MB");
       return;
     }
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file");
       return;
     }
-    
+
     const reader = new FileReader();
     reader.onload = (evt) => {
       if (!evt.target?.result) return;
@@ -456,7 +465,7 @@ const StagePlotEditor = () => {
 
   const getSelectedElement = () => {
     if (!selectedElementId) return null;
-    return elements.find(el => el.id === selectedElementId) || null;
+    return elements.find((el) => el.id === selectedElementId) || null;
   };
 
   if (loading) {
@@ -467,9 +476,9 @@ const StagePlotEditor = () => {
     );
   }
 
-  if ((screenSize === 'mobile' || screenSize === 'tablet') && id === 'new') {
+  if ((screenSize === "mobile" || screenSize === "tablet") && id === "new") {
     return (
-      <MobileScreenWarning 
+      <MobileScreenWarning
         title="Not Available on Mobile"
         description="Creating stage plots is only available on desktop devices. Please use a computer to create a new stage plot."
         continueAnyway={false}
@@ -481,25 +490,31 @@ const StagePlotEditor = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      {(screenSize === 'mobile' || screenSize === 'tablet') && (
-        <MobileScreenWarning 
+      {(screenSize === "mobile" || screenSize === "tablet") && (
+        <MobileScreenWarning
           title="View-Only Mode"
-          description={id === 'new' 
-            ? "Creating stage plots requires a desktop device." 
-            : "You can view this stage plot, but editing is only available on desktop devices."}
+          description={
+            id === "new"
+              ? "Creating stage plots requires a desktop device."
+              : "You can view this stage plot, but editing is only available on desktop devices."
+          }
           continueAnyway={true}
           returnPath="/dashboard"
           editorType="stage"
         />
       )}
-      
+
       <Header dashboard={!isSharedEdit} />
-      
+
       <main className="flex-grow container mx-auto px-4 py-4 md:py-8 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-4">
           <div className="flex items-center">
-            <button 
-              onClick={() => isSharedEdit ? window.location.href = `https://sounddocs.org/shared/stage-plot/${shareCode}` : navigate('/dashboard')}
+            <button
+              onClick={() =>
+                isSharedEdit
+                  ? (window.location.href = `https://sounddocs.org/shared/stage-plot/${shareCode}`)
+                  : navigate("/dashboard")
+              }
               className="mr-2 md:mr-4 flex items-center text-gray-400 hover:text-white transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -507,25 +522,28 @@ const StagePlotEditor = () => {
             <div>
               <input
                 type="text"
-                value={stagePlot?.name || 'Untitled Stage Plot'}
-                onChange={(e) => !isViewMode && setStagePlot({...stagePlot, name: e.target.value})}
-                className={`text-xl md:text-2xl font-bold text-white bg-transparent border-none focus:outline-none focus:ring-0 w-full max-w-[220px] sm:max-w-none ${isViewMode ? 'cursor-default' : ''}`}
+                value={stagePlot?.name || "Untitled Stage Plot"}
+                onChange={(e) =>
+                  !isViewMode && setStagePlot({ ...stagePlot, name: e.target.value })
+                }
+                className={`text-xl md:text-2xl font-bold text-white bg-transparent border-none focus:outline-none focus:ring-0 w-full max-w-[220px] sm:max-w-none ${isViewMode ? "cursor-default" : ""}`}
                 placeholder="Enter stage plot name"
                 readOnly={isViewMode}
               />
               <p className="text-xs sm:text-sm text-gray-400">
-                Last edited: {new Date(stagePlot?.last_edited || stagePlot?.created_at).toLocaleString()}
+                Last edited:{" "}
+                {new Date(stagePlot?.last_edited || stagePlot?.created_at).toLocaleString()}
               </p>
             </div>
           </div>
-          
+
           {isViewMode && (
             <div className="sm:ml-auto flex items-center text-sm text-indigo-400 bg-indigo-900/30 px-3 py-1 rounded-full">
               <Eye className="h-4 w-4 mr-2" />
               View mode
             </div>
           )}
-          
+
           {!isViewMode && (
             <div className="flex flex-wrap gap-3 sm:ml-auto">
               <button
@@ -545,7 +563,7 @@ const StagePlotEditor = () => {
                   </>
                 )}
               </button>
-              
+
               <button
                 onClick={() => setShowImageUpload(!showImageUpload)}
                 className="inline-flex items-center bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
@@ -554,7 +572,7 @@ const StagePlotEditor = () => {
                 <Image className="h-4 w-4 mr-2" />
                 {backgroundImage ? "Change Image" : "Add Image"}
               </button>
-              
+
               <button
                 onClick={handleClearAll}
                 className="inline-flex items-center bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
@@ -565,42 +583,43 @@ const StagePlotEditor = () => {
             </div>
           )}
         </div>
-        
+
         {saveError && (
           <div className="bg-red-400/10 border border-red-400 rounded-lg p-4 mb-4 flex items-start">
             <AlertCircle className="h-5 w-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
             <p className="text-red-400">{saveError}</p>
           </div>
         )}
-        
+
         {saveSuccess && (
           <div className="bg-green-400/10 border border-green-400 rounded-lg p-4 mb-4 flex items-start">
             <Save className="h-5 w-5 text-green-400 mr-3 mt-0.5 flex-shrink-0" />
             <p className="text-green-400">Stage plot saved successfully!</p>
           </div>
         )}
-        
+
         <div className="bg-indigo-500/10 border border-indigo-400 rounded-lg p-3 md:p-4 mb-4 md:mb-6 flex items-start text-xs md:text-sm">
           <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-indigo-400 mr-2 md:mr-3 mt-0.5 flex-shrink-0" />
           <p className="text-indigo-200">
-            <strong className="font-medium">Export Tip:</strong> To download your stage plot as an image, use the download button from the Dashboard.
+            <strong className="font-medium">Export Tip:</strong> To download your stage plot as an
+            image, use the download button from the Dashboard.
           </p>
         </div>
-        
+
         {showImageUpload && (
           <div className="bg-gray-800 rounded-lg p-6 mb-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-white">Background Image</h3>
-              <button 
+              <button
                 className="text-gray-400 hover:text-white"
                 onClick={() => setShowImageUpload(false)}
               >
                 <XCircle className="h-5 w-5" />
               </button>
             </div>
-            
-            <div 
-              className={`image-upload-container mb-6 ${isDraggingImage ? 'drag-active' : ''}`}
+
+            <div
+              className={`image-upload-container mb-6 ${isDraggingImage ? "drag-active" : ""}`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
@@ -612,31 +631,31 @@ const StagePlotEditor = () => {
                 className="hidden"
                 ref={fileInputRef}
               />
-              
+
               <Upload className="h-12 w-12 mx-auto text-gray-500 mb-4" />
               <p className="text-gray-300 mb-2">Drag and drop an image here, or click to select</p>
-              <button 
+              <button
                 onClick={() => fileInputRef.current?.click()}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
               >
                 Select Image
               </button>
             </div>
-            
+
             {imageUrl && (
               <>
                 <div className="mb-6">
                   <div className="bg-gray-750 p-4 rounded-md">
                     <div className="aspect-video mb-4 overflow-hidden rounded-md relative">
-                      <img 
-                        src={imageUrl} 
+                      <img
+                        src={imageUrl}
                         alt="Background Preview"
                         className="object-contain w-full h-full"
                       />
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="mb-6">
                   <label className="block text-gray-300 text-sm mb-2">
                     Image Opacity: {backgroundOpacity}%
@@ -653,7 +672,7 @@ const StagePlotEditor = () => {
                     />
                   </div>
                 </div>
-                
+
                 <div className="flex justify-between">
                   <button
                     onClick={handleRemoveBackgroundImage}
@@ -662,7 +681,7 @@ const StagePlotEditor = () => {
                     <Trash2 className="h-4 w-4 mr-2" />
                     Remove
                   </button>
-                  
+
                   <button
                     onClick={() => setShowImageUpload(false)}
                     className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
@@ -674,7 +693,7 @@ const StagePlotEditor = () => {
             )}
           </div>
         )}
-        
+
         {backgroundImage && !showImageUpload && !isViewMode && (
           <div className="bg-gray-800 rounded-lg p-4 mb-4">
             <div className="flex justify-between items-center">
@@ -713,7 +732,7 @@ const StagePlotEditor = () => {
             </div>
           </div>
         )}
-        
+
         <div className="mb-4 md:mb-8" ref={stagePlotRef}>
           <div className="bg-gray-850 rounded-lg overflow-hidden" ref={canvasRef}>
             <StageCanvas
@@ -732,7 +751,7 @@ const StagePlotEditor = () => {
             />
           </div>
         </div>
-        
+
         {!isViewMode && (
           <>
             <div className="bg-gray-800 p-4 rounded-lg mb-6">
@@ -743,12 +762,12 @@ const StagePlotEditor = () => {
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       className={`px-3 py-2 rounded-md text-sm ${
-                        stageSize.includes('narrow') 
-                          ? 'bg-indigo-600 text-white' 
-                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                        stageSize.includes("narrow")
+                          ? "bg-indigo-600 text-white"
+                          : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                       }`}
                       onClick={() => {
-                        const size = stageSize.split('-')[0];
+                        const size = stageSize.split("-")[0];
                         handleStageSizeChange(`${size}-narrow`);
                       }}
                     >
@@ -756,12 +775,12 @@ const StagePlotEditor = () => {
                     </button>
                     <button
                       className={`px-3 py-2 rounded-md text-sm ${
-                        stageSize.includes('wide') 
-                          ? 'bg-indigo-600 text-white' 
-                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                        stageSize.includes("wide")
+                          ? "bg-indigo-600 text-white"
+                          : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                       }`}
                       onClick={() => {
-                        const size = stageSize.split('-')[0];
+                        const size = stageSize.split("-")[0];
                         handleStageSizeChange(`${size}-wide`);
                       }}
                     >
@@ -769,24 +788,24 @@ const StagePlotEditor = () => {
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="md:col-span-4">
                   <h4 className="text-sm text-gray-400 mb-2">Stage Depth</h4>
                   <div className="grid grid-cols-5 gap-2">
-                    {['x-small', 'small', 'medium', 'large', 'x-large'].map((size) => {
-                      const width = stageSize.split('-')[1];
+                    {["x-small", "small", "medium", "large", "x-large"].map((size) => {
+                      const width = stageSize.split("-")[1];
                       const isActive = stageSize.startsWith(size);
                       return (
                         <button
                           key={size}
                           className={`px-3 py-2 rounded-md text-sm ${
-                            isActive 
-                              ? 'bg-indigo-600 text-white' 
-                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            isActive
+                              ? "bg-indigo-600 text-white"
+                              : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                           }`}
                           onClick={() => handleStageSizeChange(`${size}-${width}`)}
                         >
-                          {size.replace('x-', 'X-')}
+                          {size.replace("x-", "X-")}
                         </button>
                       );
                     })}
@@ -794,7 +813,7 @@ const StagePlotEditor = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <ElementProperties
@@ -809,7 +828,7 @@ const StagePlotEditor = () => {
           </>
         )}
       </main>
-      
+
       <Footer />
     </div>
   );

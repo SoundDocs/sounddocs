@@ -1,5 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { PlusCircle, Trash2, Save, ChevronDown, Edit, ChevronRight, ChevronUp, Link, Link2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from "react";
+import {
+  PlusCircle,
+  Trash2,
+  Save,
+  ChevronDown,
+  Edit,
+  ChevronRight,
+  ChevronUp,
+  Link,
+  Link2,
+} from "lucide-react";
 
 interface OutputChannel {
   id: string;
@@ -27,19 +37,21 @@ interface PatchSheetOutputsProps {
 }
 
 const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOutputs }) => {
-  const [showDestinationTypeOptions, setShowDestinationTypeOptions] = useState<{[key: string]: boolean}>({});
-  const [editModeOutputs, setEditModeOutputs] = useState<{[key: string]: boolean}>({});
-  const [editingOutputs, setEditingOutputs] = useState<{[key: string]: OutputChannel}>({});
+  const [showDestinationTypeOptions, setShowDestinationTypeOptions] = useState<{
+    [key: string]: boolean;
+  }>({});
+  const [editModeOutputs, setEditModeOutputs] = useState<{ [key: string]: boolean }>({});
+  const [editingOutputs, setEditingOutputs] = useState<{ [key: string]: OutputChannel }>({});
   const [isMobile, setIsMobile] = useState(false);
 
   // Bulk add state
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
   const [bulkQuantity, setBulkQuantity] = useState<number | string>(8); // Allow string for empty input
   const [bulkStartChannel, setBulkStartChannel] = useState<number | string>(1); // Allow string for empty input
-  const [bulkPrefix, setBulkPrefix] = useState('');
-  const [bulkSourceType, setBulkSourceType] = useState('');
-  const [bulkDestinationType, setBulkDestinationType] = useState('');
-  const [bulkDestinationGear, setBulkDestinationGear] = useState('');
+  const [bulkPrefix, setBulkPrefix] = useState("");
+  const [bulkSourceType, setBulkSourceType] = useState("");
+  const [bulkDestinationType, setBulkDestinationType] = useState("");
+  const [bulkDestinationGear, setBulkDestinationGear] = useState("");
   const [bulkSourceDetails, setBulkSourceDetails] = useState<{
     outputNumber?: string;
     snakeType?: string;
@@ -57,17 +69,12 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
     };
 
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   // Static source type options
-  const sourceTypeOptions = [
-    "Console Output",
-    "Analog Snake",
-    "Digital Snake",
-    "Digital Network"
-  ];
+  const sourceTypeOptions = ["Console Output", "Analog Snake", "Digital Snake", "Digital Network"];
 
   // Default destination type options
   const destinationTypeOptions = [
@@ -78,15 +85,11 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
     "Broadcast Feed",
     "Stage Fill",
     "Delay Speakers",
-    "Effects Processor"
+    "Effects Processor",
   ];
 
   // Default analog snake types
-  const analogSnakeTypes = [
-    "Multicore",
-    "XLR Harness",
-    "Sub Snake"
-  ];
+  const analogSnakeTypes = ["Multicore", "XLR Harness", "Sub Snake"];
 
   // Default digital snake types
   const digitalSnakeTypes = [
@@ -94,18 +97,11 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
     "Allen & Heath DX168",
     "Behringer S16",
     "Midas DL16",
-    "PreSonus NSB"
+    "PreSonus NSB",
   ];
 
   // Default network type options
-  const networkTypeOptions = [
-    "Dante",
-    "AVB",
-    "MADI",
-    "AES50",
-    "Ravenna",
-    "AES67"
-  ];
+  const networkTypeOptions = ["Dante", "AVB", "MADI", "AES50", "Ravenna", "AES67"];
 
   // Default console types
   const consoleTypeOptions = [
@@ -121,7 +117,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
     "Allen & Heath SQ7",
     "Midas PRO X",
     "Midas M32",
-    "Behringer X32"
+    "Behringer X32",
   ];
 
   // Store custom destination types
@@ -131,16 +127,16 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
   const [customNetworkTypes, setCustomNetworkTypes] = useState<string[]>([]);
   const [customConsoleTypes, setCustomConsoleTypes] = useState<string[]>([]);
 
-  const destinationTypeDropdownRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
+  const destinationTypeDropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Initialize all outputs to edit mode by default
   useEffect(() => {
-    const initialEditMode: {[key: string]: boolean} = {};
-    outputs.forEach(output => {
+    const initialEditMode: { [key: string]: boolean } = {};
+    outputs.forEach((output) => {
       initialEditMode[output.id] = true;
-      setEditingOutputs(prev => ({
+      setEditingOutputs((prev) => ({
         ...prev,
-        [output.id]: { ...output }
+        [output.id]: { ...output },
       }));
     });
     setEditModeOutputs(initialEditMode);
@@ -150,16 +146,19 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       // Close destination type dropdowns
-      Object.keys(destinationTypeDropdownRefs.current).forEach(id => {
-        if (destinationTypeDropdownRefs.current[id] && !destinationTypeDropdownRefs.current[id]?.contains(event.target as Node)) {
-          setShowDestinationTypeOptions(prev => ({...prev, [id]: false}));
+      Object.keys(destinationTypeDropdownRefs.current).forEach((id) => {
+        if (
+          destinationTypeDropdownRefs.current[id] &&
+          !destinationTypeDropdownRefs.current[id]?.contains(event.target as Node)
+        ) {
+          setShowDestinationTypeOptions((prev) => ({ ...prev, [id]: false }));
         }
       });
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
@@ -171,7 +170,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
     const networkTypesSet = new Set<string>();
     const consoleTypesSet = new Set<string>();
 
-    outputs.forEach(output => {
+    outputs.forEach((output) => {
       // Collect custom destination types
       if (output.destinationType && !destinationTypeOptions.includes(output.destinationType)) {
         destinationTypesSet.add(output.destinationType);
@@ -179,25 +178,33 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
       // Collect custom source details
       if (output.sourceDetails) {
-        if (output.sourceType === "Analog Snake" &&
-            output.sourceDetails.snakeType &&
-            !analogSnakeTypes.includes(output.sourceDetails.snakeType)) {
+        if (
+          output.sourceType === "Analog Snake" &&
+          output.sourceDetails.snakeType &&
+          !analogSnakeTypes.includes(output.sourceDetails.snakeType)
+        ) {
           analogSnakeTypesSet.add(output.sourceDetails.snakeType);
         }
 
-        if (output.sourceType === "Digital Snake" &&
-            output.sourceDetails.snakeType &&
-            !digitalSnakeTypes.includes(output.sourceDetails.snakeType)) {
+        if (
+          output.sourceType === "Digital Snake" &&
+          output.sourceDetails.snakeType &&
+          !digitalSnakeTypes.includes(output.sourceDetails.snakeType)
+        ) {
           digitalSnakeTypesSet.add(output.sourceDetails.snakeType);
         }
 
-        if (output.sourceDetails.networkType &&
-            !networkTypeOptions.includes(output.sourceDetails.networkType)) {
+        if (
+          output.sourceDetails.networkType &&
+          !networkTypeOptions.includes(output.sourceDetails.networkType)
+        ) {
           networkTypesSet.add(output.sourceDetails.networkType);
         }
 
-        if (output.sourceDetails.consoleType &&
-            !consoleTypeOptions.includes(output.sourceDetails.consoleType)) {
+        if (
+          output.sourceDetails.consoleType &&
+          !consoleTypeOptions.includes(output.sourceDetails.consoleType)
+        ) {
           consoleTypesSet.add(output.sourceDetails.consoleType);
         }
       }
@@ -213,21 +220,23 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
   // Update editing outputs when actual outputs change
   useEffect(() => {
-    const newEditingOutputs: {[key: string]: OutputChannel} = {};
+    const newEditingOutputs: { [key: string]: OutputChannel } = {};
 
     // Add new outputs or update existing ones
-    outputs.forEach(output => {
-      newEditingOutputs[output.id] = editingOutputs[output.id] ? { ...editingOutputs[output.id] } : { ...output };
+    outputs.forEach((output) => {
+      newEditingOutputs[output.id] = editingOutputs[output.id]
+        ? { ...editingOutputs[output.id] }
+        : { ...output };
     });
 
     setEditingOutputs(newEditingOutputs);
 
     // Initialize edit mode for new outputs
-    outputs.forEach(output => {
+    outputs.forEach((output) => {
       if (editModeOutputs[output.id] === undefined) {
-        setEditModeOutputs(prev => ({
+        setEditModeOutputs((prev) => ({
           ...prev,
-          [output.id]: true
+          [output.id]: true,
         }));
       }
     });
@@ -235,7 +244,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
   // Function to update parent component's outputs array
   const updateParentOutputs = () => {
-    const updatedOutputs = outputs.map(output => {
+    const updatedOutputs = outputs.map((output) => {
       // If the output is in edit mode, use the editing version
       if (editModeOutputs[output.id]) {
         return { ...editingOutputs[output.id] };
@@ -256,54 +265,55 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
   }, [editingOutputs]);
 
   const handleAddOutput = () => {
-    const nextChannelNumber = outputs.length > 0
-      ? Math.max(...outputs.map(output => parseInt(output.channelNumber, 10) || 0)) + 1
-      : 1;
+    const nextChannelNumber =
+      outputs.length > 0
+        ? Math.max(...outputs.map((output) => parseInt(output.channelNumber, 10) || 0)) + 1
+        : 1;
 
     const newOutput: OutputChannel = {
       id: `output-${Date.now()}`, // Generate a unique ID
       channelNumber: `${nextChannelNumber}`,
-      name: '',
-      sourceType: '',
+      name: "",
+      sourceType: "",
       sourceDetails: {},
-      destinationType: '',
-      destinationGear: '',
-      notes: '',
-      isStereo: false
+      destinationType: "",
+      destinationGear: "",
+      notes: "",
+      isStereo: false,
     };
 
     // Update parent component directly
     updateOutputs([...outputs, newOutput]);
 
     // Set new output to edit mode
-    setEditModeOutputs(prev => ({
+    setEditModeOutputs((prev) => ({
       ...prev,
-      [newOutput.id]: true
+      [newOutput.id]: true,
     }));
 
     // Add to editing outputs
-    setEditingOutputs(prev => ({
+    setEditingOutputs((prev) => ({
       ...prev,
-      [newOutput.id]: { ...newOutput }
+      [newOutput.id]: { ...newOutput },
     }));
   };
 
   const handleDeleteOutput = (id: string) => {
     // Check if this is a stereo channel and update its linked channel
-    const outputToDelete = outputs.find(output => output.id === id);
-    const updatedOutputs = outputs.filter(output => output.id !== id);
+    const outputToDelete = outputs.find((output) => output.id === id);
+    const updatedOutputs = outputs.filter((output) => output.id !== id);
 
     // If this is a stereo channel with a link, update the linked channel
     if (outputToDelete?.isStereo && outputToDelete?.stereoChannelNumber) {
       const linkedChannelIndex = updatedOutputs.findIndex(
-        output => output.channelNumber === outputToDelete.stereoChannelNumber
+        (output) => output.channelNumber === outputToDelete.stereoChannelNumber,
       );
 
       if (linkedChannelIndex !== -1) {
         updatedOutputs[linkedChannelIndex] = {
           ...updatedOutputs[linkedChannelIndex],
           isStereo: false,
-          stereoChannelNumber: undefined
+          stereoChannelNumber: undefined,
         };
       }
     }
@@ -314,7 +324,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
         updatedOutputs[index] = {
           ...updatedOutputs[index],
           isStereo: false,
-          stereoChannelNumber: undefined
+          stereoChannelNumber: undefined,
         };
       }
     });
@@ -322,14 +332,14 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
     updateOutputs(updatedOutputs);
 
     // Remove from edit mode tracking
-    setEditModeOutputs(prev => {
+    setEditModeOutputs((prev) => {
       const updated = { ...prev };
       delete updated[id];
       return updated;
     });
 
     // Remove from editing outputs
-    setEditingOutputs(prev => {
+    setEditingOutputs((prev) => {
       const updated = { ...prev };
       delete updated[id];
       return updated;
@@ -338,19 +348,19 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
   const handleEditOutput = (id: string) => {
     // Find the output in the main outputs array
-    const output = outputs.find(output => output.id === id);
+    const output = outputs.find((output) => output.id === id);
     if (!output) return;
 
     // Set the editing output to match the current output state
-    setEditingOutputs(prev => ({
+    setEditingOutputs((prev) => ({
       ...prev,
-      [id]: { ...output }
+      [id]: { ...output },
     }));
 
     // Set to edit mode
-    setEditModeOutputs(prev => ({
+    setEditModeOutputs((prev) => ({
       ...prev,
-      [id]: true
+      [id]: true,
     }));
   };
 
@@ -362,12 +372,12 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
     if (updatedOutput.isStereo && updatedOutput.stereoChannelNumber) {
       // Find the linked channel
       const linkedChannelIndex = outputs.findIndex(
-        output => output.channelNumber === updatedOutput.stereoChannelNumber && output.id !== id
+        (output) => output.channelNumber === updatedOutput.stereoChannelNumber && output.id !== id,
       );
 
       if (linkedChannelIndex !== -1) {
         // Update the linked channel to link back to this one
-        const linkedOutput = {...outputs[linkedChannelIndex]};
+        const linkedOutput = { ...outputs[linkedChannelIndex] };
         linkedOutput.isStereo = true;
         linkedOutput.stereoChannelNumber = updatedOutput.channelNumber;
 
@@ -377,9 +387,9 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
         // Also update in editing outputs if it's in edit mode
         if (editModeOutputs[linkedOutput.id]) {
-          setEditingOutputs(prev => ({
+          setEditingOutputs((prev) => ({
             ...prev,
-            [linkedOutput.id]: linkedOutput
+            [linkedOutput.id]: linkedOutput,
           }));
         }
 
@@ -387,12 +397,12 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
       }
     } else if (!updatedOutput.isStereo) {
       // If stereo is turned off, find any channels that were linked to this one and update them
-      const updatedOutputs = outputs.map(output => {
+      const updatedOutputs = outputs.map((output) => {
         if (output.stereoChannelNumber === updatedOutput.channelNumber) {
           return {
             ...output,
             isStereo: false,
-            stereoChannelNumber: undefined
+            stereoChannelNumber: undefined,
           };
         }
         return output;
@@ -402,16 +412,16 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
     }
 
     // Update the specific output
-    const finalUpdatedOutputs = outputs.map(output =>
-      output.id === id ? { ...updatedOutput } : output
+    const finalUpdatedOutputs = outputs.map((output) =>
+      output.id === id ? { ...updatedOutput } : output,
     );
 
     updateOutputs(finalUpdatedOutputs);
 
     // Exit edit mode
-    setEditModeOutputs(prev => ({
+    setEditModeOutputs((prev) => ({
       ...prev,
-      [id]: false
+      [id]: false,
     }));
   };
 
@@ -422,19 +432,19 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
     updatedOutput[field] = value;
 
     // Reset source details when changing source type
-    if (field === 'sourceType') {
+    if (field === "sourceType") {
       updatedOutput.sourceDetails = {};
     }
 
     // If stereo is being toggled off, clear the stereo channel number
-    if (field === 'isStereo' && value === false) {
+    if (field === "isStereo" && value === false) {
       updatedOutput.stereoChannelNumber = undefined;
     }
 
     // Update the editing outputs
-    setEditingOutputs(prev => ({
+    setEditingOutputs((prev) => ({
       ...prev,
-      [id]: updatedOutput
+      [id]: updatedOutput,
     }));
   };
 
@@ -450,43 +460,51 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
     updatedOutput.sourceDetails[detailKey as keyof typeof updatedOutput.sourceDetails] = value;
 
     // Update the editing outputs
-    setEditingOutputs(prev => ({
+    setEditingOutputs((prev) => ({
       ...prev,
-      [id]: updatedOutput
+      [id]: updatedOutput,
     }));
   };
 
   // Get a list of available channels for stereo linking
-  const getAvailableChannelsForStereo = (currentChannelId: string, currentChannelNumber: string) => {
+  const getAvailableChannelsForStereo = (
+    currentChannelId: string,
+    currentChannelNumber: string,
+  ) => {
     return outputs
-      .filter(output =>
-        // Don't show the current channel
-        output.id !== currentChannelId &&
-        // Don't show channels that are already linked to another channel (except the current one)
-        (!output.isStereo || output.stereoChannelNumber === currentChannelNumber)
+      .filter(
+        (output) =>
+          // Don't show the current channel
+          output.id !== currentChannelId &&
+          // Don't show channels that are already linked to another channel (except the current one)
+          (!output.isStereo || output.stereoChannelNumber === currentChannelNumber),
       )
-      .map(output => ({
+      .map((output) => ({
         channelNumber: output.channelNumber,
-        name: output.name || `Channel ${output.channelNumber}`
+        name: output.name || `Channel ${output.channelNumber}`,
       }));
   };
 
   // Handle selection of destination type
   const handleSelectDestinationType = (id: string, value: string) => {
-    handleEditingOutputChange(id, 'destinationType', value);
+    handleEditingOutputChange(id, "destinationType", value);
 
     // Only add to custom destination types if it doesn't exist in default options
-    if (value.trim() && !destinationTypeOptions.includes(value) && !customDestinationTypes.includes(value)) {
-      setCustomDestinationTypes(prev => [...prev, value]);
+    if (
+      value.trim() &&
+      !destinationTypeOptions.includes(value) &&
+      !customDestinationTypes.includes(value)
+    ) {
+      setCustomDestinationTypes((prev) => [...prev, value]);
     }
 
     // Close the dropdown
-    setShowDestinationTypeOptions(prev => ({...prev, [id]: false}));
+    setShowDestinationTypeOptions((prev) => ({ ...prev, [id]: false }));
   };
 
   // Handle key press for destination type input
   const handleDestinationTypeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, id: string) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       const value = e.currentTarget.value;
 
@@ -497,33 +515,37 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
   };
 
   // Handle adding custom snake or network type
-  const handleCustomTypeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, id: string, type: string) => {
-    if (e.key === 'Enter') {
+  const handleCustomTypeKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    id: string,
+    type: string,
+  ) => {
+    if (e.key === "Enter") {
       e.preventDefault();
       const value = e.currentTarget.value;
 
       if (!value.trim()) return;
 
       // Handle different types of custom values
-      if (type === 'networkType') {
-        handleSourceDetailChange(id, 'networkType', value);
+      if (type === "networkType") {
+        handleSourceDetailChange(id, "networkType", value);
         if (!networkTypeOptions.includes(value) && !customNetworkTypes.includes(value)) {
-          setCustomNetworkTypes(prev => [...prev, value]);
+          setCustomNetworkTypes((prev) => [...prev, value]);
         }
-      } else if (type === 'analogSnakeType') {
-        handleSourceDetailChange(id, 'snakeType', value);
+      } else if (type === "analogSnakeType") {
+        handleSourceDetailChange(id, "snakeType", value);
         if (!analogSnakeTypes.includes(value) && !customAnalogSnakeTypes.includes(value)) {
-          setCustomAnalogSnakeTypes(prev => [...prev, value]);
+          setCustomAnalogSnakeTypes((prev) => [...prev, value]);
         }
-      } else if (type === 'digitalSnakeType') {
-        handleSourceDetailChange(id, 'snakeType', value);
+      } else if (type === "digitalSnakeType") {
+        handleSourceDetailChange(id, "snakeType", value);
         if (!digitalSnakeTypes.includes(value) && !customDigitalSnakeTypes.includes(value)) {
-          setCustomDigitalSnakeTypes(prev => [...prev, value]);
+          setCustomDigitalSnakeTypes((prev) => [...prev, value]);
         }
-      } else if (type === 'consoleType') {
-        handleSourceDetailChange(id, 'consoleType', value);
+      } else if (type === "consoleType") {
+        handleSourceDetailChange(id, "consoleType", value);
         if (!consoleTypeOptions.includes(value) && !customConsoleTypes.includes(value)) {
-          setCustomConsoleTypes(prev => [...prev, value]);
+          setCustomConsoleTypes((prev) => [...prev, value]);
         }
       }
     }
@@ -531,9 +553,9 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
   const toggleDestinationTypeOptions = (id: string) => {
     // Toggle this dropdown
-    setShowDestinationTypeOptions(prev => ({
+    setShowDestinationTypeOptions((prev) => ({
       ...prev,
-      [id]: !prev[id]
+      [id]: !prev[id],
     }));
   };
 
@@ -572,7 +594,9 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
           <div className="flex space-x-4 text-sm">
             <span className="text-gray-400">
               {output.sourceDetails.consoleType ? `${output.sourceDetails.consoleType} - ` : ""}
-              {output.sourceDetails.outputNumber ? `Output #${output.sourceDetails.outputNumber}` : ""}
+              {output.sourceDetails.outputNumber
+                ? `Output #${output.sourceDetails.outputNumber}`
+                : ""}
             </span>
           </div>
         );
@@ -582,7 +606,9 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
           <div className="flex space-x-4 text-sm">
             <span className="text-gray-400">
               {output.sourceDetails.snakeType || ""}
-              {output.sourceDetails.outputNumber ? ` - Output #${output.sourceDetails.outputNumber}` : ""}
+              {output.sourceDetails.outputNumber
+                ? ` - Output #${output.sourceDetails.outputNumber}`
+                : ""}
             </span>
           </div>
         );
@@ -592,9 +618,13 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
           <div className="flex space-x-4 text-sm">
             <span className="text-gray-400">
               {output.sourceDetails.snakeType || ""}
-              {output.sourceDetails.outputNumber ? ` - Output #${output.sourceDetails.outputNumber}` : ""}
+              {output.sourceDetails.outputNumber
+                ? ` - Output #${output.sourceDetails.outputNumber}`
+                : ""}
               {output.sourceDetails.networkType ? ` - ${output.sourceDetails.networkType}` : ""}
-              {output.sourceDetails.networkPatch ? ` - Patch #${output.sourceDetails.networkPatch}` : ""}
+              {output.sourceDetails.networkPatch
+                ? ` - Patch #${output.sourceDetails.networkPatch}`
+                : ""}
             </span>
           </div>
         );
@@ -604,7 +634,9 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
           <div className="flex space-x-4 text-sm">
             <span className="text-gray-400">
               {output.sourceDetails.networkType || ""}
-              {output.sourceDetails.networkPatch ? ` - Patch #${output.sourceDetails.networkPatch}` : ""}
+              {output.sourceDetails.networkPatch
+                ? ` - Patch #${output.sourceDetails.networkPatch}`
+                : ""}
             </span>
           </div>
         );
@@ -616,13 +648,16 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
   // Render console details for analog snake outputs
   const renderConsoleDetails = (output: OutputChannel) => {
-    if (output.sourceType === "Analog Snake" &&
-        (output.sourceDetails?.consoleType || output.sourceDetails?.consoleOutputNumber)) {
+    if (
+      output.sourceType === "Analog Snake" &&
+      (output.sourceDetails?.consoleType || output.sourceDetails?.consoleOutputNumber)
+    ) {
       return (
         <div className="mt-1 text-gray-400 text-sm">
           <span>→ {output.sourceDetails?.consoleType || "Console"}</span>
-          {output.sourceDetails?.consoleOutputNumber &&
-            <span> - Output #{output.sourceDetails.consoleOutputNumber}</span>}
+          {output.sourceDetails?.consoleOutputNumber && (
+            <span> - Output #{output.sourceDetails.consoleOutputNumber}</span>
+          )}
         </div>
       );
     }
@@ -631,9 +666,10 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
   // Handle opening the bulk add modal
   const openBulkAddModal = () => {
-    const nextChannelNumber = outputs.length > 0
-      ? Math.max(...outputs.map(output => parseInt(output.channelNumber, 10) || 0)) + 1
-      : 1;
+    const nextChannelNumber =
+      outputs.length > 0
+        ? Math.max(...outputs.map((output) => parseInt(output.channelNumber, 10) || 0)) + 1
+        : 1;
     setBulkStartChannel(nextChannelNumber);
     setShowBulkAddModal(true);
   };
@@ -675,7 +711,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
         ...bulkSourceDetails, // This will include consoleType if set
         consoleOutputNumber,
         networkPatch,
-        outputNumber
+        outputNumber,
       };
 
       // Handle stereo pairs (L/R)
@@ -686,10 +722,12 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
       // If creating stereo pairs and this is an odd index, link to the next channel
       // If even index, link to the previous channel
       if (bulkIsStereo) {
-        if (i % 2 === 0 && i + 1 < quantity) { // Even index and not the last one
+        if (i % 2 === 0 && i + 1 < quantity) {
+          // Even index and not the last one
           currentName += " L"; // Left channel
           stereoChannelNumber = (startNum + i + 1).toString(); // Link to next channel
-        } else if (i % 2 === 1) { // Odd index
+        } else if (i % 2 === 1) {
+          // Odd index
           currentName += " R"; // Right channel
           stereoChannelNumber = (startNum + i - 1).toString(); // Link to previous channel
         }
@@ -703,9 +741,9 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
         sourceDetails,
         destinationType: bulkDestinationType,
         destinationGear: bulkDestinationGear,
-        notes: '',
+        notes: "",
         isStereo,
-        stereoChannelNumber
+        stereoChannelNumber,
       });
     }
 
@@ -716,7 +754,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
     const newEditModeOutputs = { ...editModeOutputs };
     const newEditingOutputs = { ...editingOutputs };
 
-    newOutputs.forEach(output => {
+    newOutputs.forEach((output) => {
       newEditModeOutputs[output.id] = true;
       newEditingOutputs[output.id] = { ...output };
     });
@@ -730,10 +768,10 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
     // Reset bulk add form
     setBulkQuantity(8); // Reset to default
     setBulkStartChannel(1); // Reset to default (will be recalculated next time)
-    setBulkPrefix('');
-    setBulkSourceType('');
-    setBulkDestinationType('');
-    setBulkDestinationGear('');
+    setBulkPrefix("");
+    setBulkSourceType("");
+    setBulkDestinationType("");
+    setBulkDestinationGear("");
     setBulkSourceDetails({});
     setBulkIsStereo(false);
   };
@@ -747,9 +785,9 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
   // Handle bulk source detail change
   const handleBulkSourceDetailChange = (detailKey: string, value: string) => {
-    setBulkSourceDetails(prev => ({
+    setBulkSourceDetails((prev) => ({
       ...prev,
-      [detailKey]: value
+      [detailKey]: value,
     }));
   };
 
@@ -804,23 +842,27 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
         </div>
       ) : (
         <div className="space-y-4 overflow-x-auto">
-          <div className="min-w-[800px] md:min-w-0"> {/* Minimum width container */}
+          <div className="min-w-[800px] md:min-w-0">
+            {" "}
+            {/* Minimum width container */}
             {outputs.map((output) => {
               const editingOutput = editingOutputs[output.id] || output;
               const isEditMode = editModeOutputs[output.id];
-              const availableStereoChannels = getAvailableChannelsForStereo(output.id, output.channelNumber);
+              const availableStereoChannels = getAvailableChannelsForStereo(
+                output.id,
+                output.channelNumber,
+              );
 
               // Find if this output has a linked stereo channel
               const linkedChannel = outputs.find(
-                otherOutput =>
-                  otherOutput.channelNumber === output.stereoChannelNumber &&
-                  otherOutput.isStereo
+                (otherOutput) =>
+                  otherOutput.channelNumber === output.stereoChannelNumber && otherOutput.isStereo,
               );
 
               return (
                 <div
                   key={output.id}
-                  className={`bg-gray-800 border border-gray-700 rounded-lg overflow-visible hover:border-gray-600 transition-colors ${output.isStereo ? 'border-l-4 border-l-indigo-500' : ''}`}
+                  className={`bg-gray-800 border border-gray-700 rounded-lg overflow-visible hover:border-gray-600 transition-colors ${output.isStereo ? "border-l-4 border-l-indigo-500" : ""}`}
                 >
                   <div className="bg-gray-750 py-3 px-4 sm:px-6 flex justify-between items-center">
                     <div className="flex items-center space-x-2 sm:space-x-4 overflow-hidden">
@@ -832,7 +874,13 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                             <input
                               type="text"
                               value={editingOutput.channelNumber}
-                              onChange={(e) => handleEditingOutputChange(output.id, 'channelNumber', e.target.value)}
+                              onChange={(e) =>
+                                handleEditingOutputChange(
+                                  output.id,
+                                  "channelNumber",
+                                  e.target.value,
+                                )
+                              }
                               className="ml-1 sm:ml-2 bg-gray-700 text-white border border-gray-600 rounded-md px-1 sm:px-2 py-1 w-10 sm:w-16 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                             />
                           </>
@@ -849,7 +897,9 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                           <input
                             type="text"
                             value={editingOutput.name}
-                            onChange={(e) => handleEditingOutputChange(output.id, 'name', e.target.value)}
+                            onChange={(e) =>
+                              handleEditingOutputChange(output.id, "name", e.target.value)
+                            }
                             className="bg-gray-700 text-white border border-gray-600 rounded-md px-2 sm:px-3 py-1 w-full max-w-[140px] sm:max-w-[220px] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-medium"
                             placeholder="Name/Label"
                           />
@@ -862,10 +912,11 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                           {output.isStereo && (
                             <div className="bg-indigo-500/20 text-indigo-300 text-xs px-2 py-0.5 rounded-full flex items-center">
                               <Link2 className="h-3 w-3 mr-1" />
-                              {output.stereoChannelNumber
-                                ? <span>Stereo w/ Ch {output.stereoChannelNumber}</span>
-                                : <span>Stereo</span>
-                              }
+                              {output.stereoChannelNumber ? (
+                                <span>Stereo w/ Ch {output.stereoChannelNumber}</span>
+                              ) : (
+                                <span>Stereo</span>
+                              )}
                             </div>
                           )}
                         </div>
@@ -918,12 +969,16 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                           <label className="block text-gray-300 text-sm mb-2">Source Type</label>
                           <select
                             value={editingOutput.sourceType}
-                            onChange={(e) => handleEditingOutputChange(output.id, 'sourceType', e.target.value)}
+                            onChange={(e) =>
+                              handleEditingOutputChange(output.id, "sourceType", e.target.value)
+                            }
                             className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                           >
                             <option value="">Select Source Type</option>
                             {sourceTypeOptions.map((type, index) => (
-                              <option key={index} value={type}>{type}</option>
+                              <option key={index} value={type}>
+                                {type}
+                              </option>
                             ))}
                           </select>
                         </div>
@@ -936,7 +991,9 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                               <input
                                 type="checkbox"
                                 checked={editingOutput.isStereo}
-                                onChange={(e) => handleEditingOutputChange(output.id, 'isStereo', e.target.checked)}
+                                onChange={(e) =>
+                                  handleEditingOutputChange(output.id, "isStereo", e.target.checked)
+                                }
                                 className="mr-2 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-500 rounded"
                               />
                               <span className="text-gray-300 text-sm">Stereo</span>
@@ -947,7 +1004,13 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                             <div className="mt-2">
                               <select
                                 value={editingOutput.stereoChannelNumber || ""}
-                                onChange={(e) => handleEditingOutputChange(output.id, 'stereoChannelNumber', e.target.value)}
+                                onChange={(e) =>
+                                  handleEditingOutputChange(
+                                    output.id,
+                                    "stereoChannelNumber",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                               >
                                 <option value="">Link with Channel...</option>
@@ -969,12 +1032,18 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                         {editingOutput.sourceType === "Console Output" && (
                           <>
                             <div>
-                              <label className="block text-gray-300 text-sm mb-2">Console Type</label>
+                              <label className="block text-gray-300 text-sm mb-2">
+                                Console Type
+                              </label>
                               <input
                                 type="text"
                                 value={editingOutput.sourceDetails?.consoleType || ""}
-                                onChange={(e) => handleSourceDetailChange(output.id, 'consoleType', e.target.value)}
-                                onKeyDown={(e) => handleCustomTypeKeyDown(e, output.id, 'consoleType')}
+                                onChange={(e) =>
+                                  handleSourceDetailChange(output.id, "consoleType", e.target.value)
+                                }
+                                onKeyDown={(e) =>
+                                  handleCustomTypeKeyDown(e, output.id, "consoleType")
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., Avid S6L, DiGiCo SD12"
                                 list={`consoleTypes-${output.id}`}
@@ -990,7 +1059,13 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                               <input
                                 type="text"
                                 value={editingOutput.sourceDetails?.outputNumber || ""}
-                                onChange={(e) => handleSourceDetailChange(output.id, 'outputNumber', e.target.value)}
+                                onChange={(e) =>
+                                  handleSourceDetailChange(
+                                    output.id,
+                                    "outputNumber",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., 12"
                               />
@@ -1005,8 +1080,12 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                               <input
                                 type="text"
                                 value={editingOutput.sourceDetails?.snakeType || ""}
-                                onChange={(e) => handleSourceDetailChange(output.id, 'snakeType', e.target.value)}
-                                onKeyDown={(e) => handleCustomTypeKeyDown(e, output.id, 'analogSnakeType')}
+                                onChange={(e) =>
+                                  handleSourceDetailChange(output.id, "snakeType", e.target.value)
+                                }
+                                onKeyDown={(e) =>
+                                  handleCustomTypeKeyDown(e, output.id, "analogSnakeType")
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., Multicore, XLR Harness"
                                 list={`analogSnakeTypes-${output.id}`}
@@ -1022,18 +1101,30 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                               <input
                                 type="text"
                                 value={editingOutput.sourceDetails?.outputNumber || ""}
-                                onChange={(e) => handleSourceDetailChange(output.id, 'outputNumber', e.target.value)}
+                                onChange={(e) =>
+                                  handleSourceDetailChange(
+                                    output.id,
+                                    "outputNumber",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., 12"
                               />
                             </div>
                             <div>
-                              <label className="block text-gray-300 text-sm mb-2">Console Type</label>
+                              <label className="block text-gray-300 text-sm mb-2">
+                                Console Type
+                              </label>
                               <input
                                 type="text"
                                 value={editingOutput.sourceDetails?.consoleType || ""}
-                                onChange={(e) => handleSourceDetailChange(output.id, 'consoleType', e.target.value)}
-                                onKeyDown={(e) => handleCustomTypeKeyDown(e, output.id, 'consoleType')}
+                                onChange={(e) =>
+                                  handleSourceDetailChange(output.id, "consoleType", e.target.value)
+                                }
+                                onKeyDown={(e) =>
+                                  handleCustomTypeKeyDown(e, output.id, "consoleType")
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., Avid S6L, DiGiCo SD12"
                                 list={`consoleTypes-${output.id}`}
@@ -1045,11 +1136,19 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                               </datalist>
                             </div>
                             <div>
-                              <label className="block text-gray-300 text-sm mb-2">Console Output #</label>
+                              <label className="block text-gray-300 text-sm mb-2">
+                                Console Output #
+                              </label>
                               <input
                                 type="text"
                                 value={editingOutput.sourceDetails?.consoleOutputNumber || ""}
-                                onChange={(e) => handleSourceDetailChange(output.id, 'consoleOutputNumber', e.target.value)}
+                                onChange={(e) =>
+                                  handleSourceDetailChange(
+                                    output.id,
+                                    "consoleOutputNumber",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., 8"
                               />
@@ -1064,8 +1163,12 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                               <input
                                 type="text"
                                 value={editingOutput.sourceDetails?.snakeType || ""}
-                                onChange={(e) => handleSourceDetailChange(output.id, 'snakeType', e.target.value)}
-                                onKeyDown={(e) => handleCustomTypeKeyDown(e, output.id, 'digitalSnakeType')}
+                                onChange={(e) =>
+                                  handleSourceDetailChange(output.id, "snakeType", e.target.value)
+                                }
+                                onKeyDown={(e) =>
+                                  handleCustomTypeKeyDown(e, output.id, "digitalSnakeType")
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., Yamaha Rio, DL16"
                                 list={`digitalSnakeTypes-${output.id}`}
@@ -1081,7 +1184,13 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                               <input
                                 type="text"
                                 value={editingOutput.sourceDetails?.outputNumber || ""}
-                                onChange={(e) => handleSourceDetailChange(output.id, 'outputNumber', e.target.value)}
+                                onChange={(e) =>
+                                  handleSourceDetailChange(
+                                    output.id,
+                                    "outputNumber",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., 8"
                               />
@@ -1089,15 +1198,22 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                           </>
                         )}
 
-                        {(editingOutput.sourceType === "Digital Snake" || editingOutput.sourceType === "Digital Network") && (
+                        {(editingOutput.sourceType === "Digital Snake" ||
+                          editingOutput.sourceType === "Digital Network") && (
                           <>
                             <div>
-                              <label className="block text-gray-300 text-sm mb-2">Network Type</label>
+                              <label className="block text-gray-300 text-sm mb-2">
+                                Network Type
+                              </label>
                               <input
                                 type="text"
                                 value={editingOutput.sourceDetails?.networkType || ""}
-                                onChange={(e) => handleSourceDetailChange(output.id, 'networkType', e.target.value)}
-                                onKeyDown={(e) => handleCustomTypeKeyDown(e, output.id, 'networkType')}
+                                onChange={(e) =>
+                                  handleSourceDetailChange(output.id, "networkType", e.target.value)
+                                }
+                                onKeyDown={(e) =>
+                                  handleCustomTypeKeyDown(e, output.id, "networkType")
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., Dante, AVB"
                                 list={`networkTypes-${output.id}`}
@@ -1109,11 +1225,19 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                               </datalist>
                             </div>
                             <div>
-                              <label className="block text-gray-300 text-sm mb-2">Network Patch #</label>
+                              <label className="block text-gray-300 text-sm mb-2">
+                                Network Patch #
+                              </label>
                               <input
                                 type="text"
                                 value={editingOutput.sourceDetails?.networkPatch || ""}
-                                onChange={(e) => handleSourceDetailChange(output.id, 'networkPatch', e.target.value)}
+                                onChange={(e) =>
+                                  handleSourceDetailChange(
+                                    output.id,
+                                    "networkPatch",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 placeholder="e.g., 24"
                               />
@@ -1121,13 +1245,24 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                           </>
                         )}
 
-                        <div className="relative" ref={el => destinationTypeDropdownRefs.current[output.id] = el}>
-                          <label className="block text-gray-300 text-sm mb-2">Destination Type</label>
+                        <div
+                          className="relative"
+                          ref={(el) => (destinationTypeDropdownRefs.current[output.id] = el)}
+                        >
+                          <label className="block text-gray-300 text-sm mb-2">
+                            Destination Type
+                          </label>
                           <div className="relative">
                             <input
                               type="text"
                               value={editingOutput.destinationType}
-                              onChange={(e) => handleEditingOutputChange(output.id, 'destinationType', e.target.value)}
+                              onChange={(e) =>
+                                handleEditingOutputChange(
+                                  output.id,
+                                  "destinationType",
+                                  e.target.value,
+                                )
+                              }
                               onFocus={() => toggleDestinationTypeOptions(output.id)}
                               onKeyDown={(e) => handleDestinationTypeKeyDown(e, output.id)}
                               className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 pr-10 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
@@ -1147,12 +1282,12 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                             <div
                               className="absolute z-[40] mt-1 bg-gray-700 border border-gray-600 rounded-md shadow-lg max-h-48 overflow-y-auto"
                               style={{
-                                maxHeight: '200px',
-                                top: '100%',
+                                maxHeight: "200px",
+                                top: "100%",
                                 left: 0,
                                 right: 0,
-                                width: '100%',
-                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
+                                width: "100%",
+                                boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.5)",
                               }}
                               onClick={(e) => e.stopPropagation()}
                             >
@@ -1166,14 +1301,21 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                                 </div>
                               ))}
                               {editingOutput.destinationType &&
-                               !getAllDestinationTypes().includes(editingOutput.destinationType) && (
-                                <div
-                                  className="px-4 py-2 hover:bg-gray-600 cursor-pointer text-white"
-                                  onClick={() => handleSelectDestinationType(output.id, editingOutput.destinationType)}
-                                >
-                                  Add "{editingOutput.destinationType}"
-                                </div>
-                              )}
+                                !getAllDestinationTypes().includes(
+                                  editingOutput.destinationType,
+                                ) && (
+                                  <div
+                                    className="px-4 py-2 hover:bg-gray-600 cursor-pointer text-white"
+                                    onClick={() =>
+                                      handleSelectDestinationType(
+                                        output.id,
+                                        editingOutput.destinationType,
+                                      )
+                                    }
+                                  >
+                                    Add "{editingOutput.destinationType}"
+                                  </div>
+                                )}
                             </div>
                           )}
                         </div>
@@ -1181,23 +1323,35 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                         {/* Destination Gear field - shown when destination type is set */}
                         {editingOutput.destinationType && (
                           <div>
-                            <label className="block text-gray-300 text-sm mb-2">Destination Gear</label>
+                            <label className="block text-gray-300 text-sm mb-2">
+                              Destination Gear
+                            </label>
                             <input
                               type="text"
-                              value={editingOutput.destinationGear || ''}
-                              onChange={(e) => handleEditingOutputChange(output.id, 'destinationGear', e.target.value)}
+                              value={editingOutput.destinationGear || ""}
+                              onChange={(e) =>
+                                handleEditingOutputChange(
+                                  output.id,
+                                  "destinationGear",
+                                  e.target.value,
+                                )
+                              }
                               className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                               placeholder={`Enter ${editingOutput.destinationType} gear name`}
                             />
                           </div>
                         )}
 
-                        <div className={`col-span-1 sm:col-span-2 ${editingOutput.destinationType ? 'lg:col-span-3' : 'lg:col-span-2'}`}>
+                        <div
+                          className={`col-span-1 sm:col-span-2 ${editingOutput.destinationType ? "lg:col-span-3" : "lg:col-span-2"}`}
+                        >
                           <label className="block text-gray-300 text-sm mb-2">Notes</label>
                           <input
                             type="text"
                             value={editingOutput.notes}
-                            onChange={(e) => handleEditingOutputChange(output.id, 'notes', e.target.value)}
+                            onChange={(e) =>
+                              handleEditingOutputChange(output.id, "notes", e.target.value)
+                            }
                             className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                             placeholder="Additional notes about this output"
                           />
@@ -1227,9 +1381,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                           <p className="text-gray-400 text-xs sm:text-sm">Destination</p>
                           <p className="text-white">{output.destinationType || "N/A"}</p>
                           {output.destinationGear && (
-                            <p className="text-gray-400 text-sm mt-1">
-                              {output.destinationGear}
-                            </p>
+                            <p className="text-gray-400 text-sm mt-1">{output.destinationGear}</p>
                           )}
                         </div>
 
@@ -1265,7 +1417,9 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
       {showBulkAddModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold text-white mb-6 sticky top-0 bg-gray-800 z-20 pb-2">Bulk Add Outputs</h3>
+            <h3 className="text-xl font-semibold text-white mb-6 sticky top-0 bg-gray-800 z-20 pb-2">
+              Bulk Add Outputs
+            </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Basic Settings Section */}
@@ -1277,8 +1431,8 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                   <input
                     type="number"
                     value={bulkQuantity}
-                    min="0" 
-                    onChange={(e) => setBulkQuantity(e.target.value)} 
+                    min="0"
+                    onChange={(e) => setBulkQuantity(e.target.value)}
                     className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
@@ -1290,16 +1444,14 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                   <input
                     type="number"
                     value={bulkStartChannel}
-                    min="0" 
-                    onChange={(e) => setBulkStartChannel(e.target.value)} 
+                    min="0"
+                    onChange={(e) => setBulkStartChannel(e.target.value)}
                     className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-gray-300 text-sm mb-2">
-                    Name Prefix (optional)
-                  </label>
+                  <label className="block text-gray-300 text-sm mb-2">Name Prefix (optional)</label>
                   <input
                     type="text"
                     value={bulkPrefix}
@@ -1320,7 +1472,10 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                     onChange={(e) => setBulkIsStereo(e.target.checked)}
                     className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-500 rounded"
                   />
-                  <label htmlFor="bulkIsStereoOutput" className="text-gray-300 text-sm ml-2 flex items-center">
+                  <label
+                    htmlFor="bulkIsStereoOutput"
+                    className="text-gray-300 text-sm ml-2 flex items-center"
+                  >
                     <Link className="h-4 w-4 mr-1 text-indigo-400" />
                     Create as stereo pairs (L/R)
                   </label>
@@ -1338,7 +1493,9 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                   >
                     <option value="">Select Source Type</option>
                     {sourceTypeOptions.map((type, index) => (
-                      <option key={index} value={type}>{type}</option>
+                      <option key={index} value={type}>
+                        {type}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -1353,7 +1510,9 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                       <input
                         type="text"
                         value={bulkSourceDetails.consoleType || ""}
-                        onChange={(e) => handleBulkSourceDetailChange('consoleType', e.target.value)}
+                        onChange={(e) =>
+                          handleBulkSourceDetailChange("consoleType", e.target.value)
+                        }
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., Avid S6L"
                         list="bulkConsoleTypesOutputDatalist"
@@ -1365,11 +1524,15 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                       </datalist>
                     </div>
                     <div>
-                      <label className="block text-gray-300 text-sm mb-2">Output # (Starting)</label>
+                      <label className="block text-gray-300 text-sm mb-2">
+                        Output # (Starting)
+                      </label>
                       <input
                         type="text"
                         value={bulkSourceDetails.outputNumber || ""}
-                        onChange={(e) => handleBulkSourceDetailChange('outputNumber', e.target.value)}
+                        onChange={(e) =>
+                          handleBulkSourceDetailChange("outputNumber", e.target.value)
+                        }
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., 1 (will increment)"
                       />
@@ -1384,7 +1547,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                       <input
                         type="text"
                         value={bulkSourceDetails.snakeType || ""}
-                        onChange={(e) => handleBulkSourceDetailChange('snakeType', e.target.value)}
+                        onChange={(e) => handleBulkSourceDetailChange("snakeType", e.target.value)}
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., Multicore"
                         list="bulkAnalogSnakeTypesOutputDatalist"
@@ -1396,11 +1559,15 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                       </datalist>
                     </div>
                     <div>
-                      <label className="block text-gray-300 text-sm mb-2">Output # (Starting)</label>
+                      <label className="block text-gray-300 text-sm mb-2">
+                        Output # (Starting)
+                      </label>
                       <input
                         type="text"
                         value={bulkSourceDetails.outputNumber || ""}
-                        onChange={(e) => handleBulkSourceDetailChange('outputNumber', e.target.value)}
+                        onChange={(e) =>
+                          handleBulkSourceDetailChange("outputNumber", e.target.value)
+                        }
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., 1 (will increment)"
                       />
@@ -1410,7 +1577,9 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                       <input
                         type="text"
                         value={bulkSourceDetails.consoleType || ""}
-                        onChange={(e) => handleBulkSourceDetailChange('consoleType', e.target.value)}
+                        onChange={(e) =>
+                          handleBulkSourceDetailChange("consoleType", e.target.value)
+                        }
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., Avid S6L"
                         list="bulkConsoleTypesOutputDatalist"
@@ -1422,11 +1591,15 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                       </datalist>
                     </div>
                     <div>
-                      <label className="block text-gray-300 text-sm mb-2">Console Output # (Starting)</label>
+                      <label className="block text-gray-300 text-sm mb-2">
+                        Console Output # (Starting)
+                      </label>
                       <input
                         type="text"
                         value={bulkSourceDetails.consoleOutputNumber || ""}
-                        onChange={(e) => handleBulkSourceDetailChange('consoleOutputNumber', e.target.value)}
+                        onChange={(e) =>
+                          handleBulkSourceDetailChange("consoleOutputNumber", e.target.value)
+                        }
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., 1 (will increment)"
                       />
@@ -1441,7 +1614,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                       <input
                         type="text"
                         value={bulkSourceDetails.snakeType || ""}
-                        onChange={(e) => handleBulkSourceDetailChange('snakeType', e.target.value)}
+                        onChange={(e) => handleBulkSourceDetailChange("snakeType", e.target.value)}
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., Yamaha Rio"
                         list="bulkDigitalSnakeTypesOutputDatalist"
@@ -1453,11 +1626,15 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                       </datalist>
                     </div>
                     <div>
-                      <label className="block text-gray-300 text-sm mb-2">Output # (Starting)</label>
+                      <label className="block text-gray-300 text-sm mb-2">
+                        Output # (Starting)
+                      </label>
                       <input
                         type="text"
                         value={bulkSourceDetails.outputNumber || ""}
-                        onChange={(e) => handleBulkSourceDetailChange('outputNumber', e.target.value)}
+                        onChange={(e) =>
+                          handleBulkSourceDetailChange("outputNumber", e.target.value)
+                        }
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., 1 (will increment)"
                       />
@@ -1472,7 +1649,9 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                       <input
                         type="text"
                         value={bulkSourceDetails.networkType || ""}
-                        onChange={(e) => handleBulkSourceDetailChange('networkType', e.target.value)}
+                        onChange={(e) =>
+                          handleBulkSourceDetailChange("networkType", e.target.value)
+                        }
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., Dante, AVB"
                         list="bulkNetworkTypesOutputDatalist"
@@ -1484,11 +1663,15 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                       </datalist>
                     </div>
                     <div>
-                      <label className="block text-gray-300 text-sm mb-2">Network Patch # (Starting)</label>
+                      <label className="block text-gray-300 text-sm mb-2">
+                        Network Patch # (Starting)
+                      </label>
                       <input
                         type="text"
                         value={bulkSourceDetails.networkPatch || ""}
-                        onChange={(e) => handleBulkSourceDetailChange('networkPatch', e.target.value)}
+                        onChange={(e) =>
+                          handleBulkSourceDetailChange("networkPatch", e.target.value)
+                        }
                         className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="e.g., 1 (will increment)"
                       />
@@ -1505,7 +1688,9 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                   >
                     <option value="">Select Destination Type</option>
                     {getAllDestinationTypes().map((type, index) => (
-                      <option key={index} value={type}>{type}</option>
+                      <option key={index} value={type}>
+                        {type}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -1534,10 +1719,11 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
               </button>
               <button
                 onClick={handleBulkAdd}
-                className={`bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors ${isBulkAddDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors ${isBulkAddDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                 disabled={isBulkAddDisabled}
               >
-                Add {isBulkAddDisabled ? '' : parsedBulkQuantity} {parsedBulkQuantity === 1 ? 'Output' : 'Outputs'}
+                Add {isBulkAddDisabled ? "" : parsedBulkQuantity}{" "}
+                {parsedBulkQuantity === 1 ? "Output" : "Outputs"}
               </button>
             </div>
           </div>
