@@ -7,7 +7,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Landing from "./pages/Landing";
 import SignUp from "./components/auth/SignUp";
 import SignIn from "./components/auth/SignIn";
-import Dashboard from "./components/Dashboard";
+import Dashboard from "./pages/Dashboard";
 import PatchSheetEditor from "./pages/PatchSheetEditor";
 import AllPatchSheets from "./pages/AllPatchSheets";
 import StagePlotEditor from "./pages/StagePlotEditor";
