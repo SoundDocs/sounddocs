@@ -23,44 +23,41 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { getSharedResource, updateSharedResource } from "../lib/shareUtils";
 
-// Function to get stage dimensions based on the stage size
-const getStageDimensions = (stageSize = "medium-wide") => {
-  const [depth, width] = stageSize.split("-");
+const STAGE_DEPTHS = ["x-small", "small", "medium", "large", "x-large"] as const;
+const STAGE_WIDTHS = ["narrow", "wide"] as const;
 
-  // Base dimensions
-  let baseWidth = 800;
-  let baseHeight = 400;
+type StageDepth = (typeof STAGE_DEPTHS)[number];
+type StageWidth = (typeof STAGE_WIDTHS)[number];
+type StageSize = { depth: StageDepth; width: StageWidth };
 
-  // Adjust width based on the width parameter
-  if (width === "narrow") {
-    baseWidth = 600;
-  } else if (width === "wide") {
-    baseWidth = 1000;
+function isValidStageDepth(maybeDepth: string): maybeDepth is StageDepth {
+  return (STAGE_DEPTHS as readonly string[]).includes(maybeDepth);
+}
+
+function isValidStageWidth(maybeWidth: string): maybeWidth is StageWidth {
+  return (STAGE_WIDTHS as readonly string[]).includes(maybeWidth);
+}
+
+function parseStageSize(stageSize: string): StageSize {
+  const segments = stageSize.split("-");
+
+  const depth = segments.slice(0, -1).join("-");
+  const width = segments[segments.length - 1];
+
+  if (!isValidStageDepth(depth)) {
+    throw new Error(`Invalid stage depth: ${depth}`);
   }
 
-  // Adjust height based on the depth parameter
-  switch (depth) {
-    case "x-small":
-      baseHeight = 200;
-      break;
-    case "small":
-      baseHeight = 300;
-      break;
-    case "medium":
-      baseHeight = 400;
-      break;
-    case "large":
-      baseHeight = 500;
-      break;
-    case "x-large":
-      baseHeight = 600;
-      break;
-    default:
-      baseHeight = 400;
+  if (!isValidStageWidth(width)) {
+    throw new Error(`Invalid stage width: ${width}`);
   }
 
-  return { width: baseWidth, height: baseHeight };
-};
+  return { depth, width };
+}
+
+function stringifyStageSize(stageSize: StageSize): string {
+  return `${stageSize.depth}-${stageSize.width}`;
+}
 
 const StagePlotEditor = () => {
   const { id, shareCode } = useParams();
@@ -69,8 +66,10 @@ const StagePlotEditor = () => {
   const screenSize = useScreenSize();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [stagePlot, setStagePlot] = useState<any>(null);
-  const [stageSize, setStageSize] = useState<string>("medium-wide");
+  const [stagePlot, setStagePlot] = useState<{ stage_size?: string; [k: string]: any } | null>(
+    null,
+  );
+  const [stageSize, setStageSize] = useState<StageSize>(parseStageSize("medium-wide"));
   const [elements, setElements] = useState<StageElementProps[]>([]);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
@@ -165,7 +164,7 @@ const StagePlotEditor = () => {
           stage_size: "medium-wide",
           elements: [],
         });
-        setStageSize("medium-wide");
+        setStageSize({ depth: "medium", width: "wide" });
         setElements([]);
         setLoading(false);
         return;
@@ -183,8 +182,8 @@ const StagePlotEditor = () => {
         setStagePlot(data);
         setStageSize(
           data.stage_size && data.stage_size.includes("-")
-            ? data.stage_size
-            : `${data.stage_size || "medium"}-wide`,
+            ? parseStageSize(data.stage_size)
+            : { width: "wide", depth: "medium" },
         );
 
         if (data.elements && Array.isArray(data.elements)) {
@@ -252,7 +251,7 @@ const StagePlotEditor = () => {
     }
   };
 
-  const handleStageSizeChange = (size: string) => {
+  const handleStageSizeChange = (size: StageSize) => {
     if (isViewMode) return;
     setStageSize(size);
   };
@@ -348,7 +347,7 @@ const StagePlotEditor = () => {
       const stagePlotData = {
         ...stagePlot,
         elements: cleanedElements,
-        stage_size: stageSize,
+        stage_size: stringifyStageSize(stageSize),
         backgroundImage: backgroundImage,
         backgroundOpacity: backgroundOpacity,
         last_edited: new Date().toISOString(),
@@ -736,7 +735,7 @@ const StagePlotEditor = () => {
         <div className="mb-4 md:mb-8" ref={stagePlotRef}>
           <div className="bg-gray-850 rounded-lg overflow-hidden" ref={canvasRef}>
             <StageCanvas
-              stageSize={stageSize}
+              stageSize={stringifyStageSize(stageSize)}
               elements={elements}
               selectedElementId={selectedElementId}
               backgroundImage={backgroundImage}
@@ -762,26 +761,24 @@ const StagePlotEditor = () => {
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       className={`px-3 py-2 rounded-md text-sm ${
-                        stageSize.includes("narrow")
+                        stageSize.width === "narrow"
                           ? "bg-indigo-600 text-white"
                           : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                       }`}
                       onClick={() => {
-                        const size = stageSize.split("-")[0];
-                        handleStageSizeChange(`${size}-narrow`);
+                        handleStageSizeChange({ ...stageSize, width: "narrow" });
                       }}
                     >
                       Narrow
                     </button>
                     <button
                       className={`px-3 py-2 rounded-md text-sm ${
-                        stageSize.includes("wide")
+                        stageSize.width === "wide"
                           ? "bg-indigo-600 text-white"
                           : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                       }`}
                       onClick={() => {
-                        const size = stageSize.split("-")[0];
-                        handleStageSizeChange(`${size}-wide`);
+                        handleStageSizeChange({ ...stageSize, width: "wide" });
                       }}
                     >
                       Wide
@@ -792,20 +789,20 @@ const StagePlotEditor = () => {
                 <div className="md:col-span-4">
                   <h4 className="text-sm text-gray-400 mb-2">Stage Depth</h4>
                   <div className="grid grid-cols-5 gap-2">
-                    {["x-small", "small", "medium", "large", "x-large"].map((size) => {
-                      const width = stageSize.split("-")[1];
-                      const isActive = stageSize.startsWith(size);
+                    {STAGE_DEPTHS.map((depth) => {
+                      const currentDepth = stageSize.depth;
+                      const isActive = currentDepth === depth;
                       return (
                         <button
-                          key={size}
+                          key={depth}
                           className={`px-3 py-2 rounded-md text-sm ${
                             isActive
                               ? "bg-indigo-600 text-white"
                               : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                           }`}
-                          onClick={() => handleStageSizeChange(`${size}-${width}`)}
+                          onClick={() => handleStageSizeChange({ ...stageSize, depth })}
                         >
-                          {size.replace("x-", "X-")}
+                          {depth.replace("x-", "X-")}
                         </button>
                       );
                     })}
