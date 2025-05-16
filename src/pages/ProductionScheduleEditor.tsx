@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Header from "../components/Header";
@@ -10,10 +10,54 @@ import MobileScreenWarning from "../components/MobileScreenWarning";
 import { useScreenSize } from "../hooks/useScreenSize";
 import { Loader, ArrowLeft, Save, AlertCircle, Download } from "lucide-react";
 import { v4 as uuidv4 } from 'uuid';
-import { toPng } from 'html-to-image';
+import html2canvas from 'html2canvas';
 import ExportModal from "../components/ExportModal";
 import ProductionScheduleExport from "../components/production-schedule/ProductionScheduleExport";
 import PrintProductionScheduleExport from "../components/production-schedule/PrintProductionScheduleExport";
+
+// Define the type for the data structure expected by export components
+// This should align with the interface in ProductionScheduleExport.tsx and PrintProductionScheduleExport.tsx
+export interface ScheduleForExport {
+  id: string;
+  name: string;
+  created_at: string;
+  last_edited?: string;
+  info: {
+    event_name?: string;
+    job_number?: string;
+    venue?: string;
+    project_manager?: string;
+    production_manager?: string;
+    account_manager?: string;
+    date?: string; // Extracted date
+    load_in?: string; // Extracted time for load_in
+    event_start?: string; // Extracted time for event_start
+    event_end?: string; // Extracted time for event_end
+    strike_datetime?: string; // Full strike datetime string, can be used by export component
+    // Fields that are in original export components but might not be in ProductionScheduleData
+    // These will be undefined if not mapped from ProductionScheduleData
+    event_type?: string;
+    sound_check?: string;
+    room?: string;
+    address?: string;
+    client_artist?: string;
+    contact_name?: string;
+    contact_email?: string;
+    contact_phone?: string;
+    foh_engineer?: string;
+    monitor_engineer?: string;
+  };
+  crew_key: CrewKeyItem[];
+  schedule_items: Array<{
+    id: string;
+    start_time: string;
+    end_time: string;
+    activity: string;
+    notes: string;
+    crew_ids: string[];
+  }>;
+}
+
 
 const defaultColors = [
   "#EF4444", "#3B82F6", "#22C55E", "#EAB308", "#A855F7", 
@@ -38,48 +82,6 @@ interface ProductionScheduleData {
   schedule_items: ScheduleItem[];
 }
 
-// Interface for the data structure expected by export components
-interface ExportProductionScheduleInfo {
-  event_name?: string;
-  event_type?: string;
-  date?: string;
-  event_start?: string;
-  event_end?: string;
-  load_in?: string;
-  sound_check?: string;
-  venue?: string;
-  room?: string;
-  address?: string;
-  client_artist?: string;
-  contact_name?: string;
-  contact_email?: string;
-  contact_phone?: string;
-  production_manager?: string;
-  project_manager?: string;
-  job_number?: string;
-  account_manager?: string;
-  foh_engineer?: string;
-  monitor_engineer?: string;
-}
-
-interface ExportProductionSchedule {
-  id: string;
-  name: string;
-  created_at: string;
-  last_edited?: string;
-  info?: ExportProductionScheduleInfo;
-  crew_key?: CrewKeyItem[];
-  schedule_items?: Array<{
-    id: string;
-    start_time: string;
-    end_time: string;
-    activity: string;
-    notes: string;
-    crew_ids: string[];
-  }>;
-}
-
-
 const ProductionScheduleEditor = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -92,9 +94,64 @@ const ProductionScheduleEditor = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showMobileWarning, setShowMobileWarning] = useState(false);
 
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const exportScheduleRef = useRef<HTMLDivElement>(null);
-  const printExportScheduleRef = useRef<HTMLDivElement>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [scheduleForExportData, setScheduleForExportData] = useState<ScheduleForExport | null>(null);
+
+  const exportRef = useRef<HTMLDivElement>(null);
+  const printExportRef = useRef<HTMLDivElement>(null);
+
+  const parseDateTime = (dateTimeStr: string | null | undefined) => {
+    if (!dateTimeStr) return { date: undefined, time: undefined, full: undefined };
+    try {
+      const d = new Date(dateTimeStr);
+      if (isNaN(d.getTime())) return { date: dateTimeStr, time: undefined, full: dateTimeStr };
+      return {
+        date: d.toISOString().split('T')[0], // YYYY-MM-DD
+        time: d.toTimeString().split(' ')[0].substring(0, 5), // HH:MM
+        full: dateTimeStr,
+      };
+    } catch (e) {
+      return { date: dateTimeStr, time: undefined, full: dateTimeStr };
+    }
+  };
+  
+  const prepareScheduleForExport = (currentSchedule: ProductionScheduleData | null): ScheduleForExport | null => {
+    if (!currentSchedule) return null;
+  
+    const setDateTimeParts = parseDateTime(currentSchedule.set_datetime);
+    const strikeDateTimeParts = parseDateTime(currentSchedule.strike_datetime);
+  
+    return {
+      id: currentSchedule.id || uuidv4(),
+      name: currentSchedule.name,
+      created_at: currentSchedule.created_at || new Date().toISOString(),
+      last_edited: currentSchedule.last_edited,
+      info: {
+        event_name: currentSchedule.show_name,
+        job_number: currentSchedule.job_number,
+        venue: currentSchedule.facility_name,
+        project_manager: currentSchedule.project_manager,
+        production_manager: currentSchedule.production_manager,
+        account_manager: currentSchedule.account_manager,
+        date: setDateTimeParts.date,
+        load_in: setDateTimeParts.time, // Assuming set_datetime is load_in time
+        event_start: setDateTimeParts.time, // Assuming set_datetime is event_start time
+        event_end: strikeDateTimeParts.time,
+        strike_datetime: currentSchedule.strike_datetime, // Pass the full string for flexibility
+        // Other fields like event_type, sound_check etc., remain undefined if not in ProductionScheduleData
+      },
+      crew_key: currentSchedule.crew_key.map(ck => ({ ...ck })),
+      schedule_items: currentSchedule.schedule_items.map(item => ({
+        id: item.id,
+        start_time: item.startTime,
+        end_time: item.endTime,
+        activity: item.activity,
+        notes: item.notes,
+        crew_ids: [...item.assignedCrewIds],
+      })),
+    };
+  };
 
   useEffect(() => {
     if (screenSize === "mobile" || screenSize === "tablet") {
@@ -114,7 +171,7 @@ const ProductionScheduleEditor = () => {
       setUser(userData.user);
 
       if (id === "new") {
-        setSchedule({
+        const newSchedule: ProductionScheduleData = {
           name: "Untitled Production Schedule",
           show_name: "",
           job_number: "",
@@ -126,7 +183,8 @@ const ProductionScheduleEditor = () => {
           strike_datetime: "",
           crew_key: [],
           schedule_items: [],
-        });
+        };
+        setSchedule(newSchedule);
         setLoading(false);
       } else {
         try {
@@ -160,82 +218,6 @@ const ProductionScheduleEditor = () => {
 
     fetchUserAndSchedule();
   }, [id, navigate]);
-
-  const transformScheduleForExport = (currentSchedule: ProductionScheduleData | null): ExportProductionSchedule | null => {
-    if (!currentSchedule) return null;
-  
-    return {
-      id: currentSchedule.id || uuidv4(),
-      name: currentSchedule.name,
-      created_at: currentSchedule.created_at || new Date().toISOString(),
-      last_edited: currentSchedule.last_edited || new Date().toISOString(),
-      info: {
-        event_name: currentSchedule.show_name,
-        venue: currentSchedule.facility_name,
-        production_manager: currentSchedule.production_manager,
-        load_in: currentSchedule.set_datetime,
-        event_start: currentSchedule.set_datetime, 
-        event_end: currentSchedule.strike_datetime,
-        job_number: currentSchedule.job_number,
-        project_manager: currentSchedule.project_manager,
-        account_manager: currentSchedule.account_manager,
-        // Other fields like event_type, date, sound_check, etc., will be undefined
-        // if not present in ProductionScheduleData, which is handled by export components.
-      },
-      crew_key: currentSchedule.crew_key.map(ck => ({ ...ck })),
-      schedule_items: currentSchedule.schedule_items.map(item => ({
-        id: item.id,
-        start_time: item.startTime,
-        end_time: item.endTime,
-        activity: item.activity,
-        notes: item.notes,
-        crew_ids: [...item.assignedCrewIds],
-      })),
-    };
-  };
-
-  const scheduleForExport = useMemo(() => transformScheduleForExport(schedule), [schedule]);
-
-  const handleExportImage = async () => {
-    if (!exportScheduleRef.current || !scheduleForExport) {
-      console.error("Export ref or schedule data not available for image export.");
-      return;
-    }
-    try {
-      const dataUrl = await toPng(exportScheduleRef.current, { 
-        quality: 0.95, 
-        backgroundColor: '#0f172a' // Match dark theme background
-      });
-      const link = document.createElement('a');
-      link.download = `${scheduleForExport.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_export.png`;
-      link.href = dataUrl;
-      link.click();
-    } catch (error) {
-      console.error("Error exporting schedule as image:", error);
-    }
-    setIsExportModalOpen(false);
-  };
-  
-  const handleExportPrintFriendly = async () => {
-    if (!printExportScheduleRef.current || !scheduleForExport) {
-      console.error("Export ref or schedule data not available for print-friendly export.");
-      return;
-    }
-    try {
-      const dataUrl = await toPng(printExportScheduleRef.current, { 
-        quality: 0.95, 
-        backgroundColor: '#ffffff' // White background for printing
-      });
-      const link = document.createElement('a');
-      link.download = `${scheduleForExport.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_print_friendly.png`;
-      link.href = dataUrl;
-      link.click();
-    } catch (error) {
-      console.error("Error exporting schedule as print-friendly image:", error);
-    }
-    setIsExportModalOpen(false);
-  };
-
 
   const handleHeaderFieldUpdate = (field: string, value: string) => {
     if (schedule) {
@@ -304,31 +286,23 @@ const ProductionScheduleEditor = () => {
 
   const handleSave = async () => {
     if (!schedule || !user) return;
-
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
 
     const sanitizedCrewKey = schedule.crew_key.map(item => ({
-      id: item.id,
-      name: item.name,
-      color: item.color,
+      id: item.id, name: item.name, color: item.color,
     }));
-
     const sanitizedScheduleItems = schedule.schedule_items.map(item => ({
-      id: item.id,
-      startTime: item.startTime,
-      endTime: item.endTime,
-      activity: item.activity,
-      notes: item.notes,
-      assignedCrewIds: item.assignedCrewIds,
+      id: item.id, startTime: item.startTime, endTime: item.endTime,
+      activity: item.activity, notes: item.notes, assignedCrewIds: item.assignedCrewIds,
     }));
 
-    const scheduleDataToSave: ProductionScheduleData = {
+    const scheduleDataToSave: Omit<ProductionScheduleData, 'id' | 'user_id' | 'created_at'> & { user_id: string, id?: string, created_at?: string } = {
       ...schedule,
       user_id: user.id,
       last_edited: new Date().toISOString(),
-      set_datetime: schedule.set_datetime || null as any, 
+      set_datetime: schedule.set_datetime || null as any,
       strike_datetime: schedule.strike_datetime || null as any,
       crew_key: sanitizedCrewKey,
       schedule_items: sanitizedScheduleItems,
@@ -345,7 +319,6 @@ const ProductionScheduleEditor = () => {
           .insert(scheduleDataToSave)
           .select()
           .single();
-
         if (error) throw error;
         if (data) {
           navigate(`/production-schedule/${data.id}`);
@@ -355,11 +328,10 @@ const ProductionScheduleEditor = () => {
         const { data, error } = await supabase
           .from("production_schedules")
           .update(scheduleDataToSave)
-          .eq("id", id)
+          .eq("id", id as string)
           .eq("user_id", user.id)
           .select()
           .single();
-
         if (error) throw error;
         if (data) setSchedule(data as ProductionScheduleData);
       }
@@ -374,7 +346,72 @@ const ProductionScheduleEditor = () => {
     }
   };
 
-  if (loading || !schedule || !scheduleForExport) {
+  const openExportModalHandler = () => {
+    const dataForExport = prepareScheduleForExport(schedule);
+    setScheduleForExportData(dataForExport);
+    setShowExportModal(true);
+  };
+
+  const handleExportImage = async () => {
+    if (!exportRef.current || !scheduleForExportData) {
+      console.error("Export component not ready or no data for export.");
+      return;
+    }
+    setIsExporting(true);
+    setTimeout(async () => { // Allow DOM to update
+      try {
+        const canvas = await html2canvas(exportRef.current!, {
+          scale: 2,
+          backgroundColor: '#0f172a', // Dark background for this export type
+          useCORS: true,
+          logging: process.env.NODE_ENV === 'development', // Enable logging in dev
+        });
+        const image = canvas.toDataURL("image/png");
+        const link = document.createElement("a");
+        link.download = `${scheduleForExportData.name || "production-schedule"}.png`;
+        link.href = image;
+        link.click();
+      } catch (error) {
+        console.error("Error exporting image:", error);
+        setSaveError("Failed to export image. See console for details.");
+      } finally {
+        setIsExporting(false);
+        setShowExportModal(false);
+      }
+    }, 100); // Small delay to ensure rendering
+  };
+
+  const handleExportPrintFriendlyImage = async () => {
+    if (!printExportRef.current || !scheduleForExportData) {
+      console.error("Print export component not ready or no data for export.");
+      return;
+    }
+    setIsExporting(true);
+    setTimeout(async () => { // Allow DOM to update
+      try {
+        const canvas = await html2canvas(printExportRef.current!, {
+          scale: 2,
+          backgroundColor: '#ffffff', // White background for print-friendly
+          useCORS: true,
+          logging: process.env.NODE_ENV === 'development',
+        });
+        const image = canvas.toDataURL("image/png");
+        const link = document.createElement("a");
+        link.download = `${scheduleForExportData.name || "production-schedule"}-print.png`;
+        link.href = image;
+        link.click();
+      } catch (error) {
+        console.error("Error exporting print-friendly image:", error);
+        setSaveError("Failed to export print-friendly image. See console for details.");
+      } finally {
+        setIsExporting(false);
+        setShowExportModal(false);
+      }
+    }, 100);
+  };
+
+
+  if (loading || !schedule) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <Loader className="h-12 w-12 text-indigo-500 animate-spin" />
@@ -394,17 +431,6 @@ const ProductionScheduleEditor = () => {
       )}
 
       <Header dashboard={true} />
-
-      {/* Hidden components for export */}
-      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
-        {scheduleForExport && (
-          <>
-            <ProductionScheduleExport ref={exportScheduleRef} schedule={scheduleForExport} />
-            <PrintProductionScheduleExport ref={printExportScheduleRef} schedule={scheduleForExport} />
-          </>
-        )}
-      </div>
-
 
       <main className="flex-grow container mx-auto px-4 py-6 md:py-12 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
@@ -431,17 +457,18 @@ const ProductionScheduleEditor = () => {
             </div>
           </div>
 
-          <div className="fixed bottom-4 right-4 z-20 md:static md:z-auto sm:ml-auto flex gap-2">
+          <div className="flex items-center gap-2 fixed bottom-4 right-4 z-20 md:static md:z-auto sm:ml-auto">
             <button
-              onClick={() => setIsExportModalOpen(true)}
-              className="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 shadow-lg md:shadow-none"
+              onClick={openExportModalHandler}
+              disabled={saving || isExporting}
+              className="inline-flex items-center bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg md:shadow-none"
             >
               <Download className="h-4 w-4 mr-2" />
               Export
             </button>
             <button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || isExporting}
               className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg md:shadow-none"
             >
               {saving ? (
@@ -539,7 +566,7 @@ const ProductionScheduleEditor = () => {
         <div className="flex justify-center py-8">
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || isExporting}
             className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg text-base"
           >
             {saving ? (
@@ -557,15 +584,30 @@ const ProductionScheduleEditor = () => {
         </div>
       </main>
 
-      <ExportModal
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
-        onExportImage={handleExportImage}
-        onExportPdf={handleExportPrintFriendly} 
-        title="Production Schedule"
-      />
-
       <Footer />
+
+      {showExportModal && scheduleForExportData && (
+        <ExportModal
+          isOpen={showExportModal}
+          onClose={() => {
+            if (!isExporting) {
+              setShowExportModal(false);
+              setScheduleForExportData(null); // Clear data when modal closes
+            }
+          }}
+          onExportImage={handleExportImage}
+          onExportPdf={handleExportPrintFriendlyImage} // This is for print-friendly PNG
+          title="Production Schedule"
+        />
+      )}
+
+      {/* Hidden components for export rendering */}
+      {scheduleForExportData && (
+        <>
+          <ProductionScheduleExport ref={exportRef} schedule={scheduleForExportData} />
+          <PrintProductionScheduleExport ref={printExportRef} schedule={scheduleForExportData} />
+        </>
+      )}
     </div>
   );
 };
