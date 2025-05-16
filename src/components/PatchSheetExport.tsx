@@ -1,15 +1,10 @@
 import React, { forwardRef } from "react";
 import {
   Bookmark,
-  Calendar,
-  MapPin,
-  Headphones,
-  User,
-  Users,
-  Settings,
-  Music,
+  // Calendar, MapPin, User, Users, Settings, Music, // Icons related to Info tab removed
   Clock,
   Mic,
+  Headphones, // Corrected: Headphones was already used for Output List
   Link,
 } from "lucide-react";
 
@@ -19,11 +14,10 @@ interface PatchSheetExportProps {
 
 const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
   ({ patchSheet }, ref) => {
-    const info = patchSheet.info || {};
+    // const info = patchSheet.info || {}; // Info object still exists but is not rendered
     const inputs = patchSheet.inputs || [];
     const outputs = patchSheet.outputs || [];
 
-    // Format date for display
     const formatDate = (dateString: string) => {
       if (!dateString) return "N/A";
       return new Date(dateString).toLocaleDateString("en-US", {
@@ -33,10 +27,6 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
       });
     };
 
-    // Helper for empty fields - only show actual values, not placeholder text
-    const displayValue = (value: string | undefined) => value || "";
-
-    // Helper to find linked stereo channel
     const findStereoLink = (channelNumber: string, array: any[]) => {
       return array.find((item) => item.channelNumber === channelNumber && item.isStereo);
     };
@@ -64,7 +54,6 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
             padding: "20px",
           }}
         >
-          {/* Background decorative elements */}
           <div
             style={{
               position: "absolute",
@@ -78,8 +67,6 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
               zIndex: 0,
             }}
           ></div>
-
-          {/* Brand logo and name */}
           <div className="flex items-center z-10">
             <div
               className="p-3 rounded-lg mr-4"
@@ -95,233 +82,17 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
               <p className="text-indigo-400 font-medium">Professional Audio Documentation</p>
             </div>
           </div>
-
-          {/* Document title and date */}
           <div className="text-right z-10">
             <h2 className="text-2xl font-bold text-white">{patchSheet.name}</h2>
-            <p className="text-gray-400">Created: {formatDate(patchSheet.created_at)}</p>
+            <p className="text-gray-400">
+              {patchSheet.last_edited 
+                ? `Last Edited: ${formatDate(patchSheet.last_edited)}`
+                : `Created: ${formatDate(patchSheet.created_at)}`}
+            </p>
           </div>
         </div>
 
-        {/* Event Information Panel */}
-        <div className="grid grid-cols-2 gap-8 mb-8">
-          <div
-            className="bg-gray-800/80 p-6 rounded-lg shadow-md"
-            style={{ borderLeft: "4px solid #4f46e5" }}
-          >
-            <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-4">
-              <Calendar className="h-5 w-5 mr-2" />
-              Event Details
-            </h3>
-
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-              {info.event_name && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">Event Name</p>
-                  <p className="text-white font-medium">{info.event_name}</p>
-                </div>
-              )}
-              {info.event_type && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">Event Type</p>
-                  <p className="text-white font-medium">{info.event_type}</p>
-                </div>
-              )}
-              {info.date && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">Date</p>
-                  <p className="text-white font-medium">{info.date}</p>
-                </div>
-              )}
-              {(info.event_start || info.event_end) && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">Time</p>
-                  <p className="text-white font-medium">
-                    {info.event_start && info.event_end
-                      ? `${info.event_start} - ${info.event_end}`
-                      : info.event_start || info.event_end}
-                  </p>
-                </div>
-              )}
-              {info.load_in && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">Load In</p>
-                  <p className="text-white font-medium">{info.load_in}</p>
-                </div>
-              )}
-              {info.sound_check && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">Sound Check</p>
-                  <p className="text-white font-medium">{info.sound_check}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div
-            className="bg-gray-800/80 p-6 rounded-lg shadow-md"
-            style={{ borderLeft: "4px solid #4f46e5" }}
-          >
-            <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-4">
-              <MapPin className="h-5 w-5 mr-2" />
-              Venue Information
-            </h3>
-
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-              {info.venue && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">Venue</p>
-                  <p className="text-white font-medium">{info.venue}</p>
-                </div>
-              )}
-              {info.room && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">Room</p>
-                  <p className="text-white font-medium">{info.room}</p>
-                </div>
-              )}
-              {info.address && (
-                <div className="col-span-2">
-                  <p className="text-gray-400 text-sm font-medium">Address</p>
-                  <p className="text-white font-medium">{info.address}</p>
-                </div>
-              )}
-              {info.estimated_attendance && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">Estimated Attendance</p>
-                  <p className="text-white font-medium">{info.estimated_attendance}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Artist and Technical Staff */}
-        <div className="grid grid-cols-2 gap-8 mb-8">
-          <div
-            className="bg-gray-800/80 p-6 rounded-lg shadow-md"
-            style={{ borderLeft: "4px solid #4f46e5" }}
-          >
-            <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-4">
-              <User className="h-5 w-5 mr-2" />
-              Client/Artist Information
-            </h3>
-
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-              {info.client && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">Client</p>
-                  <p className="text-white font-medium">{info.client}</p>
-                </div>
-              )}
-              {info.artist && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">Artist/Performer</p>
-                  <p className="text-white font-medium">{info.artist}</p>
-                </div>
-              )}
-              {info.genre && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">Genre/Style</p>
-                  <p className="text-white font-medium">{info.genre}</p>
-                </div>
-              )}
-              {info.contact_name && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">Primary Contact</p>
-                  <p className="text-white font-medium">{info.contact_name}</p>
-                </div>
-              )}
-              {info.contact_email && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">Email</p>
-                  <p className="text-white font-medium">{info.contact_email}</p>
-                </div>
-              )}
-              {info.contact_phone && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">Phone</p>
-                  <p className="text-white font-medium">{info.contact_phone}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div
-            className="bg-gray-800/80 p-6 rounded-lg shadow-md"
-            style={{ borderLeft: "4px solid #4f46e5" }}
-          >
-            <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-4">
-              <Users className="h-5 w-5 mr-2" />
-              Technical Staff
-            </h3>
-
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-              {info.foh_engineer && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">FOH Engineer</p>
-                  <p className="text-white font-medium">{info.foh_engineer}</p>
-                </div>
-              )}
-              {info.monitor_engineer && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">Monitor Engineer</p>
-                  <p className="text-white font-medium">{info.monitor_engineer}</p>
-                </div>
-              )}
-              {info.production_manager && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">Production Manager</p>
-                  <p className="text-white font-medium">{info.production_manager}</p>
-                </div>
-              )}
-              {info.av_company && (
-                <div>
-                  <p className="text-gray-400 text-sm font-medium">AV Company</p>
-                  <p className="text-white font-medium">{info.av_company}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Equipment Information */}
-        <div
-          className="bg-gray-800/80 p-6 rounded-lg shadow-md mb-8"
-          style={{ borderLeft: "4px solid #4f46e5" }}
-        >
-          <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-4">
-            <Settings className="h-5 w-5 mr-2" />
-            Equipment Information
-          </h3>
-
-          <div className="grid grid-cols-4 gap-x-6 gap-y-4">
-            {info.pa_system && (
-              <div>
-                <p className="text-gray-400 text-sm font-medium">PA System</p>
-                <p className="text-white font-medium">{info.pa_system}</p>
-              </div>
-            )}
-            {info.console_foh && (
-              <div>
-                <p className="text-gray-400 text-sm font-medium">FOH Console</p>
-                <p className="text-white font-medium">{info.console_foh}</p>
-              </div>
-            )}
-            {info.console_monitors && (
-              <div>
-                <p className="text-gray-400 text-sm font-medium">Monitor Console</p>
-                <p className="text-white font-medium">{info.console_monitors}</p>
-              </div>
-            )}
-            {info.monitor_type && (
-              <div>
-                <p className="text-gray-400 text-sm font-medium">Monitor Type</p>
-                <p className="text-white font-medium">{info.monitor_type}</p>
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Event Information, Artist, Technical Staff, Equipment Information Panels REMOVED */}
 
         {/* Input List */}
         <div
@@ -335,7 +106,6 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
             <Mic className="h-5 w-5 mr-2" />
             Input List
           </h3>
-
           {inputs && inputs.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -377,19 +147,15 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
                 </thead>
                 <tbody>
                   {inputs.map((input: any, index: number) => {
-                    // Find linked stereo channel if exists
                     const linkedChannel =
                       input.isStereo && input.stereoChannelNumber
                         ? findStereoLink(input.stereoChannelNumber, inputs)
                         : null;
-
-                    // Extract connection details for better organization
                     const snakeType =
                       input.connection &&
                       ["Analog Snake", "Digital Snake"].includes(input.connection)
                         ? `${input.connectionDetails?.snakeType || "N/A"}`
                         : "N/A";
-
                     const snakeInput =
                       input.connection &&
                       ["Analog Snake", "Digital Snake"].includes(input.connection)
@@ -397,7 +163,6 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
                           ? `#${input.connectionDetails.inputNumber}`
                           : "N/A"
                         : "N/A";
-
                     const consoleType =
                       input.connection &&
                       ["Analog Snake", "Console Direct"].includes(input.connection)
@@ -406,7 +171,6 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
                             ["Digital Snake", "Digital Network"].includes(input.connection)
                           ? "-"
                           : "N/A";
-
                     const consoleInput =
                       input.connection &&
                       ["Analog Snake", "Console Direct"].includes(input.connection)
@@ -417,13 +181,11 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
                             ["Digital Snake", "Digital Network"].includes(input.connection)
                           ? "-"
                           : "N/A";
-
                     const networkType =
                       input.connection &&
                       ["Digital Snake", "Digital Network"].includes(input.connection)
                         ? `${input.connectionDetails?.networkType || "N/A"}`
                         : "N/A";
-
                     const networkPatch =
                       input.connection &&
                       ["Digital Snake", "Digital Network"].includes(input.connection)
@@ -522,7 +284,6 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
             <Headphones className="h-5 w-5 mr-2" />
             Output List
           </h3>
-
           {outputs && outputs.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -564,19 +325,15 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
                 </thead>
                 <tbody>
                   {outputs.map((output: any, index: number) => {
-                    // Find linked stereo channel if exists
                     const linkedChannel =
                       output.isStereo && output.stereoChannelNumber
                         ? findStereoLink(output.stereoChannelNumber, outputs)
                         : null;
-
-                    // Extract source details for better organization
                     const snakeType =
                       output.sourceType &&
                       ["Analog Snake", "Digital Snake"].includes(output.sourceType)
                         ? `${output.sourceDetails?.snakeType || "N/A"}`
                         : "N/A";
-
                     const snakeOutput =
                       output.sourceType &&
                       ["Analog Snake", "Digital Snake"].includes(output.sourceType)
@@ -584,8 +341,6 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
                           ? `#${output.sourceDetails.outputNumber}`
                           : "N/A"
                         : "N/A";
-
-                    // Correctly determine Console Type
                     const consoleType =
                       (output.sourceType === "Console Output" ||
                         output.sourceType === "Analog Snake") &&
@@ -595,8 +350,6 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
                             output.sourceType === "Digital Network"
                           ? "-"
                           : "N/A";
-
-                    // Correctly determine Console Output Number
                     const consoleOutput =
                       (output.sourceType === "Console Output" ||
                         output.sourceType === "Analog Snake") &&
@@ -606,13 +359,11 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
                             output.sourceType === "Digital Network"
                           ? "-"
                           : "N/A";
-
                     const networkType =
                       output.sourceType &&
                       ["Digital Snake", "Digital Network"].includes(output.sourceType)
                         ? `${output.sourceDetails?.networkType || "N/A"}`
                         : "N/A";
-
                     const networkPatch =
                       output.sourceType &&
                       ["Digital Snake", "Digital Network"].includes(output.sourceType)
@@ -696,26 +447,32 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
           )}
         </div>
 
-        {/* Notes */}
-        {info.notes && (
-          <div
-            className="bg-gray-800/80 p-6 rounded-lg shadow-md mb-8"
-            style={{
-              borderLeft: "4px solid #4f46e5",
-              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-            }}
-          >
-            <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-4">
-              <Music className="h-5 w-5 mr-2" />
-              Additional Notes
-            </h3>
-            <p className="text-white">{info.notes}</p>
-          </div>
-        )}
+        {/* Notes section (if it was from patchSheet.info.notes) is removed. 
+            If notes are part of inputs/outputs, they remain.
+            If there was a general notes field for the whole patch sheet (outside inputs/outputs),
+            and it was part of `patchSheet.info.notes`, it's now removed from the export.
+        */}
+        {/* Example: if patchSheet.info.notes was displayed, it would be removed like this:
+          {patchSheet.info && patchSheet.info.notes && (
+            <div
+              className="bg-gray-800/80 p-6 rounded-lg shadow-md mb-8"
+              style={{
+                borderLeft: "4px solid #4f46e5",
+                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+              }}
+            >
+              <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-4">
+                <Music className="h-5 w-5 mr-2" /> // Music icon was for notes
+                Additional Notes
+              </h3>
+              <p className="text-white">{patchSheet.info.notes}</p>
+            </div>
+          )}
+        */}
+
 
         {/* Footer with enhanced branding */}
         <div className="relative mt-12 pt-6 overflow-hidden">
-          {/* Decorative background */}
           <div
             style={{
               position: "absolute",
@@ -726,7 +483,6 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
               zIndex: -1,
             }}
           ></div>
-
           <div className="flex justify-between items-center p-4">
             <div className="flex items-center">
               <div
@@ -745,8 +501,6 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
               <span>Generated on {new Date().toLocaleDateString()}</span>
             </div>
           </div>
-
-          {/* Watermark */}
           <div
             style={{
               position: "absolute",
@@ -766,5 +520,4 @@ const PatchSheetExport = forwardRef<HTMLDivElement, PatchSheetExportProps>(
 );
 
 PatchSheetExport.displayName = "PatchSheetExport";
-
 export default PatchSheetExport;
