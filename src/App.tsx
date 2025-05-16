@@ -12,6 +12,8 @@ import PatchSheetEditor from "./pages/PatchSheetEditor";
 import AllPatchSheets from "./pages/AllPatchSheets";
 import StagePlotEditor from "./pages/StagePlotEditor";
 import AllStagePlots from "./pages/AllStagePlots";
+import ProductionScheduleEditor from "./pages/ProductionScheduleEditor"; // New
+import AllProductionSchedules from "./pages/AllProductionSchedules"; // New
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import SharedPatchSheet from "./pages/SharedPatchSheet";
@@ -72,6 +74,23 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AllStagePlots />
+                </ProtectedRoute>
+              }
+            />
+            {/* Production Schedule Routes - NEW */}
+            <Route
+              path="/production-schedule/:id"
+              element={
+                <ProtectedRoute>
+                  <ProductionScheduleEditor />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/all-production-schedules"
+              element={
+                <ProtectedRoute>
+                  <AllProductionSchedules />
                 </ProtectedRoute>
               }
             />
