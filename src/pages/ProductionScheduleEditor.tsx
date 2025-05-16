@@ -133,15 +133,15 @@ const ProductionScheduleEditor = () => {
         account_manager: currentSchedule.account_manager,
         date: setDateTimeParts.date,
         load_in: setDateTimeParts.time, 
-        event_start: setDateTimeParts.time, // Assuming set_datetime is event_start time for now
-        event_end: strikeDateTimeParts.time, // Assuming strike_datetime end is event_end time
+        event_start: setDateTimeParts.time, 
+        event_end: strikeDateTimeParts.time, 
         strike_datetime: currentSchedule.strike_datetime, 
       },
       crew_key: currentSchedule.crew_key.map(ck => ({ ...ck })),
       schedule_items: currentSchedule.schedule_items.map(item => ({
         id: item.id,
-        start_time: item.startTime, // Should be HH:MM
-        end_time: item.endTime,   // Should be HH:MM
+        start_time: item.startTime, 
+        end_time: item.endTime,   
         activity: item.activity,
         notes: item.notes,
         crew_ids: [...item.assignedCrewIds],
@@ -344,23 +344,35 @@ const ProductionScheduleEditor = () => {
 
   const openExportModalHandler = () => {
     const dataForExport = prepareScheduleForExport(schedule);
-    // console.log("Data prepared for export modal:", JSON.parse(JSON.stringify(dataForExport)));
     setScheduleForExportData(dataForExport);
     setShowExportModal(true);
   };
 
-  const exportImageWithCanvas = async (targetRef: React.RefObject<HTMLDivElement>, fileName: string, backgroundColor: string) => {
+  const exportImageWithCanvas = async (targetRef: React.RefObject<HTMLDivElement>, fileName: string, backgroundColor: string, font: string) => {
     if (!targetRef.current || !scheduleForExportData) {
       console.error("Export component not ready or no data for export.", { hasTargetRef: !!targetRef.current, hasData: !!scheduleForExportData });
       setSaveError("Export component not ready. Please try again.");
       return;
     }
     setIsExporting(true);
-    // console.log(`Exporting ${fileName}. Data being used:`, JSON.parse(JSON.stringify(scheduleForExportData)));
-    // console.log("Target DOM element for html2canvas:", targetRef.current);
+    
+    // Ensure React has rendered the component with data
+    await new Promise(resolve => setTimeout(resolve, 100)); // Short delay for React state update
 
-    // Give React a bit more time to render the off-screen component with the data
-    await new Promise(resolve => setTimeout(resolve, 500)); // Increased delay
+    // Wait for fonts to be ready
+    if (document.fonts && typeof document.fonts.ready === 'function') {
+      try {
+        await document.fonts.ready;
+        // console.log("Fonts are ready for html2canvas.");
+      } catch (fontError) {
+        console.warn("Error waiting for document fonts to be ready:", fontError);
+        // Continue anyway, onclone might help
+      }
+    } else {
+      // console.log("document.fonts.ready not available, relying on onclone and timeout.");
+      // If document.fonts.ready is not available, rely on a longer timeout
+      await new Promise(resolve => setTimeout(resolve, 400)); // Additional delay
+    }
 
     try {
       const canvas = await html2canvas(targetRef.current!, {
@@ -368,10 +380,25 @@ const ProductionScheduleEditor = () => {
         backgroundColor: backgroundColor,
         useCORS: true,
         logging: process.env.NODE_ENV === 'development',
-        onclone: (document) => {
-          // You could potentially manipulate the cloned document here if needed
-          // For example, force styles or ensure visibility
-          // console.log("html2canvas onclone document:", document);
+        letterRendering: true, // Improve text rendering accuracy
+        onclone: (clonedDoc) => {
+          // Explicitly set font on the cloned document body and all elements
+          // This helps if html2canvas doesn't pick up inherited styles correctly for off-screen elements
+          const styleGlobal = clonedDoc.createElement('style');
+          styleGlobal.innerHTML = `
+            * {
+              font-family: ${font}, sans-serif !important;
+              vertical-align: baseline !important; /* Attempt to reset vertical alignment */
+            }
+          `;
+          clonedDoc.head.appendChild(styleGlobal);
+          clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
+          Array.from(clonedDoc.querySelectorAll('*')).forEach((el: any) => {
+            if (el.style) {
+                 el.style.fontFamily = `${font}, sans-serif`;
+                 el.style.verticalAlign = 'baseline'; // Try to force baseline alignment
+            }
+          });
         }
       });
       const image = canvas.toDataURL("image/png");
@@ -384,16 +411,16 @@ const ProductionScheduleEditor = () => {
       setSaveError(`Failed to export ${fileName}. See console for details.`);
     } finally {
       setIsExporting(false);
-      setShowExportModal(false); // Close modal after attempt
+      setShowExportModal(false); 
     }
   };
 
   const handleExportImage = () => {
-    exportImageWithCanvas(exportRef, "image", '#0f172a');
+    exportImageWithCanvas(exportRef, "image", '#0f172a', 'Inter');
   };
 
   const handleExportPrintFriendlyImage = () => {
-    exportImageWithCanvas(printExportRef, "print-friendly", '#ffffff');
+    exportImageWithCanvas(printExportRef, "print-friendly", '#ffffff', 'Arial');
   };
 
 
@@ -578,17 +605,15 @@ const ProductionScheduleEditor = () => {
           onClose={() => {
             if (!isExporting) {
               setShowExportModal(false);
-              // setScheduleForExportData(null); // Keep data for potential re-export attempts if needed, or clear if modal is truly done
             }
           }}
           onExportImage={handleExportImage}
-          onExportPdf={handleExportPrintFriendlyImage} // This is for print-friendly PNG
+          onExportPdf={handleExportPrintFriendlyImage} 
           title="Production Schedule"
           isExporting={isExporting}
         />
       )}
 
-      {/* Hidden components for export rendering, ensure they re-render if scheduleForExportData changes */}
       {scheduleForExportData && (
         <>
           <ProductionScheduleExport 
