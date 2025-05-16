@@ -7,7 +7,8 @@ import ProductionScheduleExport from "../components/production-schedule/Producti
 import PrintProductionScheduleExport from "../components/production-schedule/PrintProductionScheduleExport";
 import ExportModal from "../components/ExportModal";
 import html2canvas from "html2canvas";
-import { ScheduleForExport } from "./ProductionScheduleEditor"; // Import the interface
+import { ScheduleForExport } from "./ProductionScheduleEditor"; 
+import { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor"; // Added
 import { v4 as uuidv4 } from 'uuid';
 import {
   PlusCircle,
@@ -50,13 +51,13 @@ interface FullProductionScheduleData {
   crew_key?: Array<{ id: string; name: string; color: string }>;
   schedule_items?: Array<{
     id: string;
-    startTime: string; // Note: field names from DB might be snake_case
+    startTime: string; 
     endTime: string;
     activity: string;
     notes: string;
     assignedCrewIds: string[];
   }>;
-  // Add any other fields that are part of the full schedule data from the DB
+  labor_schedule_items?: LaborScheduleItem[]; // Added
 }
 
 
@@ -98,19 +99,20 @@ const transformToScheduleForExport = (fullSchedule: FullProductionScheduleData):
       account_manager: fullSchedule.account_manager,
       date: setDateTimeParts.date,
       load_in: setDateTimeParts.time,
-      event_start: setDateTimeParts.time, // Assuming event_start is same as load_in for this context
-      event_end: strikeDateTimeParts.time, // Assuming event_end is related to strike time
+      event_start: setDateTimeParts.time, 
+      event_end: strikeDateTimeParts.time, 
       strike_datetime: fullSchedule.strike_datetime,
     },
     crew_key: fullSchedule.crew_key?.map(ck => ({ ...ck })) || [],
     schedule_items: fullSchedule.schedule_items?.map(item => ({
       id: item.id,
-      start_time: item.startTime, // Ensure these field names match your DB or transform if necessary
+      start_time: item.startTime, 
       end_time: item.endTime,
       activity: item.activity,
       notes: item.notes,
       crew_ids: [...(item.assignedCrewIds || [])],
     })) || [],
+    labor_schedule_items: fullSchedule.labor_schedule_items?.map(item => ({ ...item })) || [], // Added
   };
 };
 
@@ -131,7 +133,7 @@ const AllProductionSchedules: React.FC = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportScheduleId, setExportScheduleId] = useState<string | null>(null);
   const [currentExportScheduleData, setCurrentExportScheduleData] = useState<ScheduleForExport | null>(null);
-  const [isExporting, setIsExporting] = useState(false); // Renamed from downloadingId for clarity
+  const [isExporting, setIsExporting] = useState(false); 
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const exportRef = useRef<HTMLDivElement>(null);
@@ -226,14 +228,14 @@ const AllProductionSchedules: React.FC = () => {
   };
 
   const openExportModalForSchedule = (scheduleId: string) => {
-    setExportScheduleId(scheduleId); // Keep track of which schedule ID is targeted
+    setExportScheduleId(scheduleId); 
     setShowExportModal(true);
   };
 
   const fetchFullScheduleDataForExport = async (scheduleId: string): Promise<FullProductionScheduleData | null> => {
     const { data, error } = await supabase
       .from("production_schedules")
-      .select("*") // Fetch all columns
+      .select("*") // Fetch all columns, including labor_schedule_items
       .eq("id", scheduleId)
       .single();
     if (error) {
@@ -298,9 +300,8 @@ const AllProductionSchedules: React.FC = () => {
       return;
     }
     setIsExporting(true);
-    setShowExportModal(false); // Close modal once export starts
+    setShowExportModal(false); 
 
-    // Ensure React has rendered the component with data
     await new Promise(resolve => setTimeout(resolve, 100));
 
     if (document.fonts && typeof document.fonts.ready === 'function') {
@@ -348,8 +349,8 @@ const AllProductionSchedules: React.FC = () => {
       setError(`Failed to export ${fileNameSuffix}. See console for details.`);
     } finally {
       setIsExporting(false);
-      setCurrentExportScheduleData(null); // Clear data after export
-      setExportScheduleId(null); // Clear targeted ID
+      setCurrentExportScheduleData(null); 
+      setExportScheduleId(null); 
     }
   };
 
@@ -359,7 +360,7 @@ const AllProductionSchedules: React.FC = () => {
   ) => {
     if (!scheduleIdToExport) return;
 
-    setIsExporting(true); // Set loading state for the specific item if needed, or global
+    setIsExporting(true); 
     
     const rawScheduleData = await fetchFullScheduleDataForExport(scheduleIdToExport);
     if (!rawScheduleData) {
@@ -367,9 +368,8 @@ const AllProductionSchedules: React.FC = () => {
       return;
     }
     const transformedData = transformToScheduleForExport(rawScheduleData);
-    setCurrentExportScheduleData(transformedData); // Set data for the export component to render
+    setCurrentExportScheduleData(transformedData); 
 
-    // Allow time for the export component to render with the new data
     await new Promise(resolve => setTimeout(resolve, 50)); 
 
     if (exportType === 'image') {
@@ -614,16 +614,15 @@ const AllProductionSchedules: React.FC = () => {
         onClose={() => {
             if (!isExporting) {
                 setShowExportModal(false);
-                setExportScheduleId(null); // Clear targeted ID when closing modal if not exporting
+                setExportScheduleId(null); 
             }
         }}
         onExportImage={() => exportScheduleId && prepareAndExecuteExport(exportScheduleId, 'image')}
         onExportPdf={() => exportScheduleId && prepareAndExecuteExport(exportScheduleId, 'print')}
         title="Production Schedule"
-        isExporting={isExporting && !!exportScheduleId} // Modal's spinner tied to ongoing export for the selected ID
+        isExporting={isExporting && !!exportScheduleId} 
       />
 
-      {/* Hidden Export Components - Rendered when currentExportScheduleData is set */}
       {currentExportScheduleData && (
         <>
           <ProductionScheduleExport 

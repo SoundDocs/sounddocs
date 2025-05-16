@@ -15,7 +15,7 @@ import {
   AlertTriangle,
   CalendarDays,
   ClipboardList,
-  Loader, // Added Loader
+  Loader, 
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import PatchSheetExport from "../components/PatchSheetExport";
@@ -23,10 +23,11 @@ import StagePlotExport from "../components/StagePlotExport";
 import PrintPatchSheetExport from "../components/PrintPatchSheetExport";
 import PrintStagePlotExport from "../components/PrintStagePlotExport";
 import ExportModal from "../components/ExportModal";
-import ProductionScheduleExport from "../components/production-schedule/ProductionScheduleExport"; // Added
-import PrintProductionScheduleExport from "../components/production-schedule/PrintProductionScheduleExport"; // Added
-import { ScheduleForExport } from "./ProductionScheduleEditor"; // Added
-import { v4 as uuidv4 } from 'uuid'; // Added
+import ProductionScheduleExport from "../components/production-schedule/ProductionScheduleExport"; 
+import PrintProductionScheduleExport from "../components/production-schedule/PrintProductionScheduleExport"; 
+import { ScheduleForExport } from "./ProductionScheduleEditor"; 
+import { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor"; // Added
+import { v4 as uuidv4 } from 'uuid';
 
 // Define types for our documents
 interface PatchList {
@@ -80,6 +81,7 @@ interface FullProductionScheduleData {
     notes: string;
     assignedCrewIds: string[];
   }>;
+  labor_schedule_items?: LaborScheduleItem[]; // Added
 }
 
 
@@ -138,6 +140,7 @@ const transformToScheduleForExport = (fullSchedule: FullProductionScheduleData):
       notes: item.notes,
       crew_ids: [...(item.assignedCrewIds || [])],
     })) || [],
+    labor_schedule_items: fullSchedule.labor_schedule_items?.map(item => ({ ...item })) || [], // Added
   };
 };
 
@@ -181,8 +184,8 @@ const Dashboard = () => {
   const printPatchSheetExportRef = useRef<HTMLDivElement>(null);
   const stagePlotExportRef = useRef<HTMLDivElement>(null);
   const printStagePlotExportRef = useRef<HTMLDivElement>(null);
-  const productionScheduleExportRef = useRef<HTMLDivElement>(null); // Added
-  const printProductionScheduleExportRef = useRef<HTMLDivElement>(null); // Added
+  const productionScheduleExportRef = useRef<HTMLDivElement>(null); 
+  const printProductionScheduleExportRef = useRef<HTMLDivElement>(null); 
 
   useEffect(() => {
     const checkUser = async () => {
@@ -453,6 +456,7 @@ const Dashboard = () => {
     setExportingItemId(scheduleId);
     setShowProductionScheduleExportModal(false);
     try {
+      // Ensure all columns, including labor_schedule_items, are fetched
       const { data: rawData, error } = await supabase.from("production_schedules").select("*").eq("id", scheduleId).single();
       if (error || !rawData) throw error || new Error("Production schedule not found");
       
