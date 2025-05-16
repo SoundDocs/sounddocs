@@ -2,22 +2,22 @@ import React, { forwardRef } from "react";
 import {
   Bookmark,
   Calendar,
-  Users, // Keep if used for something generic, or replace
+  Users, 
   Clock,
   ListChecks,
   Palette,
-  UserCheck, // For contact/client
-  Building, // For venue
-  Phone, // For contact
-  Mail, // For contact
-  UserCog, // For technical staff like PM
-  Briefcase, // For Job Number
-  UserCircle, // For Account Manager, Project Manager
+  UserCheck, 
+  Building, 
+  Phone, 
+  Mail, 
+  UserCog, 
+  Briefcase, 
+  UserCircle, 
 } from "lucide-react";
-import { ScheduleForExport } from "../../pages/ProductionScheduleEditor"; // Import the shared type
+import { ScheduleForExport } from "../../pages/ProductionScheduleEditor"; 
 
 interface ProductionScheduleExportProps {
-  schedule: ScheduleForExport; // Use the shared type
+  schedule: ScheduleForExport; 
 }
 
 const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleExportProps>(
@@ -27,50 +27,43 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
     const scheduleItems = schedule.schedule_items || [];
 
     const formatDate = (dateString?: string) => {
-      if (!dateString) return "N/A";
-      // Check if it's already YYYY-MM-DD
+      if (!dateString || dateString.trim() === "") return "N/A";
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
         try {
           const [year, month, day] = dateString.split('-').map(Number);
-          // JavaScript months are 0-indexed
           return new Date(year, month - 1, day).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
+            year: "numeric", month: "long", day: "numeric",
           });
-        } catch (e) {
-          return dateString; // Fallback
-        }
+        } catch (e) { return dateString; }
       }
-      // If it's a full ISO string or other parsable date
       try {
         return new Date(dateString).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
+          year: "numeric", month: "long", day: "numeric",
         });
-      } catch (e) {
-        return dateString; 
-      }
+      } catch (e) { return dateString; }
     };
     
     const formatTime = (timeString?: string) => {
-        if (!timeString) return "";
-        if (/^\d{2}:\d{2}$/.test(timeString)) { // Already HH:MM
+        if (!timeString || timeString.trim() === "") return ""; // Return empty for N/A to avoid rendering "N/A" as time
+        if (/^\d{2}:\d{2}$/.test(timeString)) { 
             return timeString;
         }
-        // If it's a full date-time string, try to format it
         try {
-            return new Date(timeString).toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: false, 
+            const d = new Date(`1970-01-01T${timeString}Z`); // Assume it's HH:MM and make it a valid date for parsing
+            if(isNaN(d.getTime())) { // If still invalid, try full date parse
+                 const fullDate = new Date(timeString);
+                 if(isNaN(fullDate.getTime())) return timeString; // Fallback
+                 return fullDate.toLocaleTimeString("en-US", {
+                    hour: "2-digit", minute: "2-digit", hour12: false,
+                });
+            }
+            return d.toLocaleTimeString("en-US", {
+                hour: "2-digit", minute: "2-digit", hour12: false, 
             });
         } catch (e) {
-            // If it's part of a date string that's not a valid time on its own
             const dateMatch = timeString.match(/\d{2}:\d{2}/);
             if (dateMatch) return dateMatch[0];
-            return timeString; // Fallback
+            return timeString; 
         }
     };
 
@@ -86,6 +79,8 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
           width: "1600px", 
           position: "absolute",
           left: "-9999px", 
+          // top: "0px", // TEMPORARY FOR DEBUGGING: Make it visible
+          // zIndex: 10000, // TEMPORARY FOR DEBUGGING
           fontFamily: "Inter, sans-serif",
           background: "linear-gradient(to bottom, #111827, #0f172a)", 
           boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
@@ -124,16 +119,14 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
             </div>
           </div>
           <div className="text-right z-10">
-            <h2 className="text-2xl font-bold text-white">{schedule.name}</h2>
+            <h2 className="text-2xl font-bold text-white">{schedule.name || "Untitled Schedule"}</h2>
             <p className="text-gray-400">
               Last Edited: {formatDate(schedule.last_edited || schedule.created_at)}
             </p>
           </div>
         </div>
 
-        {/* Schedule Information Panels */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {/* Event Details */}
           <div className="bg-gray-800/80 p-6 rounded-lg shadow-md" style={{ borderLeft: "4px solid #4f46e5" }}>
             <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-4">
               <Calendar className="h-5 w-5 mr-2" /> Event Details
@@ -141,18 +134,17 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
               {info.event_name && (<div><strong className="text-gray-400 block">Event:</strong> {info.event_name}</div>)}
               {info.job_number && (<div><strong className="text-gray-400 block">Job #:</strong> {info.job_number}</div>)}
-              {info.date && (<div><strong className="text-gray-400 block">Date:</strong> {formatDate(info.date)}</div>)}
-              {(info.event_start || info.event_end) && (
+              {info.date && formatDate(info.date) !== "N/A" && (<div><strong className="text-gray-400 block">Date:</strong> {formatDate(info.date)}</div>)}
+              {(info.event_start || info.event_end) && (formatTime(info.event_start) || formatTime(info.event_end)) && (
                 <div><strong className="text-gray-400 block">Event Time:</strong> 
-                {formatTime(info.event_start)} {info.event_start && info.event_end ? `- ${formatTime(info.event_end)}` : ""}
+                {formatTime(info.event_start)} {formatTime(info.event_start) && formatTime(info.event_end) ? `- ${formatTime(info.event_end)}` : formatTime(info.event_end)}
                 </div>
               )}
-              {info.load_in && (<div><strong className="text-gray-400 block">Load In:</strong> {formatTime(info.load_in)}</div>)}
-              {info.strike_datetime && (<div><strong className="text-gray-400 block">Strike:</strong> {formatDate(info.strike_datetime)} {formatTime(info.strike_datetime)}</div>)}
+              {info.load_in && formatTime(info.load_in) && (<div><strong className="text-gray-400 block">Load In:</strong> {formatTime(info.load_in)}</div>)}
+              {info.strike_datetime && (formatDate(info.strike_datetime) !== "N/A" || formatTime(info.strike_datetime)) && (<div><strong className="text-gray-400 block">Strike:</strong> {formatDate(info.strike_datetime)} {formatTime(info.strike_datetime)}</div>)}
             </div>
           </div>
 
-          {/* Venue & Management Info */}
           <div className="bg-gray-800/80 p-6 rounded-lg shadow-md" style={{ borderLeft: "4px solid #4f46e5" }}>
             <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-4">
               <Building className="h-5 w-5 mr-2" /> Venue & Management
@@ -165,7 +157,6 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
             </div>
           </div>
           
-          {/* Contact Info (Example - if these fields were populated) */}
            {(info.contact_name || info.contact_email || info.contact_phone) && (
             <div className="bg-gray-800/80 p-6 rounded-lg shadow-md" style={{ borderLeft: "4px solid #4f46e5" }}>
                 <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-4">
@@ -192,7 +183,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                     className="w-4 h-4 rounded-sm mr-2 border border-gray-600"
                     style={{ backgroundColor: crew.color }}
                   ></span>
-                  <span className="text-sm">{crew.name}</span>
+                  <span className="text-sm">{crew.name || "Unnamed Crew"}</span>
                 </div>
               ))}
             </div>
@@ -224,13 +215,13 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                         borderBottom: "1px solid rgba(55, 65, 81, 0.5)",
                       }}
                     >
-                      <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.start_time)}</td>
-                      <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.end_time)}</td>
-                      <td className="py-3 px-4 text-white align-middle text-sm font-medium">{item.activity}</td>
-                      <td className="py-3 px-4 text-gray-300 align-middle text-sm" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>{item.notes}</td>
+                      <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.start_time) || "-"}</td>
+                      <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.end_time) || "-"}</td>
+                      <td className="py-3 px-4 text-white align-middle text-sm font-medium">{item.activity || "-"}</td>
+                      <td className="py-3 px-4 text-gray-300 align-middle text-sm" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>{item.notes || "-"}</td>
                       <td className="py-3 px-4 text-white align-middle text-sm">
                         <div className="flex flex-wrap gap-1">
-                          {item.crew_ids?.map(crewId => {
+                          {item.crew_ids?.length > 0 ? item.crew_ids.map(crewId => {
                             const crewMember = getCrewDetails(crewId);
                             return crewMember ? (
                               <span
@@ -242,10 +233,10 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                                   color: crewMember.color, 
                                 }}
                               >
-                                {crewMember.name}
+                                {crewMember.name || "Unnamed"}
                               </span>
                             ) : null;
-                          })}
+                          }) : <span className="text-gray-500 text-xs">No crew</span>}
                         </div>
                       </td>
                     </tr>

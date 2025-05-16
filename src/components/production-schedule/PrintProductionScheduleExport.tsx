@@ -1,9 +1,9 @@
 import React, { forwardRef } from "react";
 import { Calendar, ListChecks, Palette, UserCheck, Building, Phone, Mail, UserCog, Briefcase, UserCircle } from "lucide-react";
-import { ScheduleForExport } from "../../pages/ProductionScheduleEditor"; // Import the shared type
+import { ScheduleForExport } from "../../pages/ProductionScheduleEditor"; 
 
 interface PrintProductionScheduleExportProps {
-  schedule: ScheduleForExport; // Use the shared type
+  schedule: ScheduleForExport; 
 }
 
 const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProductionScheduleExportProps>(
@@ -13,7 +13,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
     const scheduleItems = schedule.schedule_items || [];
 
     const formatDate = (dateString?: string) => {
-      if (!dateString) return "N/A";
+      if (!dateString || dateString.trim() === "") return "N/A";
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
          try {
           const [year, month, day] = dateString.split('-').map(Number);
@@ -30,10 +30,18 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
     };
 
     const formatTime = (timeString?: string) => {
-        if (!timeString) return "";
+        if (!timeString || timeString.trim() === "") return "";
         if (/^\d{2}:\d{2}$/.test(timeString)) { return timeString; }
         try {
-            return new Date(timeString).toLocaleTimeString("en-US", {
+            const d = new Date(`1970-01-01T${timeString}Z`);
+             if(isNaN(d.getTime())) {
+                 const fullDate = new Date(timeString);
+                 if(isNaN(fullDate.getTime())) return timeString;
+                 return fullDate.toLocaleTimeString("en-US", {
+                    hour: "2-digit", minute: "2-digit", hour12: false,
+                });
+            }
+            return d.toLocaleTimeString("en-US", {
                 hour: "2-digit", minute: "2-digit", hour12: false, 
             });
         } catch (e) {
@@ -45,7 +53,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
 
     const getCrewName = (crewId: string) => {
       const crewMember = crewKey.find(crew => crew.id === crewId);
-      return crewMember ? crewMember.name : "Unknown";
+      return crewMember ? (crewMember.name || "Unnamed") : "Unknown";
     };
 
     return (
@@ -56,6 +64,8 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
           width: "1200px", 
           position: "absolute",
           left: "-9999px",
+          // top: "0px", // TEMPORARY FOR DEBUGGING
+          // zIndex: 10000, // TEMPORARY FOR DEBUGGING
           fontFamily: "Arial, sans-serif",
           backgroundColor: "white",
           color: "#000", 
@@ -68,7 +78,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
             <p style={{ fontSize: "14px", color: "#555", margin: "5px 0 0 0" }}>Production Schedule</p>
           </div>
           <div style={{ textAlign: "right" }}>
-            <h2 style={{ fontSize: "24px", fontWeight: "bold", margin: 0 }}>{schedule.name}</h2>
+            <h2 style={{ fontSize: "24px", fontWeight: "bold", margin: 0 }}>{schedule.name || "Untitled Schedule"}</h2>
             <p style={{ fontSize: "14px", color: "#555", margin: "5px 0 0 0" }}>
               Last Edited: {formatDate(schedule.last_edited || schedule.created_at)}
             </p>
@@ -83,12 +93,12 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                 <tbody>
                     {info.event_name && (<tr><td style={{padding: "4px 0", fontWeight: "bold", width: "150px"}}>Event:</td><td>{info.event_name}</td></tr>)}
                     {info.job_number && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Job #:</td><td>{info.job_number}</td></tr>)}
-                    {info.date && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Date:</td><td>{formatDate(info.date)}</td></tr>)}
-                    {(info.event_start || info.event_end) && (
-                        <tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Event Time:</td><td>{formatTime(info.event_start)} {info.event_start && info.event_end ? `- ${formatTime(info.event_end)}` : ""}</td></tr>
+                    {info.date && formatDate(info.date) !== "N/A" && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Date:</td><td>{formatDate(info.date)}</td></tr>)}
+                    {(info.event_start || info.event_end) && (formatTime(info.event_start) || formatTime(info.event_end)) && (
+                        <tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Event Time:</td><td>{formatTime(info.event_start)} {formatTime(info.event_start) && formatTime(info.event_end) ? `- ${formatTime(info.event_end)}` : formatTime(info.event_end)}</td></tr>
                     )}
-                    {info.load_in && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Load In:</td><td>{formatTime(info.load_in)}</td></tr>)}
-                    {info.strike_datetime && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Strike:</td><td>{formatDate(info.strike_datetime)} {formatTime(info.strike_datetime)}</td></tr>)}
+                    {info.load_in && formatTime(info.load_in) && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Load In:</td><td>{formatTime(info.load_in)}</td></tr>)}
+                    {info.strike_datetime && (formatDate(info.strike_datetime) !== "N/A" || formatTime(info.strike_datetime)) && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Strike:</td><td>{formatDate(info.strike_datetime)} {formatTime(info.strike_datetime)}</td></tr>)}
                 </tbody>
             </table>
         </div>
@@ -108,7 +118,6 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                 </table>
             </div>
 
-            {/* Example for Contact Info if populated */}
             {(info.contact_name || info.contact_email || info.contact_phone) && (
             <div style={{ flex: 1 }}>
                 <h3 style={{ fontSize: "16px", fontWeight: "bold", borderBottom: "1px solid #eee", paddingBottom: "8px", marginBottom: "10px" }}>
@@ -134,7 +143,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
               {crewKey.map((crew) => (
                 <div key={crew.id} style={{ display: "flex", alignItems: "center" }}>
                   <span style={{ width: "14px", height: "14px", borderRadius: "3px", marginRight: "6px", border: "1px solid #999", backgroundColor: crew.color }}></span>
-                  <span>{crew.name}</span>
+                  <span>{crew.name || "Unnamed Crew"}</span>
                 </div>
               ))}
             </div>
@@ -159,12 +168,12 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
               <tbody>
                 {scheduleItems.map((item, index) => (
                   <tr key={item.id} style={{ borderBottom: "1px solid #eee", backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9" }}>
-                    <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.start_time)}</td>
-                    <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.end_time)}</td>
-                    <td style={{ padding: "8px", verticalAlign: "top", fontWeight: "500" }}>{item.activity}</td>
-                    <td style={{ padding: "8px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.notes}</td>
+                    <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.start_time) || "-"}</td>
+                    <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.end_time) || "-"}</td>
+                    <td style={{ padding: "8px", verticalAlign: "top", fontWeight: "500" }}>{item.activity || "-"}</td>
+                    <td style={{ padding: "8px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.notes || "-"}</td>
                     <td style={{ padding: "8px", verticalAlign: "top" }}>
-                      {item.crew_ids?.map(crewId => getCrewName(crewId)).join(", ")}
+                      {item.crew_ids?.length > 0 ? item.crew_ids.map(crewId => getCrewName(crewId)).join(", ") : <span style={{color: "#777"}}>No crew</span>}
                     </td>
                   </tr>
                 ))}

@@ -16,7 +16,6 @@ import ProductionScheduleExport from "../components/production-schedule/Producti
 import PrintProductionScheduleExport from "../components/production-schedule/PrintProductionScheduleExport";
 
 // Define the type for the data structure expected by export components
-// This should align with the interface in ProductionScheduleExport.tsx and PrintProductionScheduleExport.tsx
 export interface ScheduleForExport {
   id: string;
   name: string;
@@ -29,13 +28,11 @@ export interface ScheduleForExport {
     project_manager?: string;
     production_manager?: string;
     account_manager?: string;
-    date?: string; // Extracted date
-    load_in?: string; // Extracted time for load_in
-    event_start?: string; // Extracted time for event_start
-    event_end?: string; // Extracted time for event_end
-    strike_datetime?: string; // Full strike datetime string, can be used by export component
-    // Fields that are in original export components but might not be in ProductionScheduleData
-    // These will be undefined if not mapped from ProductionScheduleData
+    date?: string; 
+    load_in?: string; 
+    event_start?: string; 
+    event_end?: string; 
+    strike_datetime?: string; 
     event_type?: string;
     sound_check?: string;
     room?: string;
@@ -105,14 +102,14 @@ const ProductionScheduleEditor = () => {
     if (!dateTimeStr) return { date: undefined, time: undefined, full: undefined };
     try {
       const d = new Date(dateTimeStr);
-      if (isNaN(d.getTime())) return { date: dateTimeStr, time: undefined, full: dateTimeStr };
+      if (isNaN(d.getTime())) return { date: dateTimeStr, time: undefined, full: dateTimeStr }; // Return original if invalid
       return {
         date: d.toISOString().split('T')[0], // YYYY-MM-DD
         time: d.toTimeString().split(' ')[0].substring(0, 5), // HH:MM
         full: dateTimeStr,
       };
     } catch (e) {
-      return { date: dateTimeStr, time: undefined, full: dateTimeStr };
+      return { date: dateTimeStr, time: undefined, full: dateTimeStr }; // Return original on error
     }
   };
   
@@ -135,17 +132,16 @@ const ProductionScheduleEditor = () => {
         production_manager: currentSchedule.production_manager,
         account_manager: currentSchedule.account_manager,
         date: setDateTimeParts.date,
-        load_in: setDateTimeParts.time, // Assuming set_datetime is load_in time
-        event_start: setDateTimeParts.time, // Assuming set_datetime is event_start time
-        event_end: strikeDateTimeParts.time,
-        strike_datetime: currentSchedule.strike_datetime, // Pass the full string for flexibility
-        // Other fields like event_type, sound_check etc., remain undefined if not in ProductionScheduleData
+        load_in: setDateTimeParts.time, 
+        event_start: setDateTimeParts.time, // Assuming set_datetime is event_start time for now
+        event_end: strikeDateTimeParts.time, // Assuming strike_datetime end is event_end time
+        strike_datetime: currentSchedule.strike_datetime, 
       },
       crew_key: currentSchedule.crew_key.map(ck => ({ ...ck })),
       schedule_items: currentSchedule.schedule_items.map(item => ({
         id: item.id,
-        start_time: item.startTime,
-        end_time: item.endTime,
+        start_time: item.startTime, // Should be HH:MM
+        end_time: item.endTime,   // Should be HH:MM
         activity: item.activity,
         notes: item.notes,
         crew_ids: [...item.assignedCrewIds],
@@ -348,66 +344,56 @@ const ProductionScheduleEditor = () => {
 
   const openExportModalHandler = () => {
     const dataForExport = prepareScheduleForExport(schedule);
+    // console.log("Data prepared for export modal:", JSON.parse(JSON.stringify(dataForExport)));
     setScheduleForExportData(dataForExport);
     setShowExportModal(true);
   };
 
-  const handleExportImage = async () => {
-    if (!exportRef.current || !scheduleForExportData) {
-      console.error("Export component not ready or no data for export.");
+  const exportImageWithCanvas = async (targetRef: React.RefObject<HTMLDivElement>, fileName: string, backgroundColor: string) => {
+    if (!targetRef.current || !scheduleForExportData) {
+      console.error("Export component not ready or no data for export.", { hasTargetRef: !!targetRef.current, hasData: !!scheduleForExportData });
+      setSaveError("Export component not ready. Please try again.");
       return;
     }
     setIsExporting(true);
-    setTimeout(async () => { // Allow DOM to update
-      try {
-        const canvas = await html2canvas(exportRef.current!, {
-          scale: 2,
-          backgroundColor: '#0f172a', // Dark background for this export type
-          useCORS: true,
-          logging: process.env.NODE_ENV === 'development', // Enable logging in dev
-        });
-        const image = canvas.toDataURL("image/png");
-        const link = document.createElement("a");
-        link.download = `${scheduleForExportData.name || "production-schedule"}.png`;
-        link.href = image;
-        link.click();
-      } catch (error) {
-        console.error("Error exporting image:", error);
-        setSaveError("Failed to export image. See console for details.");
-      } finally {
-        setIsExporting(false);
-        setShowExportModal(false);
-      }
-    }, 100); // Small delay to ensure rendering
+    // console.log(`Exporting ${fileName}. Data being used:`, JSON.parse(JSON.stringify(scheduleForExportData)));
+    // console.log("Target DOM element for html2canvas:", targetRef.current);
+
+    // Give React a bit more time to render the off-screen component with the data
+    await new Promise(resolve => setTimeout(resolve, 500)); // Increased delay
+
+    try {
+      const canvas = await html2canvas(targetRef.current!, {
+        scale: 2,
+        backgroundColor: backgroundColor,
+        useCORS: true,
+        logging: process.env.NODE_ENV === 'development',
+        onclone: (document) => {
+          // You could potentially manipulate the cloned document here if needed
+          // For example, force styles or ensure visibility
+          // console.log("html2canvas onclone document:", document);
+        }
+      });
+      const image = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = `${scheduleForExportData.name || "production-schedule"}-${fileName}.png`;
+      link.href = image;
+      link.click();
+    } catch (error) {
+      console.error(`Error exporting ${fileName}:`, error);
+      setSaveError(`Failed to export ${fileName}. See console for details.`);
+    } finally {
+      setIsExporting(false);
+      setShowExportModal(false); // Close modal after attempt
+    }
   };
 
-  const handleExportPrintFriendlyImage = async () => {
-    if (!printExportRef.current || !scheduleForExportData) {
-      console.error("Print export component not ready or no data for export.");
-      return;
-    }
-    setIsExporting(true);
-    setTimeout(async () => { // Allow DOM to update
-      try {
-        const canvas = await html2canvas(printExportRef.current!, {
-          scale: 2,
-          backgroundColor: '#ffffff', // White background for print-friendly
-          useCORS: true,
-          logging: process.env.NODE_ENV === 'development',
-        });
-        const image = canvas.toDataURL("image/png");
-        const link = document.createElement("a");
-        link.download = `${scheduleForExportData.name || "production-schedule"}-print.png`;
-        link.href = image;
-        link.click();
-      } catch (error) {
-        console.error("Error exporting print-friendly image:", error);
-        setSaveError("Failed to export print-friendly image. See console for details.");
-      } finally {
-        setIsExporting(false);
-        setShowExportModal(false);
-      }
-    }, 100);
+  const handleExportImage = () => {
+    exportImageWithCanvas(exportRef, "image", '#0f172a');
+  };
+
+  const handleExportPrintFriendlyImage = () => {
+    exportImageWithCanvas(printExportRef, "print-friendly", '#ffffff');
   };
 
 
@@ -592,20 +578,29 @@ const ProductionScheduleEditor = () => {
           onClose={() => {
             if (!isExporting) {
               setShowExportModal(false);
-              setScheduleForExportData(null); // Clear data when modal closes
+              // setScheduleForExportData(null); // Keep data for potential re-export attempts if needed, or clear if modal is truly done
             }
           }}
           onExportImage={handleExportImage}
           onExportPdf={handleExportPrintFriendlyImage} // This is for print-friendly PNG
           title="Production Schedule"
+          isExporting={isExporting}
         />
       )}
 
-      {/* Hidden components for export rendering */}
+      {/* Hidden components for export rendering, ensure they re-render if scheduleForExportData changes */}
       {scheduleForExportData && (
         <>
-          <ProductionScheduleExport ref={exportRef} schedule={scheduleForExportData} />
-          <PrintProductionScheduleExport ref={printExportRef} schedule={scheduleForExportData} />
+          <ProductionScheduleExport 
+            key={`export-${scheduleForExportData.id}-${scheduleForExportData.last_edited || scheduleForExportData.created_at}`} 
+            ref={exportRef} 
+            schedule={scheduleForExportData} 
+          />
+          <PrintProductionScheduleExport 
+            key={`print-export-${scheduleForExportData.id}-${scheduleForExportData.last_edited || scheduleForExportData.created_at}`} 
+            ref={printExportRef} 
+            schedule={scheduleForExportData} 
+          />
         </>
       )}
     </div>
