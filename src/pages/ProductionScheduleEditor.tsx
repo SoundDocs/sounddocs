@@ -374,7 +374,7 @@ const ProductionScheduleEditor = () => {
           <div className="p-4 md:p-6 overflow-x-auto">
             <div className="min-w-[600px] md:min-w-0">
               <ProductionScheduleCrewKey
-                crewKeyItems={schedule.crew_key}
+                crewKey={schedule.crew_key}
                 onUpdateCrewKeyItem={handleUpdateCrewKeyItem}
                 onAddCrewKeyItem={handleAddCrewKeyItem}
                 onDeleteCrewKeyItem={handleDeleteCrewKeyItem}

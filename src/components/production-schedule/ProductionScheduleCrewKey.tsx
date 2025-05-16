@@ -1,12 +1,18 @@
 import React from "react";
 import { X, Plus, Palette } from "lucide-react";
-import { CrewKeyItem } from "../../pages/ProductionScheduleEditor";
+
+// Define and export CrewKeyItem here
+export interface CrewKeyItem {
+  id: string;
+  name: string;
+  color: string;
+}
 
 interface ProductionScheduleCrewKeyProps {
   crewKey: CrewKeyItem[];
   onAddCrewKeyItem: () => void;
-  onRemoveCrewKeyItem: (id: string) => void;
-  onUpdateCrewKeyItem: (id: string, name: string, color: string) => void;
+  onDeleteCrewKeyItem: (id: string) => void; 
+  onUpdateCrewKeyItem: (itemId: string, field: "name" | "color", value: string) => void; 
 }
 
 const predefinedColors = [
@@ -27,12 +33,11 @@ const predefinedColors = [
 const ProductionScheduleCrewKey: React.FC<ProductionScheduleCrewKeyProps> = ({
   crewKey,
   onAddCrewKeyItem,
-  onRemoveCrewKeyItem,
+  onDeleteCrewKeyItem, 
   onUpdateCrewKeyItem,
 }) => {
   return (
     <div className="bg-gray-800 p-6 rounded-lg shadow-md">
-      {/* Title removed from here, as it's expected to be provided by the parent component (ProductionScheduleEditor) */}
       <div className="space-y-4">
         {crewKey.map((item, index) => (
           <div
@@ -44,15 +49,15 @@ const ProductionScheduleCrewKey: React.FC<ProductionScheduleCrewKeyProps> = ({
               type="text"
               placeholder="Crew Name (e.g., Audio, Lighting)"
               value={item.name}
-              onChange={(e) => onUpdateCrewKeyItem(item.id, e.target.value, item.color)}
+              onChange={(e) => onUpdateCrewKeyItem(item.id, "name", e.target.value)} 
               className="flex-grow bg-gray-600 text-white p-2 rounded-md border border-gray-500 focus:ring-indigo-500 focus:border-indigo-500"
             />
             <div className="relative">
               <input
                 type="color"
                 value={item.color}
-                onChange={(e) => onUpdateCrewKeyItem(item.id, item.name, e.target.value)}
-                className="w-10 h-10 p-0 border-none rounded-md cursor-pointer appearance-none invisible" // Hide default color input
+                onChange={(e) => onUpdateCrewKeyItem(item.id, "color", e.target.value)} 
+                className="w-10 h-10 p-0 border-none rounded-md cursor-pointer appearance-none invisible"
                 id={`color-picker-${item.id}`}
               />
               <label
@@ -71,7 +76,7 @@ const ProductionScheduleCrewKey: React.FC<ProductionScheduleCrewKeyProps> = ({
                   type="button"
                   className="w-5 h-5 rounded-sm border border-gray-500 hover:opacity-80"
                   style={{ backgroundColor: color }}
-                  onClick={() => onUpdateCrewKeyItem(item.id, item.name, color)}
+                  onClick={() => onUpdateCrewKeyItem(item.id, "color", color)} 
                   title={`Set color to ${color}`}
                 />
               ))}
@@ -83,14 +88,14 @@ const ProductionScheduleCrewKey: React.FC<ProductionScheduleCrewKeyProps> = ({
                   type="button"
                   className="w-5 h-5 rounded-sm border border-gray-500 hover:opacity-80"
                   style={{ backgroundColor: color }}
-                  onClick={() => onUpdateCrewKeyItem(item.id, item.name, color)}
+                  onClick={() => onUpdateCrewKeyItem(item.id, "color", color)} 
                   title={`Set color to ${color}`}
                 />
               ))}
             </div>
             <button
               type="button"
-              onClick={() => onRemoveCrewKeyItem(item.id)}
+              onClick={() => onDeleteCrewKeyItem(item.id)} 
               className="p-2 text-red-400 hover:text-red-300 transition-colors"
               title="Remove Crew Item"
             >
