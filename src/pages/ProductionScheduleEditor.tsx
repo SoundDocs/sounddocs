@@ -8,14 +8,12 @@ import ProductionScheduleCrewKey, { CrewKeyItem } from "../components/production
 import ProductionScheduleTable, { ScheduleItem } from "../components/production-schedule/ProductionScheduleTable";
 import MobileScreenWarning from "../components/MobileScreenWarning";
 import { useScreenSize } from "../hooks/useScreenSize";
-import { Loader, ArrowLeft, Save, AlertCircle, Download } from "lucide-react";
+import { Loader, ArrowLeft, Save, AlertCircle } from "lucide-react"; // Removed Download
 import { v4 as uuidv4 } from 'uuid';
-import html2canvas from 'html2canvas';
-import ExportModal from "../components/ExportModal";
-import ProductionScheduleExport from "../components/production-schedule/ProductionScheduleExport";
-import PrintProductionScheduleExport from "../components/production-schedule/PrintProductionScheduleExport";
+// Removed html2canvas, ExportModal, ProductionScheduleExport, PrintProductionScheduleExport as direct imports for editor's own export button
 
 // Define the type for the data structure expected by export components
+// This type is still useful as it's used by the export components themselves, which are now invoked from other pages.
 export interface ScheduleForExport {
   id: string;
   name: string;
@@ -91,13 +89,16 @@ const ProductionScheduleEditor = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showMobileWarning, setShowMobileWarning] = useState(false);
 
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [scheduleForExportData, setScheduleForExportData] = useState<ScheduleForExport | null>(null);
+  // Removed states related to editor's own export modal and process
+  // const [showExportModal, setShowExportModal] = useState(false);
+  // const [isExporting, setIsExporting] = useState(false);
+  // const [scheduleForExportData, setScheduleForExportData] = useState<ScheduleForExport | null>(null);
 
-  const exportRef = useRef<HTMLDivElement>(null);
-  const printExportRef = useRef<HTMLDivElement>(null);
+  // Removed refs for editor's own export components
+  // const exportRef = useRef<HTMLDivElement>(null);
+  // const printExportRef = useRef<HTMLDivElement>(null);
 
+  // parseDateTime is still used for initializing editor state from fetched data
   const parseDateTime = (dateTimeStr: string | null | undefined) => {
     if (!dateTimeStr) return { date: undefined, time: undefined, full: undefined };
     try {
@@ -113,41 +114,8 @@ const ProductionScheduleEditor = () => {
     }
   };
   
-  const prepareScheduleForExport = (currentSchedule: ProductionScheduleData | null): ScheduleForExport | null => {
-    if (!currentSchedule) return null;
-  
-    const setDateTimeParts = parseDateTime(currentSchedule.set_datetime);
-    const strikeDateTimeParts = parseDateTime(currentSchedule.strike_datetime);
-  
-    return {
-      id: currentSchedule.id || uuidv4(),
-      name: currentSchedule.name,
-      created_at: currentSchedule.created_at || new Date().toISOString(),
-      last_edited: currentSchedule.last_edited,
-      info: {
-        event_name: currentSchedule.show_name,
-        job_number: currentSchedule.job_number,
-        venue: currentSchedule.facility_name,
-        project_manager: currentSchedule.project_manager,
-        production_manager: currentSchedule.production_manager,
-        account_manager: currentSchedule.account_manager,
-        date: setDateTimeParts.date,
-        load_in: setDateTimeParts.time, 
-        event_start: setDateTimeParts.time, 
-        event_end: strikeDateTimeParts.time, 
-        strike_datetime: currentSchedule.strike_datetime, 
-      },
-      crew_key: currentSchedule.crew_key.map(ck => ({ ...ck })),
-      schedule_items: currentSchedule.schedule_items.map(item => ({
-        id: item.id,
-        start_time: item.startTime, 
-        end_time: item.endTime,   
-        activity: item.activity,
-        notes: item.notes,
-        crew_ids: [...item.assignedCrewIds],
-      })),
-    };
-  };
+  // prepareScheduleForExport function removed as export is no longer initiated from this editor directly.
+  // The logic for preparing data for export will reside where the export is initiated (Dashboard, AllProductionSchedules).
 
   useEffect(() => {
     if (screenSize === "mobile" || screenSize === "tablet") {
@@ -342,87 +310,8 @@ const ProductionScheduleEditor = () => {
     }
   };
 
-  const openExportModalHandler = () => {
-    const dataForExport = prepareScheduleForExport(schedule);
-    setScheduleForExportData(dataForExport);
-    setShowExportModal(true);
-  };
-
-  const exportImageWithCanvas = async (targetRef: React.RefObject<HTMLDivElement>, fileName: string, backgroundColor: string, font: string) => {
-    if (!targetRef.current || !scheduleForExportData) {
-      console.error("Export component not ready or no data for export.", { hasTargetRef: !!targetRef.current, hasData: !!scheduleForExportData });
-      setSaveError("Export component not ready. Please try again.");
-      return;
-    }
-    setIsExporting(true);
-    
-    // Ensure React has rendered the component with data
-    await new Promise(resolve => setTimeout(resolve, 100)); // Short delay for React state update
-
-    // Wait for fonts to be ready
-    if (document.fonts && typeof document.fonts.ready === 'function') {
-      try {
-        await document.fonts.ready;
-        // console.log("Fonts are ready for html2canvas.");
-      } catch (fontError) {
-        console.warn("Error waiting for document fonts to be ready:", fontError);
-        // Continue anyway, onclone might help
-      }
-    } else {
-      // console.log("document.fonts.ready not available, relying on onclone and timeout.");
-      // If document.fonts.ready is not available, rely on a longer timeout
-      await new Promise(resolve => setTimeout(resolve, 400)); // Additional delay
-    }
-
-    try {
-      const canvas = await html2canvas(targetRef.current!, {
-        scale: 2,
-        backgroundColor: backgroundColor,
-        useCORS: true,
-        logging: process.env.NODE_ENV === 'development',
-        letterRendering: true, // Improve text rendering accuracy
-        onclone: (clonedDoc) => {
-          // Explicitly set font on the cloned document body and all elements
-          // This helps if html2canvas doesn't pick up inherited styles correctly for off-screen elements
-          const styleGlobal = clonedDoc.createElement('style');
-          styleGlobal.innerHTML = `
-            * {
-              font-family: ${font}, sans-serif !important;
-              vertical-align: baseline !important; /* Attempt to reset vertical alignment */
-            }
-          `;
-          clonedDoc.head.appendChild(styleGlobal);
-          clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
-          Array.from(clonedDoc.querySelectorAll('*')).forEach((el: any) => {
-            if (el.style) {
-                 el.style.fontFamily = `${font}, sans-serif`;
-                 el.style.verticalAlign = 'baseline'; // Try to force baseline alignment
-            }
-          });
-        }
-      });
-      const image = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.download = `${scheduleForExportData.name || "production-schedule"}-${fileName}.png`;
-      link.href = image;
-      link.click();
-    } catch (error) {
-      console.error(`Error exporting ${fileName}:`, error);
-      setSaveError(`Failed to export ${fileName}. See console for details.`);
-    } finally {
-      setIsExporting(false);
-      setShowExportModal(false); 
-    }
-  };
-
-  const handleExportImage = () => {
-    exportImageWithCanvas(exportRef, "image", '#0f172a', 'Inter');
-  };
-
-  const handleExportPrintFriendlyImage = () => {
-    exportImageWithCanvas(printExportRef, "print-friendly", '#ffffff', 'Arial');
-  };
-
+  // Removed openExportModalHandler and export functions (exportImageWithCanvas, handleExportImage, handleExportPrintFriendlyImage)
+  // as export is no longer initiated from this editor.
 
   if (loading || !schedule) {
     return (
@@ -447,22 +336,22 @@ const ProductionScheduleEditor = () => {
 
       <main className="flex-grow container mx-auto px-4 py-6 md:py-12 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
-          <div className="flex items-center">
+          <div className="flex items-center flex-grow min-w-0"> {/* Added flex-grow and min-w-0 here */}
             <button
               onClick={() => navigate("/dashboard")}
-              className="mr-2 md:mr-4 flex items-center text-gray-400 hover:text-white transition-colors"
+              className="mr-2 md:mr-4 flex items-center text-gray-400 hover:text-white transition-colors flex-shrink-0" // Added flex-shrink-0
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <div>
+            <div className="flex-grow min-w-0"> {/* Added flex-grow and min-w-0 here */}
               <input
                 type="text"
                 value={schedule.name}
                 onChange={handleNameChange}
-                className="text-xl md:text-2xl font-bold text-white bg-transparent border-none focus:outline-none focus:ring-0 w-full max-w-[220px] sm:max-w-none"
+                className="text-xl md:text-2xl font-bold text-white bg-transparent border-none focus:outline-none focus:ring-0 w-full" // Removed max-w-[220px] and sm:max-w-none, relying on w-full and parent flex
                 placeholder="Enter schedule name"
               />
-              <p className="text-xs sm:text-sm text-gray-400">
+              <p className="text-xs sm:text-sm text-gray-400 truncate"> {/* Added truncate for safety on very long dates */}
                 {schedule.last_edited
                   ? `Last edited: ${new Date(schedule.last_edited).toLocaleString()}`
                   : `Created: ${new Date(schedule.created_at || Date.now()).toLocaleString()}`}
@@ -470,18 +359,11 @@ const ProductionScheduleEditor = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 fixed bottom-4 right-4 z-20 md:static md:z-auto sm:ml-auto">
-            <button
-              onClick={openExportModalHandler}
-              disabled={saving || isExporting}
-              className="inline-flex items-center bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg md:shadow-none"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </button>
+          <div className="flex items-center gap-2 fixed bottom-4 right-4 z-20 md:static md:z-auto sm:ml-auto flex-shrink-0"> {/* Added flex-shrink-0 */}
+            {/* Export button removed */}
             <button
               onClick={handleSave}
-              disabled={saving || isExporting}
+              disabled={saving} // Removed isExporting from disabled condition
               className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg md:shadow-none"
             >
               {saving ? (
@@ -579,7 +461,7 @@ const ProductionScheduleEditor = () => {
         <div className="flex justify-center py-8">
           <button
             onClick={handleSave}
-            disabled={saving || isExporting}
+            disabled={saving} // Removed isExporting
             className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg text-base"
           >
             {saving ? (
@@ -599,35 +481,8 @@ const ProductionScheduleEditor = () => {
 
       <Footer />
 
-      {showExportModal && scheduleForExportData && (
-        <ExportModal
-          isOpen={showExportModal}
-          onClose={() => {
-            if (!isExporting) {
-              setShowExportModal(false);
-            }
-          }}
-          onExportImage={handleExportImage}
-          onExportPdf={handleExportPrintFriendlyImage} 
-          title="Production Schedule"
-          isExporting={isExporting}
-        />
-      )}
-
-      {scheduleForExportData && (
-        <>
-          <ProductionScheduleExport 
-            key={`export-${scheduleForExportData.id}-${scheduleForExportData.last_edited || scheduleForExportData.created_at}`} 
-            ref={exportRef} 
-            schedule={scheduleForExportData} 
-          />
-          <PrintProductionScheduleExport 
-            key={`print-export-${scheduleForExportData.id}-${scheduleForExportData.last_edited || scheduleForExportData.created_at}`} 
-            ref={printExportRef} 
-            schedule={scheduleForExportData} 
-          />
-        </>
-      )}
+      {/* ExportModal and hidden export components removed from direct rendering here */}
+      {/* They will be handled by pages that initiate export (Dashboard, AllProductionSchedules) */}
     </div>
   );
 };

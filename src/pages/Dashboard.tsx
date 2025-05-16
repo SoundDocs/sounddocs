@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   CalendarDays,
   ClipboardList,
+  Loader, // Added Loader
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import PatchSheetExport from "../components/PatchSheetExport";
@@ -22,6 +23,10 @@ import StagePlotExport from "../components/StagePlotExport";
 import PrintPatchSheetExport from "../components/PrintPatchSheetExport";
 import PrintStagePlotExport from "../components/PrintStagePlotExport";
 import ExportModal from "../components/ExportModal";
+import ProductionScheduleExport from "../components/production-schedule/ProductionScheduleExport"; // Added
+import PrintProductionScheduleExport from "../components/production-schedule/PrintProductionScheduleExport"; // Added
+import { ScheduleForExport } from "./ProductionScheduleEditor"; // Added
+import { v4 as uuidv4 } from 'uuid'; // Added
 
 // Define types for our documents
 interface PatchList {
@@ -29,7 +34,7 @@ interface PatchList {
   name: string;
   created_at: string;
   last_edited?: string;
-  [key: string]: any; // Allow any additional properties
+  [key: string]: any; 
 }
 
 interface StagePlot {
@@ -43,13 +48,40 @@ interface StagePlot {
   backgroundOpacity?: number;
 }
 
-interface ProductionSchedule {
+// Updated ProductionSchedule type for summary
+interface ProductionScheduleSummary {
   id: string;
   name: string;
   created_at: string;
   last_edited?: string;
-  // Add other fields if needed for display on dashboard, but typically just name/dates
 }
+
+// Type for full production schedule data fetched for export
+interface FullProductionScheduleData {
+  id: string;
+  name: string;
+  created_at: string;
+  last_edited?: string;
+  user_id: string;
+  show_name?: string;
+  job_number?: string;
+  facility_name?: string;
+  project_manager?: string;
+  production_manager?: string;
+  account_manager?: string;
+  set_datetime?: string;
+  strike_datetime?: string;
+  crew_key?: Array<{ id: string; name: string; color: string }>;
+  schedule_items?: Array<{
+    id: string;
+    startTime: string; 
+    endTime: string;
+    activity: string;
+    notes: string;
+    assignedCrewIds: string[];
+  }>;
+}
+
 
 interface RunOfShow {
   id: string;
@@ -58,38 +90,99 @@ interface RunOfShow {
   last_edited?: string;
 }
 
+// Utility to parse date/time strings, similar to the editor
+const parseDateTime = (dateTimeStr: string | null | undefined) => {
+  if (!dateTimeStr) return { date: undefined, time: undefined, full: undefined };
+  try {
+    const d = new Date(dateTimeStr);
+    if (isNaN(d.getTime())) return { date: dateTimeStr, time: undefined, full: dateTimeStr };
+    return {
+      date: d.toISOString().split('T')[0],
+      time: d.toTimeString().split(' ')[0].substring(0, 5),
+      full: dateTimeStr,
+    };
+  } catch (e) {
+    return { date: dateTimeStr, time: undefined, full: dateTimeStr };
+  }
+};
+
+// Transforms raw data to the format expected by export components
+const transformToScheduleForExport = (fullSchedule: FullProductionScheduleData): ScheduleForExport => {
+  const setDateTimeParts = parseDateTime(fullSchedule.set_datetime);
+  const strikeDateTimeParts = parseDateTime(fullSchedule.strike_datetime);
+
+  return {
+    id: fullSchedule.id || uuidv4(),
+    name: fullSchedule.name,
+    created_at: fullSchedule.created_at || new Date().toISOString(),
+    last_edited: fullSchedule.last_edited,
+    info: {
+      event_name: fullSchedule.show_name,
+      job_number: fullSchedule.job_number,
+      venue: fullSchedule.facility_name,
+      project_manager: fullSchedule.project_manager,
+      production_manager: fullSchedule.production_manager,
+      account_manager: fullSchedule.account_manager,
+      date: setDateTimeParts.date,
+      load_in: setDateTimeParts.time,
+      event_start: setDateTimeParts.time, 
+      event_end: strikeDateTimeParts.time, 
+      strike_datetime: fullSchedule.strike_datetime,
+    },
+    crew_key: fullSchedule.crew_key?.map(ck => ({ ...ck })) || [],
+    schedule_items: fullSchedule.schedule_items?.map(item => ({
+      id: item.id,
+      start_time: item.startTime, 
+      end_time: item.endTime,
+      activity: item.activity,
+      notes: item.notes,
+      crew_ids: [...(item.assignedCrewIds || [])],
+    })) || [],
+  };
+};
+
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [patchLists, setPatchLists] = useState<PatchList[]>([]);
   const [stagePlots, setStagePlots] = useState<StagePlot[]>([]);
-  const [productionSchedules, setProductionSchedules] = useState<ProductionSchedule[]>([]);
+  const [productionSchedules, setProductionSchedules] = useState<ProductionScheduleSummary[]>([]);
   const [runOfShows, setRunOfShows] = useState<RunOfShow[]>([]);
-  const [showNewPatchModal, setShowNewPatchModal] = useState(false);
-  const [showNewPlotModal, setShowNewPlotModal] = useState(false);
-  const [newDocName, setNewDocName] = useState("");
+  
   const [recentDocuments, setRecentDocuments] = useState<PatchList[]>([]);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  
+  const [exportingItemId, setExportingItemId] = useState<string | null>(null); // Generic exporting ID
+
   const [currentExportPatchSheet, setCurrentExportPatchSheet] = useState<PatchList | null>(null);
-  const [currentExportStagePlot, setCurrentExportStagePlot] = useState<StagePlot | null>(null);
-  const [showExportModal, setShowExportModal] = useState(false);
+  const [showPatchSheetExportModal, setShowPatchSheetExportModal] = useState(false);
   const [exportPatchSheetId, setExportPatchSheetId] = useState<string | null>(null);
+
+  const [currentExportStagePlot, setCurrentExportStagePlot] = useState<StagePlot | null>(null);
   const [showStagePlotExportModal, setShowStagePlotExportModal] = useState(false);
   const [exportStagePlotId, setExportStagePlotId] = useState<string | null>(null);
+
+  const [currentExportProductionSchedule, setCurrentExportProductionSchedule] = useState<ScheduleForExport | null>(null);
+  const [showProductionScheduleExportModal, setShowProductionScheduleExportModal] = useState(false);
+  const [exportProductionScheduleId, setExportProductionScheduleId] = useState<string | null>(null);
+
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<{
     id: string;
     type: "patch" | "stage" | "schedule" | "runofshow";
     name: string;
   } | null>(null);
-  const [supabaseWarning, setSupabaseWarning] = useState(false);
+  const [supabaseWarning, setSupabaseWarning] = useState(false); // This seems unused, consider removing
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
 
   const patchSheetExportRef = useRef<HTMLDivElement>(null);
   const printPatchSheetExportRef = useRef<HTMLDivElement>(null);
   const stagePlotExportRef = useRef<HTMLDivElement>(null);
   const printStagePlotExportRef = useRef<HTMLDivElement>(null);
+  const productionScheduleExportRef = useRef<HTMLDivElement>(null); // Added
+  const printProductionScheduleExportRef = useRef<HTMLDivElement>(null); // Added
 
   useEffect(() => {
     const checkUser = async () => {
@@ -104,7 +197,7 @@ const Dashboard = () => {
             fetchRecentDocuments(data.user.id),
             fetchStagePlots(data.user.id),
             fetchProductionSchedules(data.user.id),
-            // fetchRunOfShows(data.user.id), // Placeholder for future
+            // fetchRunOfShows(data.user.id), 
           ]);
         } else {
           navigate("/login");
@@ -157,23 +250,19 @@ const Dashboard = () => {
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      if (data) setProductionSchedules(data);
+      if (data) setProductionSchedules(data as ProductionScheduleSummary[]);
     } catch (error) {
       console.error("Error fetching production schedules:", error);
     }
   };
 
-  // const fetchRunOfShows = async (userId: string) => {
-  //   // Placeholder
-  // };
-
   const fetchRecentDocuments = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from("patch_sheets")
+        .from("patch_sheets") // Assuming recent docs are patch sheets for now
         .select("id, name, created_at, last_edited")
         .eq("user_id", userId)
-        .order("last_edited", { ascending: false })
+        .order("last_edited", { ascending: false, nullsFirst: false })
         .limit(2);
       if (error) throw error;
       if (data) setRecentDocuments(data);
@@ -191,23 +280,10 @@ const Dashboard = () => {
     }
   };
 
-  const handleCreatePatchList = () => {
-    // Modal logic is removed, direct navigation
-    navigate("/patch-sheet/new");
-  };
-
-  const handleCreateStagePlot = async () => {
-    // Modal logic is removed, direct navigation
-    navigate("/stage-plot/new");
-  };
-  
-  const handleCreateProductionSchedule = () => {
-    navigate("/production-schedule/new");
-  };
-
-  const handleCreateRunOfShow = () => {
-    alert("Functionality to create Run of Show not yet implemented.");
-  };
+  const handleCreatePatchList = () => navigate("/patch-sheet/new");
+  const handleCreateStagePlot = async () => navigate("/stage-plot/new");
+  const handleCreateProductionSchedule = () => navigate("/production-schedule/new");
+  const handleCreateRunOfShow = () => alert("Functionality to create Run of Show not yet implemented.");
 
   const handleDeleteRequest = (id: string, type: "patch" | "stage" | "schedule" | "runofshow", name: string) => {
     setDocumentToDelete({ id, type, name });
@@ -221,7 +297,6 @@ const Dashboard = () => {
       if (documentToDelete.type === "patch") tableName = "patch_sheets";
       else if (documentToDelete.type === "stage") tableName = "stage_plots";
       else if (documentToDelete.type === "schedule") tableName = "production_schedules";
-      // else if (documentToDelete.type === "runofshow") tableName = "run_of_shows"; // Placeholder
 
       if (tableName) {
         const { error } = await supabase.from(tableName).delete().eq("id", documentToDelete.id);
@@ -235,9 +310,6 @@ const Dashboard = () => {
         } else if (documentToDelete.type === "schedule") {
           setProductionSchedules(productionSchedules.filter((item) => item.id !== documentToDelete.id));
         }
-        // else if (documentToDelete.type === "runofshow") {
-        //   setRunOfShows(runOfShows.filter((item) => item.id !== documentToDelete.id));
-        // }
       } else {
          alert(`Functionality to delete ${documentToDelete.type} not yet implemented.`);
       }
@@ -260,146 +332,154 @@ const Dashboard = () => {
   const handleEditProductionSchedule = (id: string) => navigate(`/production-schedule/${id}`);
   const handleEditRunOfShow = (id: string) => alert(`Edit functionality for Run of Show ${id} not yet implemented.`);
 
-  const handleExportPatchListClick = (patchSheet: PatchList) => {
-    setExportPatchSheetId(patchSheet.id);
-    setShowExportModal(true);
-  };
-
-  const handleExportStageplotClick = (stagePlot: StagePlot) => {
-    setExportStagePlotId(stagePlot.id);
-    setShowStagePlotExportModal(true);
-  };
-
-  const handleExportProductionScheduleClick = (schedule: ProductionSchedule) => {
-    alert(`Export functionality for Production Schedule ${schedule.name} not yet implemented.`);
+  // Generic Export Click Handler
+  const handleExportClick = (id: string, type: 'patch' | 'stage' | 'schedule') => {
+    if (type === 'patch') {
+      setExportPatchSheetId(id);
+      setShowPatchSheetExportModal(true);
+    } else if (type === 'stage') {
+      setExportStagePlotId(id);
+      setShowStagePlotExportModal(true);
+    } else if (type === 'schedule') {
+      setExportProductionScheduleId(id);
+      setShowProductionScheduleExportModal(true);
+    }
   };
 
   const handleExportRunOfShowClick = (runOfShow: RunOfShow) => {
     alert(`Export functionality for Run of Show ${runOfShow.name} not yet implemented.`);
   };
 
-  const handleExportDownload = async (patchSheetId: string) => {
+  // Generic html2canvas export function
+  const exportImageWithCanvas = async (
+    targetRef: React.RefObject<HTMLDivElement>,
+    itemName: string, // For filename
+    fileNameSuffix: string,
+    backgroundColor: string,
+    font: string
+  ) => {
+    if (!targetRef.current) {
+      console.error("Export component ref not ready.");
+      setSupabaseError("Export component not ready. Please try again."); // Using supabaseError for general errors
+      return;
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 100)); // Ensure DOM update
+
+    if (document.fonts && typeof document.fonts.ready === 'function') {
+      try { await document.fonts.ready; } 
+      catch (fontError) { console.warn("Error waiting for document fonts to be ready:", fontError); }
+    } else {
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
+
     try {
-      setDownloadingId(patchSheetId);
-      setShowExportModal(false);
+      const canvas = await html2canvas(targetRef.current!, {
+        scale: 2, backgroundColor, useCORS: true, logging: process.env.NODE_ENV === 'development', letterRendering: true,
+        onclone: (clonedDoc) => {
+          const styleGlobal = clonedDoc.createElement('style');
+          styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
+          clonedDoc.head.appendChild(styleGlobal);
+          clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
+          Array.from(clonedDoc.querySelectorAll('*')).forEach((el: any) => {
+            if (el.style) { el.style.fontFamily = `${font}, sans-serif`; el.style.verticalAlign = 'baseline';}
+          });
+        }
+      });
+      const image = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = `${itemName.replace(/\s+/g, "-").toLowerCase()}-${fileNameSuffix}.png`;
+      link.href = image;
+      link.click();
+    } catch (error) {
+      console.error(`Error exporting ${fileNameSuffix}:`, error);
+      setSupabaseError(`Failed to export ${fileNameSuffix}. See console for details.`);
+    }
+  };
+
+  // Patch Sheet Export
+  const prepareAndExecutePatchSheetExport = async (patchSheetId: string, type: 'image' | 'print') => {
+    setExportingItemId(patchSheetId);
+    setShowPatchSheetExportModal(false);
+    try {
       const { data, error } = await supabase.from("patch_sheets").select("*").eq("id", patchSheetId).single();
-      if (error) throw error;
-      const fullPatchSheet = data;
+      if (error || !data) throw error || new Error("Patch sheet not found");
+      setCurrentExportPatchSheet(data);
+      await new Promise(resolve => setTimeout(resolve, 50)); // Allow render
 
-      setCurrentExportPatchSheet(fullPatchSheet);
-      setTimeout(async () => {
-        if (patchSheetExportRef.current && fullPatchSheet) {
-          const canvas = await html2canvas(patchSheetExportRef.current, { scale: 2, backgroundColor: "#111827", logging: false, useCORS: true, allowTaint: true, windowHeight: document.documentElement.offsetHeight, windowWidth: document.documentElement.offsetWidth, height: patchSheetExportRef.current.scrollHeight, width: patchSheetExportRef.current.offsetWidth });
-          const imageURL = canvas.toDataURL("image/png");
-          const link = document.createElement("a");
-          link.href = imageURL;
-          link.download = `${fullPatchSheet.name.replace(/\s+/g, "-").toLowerCase()}-patch-sheet.png`;
-          link.click();
-        }
-        setCurrentExportPatchSheet(null);
-        setDownloadingId(null);
-        setExportPatchSheetId(null);
-      }, 100);
-    } catch (error) {
-      console.error("Error downloading patch sheet:", error);
-      alert("Failed to download patch sheet. Please try again.");
-      setDownloadingId(null); setExportPatchSheetId(null);
+      if (type === 'image') {
+        await exportImageWithCanvas(patchSheetExportRef, data.name, "patch-sheet", "#111827", "Inter");
+      } else {
+        await exportImageWithCanvas(printPatchSheetExportRef, data.name, "patch-sheet-print", "#ffffff", "Arial");
+      }
+    } catch (err) {
+      console.error("Error preparing patch sheet export:", err);
+      setSupabaseError("Failed to prepare patch sheet for export.");
+    } finally {
+      setCurrentExportPatchSheet(null);
+      setExportingItemId(null);
+      setExportPatchSheetId(null);
     }
   };
 
-  const handlePrintExport = async (patchSheetId: string) => {
+  // Stage Plot Export
+  const prepareAndExecuteStagePlotExport = async (stagePlotId: string, type: 'image' | 'print') => {
+    setExportingItemId(stagePlotId);
+    setShowStagePlotExportModal(false);
     try {
-      setDownloadingId(patchSheetId);
-      setShowExportModal(false);
-      const { data, error } = await supabase.from("patch_sheets").select("*").eq("id", patchSheetId).single();
-      if (error) throw error;
-      const fullPatchSheet = data;
-
-      setCurrentExportPatchSheet(fullPatchSheet);
-      setTimeout(async () => {
-        if (printPatchSheetExportRef.current && fullPatchSheet) {
-          const canvas = await html2canvas(printPatchSheetExportRef.current, { scale: 2, backgroundColor: "#ffffff", logging: false, useCORS: true, allowTaint: true, windowHeight: document.documentElement.offsetHeight, windowWidth: document.documentElement.offsetWidth, height: printPatchSheetExportRef.current.scrollHeight, width: printPatchSheetExportRef.current.offsetWidth });
-          const imageURL = canvas.toDataURL("image/png");
-          const link = document.createElement("a");
-          link.href = imageURL;
-          link.download = `${fullPatchSheet.name.replace(/\s+/g, "-").toLowerCase()}-patch-sheet-print.png`;
-          link.click();
-        }
-        setCurrentExportPatchSheet(null);
-        setDownloadingId(null);
-        setExportPatchSheetId(null);
-      }, 100);
-    } catch (error) {
-      console.error("Error exporting print-friendly patch sheet:", error);
-      alert("Failed to export patch sheet. Please try again.");
-      setDownloadingId(null); setExportPatchSheetId(null);
-    }
-  };
-
-  const handleExportStagePlotImage = async (stagePlotId: string) => {
-    try {
-      setDownloadingId(stagePlotId);
-      setShowStagePlotExportModal(false);
       const { data, error } = await supabase.from("stage_plots").select("*").eq("id", stagePlotId).single();
-      if (error) throw error;
-      if (!data) throw new Error("Stage plot not found");
+      if (error || !data) throw error || new Error("Stage plot not found");
       const fullStagePlot = { ...data, stage_size: data.stage_size || "medium-wide", elements: data.elements || [] };
-
       setCurrentExportStagePlot(fullStagePlot);
-      setTimeout(async () => {
-        if (stagePlotExportRef.current && fullStagePlot) {
-          const canvas = await html2canvas(stagePlotExportRef.current, { scale: 2, backgroundColor: "#111827", logging: false, useCORS: true, allowTaint: true, windowHeight: document.documentElement.offsetHeight, windowWidth: document.documentElement.offsetWidth, height: stagePlotExportRef.current.scrollHeight, width: stagePlotExportRef.current.offsetWidth });
-          const imageURL = canvas.toDataURL("image/png");
-          const link = document.createElement("a");
-          link.href = imageURL;
-          link.download = `${fullStagePlot.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot.png`;
-          link.click();
-        }
-        setCurrentExportStagePlot(null);
-        setDownloadingId(null);
-        setExportStagePlotId(null);
-      }, 100);
-    } catch (error) {
-      console.error("Error downloading stage plot:", error);
-      alert("Failed to download stage plot. Please try again.");
-      setDownloadingId(null); setExportStagePlotId(null);
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      if (type === 'image') {
+        await exportImageWithCanvas(stagePlotExportRef, fullStagePlot.name, "stage-plot", "#111827", "Inter");
+      } else {
+        await exportImageWithCanvas(printStagePlotExportRef, fullStagePlot.name, "stage-plot-print", "#ffffff", "Arial");
+      }
+    } catch (err) {
+      console.error("Error preparing stage plot export:", err);
+      setSupabaseError("Failed to prepare stage plot for export.");
+    } finally {
+      setCurrentExportStagePlot(null);
+      setExportingItemId(null);
+      setExportStagePlotId(null);
     }
   };
-
-  const handlePrintStagePlot = async (stagePlotId: string) => {
+  
+  // Production Schedule Export
+  const prepareAndExecuteProductionScheduleExport = async (scheduleId: string, type: 'image' | 'print') => {
+    setExportingItemId(scheduleId);
+    setShowProductionScheduleExportModal(false);
     try {
-      setDownloadingId(stagePlotId);
-      setShowStagePlotExportModal(false);
-      const { data, error } = await supabase.from("stage_plots").select("*").eq("id", stagePlotId).single();
-      if (error) throw error;
-      if (!data) throw new Error("Stage plot not found");
-      const fullStagePlot = { ...data, stage_size: data.stage_size || "medium-wide", elements: data.elements || [] };
+      const { data: rawData, error } = await supabase.from("production_schedules").select("*").eq("id", scheduleId).single();
+      if (error || !rawData) throw error || new Error("Production schedule not found");
+      
+      const transformedData = transformToScheduleForExport(rawData as FullProductionScheduleData);
+      setCurrentExportProductionSchedule(transformedData);
+      await new Promise(resolve => setTimeout(resolve, 50));
 
-      setCurrentExportStagePlot(fullStagePlot);
-      setTimeout(async () => {
-        if (printStagePlotExportRef.current && fullStagePlot) {
-          const canvas = await html2canvas(printStagePlotExportRef.current, { scale: 2, backgroundColor: "#ffffff", logging: false, useCORS: true, allowTaint: true, windowHeight: document.documentElement.offsetHeight, windowWidth: document.documentElement.offsetWidth, height: printStagePlotExportRef.current.scrollHeight, width: printStagePlotExportRef.current.offsetWidth });
-          const imageURL = canvas.toDataURL("image/png");
-          const link = document.createElement("a");
-          link.href = imageURL;
-          link.download = `${fullStagePlot.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot-print.png`;
-          link.click();
-        }
-        setCurrentExportStagePlot(null);
-        setDownloadingId(null);
-        setExportStagePlotId(null);
-      }, 100);
-    } catch (error) {
-      console.error("Error exporting print-friendly stage plot:", error);
-      alert("Failed to export stage plot. Please try again.");
-      setDownloadingId(null); setExportStagePlotId(null);
+      if (type === 'image') {
+        await exportImageWithCanvas(productionScheduleExportRef, transformedData.name, "production-schedule", "#0f172a", "Inter");
+      } else {
+        await exportImageWithCanvas(printProductionScheduleExportRef, transformedData.name, "production-schedule-print", "#ffffff", "Arial");
+      }
+    } catch (err) {
+      console.error("Error preparing production schedule export:", err);
+      setSupabaseError("Failed to prepare production schedule for export.");
+    } finally {
+      setCurrentExportProductionSchedule(null);
+      setExportingItemId(null);
+      setExportProductionScheduleId(null);
     }
   };
+
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+        <Loader className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500" />
       </div>
     );
   }
@@ -408,24 +488,12 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gray-900 flex flex-col">
       <Header dashboard={true} onSignOut={handleSignOut} />
 
-      {supabaseWarning && (
-        <div className="bg-yellow-500 text-yellow-900 px-4 py-3 shadow-sm">
-          <div className="container mx-auto flex items-center">
-            <Info className="h-5 w-5 mr-2" />
-            <div>
-              <p className="font-medium">Supabase Configuration Required</p>
-              <p className="text-sm">Please set up your Supabase environment variables.</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {supabaseError && (
         <div className="bg-red-500 text-white px-4 py-3 shadow-sm">
           <div className="container mx-auto flex items-center">
             <Info className="h-5 w-5 mr-2" />
             <div>
-              <p className="font-medium">Connection Error</p>
+              <p className="font-medium">Error</p>
               <p className="text-sm">{supabaseError}</p>
             </div>
           </div>
@@ -468,10 +536,10 @@ const Dashboard = () => {
                         <button
                           className="p-2 text-gray-400 hover:text-indigo-400"
                           title="Download"
-                          onClick={(e) => { e.stopPropagation(); handleExportPatchListClick(patchList); }}
-                          disabled={downloadingId === patchList.id}
+                          onClick={(e) => { e.stopPropagation(); handleExportClick(patchList.id, "patch"); }}
+                          disabled={exportingItemId === patchList.id}
                         >
-                          <Download className={`h-5 w-5 ${downloadingId === patchList.id ? "animate-pulse" : ""}`} />
+                          {exportingItemId === patchList.id ? <Loader className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
                         </button>
                         <button
                           className="p-2 text-gray-400 hover:text-indigo-400"
@@ -553,10 +621,10 @@ const Dashboard = () => {
                         <button
                           className="p-2 text-gray-400 hover:text-indigo-400"
                           title="Download"
-                          onClick={(e) => { e.stopPropagation(); handleExportStageplotClick(stagePlot); }}
-                          disabled={downloadingId === stagePlot.id}
+                          onClick={(e) => { e.stopPropagation(); handleExportClick(stagePlot.id, "stage"); }}
+                          disabled={exportingItemId === stagePlot.id}
                         >
-                          <Download className={`h-5 w-5 ${downloadingId === stagePlot.id ? "animate-pulse" : ""}`} />
+                          {exportingItemId === stagePlot.id ? <Loader className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
                         </button>
                         <button
                           className="p-2 text-gray-400 hover:text-indigo-400"
@@ -638,10 +706,10 @@ const Dashboard = () => {
                         <button
                           className="p-2 text-gray-400 hover:text-indigo-400"
                           title="Download"
-                          onClick={(e) => { e.stopPropagation(); handleExportProductionScheduleClick(schedule); }}
-                          disabled={downloadingId === schedule.id}
+                          onClick={(e) => { e.stopPropagation(); handleExportClick(schedule.id, "schedule"); }}
+                          disabled={exportingItemId === schedule.id}
                         >
-                          <Download className={`h-5 w-5 ${downloadingId === schedule.id ? "animate-pulse" : ""}`} />
+                          {exportingItemId === schedule.id ? <Loader className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
                         </button>
                         <button
                           className="p-2 text-gray-400 hover:text-indigo-400"
@@ -724,9 +792,9 @@ const Dashboard = () => {
                           className="p-2 text-gray-400 hover:text-indigo-400"
                           title="Download"
                           onClick={(e) => { e.stopPropagation(); handleExportRunOfShowClick(ros); }}
-                          disabled={downloadingId === ros.id}
+                          disabled={exportingItemId === ros.id}
                         >
-                          <Download className={`h-5 w-5 ${downloadingId === ros.id ? "animate-pulse" : ""}`} />
+                          {exportingItemId === ros.id ? <Loader className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
                         </button>
                         <button
                           className="p-2 text-gray-400 hover:text-indigo-400"
@@ -793,22 +861,31 @@ const Dashboard = () => {
         </div>
       </main>
 
-      {/* Modals for creating new documents are removed as navigation handles this now */}
-
       <ExportModal
-        isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
-        onExportImage={() => exportPatchSheetId && handleExportDownload(exportPatchSheetId)}
-        onExportPdf={() => exportPatchSheetId && handlePrintExport(exportPatchSheetId)}
+        isOpen={showPatchSheetExportModal}
+        onClose={() => { if(!(exportingItemId && exportPatchSheetId)) setShowPatchSheetExportModal(false);}}
+        onExportImage={() => exportPatchSheetId && prepareAndExecutePatchSheetExport(exportPatchSheetId, 'image')}
+        onExportPdf={() => exportPatchSheetId && prepareAndExecutePatchSheetExport(exportPatchSheetId, 'print')}
         title="Patch Sheet"
+        isExporting={!!(exportingItemId && exportPatchSheetId)}
       />
 
       <ExportModal
         isOpen={showStagePlotExportModal}
-        onClose={() => setShowStagePlotExportModal(false)}
-        onExportImage={() => exportStagePlotId && handleExportStagePlotImage(exportStagePlotId)}
-        onExportPdf={() => exportStagePlotId && handlePrintStagePlot(exportStagePlotId)}
+        onClose={() => {if(!(exportingItemId && exportStagePlotId)) setShowStagePlotExportModal(false);}}
+        onExportImage={() => exportStagePlotId && prepareAndExecuteStagePlotExport(exportStagePlotId, 'image')}
+        onExportPdf={() => exportStagePlotId && prepareAndExecuteStagePlotExport(exportStagePlotId, 'print')}
         title="Stage Plot"
+        isExporting={!!(exportingItemId && exportStagePlotId)}
+      />
+
+      <ExportModal
+        isOpen={showProductionScheduleExportModal}
+        onClose={() => {if(!(exportingItemId && exportProductionScheduleId)) setShowProductionScheduleExportModal(false);}}
+        onExportImage={() => exportProductionScheduleId && prepareAndExecuteProductionScheduleExport(exportProductionScheduleId, 'image')}
+        onExportPdf={() => exportProductionScheduleId && prepareAndExecuteProductionScheduleExport(exportProductionScheduleId, 'print')}
+        title="Production Schedule"
+        isExporting={!!(exportingItemId && exportProductionScheduleId)}
       />
 
       {currentExportPatchSheet && (
@@ -822,6 +899,21 @@ const Dashboard = () => {
         <>
           <StagePlotExport ref={stagePlotExportRef} stagePlot={currentExportStagePlot} />
           <PrintStagePlotExport ref={printStagePlotExportRef} stagePlot={currentExportStagePlot} />
+        </>
+      )}
+
+      {currentExportProductionSchedule && (
+        <>
+          <ProductionScheduleExport 
+            key={`export-${currentExportProductionSchedule.id}-${currentExportProductionSchedule.last_edited || currentExportProductionSchedule.created_at}`}
+            ref={productionScheduleExportRef} 
+            schedule={currentExportProductionSchedule} 
+          />
+          <PrintProductionScheduleExport 
+            key={`print-export-${currentExportProductionSchedule.id}-${currentExportProductionSchedule.last_edited || currentExportProductionSchedule.created_at}`}
+            ref={printProductionScheduleExportRef} 
+            schedule={currentExportProductionSchedule} 
+          />
         </>
       )}
 
