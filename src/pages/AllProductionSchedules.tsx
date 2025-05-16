@@ -7,6 +7,8 @@ import ProductionScheduleExport from "../components/production-schedule/Producti
 import PrintProductionScheduleExport from "../components/production-schedule/PrintProductionScheduleExport";
 import ExportModal from "../components/ExportModal";
 import html2canvas from "html2canvas";
+import { ScheduleForExport } from "./ProductionScheduleEditor"; // Import the interface
+import { v4 as uuidv4 } from 'uuid';
 import {
   PlusCircle,
   Edit,
@@ -20,7 +22,7 @@ import {
   SortDesc,
   FileText,
   Download,
-  Copy, // Import Copy icon
+  Copy,
 } from "lucide-react";
 
 interface ProductionScheduleSummary {
@@ -30,18 +32,13 @@ interface ProductionScheduleSummary {
   last_edited?: string;
 }
 
-interface FullProductionSchedule extends ProductionScheduleSummary {
-  info?: Record<string, any>;
-  crew_key?: Array<{ id: string; name: string; color: string }>;
-  schedule_items?: Array<{
-    id: string;
-    start_time: string;
-    end_time: string;
-    activity: string;
-    notes: string;
-    crew_ids: string[]; // Ensure this matches the editor's 'assignedCrewIds' if that's the source
-  }>;
-  // Add any other fields that are part of the full schedule data
+// This will be the raw data fetched from Supabase
+interface FullProductionScheduleData {
+  id: string;
+  name: string;
+  created_at: string;
+  last_edited?: string;
+  user_id: string;
   show_name?: string;
   job_number?: string;
   facility_name?: string;
@@ -50,11 +47,73 @@ interface FullProductionSchedule extends ProductionScheduleSummary {
   account_manager?: string;
   set_datetime?: string;
   strike_datetime?: string;
+  crew_key?: Array<{ id: string; name: string; color: string }>;
+  schedule_items?: Array<{
+    id: string;
+    startTime: string; // Note: field names from DB might be snake_case
+    endTime: string;
+    activity: string;
+    notes: string;
+    assignedCrewIds: string[];
+  }>;
+  // Add any other fields that are part of the full schedule data from the DB
 }
 
 
 type SortField = "name" | "created_at" | "last_edited";
 type SortDirection = "asc" | "desc";
+
+// Utility to parse date/time strings, similar to the editor
+const parseDateTime = (dateTimeStr: string | null | undefined) => {
+  if (!dateTimeStr) return { date: undefined, time: undefined, full: undefined };
+  try {
+    const d = new Date(dateTimeStr);
+    if (isNaN(d.getTime())) return { date: dateTimeStr, time: undefined, full: dateTimeStr };
+    return {
+      date: d.toISOString().split('T')[0],
+      time: d.toTimeString().split(' ')[0].substring(0, 5),
+      full: dateTimeStr,
+    };
+  } catch (e) {
+    return { date: dateTimeStr, time: undefined, full: dateTimeStr };
+  }
+};
+
+// Transforms raw data to the format expected by export components
+const transformToScheduleForExport = (fullSchedule: FullProductionScheduleData): ScheduleForExport => {
+  const setDateTimeParts = parseDateTime(fullSchedule.set_datetime);
+  const strikeDateTimeParts = parseDateTime(fullSchedule.strike_datetime);
+
+  return {
+    id: fullSchedule.id || uuidv4(),
+    name: fullSchedule.name,
+    created_at: fullSchedule.created_at || new Date().toISOString(),
+    last_edited: fullSchedule.last_edited,
+    info: {
+      event_name: fullSchedule.show_name,
+      job_number: fullSchedule.job_number,
+      venue: fullSchedule.facility_name,
+      project_manager: fullSchedule.project_manager,
+      production_manager: fullSchedule.production_manager,
+      account_manager: fullSchedule.account_manager,
+      date: setDateTimeParts.date,
+      load_in: setDateTimeParts.time,
+      event_start: setDateTimeParts.time, // Assuming event_start is same as load_in for this context
+      event_end: strikeDateTimeParts.time, // Assuming event_end is related to strike time
+      strike_datetime: fullSchedule.strike_datetime,
+    },
+    crew_key: fullSchedule.crew_key?.map(ck => ({ ...ck })) || [],
+    schedule_items: fullSchedule.schedule_items?.map(item => ({
+      id: item.id,
+      start_time: item.startTime, // Ensure these field names match your DB or transform if necessary
+      end_time: item.endTime,
+      activity: item.activity,
+      notes: item.notes,
+      crew_ids: [...(item.assignedCrewIds || [])],
+    })) || [],
+  };
+};
+
 
 const AllProductionSchedules: React.FC = () => {
   const navigate = useNavigate();
@@ -71,9 +130,9 @@ const AllProductionSchedules: React.FC = () => {
 
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportScheduleId, setExportScheduleId] = useState<string | null>(null);
-  const [currentExportSchedule, setCurrentExportSchedule] = useState<FullProductionSchedule | null>(null);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [duplicatingId, setDuplicatingId] = useState<string | null>(null); // For duplicate loading state
+  const [currentExportScheduleData, setCurrentExportScheduleData] = useState<ScheduleForExport | null>(null);
+  const [isExporting, setIsExporting] = useState(false); // Renamed from downloadingId for clarity
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const exportRef = useRef<HTMLDivElement>(null);
   const printExportRef = useRef<HTMLDivElement>(null);
@@ -166,23 +225,23 @@ const AllProductionSchedules: React.FC = () => {
     setScheduleToDelete(null);
   };
 
-  const handleExportScheduleClick = (scheduleId: string) => {
-    setExportScheduleId(scheduleId);
+  const openExportModalForSchedule = (scheduleId: string) => {
+    setExportScheduleId(scheduleId); // Keep track of which schedule ID is targeted
     setShowExportModal(true);
   };
 
-  const fetchFullScheduleData = async (scheduleId: string): Promise<FullProductionSchedule | null> => {
+  const fetchFullScheduleDataForExport = async (scheduleId: string): Promise<FullProductionScheduleData | null> => {
     const { data, error } = await supabase
       .from("production_schedules")
-      .select("*") 
+      .select("*") // Fetch all columns
       .eq("id", scheduleId)
       .single();
     if (error) {
-      console.error("Error fetching full schedule data:", error);
-      setError("Failed to fetch schedule details.");
+      console.error("Error fetching full schedule data for export:", error);
+      setError("Failed to fetch schedule details for export.");
       return null;
     }
-    return data;
+    return data as FullProductionScheduleData;
   };
 
   const handleDuplicateSchedule = async (scheduleToDuplicate: ProductionScheduleSummary) => {
@@ -191,12 +250,11 @@ const AllProductionSchedules: React.FC = () => {
     setError(null);
 
     try {
-      const fullSchedule = await fetchFullScheduleData(scheduleToDuplicate.id);
+      const fullSchedule = await fetchFullScheduleDataForExport(scheduleToDuplicate.id);
       if (!fullSchedule) {
         throw new Error("Could not fetch original schedule data for duplication.");
       }
 
-      // Prepare the new schedule data
       const { id, created_at, last_edited, user_id, ...restOfSchedule } = fullSchedule;
       
       const newScheduleData = {
@@ -210,15 +268,13 @@ const AllProductionSchedules: React.FC = () => {
       const { data: newSchedule, error: insertError } = await supabase
         .from("production_schedules")
         .insert(newScheduleData)
-        .select("id, name, created_at, last_edited") // Select summary fields for the list
+        .select("id, name, created_at, last_edited")
         .single();
 
       if (insertError) throw insertError;
 
       if (newSchedule) {
         setSchedules(prevSchedules => [newSchedule, ...prevSchedules]);
-        // Optionally navigate to the new schedule's editor page
-        // navigate(`/production-schedule/${newSchedule.id}`);
       }
 
     } catch (err: any) {
@@ -229,91 +285,98 @@ const AllProductionSchedules: React.FC = () => {
     }
   };
 
-
-  const handleExportDownload = async (scheduleIdToExport: string) => {
-    if (!scheduleIdToExport) return;
-    setDownloadingId(scheduleIdToExport);
-    setShowExportModal(false);
-
-    const fullSchedule = await fetchFullScheduleData(scheduleIdToExport);
-    if (!fullSchedule) {
-      setDownloadingId(null);
+  const exportImageWithCanvas = async (
+    targetRef: React.RefObject<HTMLDivElement>,
+    scheduleData: ScheduleForExport,
+    fileNameSuffix: string,
+    backgroundColor: string,
+    font: string
+  ) => {
+    if (!targetRef.current) {
+      console.error("Export component ref not ready.");
+      setError("Export component not ready. Please try again.");
       return;
     }
-    setCurrentExportSchedule(fullSchedule);
+    setIsExporting(true);
+    setShowExportModal(false); // Close modal once export starts
 
-    setTimeout(async () => {
-      if (exportRef.current) {
-        try {
-          const canvas = await html2canvas(exportRef.current, {
-            scale: 2,
-            backgroundColor: "#111827",
-            logging: false,
-            useCORS: true,
-            allowTaint: true,
-            windowHeight: document.documentElement.offsetHeight,
-            windowWidth: document.documentElement.offsetWidth,
-            height: exportRef.current.scrollHeight,
-            width: exportRef.current.offsetWidth,
-          });
-          const imageURL = canvas.toDataURL("image/png");
-          const link = document.createElement("a");
-          link.href = imageURL;
-          link.download = `${fullSchedule.name.replace(/\s+/g, "-").toLowerCase()}-production-schedule.png`;
-          link.click();
-        } catch (exportError) {
-          console.error("Error exporting schedule as image:", exportError);
-          setError("Failed to export schedule as image.");
-        } finally {
-          setCurrentExportSchedule(null);
-          setDownloadingId(null);
-          setExportScheduleId(null);
-        }
+    // Ensure React has rendered the component with data
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    if (document.fonts && typeof document.fonts.ready === 'function') {
+      try {
+        await document.fonts.ready;
+      } catch (fontError) {
+        console.warn("Error waiting for document fonts to be ready:", fontError);
       }
-    }, 100); 
+    } else {
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
+
+    try {
+      const canvas = await html2canvas(targetRef.current!, {
+        scale: 2,
+        backgroundColor: backgroundColor,
+        useCORS: true,
+        logging: process.env.NODE_ENV === 'development',
+        letterRendering: true,
+        onclone: (clonedDoc) => {
+          const styleGlobal = clonedDoc.createElement('style');
+          styleGlobal.innerHTML = `
+            * {
+              font-family: ${font}, sans-serif !important;
+              vertical-align: baseline !important;
+            }
+          `;
+          clonedDoc.head.appendChild(styleGlobal);
+          clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
+          Array.from(clonedDoc.querySelectorAll('*')).forEach((el: any) => {
+            if (el.style) {
+              el.style.fontFamily = `${font}, sans-serif`;
+              el.style.verticalAlign = 'baseline';
+            }
+          });
+        }
+      });
+      const image = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = `${scheduleData.name || "production-schedule"}-${fileNameSuffix}.png`;
+      link.href = image;
+      link.click();
+    } catch (error) {
+      console.error(`Error exporting ${fileNameSuffix}:`, error);
+      setError(`Failed to export ${fileNameSuffix}. See console for details.`);
+    } finally {
+      setIsExporting(false);
+      setCurrentExportScheduleData(null); // Clear data after export
+      setExportScheduleId(null); // Clear targeted ID
+    }
   };
 
-  const handlePrintExport = async (scheduleIdToExport: string) => {
-     if (!scheduleIdToExport) return;
-    setDownloadingId(scheduleIdToExport);
-    setShowExportModal(false);
+  const prepareAndExecuteExport = async (
+    scheduleIdToExport: string,
+    exportType: 'image' | 'print'
+  ) => {
+    if (!scheduleIdToExport) return;
 
-    const fullSchedule = await fetchFullScheduleData(scheduleIdToExport);
-     if (!fullSchedule) {
-      setDownloadingId(null);
+    setIsExporting(true); // Set loading state for the specific item if needed, or global
+    
+    const rawScheduleData = await fetchFullScheduleDataForExport(scheduleIdToExport);
+    if (!rawScheduleData) {
+      setIsExporting(false);
       return;
     }
-    setCurrentExportSchedule(fullSchedule);
+    const transformedData = transformToScheduleForExport(rawScheduleData);
+    setCurrentExportScheduleData(transformedData); // Set data for the export component to render
 
-    setTimeout(async () => {
-      if (printExportRef.current) {
-         try {
-          const canvas = await html2canvas(printExportRef.current, {
-            scale: 2,
-            backgroundColor: "#ffffff",
-            logging: false,
-            useCORS: true,
-            allowTaint: true,
-            windowHeight: document.documentElement.offsetHeight,
-            windowWidth: document.documentElement.offsetWidth,
-            height: printExportRef.current.scrollHeight,
-            width: printExportRef.current.offsetWidth,
-          });
-          const imageURL = canvas.toDataURL("image/png");
-          const link = document.createElement("a");
-          link.href = imageURL;
-          link.download = `${fullSchedule.name.replace(/\s+/g, "-").toLowerCase()}-production-schedule-print.png`;
-          link.click();
-        } catch (exportError) {
-          console.error("Error exporting schedule as print image:", exportError);
-          setError("Failed to export schedule for print.");
-        } finally {
-          setCurrentExportSchedule(null);
-          setDownloadingId(null);
-          setExportScheduleId(null);
-        }
-      }
-    }, 100);
+    // Allow time for the export component to render with the new data
+    await new Promise(resolve => setTimeout(resolve, 50)); 
+
+    if (exportType === 'image') {
+      exportImageWithCanvas(exportRef, transformedData, "image", '#0f172a', 'Inter');
+    } else if (exportType === 'print') {
+      exportImageWithCanvas(printExportRef, transformedData, "print-friendly", '#ffffff', 'Arial');
+    }
   };
 
 
@@ -463,22 +526,23 @@ const AllProductionSchedules: React.FC = () => {
                             onClick={() => handleDuplicateSchedule(schedule)}
                             className="p-2 text-gray-400 hover:text-indigo-400 rounded-md hover:bg-gray-700 transition-colors"
                             title="Duplicate Schedule"
-                            disabled={duplicatingId === schedule.id}
+                            disabled={duplicatingId === schedule.id || isExporting}
                           >
                             <Copy className={`h-5 w-5 ${duplicatingId === schedule.id ? "animate-pulse" : ""}`} />
                           </button>
                            <button
-                            onClick={() => handleExportScheduleClick(schedule.id)}
+                            onClick={() => openExportModalForSchedule(schedule.id)}
                             className="p-2 text-gray-400 hover:text-indigo-400 rounded-md hover:bg-gray-700 transition-colors"
                             title="Export Schedule"
-                            disabled={downloadingId === schedule.id}
+                            disabled={isExporting && exportScheduleId === schedule.id || duplicatingId === schedule.id}
                           >
-                            <Download className={`h-5 w-5 ${downloadingId === schedule.id ? "animate-pulse" : ""}`} />
+                            <Download className={`h-5 w-5 ${(isExporting && exportScheduleId === schedule.id) ? "animate-pulse" : ""}`} />
                           </button>
                           <button
                             onClick={() => navigate(`/production-schedule/${schedule.id}`)}
                             className="p-2 text-gray-400 hover:text-indigo-400 rounded-md hover:bg-gray-700 transition-colors"
                             title="Edit"
+                            disabled={isExporting || duplicatingId === schedule.id}
                           >
                             <Edit className="h-5 w-5" />
                           </button>
@@ -486,6 +550,7 @@ const AllProductionSchedules: React.FC = () => {
                             onClick={() => handleDeleteRequest(schedule)}
                             className="p-2 text-gray-400 hover:text-red-400 rounded-md hover:bg-gray-700 transition-colors"
                             title="Delete"
+                            disabled={isExporting || duplicatingId === schedule.id}
                           >
                             <Trash2 className="h-5 w-5" />
                           </button>
@@ -547,19 +612,30 @@ const AllProductionSchedules: React.FC = () => {
       <ExportModal
         isOpen={showExportModal}
         onClose={() => {
-            setShowExportModal(false);
-            setExportScheduleId(null);
+            if (!isExporting) {
+                setShowExportModal(false);
+                setExportScheduleId(null); // Clear targeted ID when closing modal if not exporting
+            }
         }}
-        onExportImage={() => exportScheduleId && handleExportDownload(exportScheduleId)}
-        onExportPdf={() => exportScheduleId && handlePrintExport(exportScheduleId)}
+        onExportImage={() => exportScheduleId && prepareAndExecuteExport(exportScheduleId, 'image')}
+        onExportPdf={() => exportScheduleId && prepareAndExecuteExport(exportScheduleId, 'print')}
         title="Production Schedule"
+        isExporting={isExporting && !!exportScheduleId} // Modal's spinner tied to ongoing export for the selected ID
       />
 
-      {/* Hidden Export Components */}
-      {currentExportSchedule && (
+      {/* Hidden Export Components - Rendered when currentExportScheduleData is set */}
+      {currentExportScheduleData && (
         <>
-          <ProductionScheduleExport ref={exportRef} schedule={currentExportSchedule} />
-          <PrintProductionScheduleExport ref={printExportRef} schedule={currentExportSchedule} />
+          <ProductionScheduleExport 
+            key={`export-${currentExportScheduleData.id}-${currentExportScheduleData.last_edited || currentExportScheduleData.created_at}`}
+            ref={exportRef} 
+            schedule={currentExportScheduleData} 
+          />
+          <PrintProductionScheduleExport 
+            key={`print-export-${currentExportScheduleData.id}-${currentExportScheduleData.last_edited || currentExportScheduleData.created_at}`}
+            ref={printExportRef} 
+            schedule={currentExportScheduleData} 
+          />
         </>
       )}
 
