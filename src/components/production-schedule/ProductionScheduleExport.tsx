@@ -13,8 +13,10 @@ import {
   UserCog, 
   Briefcase, 
   UserCircle, 
+  UserSquare, // Added for Labor Schedule
 } from "lucide-react";
 import { ScheduleForExport } from "../../pages/ProductionScheduleEditor"; 
+import { LaborScheduleItem } from "./ProductionScheduleLabor"; // Import LaborScheduleItem
 
 interface ProductionScheduleExportProps {
   schedule: ScheduleForExport; 
@@ -25,6 +27,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
     const info = schedule.info || {};
     const crewKey = schedule.crew_key || [];
     const scheduleItems = schedule.schedule_items || [];
+    const laborScheduleItems = schedule.labor_schedule_items || []; // Added labor items
 
     const formatDate = (dateString?: string) => {
       if (!dateString || dateString.trim() === "") return "N/A";
@@ -44,15 +47,15 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
     };
     
     const formatTime = (timeString?: string) => {
-        if (!timeString || timeString.trim() === "") return ""; // Return empty for N/A to avoid rendering "N/A" as time
+        if (!timeString || timeString.trim() === "") return ""; 
         if (/^\d{2}:\d{2}$/.test(timeString)) { 
             return timeString;
         }
         try {
-            const d = new Date(`1970-01-01T${timeString}Z`); // Assume it's HH:MM and make it a valid date for parsing
-            if(isNaN(d.getTime())) { // If still invalid, try full date parse
+            const d = new Date(`1970-01-01T${timeString}Z`); 
+            if(isNaN(d.getTime())) { 
                  const fullDate = new Date(timeString);
-                 if(isNaN(fullDate.getTime())) return timeString; // Fallback
+                 if(isNaN(fullDate.getTime())) return timeString; 
                  return fullDate.toLocaleTimeString("en-US", {
                     hour: "2-digit", minute: "2-digit", hour12: false,
                 });
@@ -79,8 +82,6 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
           width: "1600px", 
           position: "absolute",
           left: "-9999px", 
-          // top: "0px", // TEMPORARY FOR DEBUGGING: Make it visible
-          // zIndex: 10000, // TEMPORARY FOR DEBUGGING
           fontFamily: "Inter, sans-serif",
           background: "linear-gradient(to bottom, #111827, #0f172a)", 
           boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
@@ -190,7 +191,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
           </div>
         )}
 
-        <div className="bg-gray-800/80 p-6 rounded-lg shadow-md" style={{ borderLeft: "4px solid #4f46e5" }}>
+        <div className="bg-gray-800/80 p-6 rounded-lg shadow-md mb-8" style={{ borderLeft: "4px solid #4f46e5" }}>
           <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-6">
             <ListChecks className="h-5 w-5 mr-2" /> Production Schedule
           </h3>
@@ -248,6 +249,48 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
             <p className="text-gray-400 text-center py-4">No schedule items defined.</p>
           )}
         </div>
+
+        {/* Labor Schedule Section for Export */}
+        {laborScheduleItems.length > 0 && (
+          <div className="bg-gray-800/80 p-6 rounded-lg shadow-md mb-8" style={{ borderLeft: "4px solid #4f46e5" }}>
+            <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-6">
+              <UserSquare className="h-5 w-5 mr-2" /> Labor Schedule
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr style={{ background: "linear-gradient(to right, #2d3748, #1e293b)", borderBottom: "2px solid rgba(99, 102, 241, 0.4)" }}>
+                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm">Name</th>
+                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm">Position</th>
+                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm">Date</th>
+                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm">Time In</th>
+                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm">Time Out</th>
+                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {laborScheduleItems.map((item, index) => (
+                    <tr
+                      key={item.id}
+                      style={{
+                        background: index % 2 === 0 ? "rgba(31, 41, 55, 0.7)" : "rgba(45, 55, 72, 0.4)",
+                        borderBottom: "1px solid rgba(55, 65, 81, 0.5)",
+                      }}
+                    >
+                      <td className="py-3 px-4 text-white align-middle text-sm font-medium">{item.name || "-"}</td>
+                      <td className="py-3 px-4 text-white align-middle text-sm">{item.position || "-"}</td>
+                      <td className="py-3 px-4 text-white align-middle text-sm">{formatDate(item.date) || "-"}</td>
+                      <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.time_in) || "-"}</td>
+                      <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.time_out) || "-"}</td>
+                      <td className="py-3 px-4 text-gray-300 align-middle text-sm" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>{item.notes || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
 
         <div className="relative mt-12 pt-6 overflow-hidden">
           <div

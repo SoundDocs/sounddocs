@@ -1,6 +1,7 @@
 import React, { forwardRef } from "react";
-import { Calendar, ListChecks, Palette, UserCheck, Building, Phone, Mail, UserCog, Briefcase, UserCircle } from "lucide-react";
+import { Calendar, ListChecks, Palette, UserCheck, Building, Phone, Mail, UserCog, Briefcase, UserCircle, UserSquare } from "lucide-react"; // Added UserSquare
 import { ScheduleForExport } from "../../pages/ProductionScheduleEditor"; 
+import { LaborScheduleItem } from "./ProductionScheduleLabor"; // Import LaborScheduleItem
 
 interface PrintProductionScheduleExportProps {
   schedule: ScheduleForExport; 
@@ -11,6 +12,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
     const info = schedule.info || {};
     const crewKey = schedule.crew_key || [];
     const scheduleItems = schedule.schedule_items || [];
+    const laborScheduleItems = schedule.labor_schedule_items || []; // Added labor items
 
     const formatDate = (dateString?: string) => {
       if (!dateString || dateString.trim() === "") return "N/A";
@@ -64,8 +66,6 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
           width: "1200px", 
           position: "absolute",
           left: "-9999px",
-          // top: "0px", // TEMPORARY FOR DEBUGGING
-          // zIndex: 10000, // TEMPORARY FOR DEBUGGING
           fontFamily: "Arial, sans-serif",
           backgroundColor: "white",
           color: "#000", 
@@ -150,7 +150,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
           </div>
         )}
 
-        <div>
+        <div style={{ marginBottom: "20px" }}>
           <h3 style={{ fontSize: "16px", fontWeight: "bold", borderBottom: "1px solid #eee", paddingBottom: "8px", marginBottom: "10px" }}>
             <ListChecks size={16} style={{ display: "inline", marginRight: "8px", verticalAlign: "middle" }} /> Production Schedule
           </h3>
@@ -183,6 +183,40 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
             <p style={{ color: "#555", textAlign: "center", padding: "10px 0" }}>No schedule items defined.</p>
           )}
         </div>
+
+        {/* Labor Schedule Section for Print Export */}
+        {laborScheduleItems.length > 0 && (
+          <div style={{ marginBottom: "20px" }}>
+            <h3 style={{ fontSize: "16px", fontWeight: "bold", borderBottom: "1px solid #eee", paddingBottom: "8px", marginBottom: "10px" }}>
+              <UserSquare size={16} style={{ display: "inline", marginRight: "8px", verticalAlign: "middle" }} /> Labor Schedule
+            </h3>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+              <thead>
+                <tr style={{ backgroundColor: "#f0f0f0", borderBottom: "1px solid #ccc" }}>
+                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "20%" }}>Name</th>
+                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "20%" }}>Position</th>
+                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "15%" }}>Date</th>
+                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "10%" }}>Time In</th>
+                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "10%" }}>Time Out</th>
+                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "25%" }}>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {laborScheduleItems.map((item, index) => (
+                  <tr key={item.id} style={{ borderBottom: "1px solid #eee", backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9" }}>
+                    <td style={{ padding: "8px", verticalAlign: "top", fontWeight: "500" }}>{item.name || "-"}</td>
+                    <td style={{ padding: "8px", verticalAlign: "top" }}>{item.position || "-"}</td>
+                    <td style={{ padding: "8px", verticalAlign: "top" }}>{formatDate(item.date) || "-"}</td>
+                    <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.time_in) || "-"}</td>
+                    <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.time_out) || "-"}</td>
+                    <td style={{ padding: "8px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.notes || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
 
         <div style={{ marginTop: "40px", borderTop: "1px solid #ccc", paddingTop: "15px", fontSize: "12px", color: "#555", display: "flex", justifyContent: "space-between" }}>
           <span>SoundDocs | Professional Audio Documentation</span>

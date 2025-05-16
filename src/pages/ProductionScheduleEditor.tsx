@@ -6,14 +6,13 @@ import Footer from "../components/Footer";
 import ProductionScheduleHeader from "../components/production-schedule/ProductionScheduleHeader";
 import ProductionScheduleCrewKey, { CrewKeyItem } from "../components/production-schedule/ProductionScheduleCrewKey";
 import ProductionScheduleTable, { ScheduleItem } from "../components/production-schedule/ProductionScheduleTable";
+import ProductionScheduleLabor, { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor"; // Added import
 import MobileScreenWarning from "../components/MobileScreenWarning";
 import { useScreenSize } from "../hooks/useScreenSize";
-import { Loader, ArrowLeft, Save, AlertCircle } from "lucide-react"; // Removed Download
+import { Loader, ArrowLeft, Save, AlertCircle, Users } from "lucide-react"; 
 import { v4 as uuidv4 } from 'uuid';
-// Removed html2canvas, ExportModal, ProductionScheduleExport, PrintProductionScheduleExport as direct imports for editor's own export button
 
-// Define the type for the data structure expected by export components
-// This type is still useful as it's used by the export components themselves, which are now invoked from other pages.
+
 export interface ScheduleForExport {
   id: string;
   name: string;
@@ -51,6 +50,7 @@ export interface ScheduleForExport {
     notes: string;
     crew_ids: string[];
   }>;
+  labor_schedule_items: LaborScheduleItem[]; // Added labor schedule items
 }
 
 
@@ -75,6 +75,7 @@ interface ProductionScheduleData {
   strike_datetime: string;
   crew_key: CrewKeyItem[];
   schedule_items: ScheduleItem[];
+  labor_schedule_items: LaborScheduleItem[]; // Added labor schedule items
 }
 
 const ProductionScheduleEditor = () => {
@@ -89,33 +90,21 @@ const ProductionScheduleEditor = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showMobileWarning, setShowMobileWarning] = useState(false);
 
-  // Removed states related to editor's own export modal and process
-  // const [showExportModal, setShowExportModal] = useState(false);
-  // const [isExporting, setIsExporting] = useState(false);
-  // const [scheduleForExportData, setScheduleForExportData] = useState<ScheduleForExport | null>(null);
-
-  // Removed refs for editor's own export components
-  // const exportRef = useRef<HTMLDivElement>(null);
-  // const printExportRef = useRef<HTMLDivElement>(null);
-
-  // parseDateTime is still used for initializing editor state from fetched data
   const parseDateTime = (dateTimeStr: string | null | undefined) => {
     if (!dateTimeStr) return { date: undefined, time: undefined, full: undefined };
     try {
       const d = new Date(dateTimeStr);
-      if (isNaN(d.getTime())) return { date: dateTimeStr, time: undefined, full: dateTimeStr }; // Return original if invalid
+      if (isNaN(d.getTime())) return { date: dateTimeStr, time: undefined, full: dateTimeStr }; 
       return {
-        date: d.toISOString().split('T')[0], // YYYY-MM-DD
-        time: d.toTimeString().split(' ')[0].substring(0, 5), // HH:MM
+        date: d.toISOString().split('T')[0], 
+        time: d.toTimeString().split(' ')[0].substring(0, 5), 
         full: dateTimeStr,
       };
     } catch (e) {
-      return { date: dateTimeStr, time: undefined, full: dateTimeStr }; // Return original on error
+      return { date: dateTimeStr, time: undefined, full: dateTimeStr }; 
     }
   };
   
-  // prepareScheduleForExport function removed as export is no longer initiated from this editor directly.
-  // The logic for preparing data for export will reside where the export is initiated (Dashboard, AllProductionSchedules).
 
   useEffect(() => {
     if (screenSize === "mobile" || screenSize === "tablet") {
@@ -147,6 +136,7 @@ const ProductionScheduleEditor = () => {
           strike_datetime: "",
           crew_key: [],
           schedule_items: [],
+          labor_schedule_items: [], // Initialize new field
         };
         setSchedule(newSchedule);
         setLoading(false);
@@ -167,6 +157,7 @@ const ProductionScheduleEditor = () => {
               strike_datetime: data.strike_datetime || "",
               crew_key: data.crew_key || [],
               schedule_items: data.schedule_items || [],
+              labor_schedule_items: data.labor_schedule_items || [], // Load labor items
             });
           } else {
             navigate("/dashboard");
@@ -248,6 +239,15 @@ const ProductionScheduleEditor = () => {
     }
   };
 
+  const handleUpdateLaborScheduleItems = (items: LaborScheduleItem[]) => { // New handler
+    if (schedule) {
+      setSchedule({
+        ...schedule,
+        labor_schedule_items: items,
+      });
+    }
+  };
+
   const handleSave = async () => {
     if (!schedule || !user) return;
     setSaving(true);
@@ -261,6 +261,10 @@ const ProductionScheduleEditor = () => {
       id: item.id, startTime: item.startTime, endTime: item.endTime,
       activity: item.activity, notes: item.notes, assignedCrewIds: item.assignedCrewIds,
     }));
+    const sanitizedLaborScheduleItems = schedule.labor_schedule_items.map(item => ({ // Sanitize labor items
+      id: item.id, name: item.name, position: item.position, date: item.date,
+      time_in: item.time_in, time_out: item.time_out, notes: item.notes,
+    }));
 
     const scheduleDataToSave: Omit<ProductionScheduleData, 'id' | 'user_id' | 'created_at'> & { user_id: string, id?: string, created_at?: string } = {
       ...schedule,
@@ -270,6 +274,7 @@ const ProductionScheduleEditor = () => {
       strike_datetime: schedule.strike_datetime || null as any,
       crew_key: sanitizedCrewKey,
       schedule_items: sanitizedScheduleItems,
+      labor_schedule_items: sanitizedLaborScheduleItems, // Add labor items to save data
     };
     
     if (id === "new" && scheduleDataToSave.id) {
@@ -310,8 +315,6 @@ const ProductionScheduleEditor = () => {
     }
   };
 
-  // Removed openExportModalHandler and export functions (exportImageWithCanvas, handleExportImage, handleExportPrintFriendlyImage)
-  // as export is no longer initiated from this editor.
 
   if (loading || !schedule) {
     return (
@@ -336,22 +339,22 @@ const ProductionScheduleEditor = () => {
 
       <main className="flex-grow container mx-auto px-4 py-6 md:py-12 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
-          <div className="flex items-center flex-grow min-w-0"> {/* Added flex-grow and min-w-0 here */}
+          <div className="flex items-center flex-grow min-w-0"> 
             <button
               onClick={() => navigate("/dashboard")}
-              className="mr-2 md:mr-4 flex items-center text-gray-400 hover:text-white transition-colors flex-shrink-0" // Added flex-shrink-0
+              className="mr-2 md:mr-4 flex items-center text-gray-400 hover:text-white transition-colors flex-shrink-0" 
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <div className="flex-grow min-w-0"> {/* Added flex-grow and min-w-0 here */}
+            <div className="flex-grow min-w-0"> 
               <input
                 type="text"
                 value={schedule.name}
                 onChange={handleNameChange}
-                className="text-xl md:text-2xl font-bold text-white bg-transparent border-none focus:outline-none focus:ring-0 w-full" // Removed max-w-[220px] and sm:max-w-none, relying on w-full and parent flex
+                className="text-xl md:text-2xl font-bold text-white bg-transparent border-none focus:outline-none focus:ring-0 w-full" 
                 placeholder="Enter schedule name"
               />
-              <p className="text-xs sm:text-sm text-gray-400 truncate"> {/* Added truncate for safety on very long dates */}
+              <p className="text-xs sm:text-sm text-gray-400 truncate"> 
                 {schedule.last_edited
                   ? `Last edited: ${new Date(schedule.last_edited).toLocaleString()}`
                   : `Created: ${new Date(schedule.created_at || Date.now()).toLocaleString()}`}
@@ -359,11 +362,10 @@ const ProductionScheduleEditor = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 fixed bottom-4 right-4 z-20 md:static md:z-auto sm:ml-auto flex-shrink-0"> {/* Added flex-shrink-0 */}
-            {/* Export button removed */}
+          <div className="flex items-center gap-2 fixed bottom-4 right-4 z-20 md:static md:z-auto sm:ml-auto flex-shrink-0"> 
             <button
               onClick={handleSave}
-              disabled={saving} // Removed isExporting from disabled condition
+              disabled={saving} 
               className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg md:shadow-none"
             >
               {saving ? (
@@ -458,10 +460,35 @@ const ProductionScheduleEditor = () => {
           </div>
         </div>
 
+        {/* Labor Schedule Section */}
+        <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden mb-8">
+          <div className="p-4 md:p-6 border-b border-gray-700">
+            <div className="flex items-center">
+              <Users className="h-6 w-6 mr-3 text-indigo-400" />
+              <div>
+                <h2 className="text-xl font-medium text-white">Labor Schedule</h2>
+                <p className="text-gray-400 text-sm">
+                  Manage labor assignments, call times, and positions.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="p-0 md:p-2 lg:p-4 overflow-x-auto">
+             <div className="min-w-[900px] md:min-w-0">
+                <ProductionScheduleLabor
+                    laborItems={schedule.labor_schedule_items}
+                    onUpdateLaborItems={handleUpdateLaborScheduleItems}
+                    crewKey={schedule.crew_key} // Pass crewKey for potential future use (e.g., name suggestions)
+                />
+            </div>
+          </div>
+        </div>
+
+
         <div className="flex justify-center py-8">
           <button
             onClick={handleSave}
-            disabled={saving} // Removed isExporting
+            disabled={saving} 
             className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg text-base"
           >
             {saving ? (
@@ -480,9 +507,6 @@ const ProductionScheduleEditor = () => {
       </main>
 
       <Footer />
-
-      {/* ExportModal and hidden export components removed from direct rendering here */}
-      {/* They will be handled by pages that initiate export (Dashboard, AllProductionSchedules) */}
     </div>
   );
 };
