@@ -1,30 +1,35 @@
 import React, { forwardRef } from "react";
-import { Calendar, MapPin, Users, Settings, ListChecks, Palette, UserCheck, Building, Phone, Mail, UserCog } from "lucide-react";
+import { Calendar, ListChecks, Palette, UserCheck, Building, UserCog, Briefcase, UserCircle } from "lucide-react";
+
+interface ProductionScheduleInfo {
+  event_name?: string;
+  event_type?: string;
+  date?: string;
+  event_start?: string;
+  event_end?: string;
+  load_in?: string;
+  sound_check?: string;
+  venue?: string;
+  room?: string;
+  address?: string;
+  client_artist?: string;
+  contact_name?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  production_manager?: string;
+  project_manager?: string; 
+  job_number?: string;     
+  account_manager?: string; 
+  foh_engineer?: string;
+  monitor_engineer?: string;
+}
 
 interface ProductionSchedule {
   id: string;
   name: string;
   created_at: string;
   last_edited?: string;
-  info?: {
-    event_name?: string;
-    event_type?: string;
-    date?: string;
-    event_start?: string;
-    event_end?: string;
-    load_in?: string;
-    sound_check?: string;
-    venue?: string;
-    room?: string;
-    address?: string;
-    client_artist?: string;
-    contact_name?: string;
-    contact_email?: string;
-    contact_phone?: string;
-    production_manager?: string;
-    foh_engineer?: string;
-    monitor_engineer?: string;
-  };
+  info?: ProductionScheduleInfo;
   crew_key?: Array<{ id: string; name: string; color: string }>;
   schedule_items?: Array<{
     id: string;
@@ -49,6 +54,14 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
     const formatDate = (dateString?: string) => {
       if (!dateString) return "N/A";
        try {
+        if (dateString.length === 10 && dateString.includes('-')) {
+            const [year, month, day] = dateString.split('-');
+            return new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+            });
+        }
         return new Date(dateString).toLocaleDateString("en-US", {
           year: "numeric",
           month: "long",
@@ -85,16 +98,15 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
         ref={ref}
         className="export-wrapper print-version"
         style={{
-          width: "1200px", // Adjusted for typical print layout
+          width: "1200px", 
           position: "absolute",
           left: "-9999px",
-          fontFamily: "Arial, sans-serif", // Common print font
+          fontFamily: "Arial, sans-serif", 
           backgroundColor: "white",
-          color: "#000", // Black text
+          color: "#000", 
           padding: "40px",
         }}
       >
-        {/* Header */}
         <div style={{ borderBottom: "2px solid #ccc", paddingBottom: "20px", marginBottom: "30px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <h1 style={{ fontSize: "28px", fontWeight: "bold", margin: 0 }}>SoundDocs</h1>
@@ -108,7 +120,6 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
           </div>
         </div>
 
-        {/* Schedule Information */}
         <div style={{ marginBottom: "20px", fontSize: "13px" }}>
             <h3 style={{ fontSize: "16px", fontWeight: "bold", borderBottom: "1px solid #eee", paddingBottom: "8px", marginBottom: "10px" }}>
                 <Calendar size={16} style={{ display: "inline", marginRight: "8px", verticalAlign: "middle" }} /> Event & Venue Details
@@ -116,6 +127,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
                     {info.event_name && (<tr><td style={{padding: "4px 0", fontWeight: "bold", width: "150px"}}>Event:</td><td>{info.event_name}</td></tr>)}
+                    {info.job_number && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Job #:</td><td>{info.job_number}</td></tr>)}
                     {info.event_type && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Type:</td><td>{info.event_type}</td></tr>)}
                     {info.date && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Date:</td><td>{formatDate(info.date)}</td></tr>)}
                     {(info.event_start || info.event_end) && (
@@ -131,7 +143,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
         </div>
         
         <div style={{ display: "flex", justifyContent: "space-between", gap: "20px", marginBottom: "20px", fontSize: "13px" }}>
-            {(info.client_artist || info.contact_name || info.contact_email || info.contact_phone) && (
+            {(info.client_artist || info.contact_name || info.contact_email || info.contact_phone || info.account_manager) && (
             <div style={{ flex: 1 }}>
                 <h3 style={{ fontSize: "16px", fontWeight: "bold", borderBottom: "1px solid #eee", paddingBottom: "8px", marginBottom: "10px" }}>
                     <UserCheck size={16} style={{ display: "inline", marginRight: "8px", verticalAlign: "middle" }} /> Client & Contact
@@ -139,6 +151,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <tbody>
                         {info.client_artist && (<tr><td style={{padding: "4px 0", fontWeight: "bold", width: "120px"}}>Client/Artist:</td><td>{info.client_artist}</td></tr>)}
+                        {info.account_manager && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Account Manager:</td><td>{info.account_manager}</td></tr>)}
                         {info.contact_name && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Contact Name:</td><td>{info.contact_name}</td></tr>)}
                         {info.contact_email && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Email:</td><td>{info.contact_email}</td></tr>)}
                         {info.contact_phone && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Phone:</td><td>{info.contact_phone}</td></tr>)}
@@ -147,7 +160,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
             </div>
             )}
 
-            {(info.production_manager || info.foh_engineer || info.monitor_engineer) && (
+            {(info.production_manager || info.project_manager || info.foh_engineer || info.monitor_engineer) && (
             <div style={{ flex: 1 }}>
                 <h3 style={{ fontSize: "16px", fontWeight: "bold", borderBottom: "1px solid #eee", paddingBottom: "8px", marginBottom: "10px" }}>
                     <UserCog size={16} style={{ display: "inline", marginRight: "8px", verticalAlign: "middle" }} /> Technical Staff
@@ -155,6 +168,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <tbody>
                         {info.production_manager && (<tr><td style={{padding: "4px 0", fontWeight: "bold", width: "150px"}}>Production Manager:</td><td>{info.production_manager}</td></tr>)}
+                        {info.project_manager && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Project Manager:</td><td>{info.project_manager}</td></tr>)}
                         {info.foh_engineer && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>FOH Engineer:</td><td>{info.foh_engineer}</td></tr>)}
                         {info.monitor_engineer && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Monitor Engineer:</td><td>{info.monitor_engineer}</td></tr>)}
                     </tbody>
@@ -163,8 +177,6 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
             )}
         </div>
 
-
-        {/* Crew Key */}
         {crewKey.length > 0 && (
           <div style={{ marginBottom: "20px" }}>
             <h3 style={{ fontSize: "16px", fontWeight: "bold", borderBottom: "1px solid #eee", paddingBottom: "8px", marginBottom: "10px" }}>
@@ -181,7 +193,6 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
           </div>
         )}
 
-        {/* Schedule Table */}
         <div>
           <h3 style={{ fontSize: "16px", fontWeight: "bold", borderBottom: "1px solid #eee", paddingBottom: "8px", marginBottom: "10px" }}>
             <ListChecks size={16} style={{ display: "inline", marginRight: "8px", verticalAlign: "middle" }} /> Production Schedule
@@ -216,7 +227,6 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
           )}
         </div>
 
-        {/* Footer */}
         <div style={{ marginTop: "40px", borderTop: "1px solid #ccc", paddingTop: "15px", fontSize: "12px", color: "#555", display: "flex", justifyContent: "space-between" }}>
           <span>SoundDocs | Professional Audio Documentation</span>
           <span>Generated on {new Date().toLocaleDateString()}</span>

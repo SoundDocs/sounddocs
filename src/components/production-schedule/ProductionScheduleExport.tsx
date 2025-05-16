@@ -2,44 +2,50 @@ import React, { forwardRef } from "react";
 import {
   Bookmark,
   Calendar,
-  MapPin,
-  Users,
-  Settings,
+  // MapPin, // Not used directly, can remove if not needed elsewhere
+  // Users, // Not used directly
+  // Settings, // Not used directly
   Clock,
   ListChecks,
   Palette,
   UserCheck,
   Building,
-  Phone,
-  Mail,
+  // Phone, // Not used directly
+  // Mail, // Not used directly
   UserCog,
+  Briefcase, // For Job Number
+  UserCircle, // For Project Manager / Account Manager
 } from "lucide-react";
+
+interface ProductionScheduleInfo {
+  event_name?: string;
+  event_type?: string;
+  date?: string;
+  event_start?: string;
+  event_end?: string;
+  load_in?: string;
+  sound_check?: string;
+  venue?: string;
+  room?: string;
+  address?: string;
+  client_artist?: string;
+  contact_name?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  production_manager?: string;
+  project_manager?: string; 
+  job_number?: string;     
+  account_manager?: string; 
+  foh_engineer?: string;
+  monitor_engineer?: string;
+}
 
 interface ProductionSchedule {
   id: string;
   name: string;
   created_at: string;
   last_edited?: string;
-  info?: {
-    event_name?: string;
-    event_type?: string;
-    date?: string;
-    event_start?: string;
-    event_end?: string;
-    load_in?: string;
-    sound_check?: string;
-    venue?: string;
-    room?: string;
-    address?: string;
-    client_artist?: string; // Combined field for client/artist
-    contact_name?: string;
-    contact_email?: string;
-    contact_phone?: string;
-    production_manager?: string;
-    foh_engineer?: string;
-    monitor_engineer?: string;
-    // Add any other relevant info fields
-  };
+  info?: ProductionScheduleInfo;
   crew_key?: Array<{ id: string; name: string; color: string }>;
   schedule_items?: Array<{
     id: string;
@@ -64,34 +70,40 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
     const formatDate = (dateString?: string) => {
       if (!dateString) return "N/A";
       try {
+        // Check if it's just a date string (YYYY-MM-DD) or full ISO
+        if (dateString.length === 10 && dateString.includes('-')) {
+            const [year, month, day] = dateString.split('-');
+            return new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+            });
+        }
         return new Date(dateString).toLocaleDateString("en-US", {
           year: "numeric",
           month: "long",
           day: "numeric",
         });
       } catch (e) {
-        return dateString; // if already formatted or invalid
+        return dateString; 
       }
     };
     
     const formatTime = (timeString?: string) => {
         if (!timeString) return "";
-        // Check if it's already in HH:MM format (e.g., from a time input)
         if (/^\d{2}:\d{2}$/.test(timeString)) {
             return timeString;
         }
-        // If it's a full date-time string, format it
         try {
             return new Date(timeString).toLocaleTimeString("en-US", {
                 hour: "2-digit",
                 minute: "2-digit",
-                hour12: false, // Use 24-hour format or true for AM/PM
+                hour12: false, 
             });
         } catch (e) {
-            return timeString; // Fallback
+            return timeString; 
         }
     };
-
 
     const getCrewDetails = (crewId: string) => {
       return crewKey.find(crew => crew.id === crewId);
@@ -102,15 +114,14 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
         ref={ref}
         className="export-wrapper text-white p-8 rounded-lg shadow-xl"
         style={{
-          width: "1600px", // Standard width for export
+          width: "1600px", 
           position: "absolute",
-          left: "-9999px", // Hide off-screen
+          left: "-9999px", 
           fontFamily: "Inter, sans-serif",
-          background: "linear-gradient(to bottom, #111827, #0f172a)", // Dark theme
+          background: "linear-gradient(to bottom, #111827, #0f172a)", 
           boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
         }}
       >
-        {/* Header */}
         <div
           className="flex justify-between items-center mb-8 pb-6 relative overflow-hidden"
           style={{
@@ -156,15 +167,14 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
           </div>
         </div>
 
-        {/* Schedule Information Panels */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {/* Event Details */}
           <div className="bg-gray-800/80 p-6 rounded-lg shadow-md" style={{ borderLeft: "4px solid #4f46e5" }}>
             <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-4">
               <Calendar className="h-5 w-5 mr-2" /> Event Details
             </h3>
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
               {info.event_name && (<div><strong className="text-gray-400 block">Event:</strong> {info.event_name}</div>)}
+              {info.job_number && (<div><strong className="text-gray-400 block">Job #:</strong> {info.job_number}</div>)}
               {info.event_type && (<div><strong className="text-gray-400 block">Type:</strong> {info.event_type}</div>)}
               {info.date && (<div><strong className="text-gray-400 block">Date:</strong> {formatDate(info.date)}</div>)}
               {(info.event_start || info.event_end) && (
@@ -177,7 +187,6 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
             </div>
           </div>
 
-          {/* Venue & Client Info */}
           <div className="bg-gray-800/80 p-6 rounded-lg shadow-md" style={{ borderLeft: "4px solid #4f46e5" }}>
             <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-4">
               <Building className="h-5 w-5 mr-2" /> Venue & Client
@@ -187,10 +196,10 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
               {info.room && (<div><strong className="text-gray-400 block">Room:</strong> {info.room}</div>)}
               {info.address && (<div className="col-span-2"><strong className="text-gray-400 block">Address:</strong> {info.address}</div>)}
               {info.client_artist && (<div><strong className="text-gray-400 block">Client/Artist:</strong> {info.client_artist}</div>)}
+              {info.account_manager && (<div><strong className="text-gray-400 block">Account Manager:</strong> {info.account_manager}</div>)}
             </div>
           </div>
           
-          {/* Contact Info */}
            {(info.contact_name || info.contact_email || info.contact_phone) && (
             <div className="bg-gray-800/80 p-6 rounded-lg shadow-md" style={{ borderLeft: "4px solid #4f46e5" }}>
                 <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-4">
@@ -204,14 +213,14 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
             </div>
            )}
 
-          {/* Technical Staff */}
-          {(info.production_manager || info.foh_engineer || info.monitor_engineer) && (
+          {(info.production_manager || info.project_manager || info.foh_engineer || info.monitor_engineer) && (
             <div className="bg-gray-800/80 p-6 rounded-lg shadow-md" style={{ borderLeft: "4px solid #4f46e5" }}>
                 <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-4">
                 <UserCog className="h-5 w-5 mr-2" /> Technical Staff
                 </h3>
                 <div className="grid grid-cols-1 gap-y-3 text-sm">
                 {info.production_manager && (<div><strong className="text-gray-400 block">Production Manager:</strong> {info.production_manager}</div>)}
+                {info.project_manager && (<div><strong className="text-gray-400 block">Project Manager:</strong> {info.project_manager}</div>)}
                 {info.foh_engineer && (<div><strong className="text-gray-400 block">FOH Engineer:</strong> {info.foh_engineer}</div>)}
                 {info.monitor_engineer && (<div><strong className="text-gray-400 block">Monitor Engineer:</strong> {info.monitor_engineer}</div>)}
                 </div>
@@ -219,8 +228,6 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
           )}
         </div>
 
-
-        {/* Crew Key */}
         {crewKey.length > 0 && (
           <div className="bg-gray-800/80 p-6 rounded-lg shadow-md mb-8" style={{ borderLeft: "4px solid #4f46e5" }}>
             <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-4">
@@ -240,7 +247,6 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
           </div>
         )}
 
-        {/* Schedule Table */}
         <div className="bg-gray-800/80 p-6 rounded-lg shadow-md" style={{ borderLeft: "4px solid #4f46e5" }}>
           <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-6">
             <ListChecks className="h-5 w-5 mr-2" /> Production Schedule
@@ -279,9 +285,9 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                                 key={crewId}
                                 className="px-2 py-0.5 rounded-full text-xs font-medium border"
                                 style={{
-                                  backgroundColor: `${crewMember.color}33`, // Color with opacity
+                                  backgroundColor: `${crewMember.color}33`, 
                                   borderColor: crewMember.color,
-                                  color: crewMember.color, // Text color same as border for visibility
+                                  color: crewMember.color, 
                                 }}
                               >
                                 {crewMember.name}
@@ -300,7 +306,6 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
           )}
         </div>
 
-        {/* Footer */}
         <div className="relative mt-12 pt-6 overflow-hidden">
           <div
             style={{

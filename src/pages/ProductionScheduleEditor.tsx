@@ -1,15 +1,19 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import ProductionScheduleHeader from "../components/production-schedule/ProductionScheduleHeader";
 import ProductionScheduleCrewKey, { CrewKeyItem } from "../components/production-schedule/ProductionScheduleCrewKey";
-import ProductionScheduleTable, { ScheduleItem } from "../components/production-schedule/ProductionScheduleTable"; // New
+import ProductionScheduleTable, { ScheduleItem } from "../components/production-schedule/ProductionScheduleTable";
 import MobileScreenWarning from "../components/MobileScreenWarning";
 import { useScreenSize } from "../hooks/useScreenSize";
-import { Loader, ArrowLeft, Save, AlertCircle } from "lucide-react";
+import { Loader, ArrowLeft, Save, AlertCircle, Download } from "lucide-react";
 import { v4 as uuidv4 } from 'uuid';
+import { toPng } from 'html-to-image';
+import ExportModal from "../components/ExportModal";
+import ProductionScheduleExport from "../components/production-schedule/ProductionScheduleExport";
+import PrintProductionScheduleExport from "../components/production-schedule/PrintProductionScheduleExport";
 
 const defaultColors = [
   "#EF4444", "#3B82F6", "#22C55E", "#EAB308", "#A855F7", 
@@ -31,8 +35,50 @@ interface ProductionScheduleData {
   set_datetime: string;
   strike_datetime: string;
   crew_key: CrewKeyItem[];
-  schedule_items: ScheduleItem[]; // New
+  schedule_items: ScheduleItem[];
 }
+
+// Interface for the data structure expected by export components
+interface ExportProductionScheduleInfo {
+  event_name?: string;
+  event_type?: string;
+  date?: string;
+  event_start?: string;
+  event_end?: string;
+  load_in?: string;
+  sound_check?: string;
+  venue?: string;
+  room?: string;
+  address?: string;
+  client_artist?: string;
+  contact_name?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  production_manager?: string;
+  project_manager?: string;
+  job_number?: string;
+  account_manager?: string;
+  foh_engineer?: string;
+  monitor_engineer?: string;
+}
+
+interface ExportProductionSchedule {
+  id: string;
+  name: string;
+  created_at: string;
+  last_edited?: string;
+  info?: ExportProductionScheduleInfo;
+  crew_key?: CrewKeyItem[];
+  schedule_items?: Array<{
+    id: string;
+    start_time: string;
+    end_time: string;
+    activity: string;
+    notes: string;
+    crew_ids: string[];
+  }>;
+}
+
 
 const ProductionScheduleEditor = () => {
   const { id } = useParams();
@@ -45,6 +91,10 @@ const ProductionScheduleEditor = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showMobileWarning, setShowMobileWarning] = useState(false);
+
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const exportScheduleRef = useRef<HTMLDivElement>(null);
+  const printExportScheduleRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (screenSize === "mobile" || screenSize === "tablet") {
@@ -75,7 +125,7 @@ const ProductionScheduleEditor = () => {
           set_datetime: "",
           strike_datetime: "",
           crew_key: [],
-          schedule_items: [], // Initialize new field
+          schedule_items: [],
         });
         setLoading(false);
       } else {
@@ -94,7 +144,7 @@ const ProductionScheduleEditor = () => {
               set_datetime: data.set_datetime || "",
               strike_datetime: data.strike_datetime || "",
               crew_key: data.crew_key || [],
-              schedule_items: data.schedule_items || [], // Initialize if null/undefined
+              schedule_items: data.schedule_items || [],
             });
           } else {
             navigate("/dashboard");
@@ -111,6 +161,82 @@ const ProductionScheduleEditor = () => {
     fetchUserAndSchedule();
   }, [id, navigate]);
 
+  const transformScheduleForExport = (currentSchedule: ProductionScheduleData | null): ExportProductionSchedule | null => {
+    if (!currentSchedule) return null;
+  
+    return {
+      id: currentSchedule.id || uuidv4(),
+      name: currentSchedule.name,
+      created_at: currentSchedule.created_at || new Date().toISOString(),
+      last_edited: currentSchedule.last_edited || new Date().toISOString(),
+      info: {
+        event_name: currentSchedule.show_name,
+        venue: currentSchedule.facility_name,
+        production_manager: currentSchedule.production_manager,
+        load_in: currentSchedule.set_datetime,
+        event_start: currentSchedule.set_datetime, 
+        event_end: currentSchedule.strike_datetime,
+        job_number: currentSchedule.job_number,
+        project_manager: currentSchedule.project_manager,
+        account_manager: currentSchedule.account_manager,
+        // Other fields like event_type, date, sound_check, etc., will be undefined
+        // if not present in ProductionScheduleData, which is handled by export components.
+      },
+      crew_key: currentSchedule.crew_key.map(ck => ({ ...ck })),
+      schedule_items: currentSchedule.schedule_items.map(item => ({
+        id: item.id,
+        start_time: item.startTime,
+        end_time: item.endTime,
+        activity: item.activity,
+        notes: item.notes,
+        crew_ids: [...item.assignedCrewIds],
+      })),
+    };
+  };
+
+  const scheduleForExport = useMemo(() => transformScheduleForExport(schedule), [schedule]);
+
+  const handleExportImage = async () => {
+    if (!exportScheduleRef.current || !scheduleForExport) {
+      console.error("Export ref or schedule data not available for image export.");
+      return;
+    }
+    try {
+      const dataUrl = await toPng(exportScheduleRef.current, { 
+        quality: 0.95, 
+        backgroundColor: '#0f172a' // Match dark theme background
+      });
+      const link = document.createElement('a');
+      link.download = `${scheduleForExport.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_export.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (error) {
+      console.error("Error exporting schedule as image:", error);
+    }
+    setIsExportModalOpen(false);
+  };
+  
+  const handleExportPrintFriendly = async () => {
+    if (!printExportScheduleRef.current || !scheduleForExport) {
+      console.error("Export ref or schedule data not available for print-friendly export.");
+      return;
+    }
+    try {
+      const dataUrl = await toPng(printExportScheduleRef.current, { 
+        quality: 0.95, 
+        backgroundColor: '#ffffff' // White background for printing
+      });
+      const link = document.createElement('a');
+      link.download = `${scheduleForExport.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_print_friendly.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (error) {
+      console.error("Error exporting schedule as print-friendly image:", error);
+    }
+    setIsExportModalOpen(false);
+  };
+
+
   const handleHeaderFieldUpdate = (field: string, value: string) => {
     if (schedule) {
       setSchedule({
@@ -126,7 +252,6 @@ const ProductionScheduleEditor = () => {
     }
   };
 
-  // Crew Key Handlers
   const handleAddCrewKeyItem = () => {
     if (schedule) {
       const nextColorIndex = schedule.crew_key.length % defaultColors.length;
@@ -155,7 +280,6 @@ const ProductionScheduleEditor = () => {
 
   const handleDeleteCrewKeyItem = (itemId: string) => {
     if (schedule) {
-      // Also remove this crew ID from any schedule items that might be using it
       const updatedScheduleItems = schedule.schedule_items.map(item => ({
         ...item,
         assignedCrewIds: item.assignedCrewIds.filter(id => id !== itemId),
@@ -169,7 +293,6 @@ const ProductionScheduleEditor = () => {
     }
   };
 
-  // Schedule Items Handlers
   const handleUpdateScheduleItems = (items: ScheduleItem[]) => {
     if (schedule) {
       setSchedule({
@@ -179,7 +302,6 @@ const ProductionScheduleEditor = () => {
     }
   };
 
-
   const handleSave = async () => {
     if (!schedule || !user) return;
 
@@ -188,13 +310,13 @@ const ProductionScheduleEditor = () => {
     setSaveSuccess(false);
 
     const sanitizedCrewKey = schedule.crew_key.map(item => ({
-      id: item.id, // Keep ID for consistency
+      id: item.id,
       name: item.name,
       color: item.color,
     }));
 
     const sanitizedScheduleItems = schedule.schedule_items.map(item => ({
-      id: item.id, // Keep ID for consistency
+      id: item.id,
       startTime: item.startTime,
       endTime: item.endTime,
       activity: item.activity,
@@ -206,17 +328,15 @@ const ProductionScheduleEditor = () => {
       ...schedule,
       user_id: user.id,
       last_edited: new Date().toISOString(),
-      set_datetime: schedule.set_datetime || null, // Ensure null if empty
-      strike_datetime: schedule.strike_datetime || null, // Ensure null if empty
+      set_datetime: schedule.set_datetime || null as any, 
+      strike_datetime: schedule.strike_datetime || null as any,
       crew_key: sanitizedCrewKey,
       schedule_items: sanitizedScheduleItems,
     };
     
-    // Remove top-level id if it's a new schedule to avoid Supabase error on insert
     if (id === "new" && scheduleDataToSave.id) {
       delete scheduleDataToSave.id; 
     }
-
 
     try {
       if (id === "new") {
@@ -229,7 +349,6 @@ const ProductionScheduleEditor = () => {
         if (error) throw error;
         if (data) {
           navigate(`/production-schedule/${data.id}`);
-          // Update local state with the full data from DB, including the new ID
           setSchedule(data as ProductionScheduleData); 
         }
       } else {
@@ -255,7 +374,7 @@ const ProductionScheduleEditor = () => {
     }
   };
 
-  if (loading || !schedule) {
+  if (loading || !schedule || !scheduleForExport) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <Loader className="h-12 w-12 text-indigo-500 animate-spin" />
@@ -275,6 +394,17 @@ const ProductionScheduleEditor = () => {
       )}
 
       <Header dashboard={true} />
+
+      {/* Hidden components for export */}
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+        {scheduleForExport && (
+          <>
+            <ProductionScheduleExport ref={exportScheduleRef} schedule={scheduleForExport} />
+            <PrintProductionScheduleExport ref={printExportScheduleRef} schedule={scheduleForExport} />
+          </>
+        )}
+      </div>
+
 
       <main className="flex-grow container mx-auto px-4 py-6 md:py-12 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
@@ -301,7 +431,14 @@ const ProductionScheduleEditor = () => {
             </div>
           </div>
 
-          <div className="fixed bottom-4 right-4 z-20 md:static md:z-auto sm:ml-auto"> {/* Increased z-index for save button */}
+          <div className="fixed bottom-4 right-4 z-20 md:static md:z-auto sm:ml-auto flex gap-2">
+            <button
+              onClick={() => setIsExportModalOpen(true)}
+              className="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 shadow-lg md:shadow-none"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </button>
             <button
               onClick={handleSave}
               disabled={saving}
@@ -336,7 +473,6 @@ const ProductionScheduleEditor = () => {
           </div>
         )}
 
-        {/* Schedule Header Section */}
         <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden mb-8">
           <div className="p-4 md:p-6 border-b border-gray-700">
             <h2 className="text-xl font-medium text-white">Production Schedule Details</h2>
@@ -363,7 +499,6 @@ const ProductionScheduleEditor = () => {
           </div>
         </div>
 
-        {/* Crew Key Section */}
         <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden mb-8">
            <div className="p-4 md:p-6 border-b border-gray-700">
             <h2 className="text-xl font-medium text-white">Crew & Department Key</h2>
@@ -383,16 +518,15 @@ const ProductionScheduleEditor = () => {
           </div>
         </div>
         
-        {/* Schedule Table Section - NEW */}
         <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden mb-8">
           <div className="p-4 md:p-6 border-b border-gray-700">
             <h2 className="text-xl font-medium text-white">Schedule Timeline</h2>
             <p className="text-gray-400 text-sm">
-              Add and manage schedule items. Drag items to reorder (reordering not yet implemented).
+              Add and manage schedule items.
             </p>
           </div>
-          <div className="p-0 md:p-2 lg:p-4 overflow-x-auto"> {/* Adjusted padding for table */}
-             <div className="min-w-[900px] md:min-w-0"> {/* Ensure table content can scroll */}
+          <div className="p-0 md:p-2 lg:p-4 overflow-x-auto">
+             <div className="min-w-[900px] md:min-w-0">
                 <ProductionScheduleTable
                     scheduleItems={schedule.schedule_items}
                     crewKey={schedule.crew_key}
@@ -401,7 +535,6 @@ const ProductionScheduleEditor = () => {
             </div>
           </div>
         </div>
-
 
         <div className="flex justify-center py-8">
           <button
@@ -423,6 +556,14 @@ const ProductionScheduleEditor = () => {
           </button>
         </div>
       </main>
+
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        onExportImage={handleExportImage}
+        onExportPdf={handleExportPrintFriendly} 
+        title="Production Schedule"
+      />
 
       <Footer />
     </div>
