@@ -1,7 +1,7 @@
 import React, { forwardRef } from "react";
-import { Calendar, ListChecks, Palette, UserCheck, Building, Phone, Mail, UserCog, Briefcase, UserCircle, UserSquare } from "lucide-react"; // Added UserSquare
+import { Calendar, ListChecks, Palette, UserCheck, Building, Phone, Mail, UserCog, Briefcase, UserCircle, UserSquare } from "lucide-react"; 
 import { ScheduleForExport } from "../../pages/ProductionScheduleEditor"; 
-import { LaborScheduleItem } from "./ProductionScheduleLabor"; // Import LaborScheduleItem
+import { LaborScheduleItem } from "./ProductionScheduleLabor"; 
 
 interface PrintProductionScheduleExportProps {
   schedule: ScheduleForExport; 
@@ -12,7 +12,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
     const info = schedule.info || {};
     const crewKey = schedule.crew_key || [];
     const scheduleItems = schedule.schedule_items || [];
-    const laborScheduleItems = schedule.labor_schedule_items || []; // Added labor items
+    const laborScheduleItems = schedule.labor_schedule_items || []; 
 
     const formatDate = (dateString?: string) => {
       if (!dateString || dateString.trim() === "") return "N/A";
@@ -57,6 +57,20 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
       const crewMember = crewKey.find(crew => crew.id === crewId);
       return crewMember ? (crewMember.name || "Unnamed") : "Unknown";
     };
+
+    const sortedLaborScheduleItems = [...(laborScheduleItems || [])].sort((a, b) => {
+      const dateA = a.date || '';
+      const dateB = b.date || '';
+      if (dateA < dateB) return -1;
+      if (dateA > dateB) return 1;
+      const timeInA = a.time_in || '';
+      const timeInB = b.time_in || '';
+      if (timeInA < timeInB) return -1;
+      if (timeInA > timeInB) return 1;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
+    let currentLaborDay = "";
 
     return (
       <div
@@ -184,8 +198,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
           )}
         </div>
 
-        {/* Labor Schedule Section for Print Export */}
-        {laborScheduleItems.length > 0 && (
+        {sortedLaborScheduleItems.length > 0 && (
           <div style={{ marginBottom: "20px" }}>
             <h3 style={{ fontSize: "16px", fontWeight: "bold", borderBottom: "1px solid #eee", paddingBottom: "8px", marginBottom: "10px" }}>
               <UserSquare size={16} style={{ display: "inline", marginRight: "8px", verticalAlign: "middle" }} /> Labor Schedule
@@ -202,16 +215,35 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                 </tr>
               </thead>
               <tbody>
-                {laborScheduleItems.map((item, index) => (
-                  <tr key={item.id} style={{ borderBottom: "1px solid #eee", backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9" }}>
-                    <td style={{ padding: "8px", verticalAlign: "top", fontWeight: "500" }}>{item.name || "-"}</td>
-                    <td style={{ padding: "8px", verticalAlign: "top" }}>{item.position || "-"}</td>
-                    <td style={{ padding: "8px", verticalAlign: "top" }}>{formatDate(item.date) || "-"}</td>
-                    <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.time_in) || "-"}</td>
-                    <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.time_out) || "-"}</td>
-                    <td style={{ padding: "8px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.notes || "-"}</td>
-                  </tr>
-                ))}
+                {sortedLaborScheduleItems.map((item, index) => {
+                  const itemDay = formatDate(item.date) || "No Date Assigned";
+                  const showDayHeader = itemDay !== currentLaborDay;
+                  if (showDayHeader) {
+                    currentLaborDay = itemDay;
+                  }
+                  return (
+                    <React.Fragment key={item.id}>
+                      {showDayHeader && (
+                        <tr style={{ backgroundColor: "#e2e8f0", borderTop: "1px solid #ccc", borderBottom: "1px solid #ccc" }}>
+                          <td
+                            colSpan={6}
+                            style={{ padding: "6px 8px", fontWeight: "bold", textAlign: "left" }}
+                          >
+                            {currentLaborDay}
+                          </td>
+                        </tr>
+                      )}
+                      <tr style={{ borderBottom: "1px solid #eee", backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9" }}>
+                        <td style={{ padding: "8px", verticalAlign: "top", fontWeight: "500" }}>{item.name || "-"}</td>
+                        <td style={{ padding: "8px", verticalAlign: "top" }}>{item.position || "-"}</td>
+                        <td style={{ padding: "8px", verticalAlign: "top" }}>{formatDate(item.date) || "-"}</td>
+                        <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.time_in) || "-"}</td>
+                        <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.time_out) || "-"}</td>
+                        <td style={{ padding: "8px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.notes || "-"}</td>
+                      </tr>
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
