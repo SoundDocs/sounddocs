@@ -751,7 +751,6 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     const startNum = parseInt(String(bulkStartChannel), 10);
 
     if (isNaN(quantity) || quantity <= 0 || isNaN(startNum) || startNum <= 0) {
-      // Optionally show an error message
       console.error("Invalid quantity or starting channel number");
       return;
     }
@@ -760,8 +759,15 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
     for (let i = 0; i < quantity; i++) {
       const channelNum = startNum + i;
+      const nameSuffixNumber = bulkIsStereo ? Math.floor(i / 2) + 1 : i + 1;
 
-      // For console input numbers and network patches, increment if provided
+      let currentName: string;
+      if (bulkPrefix) {
+        currentName = `${bulkPrefix} ${nameSuffixNumber}`;
+      } else {
+        currentName = `Input ${channelNum}`;
+      }
+
       let consoleInputNumber = bulkConnectionDetails.consoleInputNumber;
       let networkPatch = bulkConnectionDetails.networkPatch;
       let inputNumber = bulkConnectionDetails.inputNumber;
@@ -769,11 +775,9 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
       if (consoleInputNumber && !isNaN(parseInt(consoleInputNumber))) {
         consoleInputNumber = (parseInt(consoleInputNumber) + i).toString();
       }
-
       if (networkPatch && !isNaN(parseInt(networkPatch))) {
         networkPatch = (parseInt(networkPatch) + i).toString();
       }
-
       if (inputNumber && !isNaN(parseInt(inputNumber))) {
         inputNumber = (parseInt(inputNumber) + i).toString();
       }
@@ -785,24 +789,21 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
         inputNumber,
       };
 
-      // Handle stereo pairs (L/R)
-      let currentName = bulkPrefix ? `${bulkPrefix} ${channelNum}` : `Input ${channelNum}`;
       let isStereo = bulkIsStereo;
       let stereoChannelNumber = undefined;
 
-      // If creating stereo pairs and this is an odd index, link to the next channel
-      // If even index, link to the previous channel
       if (bulkIsStereo) {
-        if (i % 2 === 0 && i + 1 < quantity) {
-          // Even index and not the last one
-          currentName += " L"; // Left channel
-          stereoChannelNumber = (startNum + i + 1).toString(); // Link to next channel
-        } else if (i % 2 === 1) {
-          // Odd index
-          currentName += " R"; // Right channel
-          stereoChannelNumber = (startNum + i - 1).toString(); // Link to previous channel
+        if (i % 2 === 0 && i + 1 < quantity) { // Left channel of a pair
+          if (bulkPrefix) currentName += " L";
+          stereoChannelNumber = (startNum + i + 1).toString();
+        } else if (i % 2 === 1) { // Right channel of a pair
+          if (bulkPrefix) currentName += " R";
+          stereoChannelNumber = (startNum + i - 1).toString();
+        } else { // Last channel if quantity is odd, treat as mono for naming
+          isStereo = false; 
         }
       }
+
 
       const newInput: InputChannel = {
         id: `input-${Date.now()}-${i}`,
@@ -821,27 +822,20 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
       newInputs.push(newInput);
     }
 
-    // Update inputs with the new bulk-created inputs
     updateInputs([...inputs, ...newInputs]);
 
-    // Add the new inputs to edit mode tracking
     const newEditModeInputs = { ...editModeInputs };
     const newEditingInputs = { ...editingInputs };
-
     newInputs.forEach((input) => {
       newEditModeInputs[input.id] = true;
       newEditingInputs[input.id] = { ...input };
     });
-
     setEditModeInputs(newEditModeInputs);
     setEditingInputs(newEditingInputs);
 
-    // Close the bulk add modal
     setShowBulkAddModal(false);
-
-    // Reset bulk add form
-    setBulkQuantity(8); // Reset to default
-    setBulkStartChannel(1); // Reset to default (will be recalculated next time)
+    setBulkQuantity(8);
+    setBulkStartChannel(1); // Will be recalculated next time modal opens
     setBulkPrefix("");
     setBulkType("");
     setBulkDevice("");
@@ -1555,7 +1549,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                     placeholder="e.g., Vocal, Drum, DI"
                   />
                   <p className="text-gray-400 text-xs mt-1">
-                    This will be added before the channel number, e.g., "Vocal 1"
+                    Names will be e.g., "Vocal 1", "Vocal 2", etc.
                   </p>
                 </div>
 

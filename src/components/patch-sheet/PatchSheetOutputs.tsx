@@ -680,7 +680,6 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
     const startNum = parseInt(String(bulkStartChannel), 10);
 
     if (isNaN(quantity) || quantity <= 0 || isNaN(startNum) || startNum <= 0) {
-      // Optionally show an error message
       console.error("Invalid quantity or starting channel number");
       return;
     }
@@ -689,8 +688,15 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
     for (let i = 0; i < quantity; i++) {
       const channelNum = startNum + i;
+      const nameSuffixNumber = bulkIsStereo ? Math.floor(i / 2) + 1 : i + 1;
+      
+      let currentName: string;
+      if (bulkPrefix) {
+        currentName = `${bulkPrefix} ${nameSuffixNumber}`;
+      } else {
+        currentName = `Output ${channelNum}`;
+      }
 
-      // For console output numbers and network patches, increment if provided
       let consoleOutputNumber = bulkSourceDetails.consoleOutputNumber;
       let networkPatch = bulkSourceDetails.networkPatch;
       let outputNumber = bulkSourceDetails.outputNumber;
@@ -698,38 +704,32 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
       if (consoleOutputNumber && !isNaN(parseInt(consoleOutputNumber))) {
         consoleOutputNumber = (parseInt(consoleOutputNumber) + i).toString();
       }
-
       if (networkPatch && !isNaN(parseInt(networkPatch))) {
         networkPatch = (parseInt(networkPatch) + i).toString();
       }
-
       if (outputNumber && !isNaN(parseInt(outputNumber))) {
         outputNumber = (parseInt(outputNumber) + i).toString();
       }
 
       const sourceDetails = {
-        ...bulkSourceDetails, // This will include consoleType if set
+        ...bulkSourceDetails,
         consoleOutputNumber,
         networkPatch,
         outputNumber,
       };
-
-      // Handle stereo pairs (L/R)
-      let currentName = bulkPrefix ? `${bulkPrefix} ${channelNum}` : `Output ${channelNum}`;
+      
       let isStereo = bulkIsStereo;
       let stereoChannelNumber = undefined;
 
-      // If creating stereo pairs and this is an odd index, link to the next channel
-      // If even index, link to the previous channel
       if (bulkIsStereo) {
-        if (i % 2 === 0 && i + 1 < quantity) {
-          // Even index and not the last one
-          currentName += " L"; // Left channel
-          stereoChannelNumber = (startNum + i + 1).toString(); // Link to next channel
-        } else if (i % 2 === 1) {
-          // Odd index
-          currentName += " R"; // Right channel
-          stereoChannelNumber = (startNum + i - 1).toString(); // Link to previous channel
+        if (i % 2 === 0 && i + 1 < quantity) { // Left channel of a pair
+          if (bulkPrefix) currentName += " L";
+          stereoChannelNumber = (startNum + i + 1).toString();
+        } else if (i % 2 === 1) { // Right channel of a pair
+          if (bulkPrefix) currentName += " R";
+          stereoChannelNumber = (startNum + i - 1).toString();
+        } else { // Last channel if quantity is odd, treat as mono for naming
+          isStereo = false;
         }
       }
 
@@ -747,27 +747,20 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
       });
     }
 
-    // Update outputs with the new bulk-created outputs
     updateOutputs([...outputs, ...newOutputs]);
 
-    // Add the new outputs to edit mode tracking
     const newEditModeOutputs = { ...editModeOutputs };
     const newEditingOutputs = { ...editingOutputs };
-
     newOutputs.forEach((output) => {
       newEditModeOutputs[output.id] = true;
       newEditingOutputs[output.id] = { ...output };
     });
-
     setEditModeOutputs(newEditModeOutputs);
     setEditingOutputs(newEditingOutputs);
 
-    // Close the bulk add modal
     setShowBulkAddModal(false);
-
-    // Reset bulk add form
-    setBulkQuantity(8); // Reset to default
-    setBulkStartChannel(1); // Reset to default (will be recalculated next time)
+    setBulkQuantity(8);
+    setBulkStartChannel(1); // Will be recalculated next time modal opens
     setBulkPrefix("");
     setBulkSourceType("");
     setBulkDestinationType("");
@@ -1460,7 +1453,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                     placeholder="e.g., Main, Monitor, Aux"
                   />
                   <p className="text-gray-400 text-xs mt-1">
-                    This will be added before the channel number, e.g., "Main 1"
+                    Names will be e.g., "Main 1", "Main 2", etc.
                   </p>
                 </div>
 
