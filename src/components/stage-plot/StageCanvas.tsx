@@ -7,6 +7,9 @@ interface StageCanvasProps {
   selectedElementId: string | null;
   backgroundImage: string | null;
   backgroundOpacity: number;
+  backgroundImageX?: number; // New prop for X position
+  backgroundImageY?: number; // New prop for Y position
+  backgroundImageScale?: number; // New prop for scale
   onSelectElement: (id: string | null) => void;
   onElementDragStop: (id: string, x: number, y: number) => void;
   onElementRotate: (id: string, rotation: number) => void;
@@ -22,6 +25,9 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
   selectedElementId,
   backgroundImage,
   backgroundOpacity,
+  backgroundImageX = 0, // Default to 0 if not provided
+  backgroundImageY = 0, // Default to 0 if not provided
+  backgroundImageScale = 1, // Default to 1 if not provided
   onSelectElement,
   onElementDragStop,
   onElementRotate,
@@ -37,63 +43,40 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
   const [isViewMode, setIsViewMode] = useState(false);
 
   useEffect(() => {
-    // Check if we're on mobile and set view mode
     const checkMobile = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      setIsViewMode(mobile); // On mobile, it's view-only
+      setIsViewMode(mobile);
     };
-
     checkMobile();
     window.addEventListener("resize", checkMobile);
-
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   useEffect(() => {
     if (!containerRef.current || !isMobile) return;
-
-    // Setup touch handlers for zooming
     const container = containerRef.current;
-
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
-        const distance = Math.hypot(
-          e.touches[0].pageX - e.touches[1].pageX,
-          e.touches[0].pageY - e.touches[1].pageY,
-        );
+        const distance = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
         setStartDistance(distance);
       }
     };
-
     const handleTouchMove = (e: TouchEvent) => {
       if (e.touches.length === 2 && startDistance !== null) {
-        e.preventDefault(); // Prevent default to stop scrolling
-
-        const distance = Math.hypot(
-          e.touches[0].pageX - e.touches[1].pageX,
-          e.touches[0].pageY - e.touches[1].pageY,
-        );
-
+        e.preventDefault();
+        const distance = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
         const delta = distance / startDistance;
-        const newScale = Math.min(Math.max(scale * delta, 0.5), 2); // Limit zoom 0.5x to 2x
-
+        const newScale = Math.min(Math.max(scale * delta, 0.5), 2);
         setScale(newScale);
         setStartDistance(distance);
       }
     };
-
-    const handleTouchEnd = () => {
-      setStartDistance(null);
-    };
-
-    // Add event listeners
+    const handleTouchEnd = () => setStartDistance(null);
     container.addEventListener("touchstart", handleTouchStart, { passive: false });
     container.addEventListener("touchmove", handleTouchMove, { passive: false });
     container.addEventListener("touchend", handleTouchEnd);
-
     return () => {
-      // Clean up
       container.removeEventListener("touchstart", handleTouchStart);
       container.removeEventListener("touchmove", handleTouchMove);
       container.removeEventListener("touchend", handleTouchEnd);
@@ -101,58 +84,31 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
   }, [isMobile, scale, startDistance]);
 
   const getStageDimensions = () => {
-    // Using fixed pixel values for consistency
     switch (stageSize) {
-      case "x-small-narrow":
-        return { width: 300, height: 300 };
-      case "x-small-wide":
-        return { width: 500, height: 300 };
-      case "small-narrow":
-        return { width: 400, height: 400 };
-      case "small-wide":
-        return { width: 600, height: 400 };
-      case "medium-narrow":
-        return { width: 500, height: 500 };
-      case "medium-wide":
-        return { width: 800, height: 500 };
-      case "large-narrow":
-        return { width: 600, height: 600 };
-      case "large-wide":
-        return { width: 1000, height: 600 };
-      case "x-large-narrow":
-        return { width: 700, height: 700 };
-      case "x-large-wide":
-        return { width: 1200, height: 700 };
-      default:
-        return { width: 800, height: 500 };
+      case "x-small-narrow": return { width: 300, height: 300 };
+      case "x-small-wide": return { width: 500, height: 300 };
+      case "small-narrow": return { width: 400, height: 400 };
+      case "small-wide": return { width: 600, height: 400 };
+      case "medium-narrow": return { width: 500, height: 500 };
+      case "medium-wide": return { width: 800, height: 500 };
+      case "large-narrow": return { width: 600, height: 600 };
+      case "large-wide": return { width: 1000, height: 600 };
+      case "x-large-narrow": return { width: 700, height: 700 };
+      case "x-large-wide": return { width: 1200, height: 700 };
+      default: return { width: 800, height: 500 };
     }
   };
 
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (isViewMode) return;
-
-    // Only deselect if clicking directly on the canvas, not on an element
-    if (e.currentTarget === e.target) {
-      onSelectElement(null);
-    }
+    if (e.currentTarget === e.target) onSelectElement(null);
   };
 
-  // Reset zoom when size changes
-  useEffect(() => {
-    setScale(1);
-  }, [stageSize]);
+  useEffect(() => { setScale(1); }, [stageSize]);
 
   const dimensions = getStageDimensions();
-
-  // Determine responsive width based on screen size
-  const mobileCanvasPadding = 16; // 8px on each side
-  const getCanvasWidth = () => {
-    if (isMobile) {
-      // For mobile, adjust to screen width minus padding
-      return `calc(100vw - ${mobileCanvasPadding * 2}px)`;
-    }
-    return `${dimensions.width}px`;
-  };
+  const mobileCanvasPadding = 16;
+  const getCanvasWidth = () => isMobile ? `calc(100vw - ${mobileCanvasPadding * 2}px)` : `${dimensions.width}px`;
 
   return (
     <div
@@ -161,23 +117,10 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
       ref={containerRef}
     >
       <div className="flex flex-col items-center">
-        {" "}
-        {/* Main container for labels and canvas */}
-        {isMobile && (
-          <div className="text-xs text-gray-400 py-2">
-            {isViewMode
-              ? "Pinch to zoom, view only mode"
-              : "Pinch to zoom, drag elements to position"}
-          </div>
-        )}
-        {/* Back of stage label - Positioned ABOVE the canvas */}
-        <div className="flex justify-center mb-2 w-full">
-          <div className="bg-gray-800/80 text-white text-xs md:text-sm px-4 py-1.5 rounded-full shadow-md">
-            Back of Stage
-          </div>
-        </div>
+        {isMobile && (<div className="text-xs text-gray-400 py-2">{isViewMode ? "Pinch to zoom, view only mode" : "Pinch to zoom, drag elements to position"}</div>)}
+        <div className="flex justify-center mb-2 w-full"><div className="bg-gray-800/80 text-white text-xs md:text-sm px-4 py-1.5 rounded-full shadow-md">Back of Stage</div></div>
         <div
-          className="relative mx-auto bg-grid-pattern overflow-hidden"
+          className="relative mx-auto bg-grid-pattern overflow-hidden" // overflow-hidden is important here
           style={{
             width: isMobile ? getCanvasWidth() : `${dimensions.width}px`,
             height: `${dimensions.height}px`,
@@ -189,61 +132,39 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
           }}
           onClick={handleCanvasClick}
         >
-          {/* Background image if present */}
+          {/* Background image using <img> tag for transform capabilities */}
           {backgroundImage && (
-            <div
-              className="absolute inset-0 bg-center bg-no-repeat bg-contain pointer-events-none"
+            <img
+              src={backgroundImage}
+              alt="Stage Background"
+              className="absolute top-0 left-0 pointer-events-none" // pointer-events-none is crucial
               style={{
-                backgroundImage: `url(${backgroundImage})`,
+                width: '100%', // Or manage width/height via props if needed for non-proportional scaling
+                height: '100%',// Or manage width/height via props
+                objectFit: 'contain', // Or 'cover', 'fill', 'none', 'scale-down'
                 opacity: backgroundOpacity / 100,
-                zIndex: 1,
+                transform: `translate(${backgroundImageX}px, ${backgroundImageY}px) scale(${backgroundImageScale})`,
+                transformOrigin: 'top left', // Or 'center center' depending on desired behavior
+                zIndex: 1, // Ensure it's behind elements
               }}
             />
           )}
 
-          {/* Stage elements */}
           {elements.map((element) => (
             <StageElement
-              key={element.id}
-              {...element}
-              selected={selectedElementId === element.id}
-              onClick={onSelectElement}
-              onDragStop={onElementDragStop}
-              onRotate={onElementRotate}
-              onLabelChange={onElementLabelChange}
-              onDelete={onElementDelete}
-              onDuplicate={onElementDuplicate}
-              onResize={onElementResize}
-              disabled={isViewMode}
+              key={element.id} {...element} selected={selectedElementId === element.id}
+              onClick={onSelectElement} onDragStop={onElementDragStop} onRotate={onElementRotate}
+              onLabelChange={onElementLabelChange} onDelete={onElementDelete}
+              onDuplicate={onElementDuplicate} onResize={onElementResize} disabled={isViewMode}
             />
           ))}
         </div>
-        {/* Front of stage label - Positioned BELOW the canvas */}
-        <div className="flex justify-center mt-2 w-full">
-          <div className="bg-gray-800/80 text-white text-xs md:text-sm px-4 py-1.5 rounded-full shadow-md">
-            Front of Stage / Audience
-          </div>
-        </div>
+        <div className="flex justify-center mt-2 w-full"><div className="bg-gray-800/80 text-white text-xs md:text-sm px-4 py-1.5 rounded-full shadow-md">Front of Stage / Audience</div></div>
         {isMobile && (
           <div className="flex justify-center gap-3 py-3">
-            <button
-              onClick={() => setScale(Math.max(scale - 0.1, 0.5))}
-              className="bg-gray-700 rounded-full w-8 h-8 flex items-center justify-center text-white text-xl leading-none"
-            >
-              -
-            </button>
-            <button
-              onClick={() => setScale(1)}
-              className="bg-gray-700 rounded px-3 py-1 text-white text-sm"
-            >
-              Reset
-            </button>
-            <button
-              onClick={() => setScale(Math.min(scale + 0.1, 2))}
-              className="bg-gray-700 rounded-full w-8 h-8 flex items-center justify-center text-white text-xl leading-none"
-            >
-              +
-            </button>
+            <button onClick={() => setScale(Math.max(scale - 0.1, 0.5))} className="bg-gray-700 rounded-full w-8 h-8 flex items-center justify-center text-white text-xl leading-none">-</button>
+            <button onClick={() => setScale(1)} className="bg-gray-700 rounded px-3 py-1 text-white text-sm">Reset</button>
+            <button onClick={() => setScale(Math.min(scale + 0.1, 2))} className="bg-gray-700 rounded-full w-8 h-8 flex items-center justify-center text-white text-xl leading-none">+</button>
           </div>
         )}
       </div>
