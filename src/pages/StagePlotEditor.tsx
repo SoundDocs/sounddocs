@@ -121,14 +121,16 @@ const StagePlotEditor = () => {
           setShareLink(fetchedShareLink);
           setStageSize(
             resource.stage_size && resource.stage_size.includes("-")
-              ? resource.stage_size
-              : `${resource.stage_size || "medium"}-wide`,
+              ? parseStageSize(resource.stage_size) // Use parseStageSize here
+              : { width: "wide", depth: resource.stage_size || "medium" }, // Provide default width if needed
           );
+
 
           if (resource.elements && Array.isArray(resource.elements)) {
             const cleanedElements = resource.elements.map((el: any) => ({
               ...el,
               icon: undefined,
+              labelHidden: el.labelHidden || false, // Ensure labelHidden is present
             }));
             setElements(cleanedElements);
           } else {
@@ -190,6 +192,7 @@ const StagePlotEditor = () => {
           const cleanedElements = data.elements.map((el: any) => ({
             ...el,
             icon: undefined,
+            labelHidden: el.labelHidden || false, // Ensure labelHidden is present
           }));
           setElements(cleanedElements);
         } else {
@@ -227,7 +230,7 @@ const StagePlotEditor = () => {
     if (type === "trumpet") return "#b45309";
     if (type === "saxophone") return "#b91c1c";
     if (type === "generic-instrument") return "#2563eb";
-    if (type === "custom-image") return "#6b7280"; // Default for custom image if no image yet
+    if (type === "custom-image") return "#6b7280";
 
     switch (type) {
       case "microphone":
@@ -271,7 +274,8 @@ const StagePlotEditor = () => {
       y: canvasHeight / 2 - 30,
       rotation: 0,
       color: getDefaultColorForType(type),
-      customImageUrl: type === "custom-image" ? null : undefined, // Initialize if it's a custom image type
+      customImageUrl: type === "custom-image" ? null : undefined,
+      labelHidden: false, // Default for new elements
     };
 
     setElements([...elements, newElement]);
@@ -346,7 +350,7 @@ const StagePlotEditor = () => {
 
       const stagePlotData = {
         ...stagePlot,
-        elements: cleanedElements,
+        elements: cleanedElements, // labelHidden will be saved as part of each element
         stage_size: stringifyStageSize(stageSize),
         backgroundImage: backgroundImage,
         backgroundOpacity: backgroundOpacity,
