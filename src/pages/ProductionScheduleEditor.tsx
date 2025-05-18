@@ -158,22 +158,20 @@ const ProductionScheduleEditor = () => {
           if (error) throw error;
           if (data) {
             setSchedule({
-              ...data, // Spreads all fields from DB record (id, user_id, name, etc.)
-                      // Note: data.schedule_items here will have snake_case time fields
+              ...data, 
               set_datetime: data.set_datetime || "",
               strike_datetime: data.strike_datetime || "",
               crew_key: data.crew_key || [],
               schedule_items: (data.schedule_items || []).map((dbItem: any): EditorScheduleItem => {
-                // Explicitly map dbItem (from DB with snake_case) to EditorScheduleItem (with camelCase)
                 return {
-                  id: dbItem.id, // Assuming id always exists from DB
-                  date: dbItem.date || undefined, // Keep undefined if null/empty from DB, table handles display
-                  startTime: dbItem.start_time || "", // Map snake_case start_time to camelCase startTime
-                  endTime: dbItem.end_time || "",   // Map snake_case end_time to camelCase endTime
+                  id: dbItem.id, 
+                  date: dbItem.date || undefined, 
+                  startTime: dbItem.startTime || "", // Use camelCase from DB JSON
+                  endTime: dbItem.endTime || "",   // Use camelCase from DB JSON
                   activity: dbItem.activity || "",
                   notes: dbItem.notes || "",
-                  assignedCrewIds: dbItem.crew_ids || [], // Map snake_case crew_ids to camelCase assignedCrewIds
-                  isNewlyAdded: false // Items from DB are not "newly added" by the UI
+                  assignedCrewIds: dbItem.assignedCrewIds || [], // Use camelCase from DB JSON
+                  isNewlyAdded: false 
                 };
               }),
               labor_schedule_items: data.labor_schedule_items || [], 
@@ -251,7 +249,6 @@ const ProductionScheduleEditor = () => {
 
   const handleUpdateScheduleItems = (items: EditorScheduleItem[]) => {
     if (schedule) {
-      // items received from ProductionScheduleTable should already be correct EditorScheduleItem[]
       setSchedule({
         ...schedule,
         schedule_items: items, 
@@ -274,17 +271,16 @@ const ProductionScheduleEditor = () => {
     setSaveError(null);
     setSaveSuccess(false);
 
-    // Sanitize schedule_items for saving: map from EditorScheduleItem (camelCase) to DB format (snake_case)
     const sanitizedScheduleItems = schedule.schedule_items.map((item: EditorScheduleItem) => {
       const { isNewlyAdded, ...restOfItem } = item; 
       return {
         id: restOfItem.id,
-        date: restOfItem.date || null, // DB expects null for empty date
+        date: restOfItem.date || null, 
         activity: restOfItem.activity,
         notes: restOfItem.notes,
-        start_time: restOfItem.startTime || "", // Map camelCase startTime to snake_case start_time
-        end_time: restOfItem.endTime || "",     // Map camelCase endTime to snake_case end_time
-        crew_ids: restOfItem.assignedCrewIds || [], // Map camelCase assignedCrewIds to snake_case crew_ids
+        startTime: restOfItem.startTime || "", // Save camelCase to DB JSON
+        endTime: restOfItem.endTime || "",     // Save camelCase to DB JSON
+        assignedCrewIds: restOfItem.assignedCrewIds || [], // Save camelCase to DB JSON
       };
     });
 
@@ -310,7 +306,7 @@ const ProductionScheduleEditor = () => {
       user_id: user.id,
       last_edited: new Date().toISOString(),
       crew_key: sanitizedCrewKey,
-      schedule_items: sanitizedScheduleItems, // Use the correctly mapped snake_case items
+      schedule_items: sanitizedScheduleItems, 
       labor_schedule_items: sanitizedLaborScheduleItems,
       ...(id !== "new" && { id: schedule.id }),
       ...(id === "new" && schedule.created_at && { created_at: schedule.created_at }),
@@ -318,7 +314,7 @@ const ProductionScheduleEditor = () => {
     
     let finalDataToSave: any = scheduleDataToSave;
     if (id === "new") {
-      const { id: scheduleId, ...rest } = scheduleDataToSave; // Remove 'id' if it's a new schedule
+      const { id: scheduleId, ...rest } = scheduleDataToSave; 
       finalDataToSave = rest;
     }
 
@@ -347,8 +343,6 @@ const ProductionScheduleEditor = () => {
       }
 
       if (savedData) {
-        // After saving, re-map the schedule_items from the response (which will be snake_case)
-        // back to EditorScheduleItem format for the local state.
         const reloadedData: ProductionScheduleData = {
           ...savedData,
           set_datetime: savedData.set_datetime || "",
@@ -357,11 +351,11 @@ const ProductionScheduleEditor = () => {
           schedule_items: (savedData.schedule_items || []).map((dbItem: any): EditorScheduleItem => ({
             id: dbItem.id,
             date: dbItem.date || undefined,
-            startTime: dbItem.start_time || "",
-            endTime: dbItem.end_time || "",
+            startTime: dbItem.startTime || "", // Expect camelCase from DB JSON after save
+            endTime: dbItem.endTime || "",     // Expect camelCase from DB JSON after save
             activity: dbItem.activity || "",
             notes: dbItem.notes || "",
-            assignedCrewIds: dbItem.crew_ids || [],
+            assignedCrewIds: dbItem.assignedCrewIds || [], // Expect camelCase from DB JSON after save
             isNewlyAdded: false,
           })),
           labor_schedule_items: savedData.labor_schedule_items || [],
@@ -389,8 +383,6 @@ const ProductionScheduleEditor = () => {
     );
   }
 
-  // Prepare scheduleForExportProps using the editor's state (schedule.schedule_items)
-  // which should be an array of EditorScheduleItem (camelCase time fields)
   const scheduleForExportProps: ScheduleForExport = {
     id: schedule.id || uuidv4(), 
     name: schedule.name,
@@ -421,15 +413,14 @@ const ProductionScheduleEditor = () => {
     },
     crew_key: schedule.crew_key,
     schedule_items: schedule.schedule_items.map((item: EditorScheduleItem): ExportScheduleItem => {
-      // item here is an EditorScheduleItem from the editor's state
       return {
         id: item.id,
-        date: item.date || "", // Ensure string for export component, formatDate handles empty
-        startTime: item.startTime || "", // Directly use camelCase startTime from EditorScheduleItem
-        endTime: item.endTime || "",   // Directly use camelCase endTime from EditorScheduleItem
+        date: item.date || "", 
+        startTime: item.startTime || "", 
+        endTime: item.endTime || "",   
         activity: item.activity || "",
         notes: item.notes || "",
-        assignedCrewIds: item.assignedCrewIds || [], // Directly use camelCase assignedCrewIds
+        assignedCrewIds: item.assignedCrewIds || [], 
       };
     }),
     labor_schedule_items: schedule.labor_schedule_items,
