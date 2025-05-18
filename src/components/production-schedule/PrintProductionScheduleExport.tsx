@@ -217,8 +217,8 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                     )}
                     <tr style={{ borderBottom: "1px solid #eee", backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9" }}>
                       <td style={{ padding: "8px", verticalAlign: "top" }}>{formatDate(item.date, { month: 'short', day: 'numeric' })}</td>
-                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.startTime)}</td>
-                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.endTime)}</td>
+                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.startTime) || "-"}</td>
+                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.endTime) || "-"}</td>
                       <td style={{ padding: "8px", verticalAlign: "top", fontWeight: "500" }}>{item.activity || "-"}</td>
                       <td style={{ padding: "8px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.notes || "-"}</td>
                       <td style={{ padding: "8px", verticalAlign: "top" }}>

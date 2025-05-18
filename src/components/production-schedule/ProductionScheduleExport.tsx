@@ -269,8 +269,8 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                         }}
                       >
                         <td className="py-3 px-4 text-white align-middle text-sm">{formatDate(item.date, { month: 'short', day: 'numeric' })}</td>
-                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.startTime)}</td>
-                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.endTime)}</td>
+                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.startTime) || "-"}</td>
+                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.endTime) || "-"}</td>
                         <td className="py-3 px-4 text-white align-middle text-sm font-medium">{item.activity || "-"}</td>
                         <td className="py-3 px-4 text-gray-300 align-middle text-sm" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>{item.notes || "-"}</td>
                         <td className="py-3 px-4 text-white align-middle text-sm">
