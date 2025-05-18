@@ -35,17 +35,15 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
       const defaultOptions: Intl.DateTimeFormatOptions = { year: "numeric", month: "long", day: "numeric" };
       const effectiveOptions = { ...defaultOptions, ...options };
       
-      // Handle YYYY-MM-DD format specifically to avoid timezone issues if only date is provided
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
         try {
           const [year, month, day] = dateString.split('-').map(Number);
           return new Date(year, month - 1, day).toLocaleDateString("en-US", effectiveOptions);
-        } catch (e) { return dateString; } // Fallback
+        } catch (e) { return dateString; } 
       }
-      // Handle full ISO strings or other parsable date strings
       try {
         return new Date(dateString).toLocaleDateString("en-US", effectiveOptions);
-      } catch (e) { return dateString; } // Fallback
+      } catch (e) { return dateString; } 
     };
     
     const formatTime = (timeString?: string) => {
@@ -81,8 +79,8 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
       const dateB = b.date || '';
       if (dateA < dateB) return -1;
       if (dateA > dateB) return 1;
-      const timeA = a.start_time || '';
-      const timeB = b.start_time || '';
+      const timeA = a.startTime || ''; // Use startTime
+      const timeB = b.startTime || ''; // Use startTime
       if (timeA < timeB) return -1;
       if (timeA > timeB) return 1;
       return 0;
@@ -240,7 +238,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                 <tbody>
                   {sortedScheduleItems.map((item, index) => {
                     const itemDay = formatDate(item.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) || "No Date Assigned";
-                    const showDayHeader = itemDay !== currentScheduleDay && item.date; // Only show header if date exists
+                    const showDayHeader = itemDay !== currentScheduleDay && item.date; 
                     if (showDayHeader) {
                       currentScheduleDay = itemDay;
                     }
@@ -261,13 +259,13 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                         }}
                       >
                         <td className="py-3 px-4 text-white align-middle text-sm">{formatDate(item.date, { month: 'short', day: 'numeric' }) || "-"}</td>
-                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.start_time) || "-"}</td>
-                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.end_time) || "-"}</td>
+                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.startTime) || "-"}</td> {/* Use startTime */}
+                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.endTime) || "-"}</td> {/* Use endTime */}
                         <td className="py-3 px-4 text-white align-middle text-sm font-medium">{item.activity || "-"}</td>
                         <td className="py-3 px-4 text-gray-300 align-middle text-sm" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>{item.notes || "-"}</td>
                         <td className="py-3 px-4 text-white align-middle text-sm">
                           <div className="flex flex-wrap gap-1">
-                            {item.crew_ids?.length > 0 ? item.crew_ids.map(crewId => {
+                            {item.assignedCrewIds?.length > 0 ? item.assignedCrewIds.map(crewId => { {/* Use assignedCrewIds */}
                               const crewMember = getCrewDetails(crewId);
                               return crewMember ? (
                                 <span

@@ -6,13 +6,23 @@ import Footer from "../components/Footer";
 import ProductionScheduleHeader from "../components/production-schedule/ProductionScheduleHeader";
 import ProductionScheduleCrewKey, { CrewKeyItem } from "../components/production-schedule/ProductionScheduleCrewKey";
 // Import ScheduleItem from its definition source
-import ProductionScheduleTable, { ScheduleItem } from "../components/production-schedule/ProductionScheduleTable";
+import ProductionScheduleTable, { ScheduleItem as EditorScheduleItem } from "../components/production-schedule/ProductionScheduleTable";
 import ProductionScheduleLabor, { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor"; 
 import MobileScreenWarning from "../components/MobileScreenWarning";
 import { useScreenSize } from "../hooks/useScreenSize";
 import { Loader, ArrowLeft, Save, AlertCircle, Users } from "lucide-react"; 
 import { v4 as uuidv4 } from 'uuid';
 
+// Define the item structure for export, matching ScheduleItem from the editor
+interface ExportScheduleItem {
+  id: string;
+  date?: string;
+  startTime: string;
+  endTime: string;
+  activity: string;
+  notes: string;
+  assignedCrewIds: string[];
+}
 
 export interface ScheduleForExport {
   id: string;
@@ -43,15 +53,7 @@ export interface ScheduleForExport {
     monitor_engineer?: string;
   };
   crew_key: CrewKeyItem[];
-  schedule_items: Array<{ 
-    id: string;
-    date?: string; 
-    start_time: string; // Note: Supabase uses startTime, ensure consistency or map
-    end_time: string;   // Note: Supabase uses endTime
-    activity: string;
-    notes: string;
-    crew_ids: string[]; // Note: Supabase uses assignedCrewIds
-  }>;
+  schedule_items: ExportScheduleItem[]; // Use the new ExportScheduleItem
   labor_schedule_items: LaborScheduleItem[];
 }
 
@@ -78,7 +80,7 @@ interface ProductionScheduleData {
   set_datetime: string;
   strike_datetime: string;
   crew_key: CrewKeyItem[];
-  schedule_items: ScheduleItem[]; // Uses ScheduleItem from ProductionScheduleTable (which includes isNewlyAdded)
+  schedule_items: EditorScheduleItem[]; // Uses ScheduleItem from ProductionScheduleTable (which includes isNewlyAdded)
   labor_schedule_items: LaborScheduleItem[];
 }
 
@@ -139,7 +141,7 @@ const ProductionScheduleEditor = () => {
           set_datetime: "",
           strike_datetime: "",
           crew_key: [],
-          schedule_items: [], // isNewlyAdded will be undefined by default
+          schedule_items: [], 
           labor_schedule_items: [], 
         };
         setSchedule(newSchedule);
@@ -161,9 +163,11 @@ const ProductionScheduleEditor = () => {
               strike_datetime: data.strike_datetime || "",
               crew_key: data.crew_key || [],
               schedule_items: (data.schedule_items || []).map((item: any) => ({ 
-                ...item,
+                ...item, // Spreads DB fields (id, date, activity, notes, start_time, end_time, crew_ids)
                 date: item.date || "", 
-                // isNewlyAdded will be undefined for loaded items, which is fine
+                startTime: item.start_time || "", // Map DB's start_time to editor's startTime
+                endTime: item.end_time || "",     // Map DB's end_time to editor's endTime
+                assignedCrewIds: item.crew_ids || [], // Map DB's crew_ids to editor's assignedCrewIds
               })),
               labor_schedule_items: data.labor_schedule_items || [], 
             });
@@ -238,11 +242,11 @@ const ProductionScheduleEditor = () => {
     }
   };
 
-  const handleUpdateScheduleItems = (items: ScheduleItem[]) => {
+  const handleUpdateScheduleItems = (items: EditorScheduleItem[]) => {
     if (schedule) {
       setSchedule({
         ...schedule,
-        schedule_items: items, // items from ProductionScheduleTable now include isNewlyAdded
+        schedule_items: items, 
       });
     }
   };
@@ -262,14 +266,17 @@ const ProductionScheduleEditor = () => {
     setSaveError(null);
     setSaveSuccess(false);
 
-    // Sanitize schedule items for saving, removing the isNewlyAdded flag
     const sanitizedScheduleItems = schedule.schedule_items.map(item => {
-      const { isNewlyAdded, ...restOfItem } = item; // Destructure to remove isNewlyAdded
+      const { isNewlyAdded, ...restOfItem } = item; 
       return {
-        ...restOfItem,
-        date: restOfItem.date || null, 
-        // Ensure field names match Supabase schema if different from ScheduleItem
-        // Assuming ScheduleItem fields (startTime, endTime, assignedCrewIds) match Supabase
+        // Fields expected by Supabase
+        id: restOfItem.id,
+        date: restOfItem.date || null,
+        activity: restOfItem.activity,
+        notes: restOfItem.notes,
+        start_time: restOfItem.startTime, // Map editor's startTime to DB's start_time
+        end_time: restOfItem.endTime,     // Map editor's endTime to DB's end_time
+        crew_ids: restOfItem.assignedCrewIds, // Map editor's assignedCrewIds to DB's crew_ids
       };
     });
 
@@ -282,47 +289,63 @@ const ProductionScheduleEditor = () => {
       time_in: item.time_in, time_out: item.time_out, notes: item.notes,
     }));
 
-    const scheduleDataToSave: Omit<ProductionScheduleData, 'id' | 'user_id' | 'created_at' | 'schedule_items'> & { user_id: string, id?: string, created_at?: string, schedule_items: any[] } = {
-      ...schedule,
+    // Prepare data for saving, ensuring it matches Supabase schema
+    const scheduleDataToSave = {
+      name: schedule.name,
+      show_name: schedule.show_name,
+      job_number: schedule.job_number,
+      facility_name: schedule.facility_name,
+      project_manager: schedule.project_manager,
+      production_manager: schedule.production_manager,
+      account_manager: schedule.account_manager,
+      set_datetime: schedule.set_datetime || null,
+      strike_datetime: schedule.strike_datetime || null,
       user_id: user.id,
       last_edited: new Date().toISOString(),
-      set_datetime: schedule.set_datetime || null as any,
-      strike_datetime: schedule.strike_datetime || null as any,
       crew_key: sanitizedCrewKey,
-      schedule_items: sanitizedScheduleItems, // Use sanitized items
-      labor_schedule_items: sanitizedLaborScheduleItems, 
+      schedule_items: sanitizedScheduleItems, 
+      labor_schedule_items: sanitizedLaborScheduleItems,
+      // id and created_at are handled by Supabase or existing values
+      ...(id !== "new" && { id: schedule.id }),
+      ...(id === "new" && schedule.created_at && { created_at: schedule.created_at }),
     };
     
-    if (id === "new" && scheduleDataToSave.id) {
-      delete scheduleDataToSave.id; 
+    // Explicitly remove id if it's a new record to avoid Supabase error on insert
+    let finalDataToSave: any = scheduleDataToSave;
+    if (id === "new") {
+      const { id: scheduleId, ...rest } = scheduleDataToSave;
+      finalDataToSave = rest;
     }
-    // Remove isNewlyAdded from the top-level schedule object if it somehow got there
-    delete (scheduleDataToSave as any).isNewlyAdded;
 
 
     try {
       if (id === "new") {
         const { data, error } = await supabase
           .from("production_schedules")
-          .insert(scheduleDataToSave)
+          .insert(finalDataToSave)
           .select()
           .single();
         if (error) throw error;
         if (data) {
-          // Update state with data from DB (which won't have isNewlyAdded)
           const reloadedData = {
             ...data,
-            schedule_items: (data.schedule_items || []).map((item: any) => ({...item, date: item.date || ""})),
+            schedule_items: (data.schedule_items || []).map((dbItem: any) => ({
+              ...dbItem, 
+              date: dbItem.date || "",
+              startTime: dbItem.start_time || "",
+              endTime: dbItem.end_time || "",
+              assignedCrewIds: dbItem.crew_ids || [],
+            })),
             crew_key: data.crew_key || [],
             labor_schedule_items: data.labor_schedule_items || [],
-          }
+          };
           navigate(`/production-schedule/${data.id}`);
           setSchedule(reloadedData as ProductionScheduleData); 
         }
       } else {
         const { data, error } = await supabase
           .from("production_schedules")
-          .update(scheduleDataToSave)
+          .update(finalDataToSave)
           .eq("id", id as string)
           .eq("user_id", user.id)
           .select()
@@ -331,10 +354,16 @@ const ProductionScheduleEditor = () => {
         if (data) {
            const reloadedData = {
             ...data,
-            schedule_items: (data.schedule_items || []).map((item: any) => ({...item, date: item.date || ""})),
+            schedule_items: (data.schedule_items || []).map((dbItem: any) => ({
+              ...dbItem, 
+              date: dbItem.date || "",
+              startTime: dbItem.start_time || "",
+              endTime: dbItem.end_time || "",
+              assignedCrewIds: dbItem.crew_ids || [],
+            })),
             crew_key: data.crew_key || [],
             labor_schedule_items: data.labor_schedule_items || [],
-          }
+          };
           setSchedule(reloadedData as ProductionScheduleData);
         }
       }
@@ -358,6 +387,31 @@ const ProductionScheduleEditor = () => {
     );
   }
 
+  // Prepare the schedule data for export, ensuring it matches ScheduleForExport
+  const scheduleForExportProps: ScheduleForExport = {
+    ...schedule,
+    info: { // Map from ProductionScheduleData to ScheduleForExport['info']
+      event_name: schedule.show_name,
+      job_number: schedule.job_number,
+      venue: schedule.facility_name,
+      project_manager: schedule.project_manager,
+      production_manager: schedule.production_manager,
+      account_manager: schedule.account_manager,
+      date: parseDateTime(schedule.set_datetime).date, // Example: extract date part
+      load_in: parseDateTime(schedule.set_datetime).time, // Example: extract time part
+      strike_datetime: schedule.strike_datetime,
+      // Add other fields from schedule to info as needed, or ensure they are directly available
+      // For simplicity, if 'info' fields are directly on 'schedule', map them here.
+      // This example assumes some direct mappings and some transformations.
+      // You'll need to adjust this based on your actual data structure for 'info'.
+    },
+    schedule_items: schedule.schedule_items.map(item => {
+      const { isNewlyAdded, ...rest } = item; // Exclude isNewlyAdded for export
+      return rest; // 'rest' now matches ExportScheduleItem structure
+    }),
+  };
+
+
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       {showMobileWarning && (
@@ -369,7 +423,8 @@ const ProductionScheduleEditor = () => {
         />
       )}
 
-      <Header dashboard={true} />
+      <Header dashboard={true} scheduleForExport={scheduleForExportProps} scheduleType="production" />
+
 
       <main className="flex-grow container mx-auto px-4 py-6 md:py-12 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">

@@ -62,8 +62,8 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
       const dateB = b.date || '';
       if (dateA < dateB) return -1;
       if (dateA > dateB) return 1;
-      const timeA = a.start_time || '';
-      const timeB = b.start_time || '';
+      const timeA = a.startTime || ''; // Use startTime
+      const timeB = b.startTime || ''; // Use startTime
       if (timeA < timeB) return -1;
       if (timeA > timeB) return 1;
       return 0;
@@ -211,12 +211,12 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                     )}
                     <tr style={{ borderBottom: "1px solid #eee", backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9" }}>
                       <td style={{ padding: "8px", verticalAlign: "top" }}>{formatDate(item.date, { month: 'short', day: 'numeric' }) || "-"}</td>
-                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.start_time) || "-"}</td>
-                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.end_time) || "-"}</td>
+                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.startTime) || "-"}</td> {/* Use startTime */}
+                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.endTime) || "-"}</td> {/* Use endTime */}
                       <td style={{ padding: "8px", verticalAlign: "top", fontWeight: "500" }}>{item.activity || "-"}</td>
                       <td style={{ padding: "8px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.notes || "-"}</td>
                       <td style={{ padding: "8px", verticalAlign: "top" }}>
-                        {item.crew_ids?.length > 0 ? item.crew_ids.map(crewId => getCrewName(crewId)).join(", ") : <span style={{color: "#777"}}>No crew</span>}
+                        {item.assignedCrewIds?.length > 0 ? item.assignedCrewIds.map(crewId => getCrewName(crewId)).join(", ") : <span style={{color: "#777"}}>No crew</span>} {/* Use assignedCrewIds */}
                       </td>
                     </tr>
                   </React.Fragment>
