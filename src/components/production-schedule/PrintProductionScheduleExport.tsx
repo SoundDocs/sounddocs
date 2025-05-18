@@ -21,13 +21,19 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
 
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
          try {
-          const [year, month, day] = dateString.split('-').map(Number);
-          return new Date(year, month - 1, day).toLocaleDateString("en-US", effectiveOptions);
-        } catch (e) { return dateString; }
+          const date = new Date(dateString + 'T00:00:00Z'); // Interpret as UTC
+          return date.toLocaleDateString("en-US", effectiveOptions);
+        } catch (e) { 
+          console.error("Error formatting YYYY-MM-DD date (print):", e);
+          return dateString; 
+        }
       }
       try {
         return new Date(dateString).toLocaleDateString("en-US", effectiveOptions);
-      } catch (e) { return dateString; }
+      } catch (e) { 
+        console.error("Error formatting date string (print):", e);
+        return dateString; 
+      }
     };
 
     const formatTime = (timeString?: string) => {
@@ -62,8 +68,8 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
       const dateB = b.date || '';
       if (dateA < dateB) return -1;
       if (dateA > dateB) return 1;
-      const timeA = a.startTime || ''; // Use startTime
-      const timeB = b.startTime || ''; // Use startTime
+      const timeA = a.startTime || ''; 
+      const timeB = b.startTime || ''; 
       if (timeA < timeB) return -1;
       if (timeA > timeB) return 1;
       return 0;
@@ -81,8 +87,8 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
       return (a.name || '').localeCompare(b.name || '');
     });
 
-    let currentScheduleDay = "";
-    let currentLaborDay = "";
+    let currentScheduleDayFormatted = ""; // For Production Schedule section
+    let currentLaborDayFormatted = ""; // For Labor Schedule section
 
     return (
       <div
@@ -194,10 +200,10 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
               </thead>
               <tbody>
                 {sortedScheduleItems.map((item, index) => {
-                  const itemDay = formatDate(item.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) || "No Date Assigned";
-                  const showDayHeader = itemDay !== currentScheduleDay && item.date;
+                  const itemDayDisplay = formatDate(item.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                  const showDayHeader = item.date && itemDayDisplay !== "N/A" && itemDayDisplay !== currentScheduleDayFormatted;
                   if (showDayHeader) {
-                    currentScheduleDay = itemDay;
+                    currentScheduleDayFormatted = itemDayDisplay;
                   }
                   return (
                   <React.Fragment key={item.id}>
@@ -205,18 +211,18 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                       <tr style={{ backgroundColor: "#e2e8f0", borderTop: "1px solid #ccc", borderBottom: "1px solid #ccc" }}>
                         <td colSpan={6} style={{ padding: "6px 8px", fontWeight: "bold", textAlign: "left" }}>
                            <CalendarDays size={14} style={{ display: "inline", marginRight: "6px", verticalAlign: "text-bottom" }} />
-                           {currentScheduleDay}
+                           {currentScheduleDayFormatted}
                         </td>
                       </tr>
                     )}
                     <tr style={{ borderBottom: "1px solid #eee", backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9" }}>
-                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatDate(item.date, { month: 'short', day: 'numeric' }) || "-"}</td>
-                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.startTime) || "-"}</td> {/* Use startTime */}
-                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.endTime) || "-"}</td> {/* Use endTime */}
+                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatDate(item.date, { month: 'short', day: 'numeric' })}</td>
+                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.startTime)}</td>
+                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.endTime)}</td>
                       <td style={{ padding: "8px", verticalAlign: "top", fontWeight: "500" }}>{item.activity || "-"}</td>
                       <td style={{ padding: "8px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.notes || "-"}</td>
                       <td style={{ padding: "8px", verticalAlign: "top" }}>
-                        {item.assignedCrewIds?.length > 0 ? item.assignedCrewIds.map(crewId => getCrewName(crewId)).join(", ") : <span style={{color: "#777"}}>No crew</span>} {/* Use assignedCrewIds */}
+                        {item.assignedCrewIds?.length > 0 ? item.assignedCrewIds.map(crewId => getCrewName(crewId)).join(", ") : <span style={{color: "#777"}}>No crew</span>}
                       </td>
                     </tr>
                   </React.Fragment>
@@ -247,10 +253,10 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
               </thead>
               <tbody>
                 {sortedLaborScheduleItems.map((item, index) => {
-                  const itemDay = formatDate(item.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) || "No Date Assigned";
-                  const showDayHeader = itemDay !== currentLaborDay;
+                  const itemDayDisplay = formatDate(item.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                  const showDayHeader = item.date && itemDayDisplay !== "N/A" && itemDayDisplay !== currentLaborDayFormatted;
                   if (showDayHeader) {
-                    currentLaborDay = itemDay;
+                    currentLaborDayFormatted = itemDayDisplay;
                   }
                   return (
                     <React.Fragment key={item.id}>
@@ -261,14 +267,14 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                             style={{ padding: "6px 8px", fontWeight: "bold", textAlign: "left" }}
                           >
                             <CalendarDays size={14} style={{ display: "inline", marginRight: "6px", verticalAlign: "text-bottom" }} />
-                            {currentLaborDay}
+                            {currentLaborDayFormatted}
                           </td>
                         </tr>
                       )}
                       <tr style={{ borderBottom: "1px solid #eee", backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9" }}>
                         <td style={{ padding: "8px", verticalAlign: "top", fontWeight: "500" }}>{item.name || "-"}</td>
                         <td style={{ padding: "8px", verticalAlign: "top" }}>{item.position || "-"}</td>
-                        <td style={{ padding: "8px", verticalAlign: "top" }}>{formatDate(item.date, { month: 'short', day: 'numeric' }) || "-"}</td>
+                        <td style={{ padding: "8px", verticalAlign: "top" }}>{formatDate(item.date, { month: 'short', day: 'numeric' })}</td>
                         <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.time_in) || "-"}</td>
                         <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.time_out) || "-"}</td>
                         <td style={{ padding: "8px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.notes || "-"}</td>

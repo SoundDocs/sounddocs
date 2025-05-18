@@ -35,15 +35,24 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
       const defaultOptions: Intl.DateTimeFormatOptions = { year: "numeric", month: "long", day: "numeric" };
       const effectiveOptions = { ...defaultOptions, ...options };
       
+      // Handle YYYY-MM-DD format explicitly for consistency
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
         try {
-          const [year, month, day] = dateString.split('-').map(Number);
-          return new Date(year, month - 1, day).toLocaleDateString("en-US", effectiveOptions);
-        } catch (e) { return dateString; } 
+          // Ensure UTC interpretation to avoid timezone shifts if time is not present
+          const date = new Date(dateString + 'T00:00:00Z');
+          return date.toLocaleDateString("en-US", effectiveOptions);
+        } catch (e) { 
+          console.error("Error formatting YYYY-MM-DD date:", e);
+          return dateString; 
+        } 
       }
+      // Handle other potential date(time) strings
       try {
         return new Date(dateString).toLocaleDateString("en-US", effectiveOptions);
-      } catch (e) { return dateString; } 
+      } catch (e) { 
+        console.error("Error formatting date string:", e);
+        return dateString; 
+      } 
     };
     
     const formatTime = (timeString?: string) => {
@@ -79,8 +88,8 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
       const dateB = b.date || '';
       if (dateA < dateB) return -1;
       if (dateA > dateB) return 1;
-      const timeA = a.startTime || ''; // Use startTime
-      const timeB = b.startTime || ''; // Use startTime
+      const timeA = a.startTime || ''; 
+      const timeB = b.startTime || ''; 
       if (timeA < timeB) return -1;
       if (timeA > timeB) return 1;
       return 0;
@@ -98,8 +107,8 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
       return (a.name || '').localeCompare(b.name || '');
     });
     
-    let currentScheduleDay = "";
-    let currentLaborDay = "";
+    let currentScheduleDayFormatted = ""; // For Production Schedule section
+    let currentLaborDayFormatted = ""; // For Labor Schedule section
 
     return (
       <div
@@ -237,10 +246,11 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                 </thead>
                 <tbody>
                   {sortedScheduleItems.map((item, index) => {
-                    const itemDay = formatDate(item.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) || "No Date Assigned";
-                    const showDayHeader = itemDay !== currentScheduleDay && item.date; 
+                    const itemDayDisplay = formatDate(item.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                    // Show header if item.date is valid and different from currentScheduleDayFormatted
+                    const showDayHeader = item.date && itemDayDisplay !== "N/A" && itemDayDisplay !== currentScheduleDayFormatted;
                     if (showDayHeader) {
-                      currentScheduleDay = itemDay;
+                      currentScheduleDayFormatted = itemDayDisplay;
                     }
                     return (
                     <React.Fragment key={item.id}>
@@ -248,7 +258,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                         <tr style={{ background: "rgba(45, 55, 72, 0.6)", borderTop: "2px solid rgba(99, 102, 241, 0.3)", borderBottom: "1px solid rgba(99, 102, 241, 0.2)" }}>
                           <td colSpan={6} className="py-2 px-4 text-white font-semibold text-sm flex items-center">
                             <CalendarDays size={16} className="mr-2 text-indigo-300" />
-                            {currentScheduleDay}
+                            {currentScheduleDayFormatted}
                           </td>
                         </tr>
                       )}
@@ -258,14 +268,14 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                           borderBottom: "1px solid rgba(55, 65, 81, 0.5)",
                         }}
                       >
-                        <td className="py-3 px-4 text-white align-middle text-sm">{formatDate(item.date, { month: 'short', day: 'numeric' }) || "-"}</td>
-                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.startTime) || "-"}</td> {/* Use startTime */}
-                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.endTime) || "-"}</td> {/* Use endTime */}
+                        <td className="py-3 px-4 text-white align-middle text-sm">{formatDate(item.date, { month: 'short', day: 'numeric' })}</td>
+                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.startTime)}</td>
+                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.endTime)}</td>
                         <td className="py-3 px-4 text-white align-middle text-sm font-medium">{item.activity || "-"}</td>
                         <td className="py-3 px-4 text-gray-300 align-middle text-sm" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>{item.notes || "-"}</td>
                         <td className="py-3 px-4 text-white align-middle text-sm">
                           <div className="flex flex-wrap gap-1">
-                            {item.assignedCrewIds?.length > 0 ? item.assignedCrewIds.map(crewId => { {/* Use assignedCrewIds */}
+                            {item.assignedCrewIds?.length > 0 ? item.assignedCrewIds.map(crewId => {
                               const crewMember = getCrewDetails(crewId);
                               return crewMember ? (
                                 <span
@@ -314,10 +324,10 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                 </thead>
                 <tbody>
                   {sortedLaborScheduleItems.map((item, index) => {
-                    const itemDay = formatDate(item.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) || "No Date Assigned";
-                    const showDayHeader = itemDay !== currentLaborDay;
+                    const itemDayDisplay = formatDate(item.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                    const showDayHeader = item.date && itemDayDisplay !== "N/A" && itemDayDisplay !== currentLaborDayFormatted;
                     if (showDayHeader) {
-                      currentLaborDay = itemDay;
+                      currentLaborDayFormatted = itemDayDisplay;
                     }
                     return (
                       <React.Fragment key={item.id}>
@@ -325,7 +335,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                           <tr style={{ background: "rgba(45, 55, 72, 0.6)", borderTop: "2px solid rgba(99, 102, 241, 0.3)", borderBottom: "1px solid rgba(99, 102, 241, 0.2)" }}>
                             <td colSpan={6} className="py-2 px-4 text-white font-semibold text-sm flex items-center">
                                 <CalendarDays size={16} className="mr-2 text-indigo-300" />
-                                {currentLaborDay}
+                                {currentLaborDayFormatted}
                             </td>
                           </tr>
                         )}
@@ -337,7 +347,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                         >
                           <td className="py-3 px-4 text-white align-middle text-sm font-medium">{item.name || "-"}</td>
                           <td className="py-3 px-4 text-white align-middle text-sm">{item.position || "-"}</td>
-                          <td className="py-3 px-4 text-white align-middle text-sm">{formatDate(item.date, { month: 'short', day: 'numeric' }) || "-"}</td>
+                          <td className="py-3 px-4 text-white align-middle text-sm">{formatDate(item.date, { month: 'short', day: 'numeric' })}</td>
                           <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.time_in) || "-"}</td>
                           <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.time_out) || "-"}</td>
                           <td className="py-3 px-4 text-gray-300 align-middle text-sm" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>{item.notes || "-"}</td>
