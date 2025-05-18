@@ -163,11 +163,11 @@ const ProductionScheduleEditor = () => {
               strike_datetime: data.strike_datetime || "",
               crew_key: data.crew_key || [],
               schedule_items: (data.schedule_items || []).map((item: any) => ({ 
-                ...item, // Spreads DB fields (id, date, activity, notes, start_time, end_time, crew_ids)
+                ...item, 
                 date: item.date || "", 
-                startTime: item.start_time || "", // Map DB's start_time to editor's startTime
-                endTime: item.end_time || "",     // Map DB's end_time to editor's endTime
-                assignedCrewIds: item.crew_ids || [], // Map DB's crew_ids to editor's assignedCrewIds
+                startTime: item.start_time || "", 
+                endTime: item.end_time || "",     
+                assignedCrewIds: item.crew_ids || [], 
               })),
               labor_schedule_items: data.labor_schedule_items || [], 
             });
@@ -269,14 +269,13 @@ const ProductionScheduleEditor = () => {
     const sanitizedScheduleItems = schedule.schedule_items.map(item => {
       const { isNewlyAdded, ...restOfItem } = item; 
       return {
-        // Fields expected by Supabase
         id: restOfItem.id,
         date: restOfItem.date || null,
         activity: restOfItem.activity,
         notes: restOfItem.notes,
-        start_time: restOfItem.startTime, // Map editor's startTime to DB's start_time
-        end_time: restOfItem.endTime,     // Map editor's endTime to DB's end_time
-        crew_ids: restOfItem.assignedCrewIds, // Map editor's assignedCrewIds to DB's crew_ids
+        start_time: restOfItem.startTime, 
+        end_time: restOfItem.endTime,     
+        crew_ids: restOfItem.assignedCrewIds, 
       };
     });
 
@@ -289,7 +288,6 @@ const ProductionScheduleEditor = () => {
       time_in: item.time_in, time_out: item.time_out, notes: item.notes,
     }));
 
-    // Prepare data for saving, ensuring it matches Supabase schema
     const scheduleDataToSave = {
       name: schedule.name,
       show_name: schedule.show_name,
@@ -305,12 +303,10 @@ const ProductionScheduleEditor = () => {
       crew_key: sanitizedCrewKey,
       schedule_items: sanitizedScheduleItems, 
       labor_schedule_items: sanitizedLaborScheduleItems,
-      // id and created_at are handled by Supabase or existing values
       ...(id !== "new" && { id: schedule.id }),
       ...(id === "new" && schedule.created_at && { created_at: schedule.created_at }),
     };
     
-    // Explicitly remove id if it's a new record to avoid Supabase error on insert
     let finalDataToSave: any = scheduleDataToSave;
     if (id === "new") {
       const { id: scheduleId, ...rest } = scheduleDataToSave;
@@ -387,28 +383,50 @@ const ProductionScheduleEditor = () => {
     );
   }
 
-  // Prepare the schedule data for export, ensuring it matches ScheduleForExport
   const scheduleForExportProps: ScheduleForExport = {
-    ...schedule,
-    info: { // Map from ProductionScheduleData to ScheduleForExport['info']
+    id: schedule.id || uuidv4(), // Ensure id is present
+    name: schedule.name,
+    created_at: schedule.created_at || new Date().toISOString(),
+    last_edited: schedule.last_edited,
+    info: { 
       event_name: schedule.show_name,
       job_number: schedule.job_number,
       venue: schedule.facility_name,
       project_manager: schedule.project_manager,
       production_manager: schedule.production_manager,
       account_manager: schedule.account_manager,
-      date: parseDateTime(schedule.set_datetime).date, // Example: extract date part
-      load_in: parseDateTime(schedule.set_datetime).time, // Example: extract time part
+      date: parseDateTime(schedule.set_datetime).date, 
+      load_in: parseDateTime(schedule.set_datetime).time, 
       strike_datetime: schedule.strike_datetime,
-      // Add other fields from schedule to info as needed, or ensure they are directly available
-      // For simplicity, if 'info' fields are directly on 'schedule', map them here.
-      // This example assumes some direct mappings and some transformations.
-      // You'll need to adjust this based on your actual data structure for 'info'.
+      // Ensure all other relevant fields from 'schedule.info' if it exists, or from 'schedule' directly are mapped
+      // For example, if these fields are directly on 'schedule' (ProductionScheduleData)
+      event_start: parseDateTime(schedule.set_datetime).full, // Assuming set_datetime can be event_start
+      event_end: undefined, // Add if available
+      event_type: undefined, // Add if available
+      sound_check: undefined, // Add if available
+      room: undefined, // Add if available
+      address: undefined, // Add if available
+      client_artist: undefined, // Add if available
+      contact_name: undefined, // Add if available
+      contact_email: undefined, // Add if available
+      contact_phone: undefined, // Add if available
+      foh_engineer: undefined, // Add if available
+      monitor_engineer: undefined, // Add if available
     },
+    crew_key: schedule.crew_key,
     schedule_items: schedule.schedule_items.map(item => {
-      const { isNewlyAdded, ...rest } = item; // Exclude isNewlyAdded for export
-      return rest; // 'rest' now matches ExportScheduleItem structure
+      // Explicitly map fields to ensure correct data is passed
+      return {
+        id: item.id,
+        date: item.date, // This should be the date string from the editor item
+        startTime: item.startTime, // This should be the startTime string
+        endTime: item.endTime, // This should be the endTime string
+        activity: item.activity,
+        notes: item.notes,
+        assignedCrewIds: item.assignedCrewIds,
+      };
     }),
+    labor_schedule_items: schedule.labor_schedule_items,
   };
 
 
