@@ -27,7 +27,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
   ({ schedule }, ref) => {
     const info = schedule.info || {};
     const crewKey = schedule.crew_key || [];
-    const scheduleItemsData = schedule.schedule_items || [];
+    const scheduleItemsData = schedule.schedule_items || []; // These items now have start_time, end_time
     const laborScheduleItems = schedule.labor_schedule_items || []; 
 
     const formatDate = (dateString?: string, options?: Intl.DateTimeFormatOptions) => {
@@ -88,8 +88,8 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
       const dateB = b.date || '';
       if (dateA < dateB) return -1;
       if (dateA > dateB) return 1;
-      const timeA = a.startTime || ''; 
-      const timeB = b.startTime || ''; 
+      const timeA = a.start_time || ''; // Changed from a.startTime
+      const timeB = b.start_time || ''; // Changed from b.startTime
       if (timeA < timeB) return -1;
       if (timeA > timeB) return 1;
       return 0;
@@ -269,13 +269,13 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                         }}
                       >
                         <td className="py-3 px-4 text-white align-middle text-sm">{formatDate(item.date, { month: 'short', day: 'numeric' })}</td>
-                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.startTime) || "-"}</td>
-                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.endTime) || "-"}</td>
+                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.start_time) || "-"}</td> 
+                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.end_time) || "-"}</td>   
                         <td className="py-3 px-4 text-white align-middle text-sm font-medium">{item.activity || "-"}</td>
                         <td className="py-3 px-4 text-gray-300 align-middle text-sm" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>{item.notes || "-"}</td>
                         <td className="py-3 px-4 text-white align-middle text-sm">
                           <div className="flex flex-wrap gap-1">
-                            {item.assignedCrewIds?.length > 0 ? item.assignedCrewIds.map(crewId => {
+                            {item.assigned_crew_ids?.length > 0 ? item.assigned_crew_ids.map(crewId => { // Changed from item.assignedCrewIds
                               const crewMember = getCrewDetails(crewId);
                               return crewMember ? (
                                 <span
