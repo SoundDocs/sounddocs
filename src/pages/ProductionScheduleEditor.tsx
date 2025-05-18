@@ -5,24 +5,22 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import ProductionScheduleHeader from "../components/production-schedule/ProductionScheduleHeader";
 import ProductionScheduleCrewKey, { CrewKeyItem } from "../components/production-schedule/ProductionScheduleCrewKey";
-// Import ScheduleItem from its definition source
-import ProductionScheduleTable, { ScheduleItem as EditorScheduleItem } from "../components/production-schedule/ProductionScheduleTable";
+import ProductionScheduleTable, { ScheduleItem as EditorScheduleItem } from "../components/production-schedule/ProductionScheduleTable"; // EditorScheduleItem now uses snake_case
 import ProductionScheduleLabor, { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor"; 
 import MobileScreenWarning from "../components/MobileScreenWarning";
 import { useScreenSize } from "../hooks/useScreenSize";
 import { Loader, ArrowLeft, Save, AlertCircle, Users } from "lucide-react"; 
 import { v4 as uuidv4 } from 'uuid';
 
-// Define the item structure for export, matching ScheduleItem from the editor
-// This will now use snake_case for time and crew ID fields to align with labor schedule pattern
+// Define the item structure for export, using snake_case
 interface ExportScheduleItem {
   id: string;
   date?: string;
-  start_time: string; // Changed from startTime
-  end_time: string;   // Changed from endTime
+  start_time: string; 
+  end_time: string;   
   activity: string;
   notes: string;
-  assigned_crew_ids: string[]; // Changed from assignedCrewIds
+  assigned_crew_ids: string[]; 
 }
 
 export interface ScheduleForExport {
@@ -64,8 +62,6 @@ const defaultColors = [
   "#EC4899", "#F97316", "#14B8A6", "#64748B", "#84CC16"
 ];
 
-// This interface uses the ScheduleItem imported from ProductionScheduleTable,
-// which now includes `isNewlyAdded`. EditorScheduleItem uses camelCase internally.
 interface ProductionScheduleData {
   id?: string;
   user_id?: string;
@@ -81,7 +77,7 @@ interface ProductionScheduleData {
   set_datetime: string;
   strike_datetime: string;
   crew_key: CrewKeyItem[];
-  schedule_items: EditorScheduleItem[]; // Internal state uses camelCase (startTime, endTime)
+  schedule_items: EditorScheduleItem[]; // Internal state uses snake_case (start_time, end_time) due to EditorScheduleItem import
   labor_schedule_items: LaborScheduleItem[]; // Labor items use snake_case (time_in, time_out)
 }
 
@@ -164,19 +160,18 @@ const ProductionScheduleEditor = () => {
               strike_datetime: data.strike_datetime || "",
               crew_key: data.crew_key || [],
               schedule_items: (data.schedule_items || []).map((dbItem: any): EditorScheduleItem => {
-                // Map from DB snake_case (e.g., start_time) to internal camelCase (e.g., startTime)
+                // Map from DB snake_case (e.g., start_time) to internal snake_case (e.g., start_time)
                 return {
                   id: dbItem.id, 
                   date: dbItem.date || undefined, 
-                  startTime: dbItem.start_time || "", // DB: start_time -> State: startTime
-                  endTime: dbItem.end_time || "",   // DB: end_time -> State: endTime
+                  start_time: dbItem.start_time || "", // DB: start_time -> State: start_time
+                  end_time: dbItem.end_time || "",   // DB: end_time -> State: end_time
                   activity: dbItem.activity || "",
                   notes: dbItem.notes || "",
-                  assignedCrewIds: dbItem.assigned_crew_ids || [], // DB: assigned_crew_ids -> State: assignedCrewIds
+                  assigned_crew_ids: dbItem.assigned_crew_ids || [], // DB: assigned_crew_ids -> State: assigned_crew_ids
                   isNewlyAdded: false 
                 };
               }),
-              // Labor items are assumed to be snake_case in DB and used as such in LaborScheduleItem interface
               labor_schedule_items: data.labor_schedule_items || [], 
             });
           } else {
@@ -237,10 +232,10 @@ const ProductionScheduleEditor = () => {
 
   const handleDeleteCrewKeyItem = (itemId: string) => {
     if (schedule) {
-      // Update assignedCrewIds in schedule_items (which are camelCase in state)
+      // Update assigned_crew_ids in schedule_items (which are snake_case in state)
       const updatedScheduleItems = schedule.schedule_items.map(item => ({
         ...item,
-        assignedCrewIds: item.assignedCrewIds.filter(id => id !== itemId),
+        assigned_crew_ids: item.assigned_crew_ids.filter(id => id !== itemId),
       }));
 
       setSchedule({
@@ -275,7 +270,7 @@ const ProductionScheduleEditor = () => {
     setSaveError(null);
     setSaveSuccess(false);
 
-    // Map internal camelCase (startTime) to DB snake_case (start_time)
+    // schedule_items are already snake_case in state (start_time, end_time, assigned_crew_ids)
     const sanitizedScheduleItems = schedule.schedule_items.map((item: EditorScheduleItem) => {
       const { isNewlyAdded, ...restOfItem } = item; 
       return {
@@ -283,9 +278,9 @@ const ProductionScheduleEditor = () => {
         date: restOfItem.date || null, 
         activity: restOfItem.activity,
         notes: restOfItem.notes,
-        start_time: restOfItem.startTime || "", // State: startTime -> DB: start_time
-        end_time: restOfItem.endTime || "",     // State: endTime -> DB: end_time
-        assigned_crew_ids: restOfItem.assignedCrewIds || [], // State: assignedCrewIds -> DB: assigned_crew_ids
+        start_time: restOfItem.start_time || "", 
+        end_time: restOfItem.end_time || "",     
+        assigned_crew_ids: restOfItem.assigned_crew_ids || [], 
       };
     });
 
@@ -293,7 +288,6 @@ const ProductionScheduleEditor = () => {
       id: item.id, name: item.name, color: item.color,
     }));
     
-    // Labor items are assumed to be snake_case (time_in, time_out) already from LaborScheduleItem interface
     const sanitizedLaborScheduleItems = schedule.labor_schedule_items.map(item => ({ 
       id: item.id, name: item.name, position: item.position, date: item.date,
       time_in: item.time_in, time_out: item.time_out, notes: item.notes,
@@ -312,7 +306,7 @@ const ProductionScheduleEditor = () => {
       user_id: user.id,
       last_edited: new Date().toISOString(),
       crew_key: sanitizedCrewKey,
-      schedule_items: sanitizedScheduleItems, // Now contains snake_case keys for time and crew
+      schedule_items: sanitizedScheduleItems, // Contains snake_case keys for time and crew
       labor_schedule_items: sanitizedLaborScheduleItems,
       ...(id !== "new" && { id: schedule.id }),
       ...(id === "new" && schedule.created_at && { created_at: schedule.created_at }),
@@ -349,7 +343,7 @@ const ProductionScheduleEditor = () => {
       }
 
       if (savedData) {
-        // When reloading data, map from DB snake_case back to internal camelCase
+        // When reloading data, map from DB snake_case back to internal snake_case
         const reloadedData: ProductionScheduleData = {
           ...savedData,
           set_datetime: savedData.set_datetime || "",
@@ -358,11 +352,11 @@ const ProductionScheduleEditor = () => {
           schedule_items: (savedData.schedule_items || []).map((dbItem: any): EditorScheduleItem => ({
             id: dbItem.id,
             date: dbItem.date || undefined,
-            startTime: dbItem.start_time || "", // DB: start_time -> State: startTime
-            endTime: dbItem.end_time || "",     // DB: end_time -> State: endTime
+            start_time: dbItem.start_time || "", 
+            end_time: dbItem.end_time || "",     
             activity: dbItem.activity || "",
             notes: dbItem.notes || "",
-            assignedCrewIds: dbItem.assigned_crew_ids || [], // DB: assigned_crew_ids -> State: assignedCrewIds
+            assigned_crew_ids: dbItem.assigned_crew_ids || [], 
             isNewlyAdded: false,
           })),
           labor_schedule_items: savedData.labor_schedule_items || [],
@@ -390,7 +384,7 @@ const ProductionScheduleEditor = () => {
     );
   }
 
-  // Prepare props for export component, mapping internal camelCase to export's snake_case
+  // Prepare props for export component, mapping internal snake_case to export's snake_case
   const scheduleForExportProps: ScheduleForExport = {
     id: schedule.id || uuidv4(), 
     name: schedule.name,
@@ -421,15 +415,15 @@ const ProductionScheduleEditor = () => {
     },
     crew_key: schedule.crew_key,
     schedule_items: schedule.schedule_items.map((item: EditorScheduleItem): ExportScheduleItem => {
-      // Map from internal camelCase (item.startTime) to export snake_case (start_time)
+      // Map from internal snake_case (item.start_time) to export snake_case (start_time)
       return {
         id: item.id,
         date: item.date || "", 
-        start_time: item.startTime || "", // State: startTime -> Export: start_time
-        end_time: item.endTime || "",   // State: endTime -> Export: end_time
+        start_time: item.start_time || "", 
+        end_time: item.end_time || "",   
         activity: item.activity || "",
         notes: item.notes || "",
-        assigned_crew_ids: item.assignedCrewIds || [], // State: assignedCrewIds -> Export: assigned_crew_ids
+        assigned_crew_ids: item.assigned_crew_ids || [], 
       };
     }),
     labor_schedule_items: schedule.labor_schedule_items, // Assumed to be already in correct snake_case format

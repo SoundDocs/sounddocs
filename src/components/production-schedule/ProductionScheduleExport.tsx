@@ -27,7 +27,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
   ({ schedule }, ref) => {
     const info = schedule.info || {};
     const crewKey = schedule.crew_key || [];
-    const scheduleItemsData = schedule.schedule_items || []; // These items now have start_time, end_time
+    const scheduleItemsData = schedule.schedule_items || []; // These items now have start_time, end_time, assigned_crew_ids
     const laborScheduleItems = schedule.labor_schedule_items || []; 
 
     const formatDate = (dateString?: string, options?: Intl.DateTimeFormatOptions) => {
@@ -35,10 +35,8 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
       const defaultOptions: Intl.DateTimeFormatOptions = { year: "numeric", month: "long", day: "numeric" };
       const effectiveOptions = { ...defaultOptions, ...options };
       
-      // Handle YYYY-MM-DD format explicitly for consistency
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
         try {
-          // Ensure UTC interpretation to avoid timezone shifts if time is not present
           const date = new Date(dateString + 'T00:00:00Z');
           return date.toLocaleDateString("en-US", effectiveOptions);
         } catch (e) { 
@@ -46,7 +44,6 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
           return dateString; 
         } 
       }
-      // Handle other potential date(time) strings
       try {
         return new Date(dateString).toLocaleDateString("en-US", effectiveOptions);
       } catch (e) { 
@@ -88,8 +85,8 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
       const dateB = b.date || '';
       if (dateA < dateB) return -1;
       if (dateA > dateB) return 1;
-      const timeA = a.start_time || ''; // Changed from a.startTime
-      const timeB = b.start_time || ''; // Changed from b.startTime
+      const timeA = a.start_time || ''; // Changed to start_time
+      const timeB = b.start_time || ''; // Changed to start_time
       if (timeA < timeB) return -1;
       if (timeA > timeB) return 1;
       return 0;
@@ -107,8 +104,8 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
       return (a.name || '').localeCompare(b.name || '');
     });
     
-    let currentScheduleDayFormatted = ""; // For Production Schedule section
-    let currentLaborDayFormatted = ""; // For Labor Schedule section
+    let currentScheduleDayFormatted = ""; 
+    let currentLaborDayFormatted = ""; 
 
     return (
       <div
@@ -247,7 +244,6 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                 <tbody>
                   {sortedScheduleItems.map((item, index) => {
                     const itemDayDisplay = formatDate(item.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-                    // Show header if item.date is valid and different from currentScheduleDayFormatted
                     const showDayHeader = item.date && itemDayDisplay !== "N/A" && itemDayDisplay !== currentScheduleDayFormatted;
                     if (showDayHeader) {
                       currentScheduleDayFormatted = itemDayDisplay;
@@ -275,7 +271,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                         <td className="py-3 px-4 text-gray-300 align-middle text-sm" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>{item.notes || "-"}</td>
                         <td className="py-3 px-4 text-white align-middle text-sm">
                           <div className="flex flex-wrap gap-1">
-                            {item.assigned_crew_ids?.length > 0 ? item.assigned_crew_ids.map(crewId => { // Changed from item.assignedCrewIds
+                            {item.assigned_crew_ids?.length > 0 ? item.assigned_crew_ids.map(crewId => { // Changed to assigned_crew_ids
                               const crewMember = getCrewDetails(crewId);
                               return crewMember ? (
                                 <span

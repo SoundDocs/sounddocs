@@ -1,17 +1,22 @@
-import React, { useState } from "react";
-import { PlusCircle, Trash2, ChevronDown, ChevronUp, GripVertical, CalendarDays } from "lucide-react";
-import { CrewKeyItem } from "./ProductionScheduleCrewKey"; 
+import React, { useState, useEffect, useCallback } from 'react';
+import { PlusCircle, Trash2, GripVertical, ChevronDown, ChevronUp, CalendarDays, Copy } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface ScheduleItem {
   id: string;
-  date?: string; 
-  startTime: string;
-  endTime: string;
+  date?: string; // YYYY-MM-DD
+  start_time: string; // HH:MM - Changed from startTime
+  end_time: string;   // HH:MM - Changed from endTime
   activity: string;
   notes: string;
-  assignedCrewIds: string[]; 
-  isNewlyAdded?: boolean; 
+  assigned_crew_ids: string[]; // Changed from assignedCrewIds
+  isNewlyAdded?: boolean;
+}
+
+interface CrewKeyItem {
+  id: string;
+  name: string;
+  color: string;
 }
 
 interface ProductionScheduleTableProps {
@@ -20,332 +25,323 @@ interface ProductionScheduleTableProps {
   onUpdateScheduleItems: (items: ScheduleItem[]) => void;
 }
 
-interface ScheduleItemGroup {
-  key: string; 
-  displayHeader: string;
-  items: ScheduleItem[];
-  isNewlyAddedItemGroup: boolean; // True if this group is specifically for new items without a date
-  dateForNewItemInGroup?: string; // The date to use for "Add item to this group"
-  sortOrder: number; // For sorting groups: 1 for dated, 2 for no-date, 3 for new-no-date
-}
-
-const ProductionScheduleItemRow: React.FC<{
+const ScheduleItemRow: React.FC<{
   item: ScheduleItem;
+  onUpdateItem: (updatedItem: ScheduleItem) => void;
+  onDeleteItem: () => void;
+  onDuplicateItem: () => void;
   crewKey: CrewKeyItem[];
-  onUpdateItem: (itemId: string, updatedItem: ScheduleItem) => void;
-  onDeleteItem: (itemId: string) => void;
-  indexInGroup: number; // 1-based index within its visual group
-}> = ({ item, crewKey, onUpdateItem, onDeleteItem, indexInGroup }) => {
-  const [showCrewSelector, setShowCrewSelector] = useState(false);
+  index: number;
+}> = ({ item, onUpdateItem, onDeleteItem, onDuplicateItem, crewKey, index }) => {
+  const [showCrewDropdown, setShowCrewDropdown] = useState(false);
+  const inputClass = "bg-gray-600 text-white border border-gray-500 rounded-md p-2 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm w-full";
+  const textareaClass = `${inputClass} min-h-[40px] resize-none`;
 
-  const handleInputChange = (field: keyof ScheduleItem, value: any) => {
-    if (field === 'isNewlyAdded') return; // Prevent direct modification of isNewlyAdded via input
-    onUpdateItem(item.id, { ...item, [field]: value });
+  const handleInputChange = (field: keyof ScheduleItem, value: string) => {
+    onUpdateItem({ ...item, [field]: value, isNewlyAdded: false });
   };
 
-  const handleCrewSelectionChange = (crewId: string) => {
-    const newAssignedCrewIds = item.assignedCrewIds.includes(crewId)
-      ? item.assignedCrewIds.filter(id => id !== crewId)
-      : [...item.assignedCrewIds, crewId];
-    onUpdateItem(item.id, { ...item, assignedCrewIds: newAssignedCrewIds });
+  const handleCrewSelection = (crewId: string) => {
+    const updatedCrewIds = item.assigned_crew_ids.includes(crewId)
+      ? item.assigned_crew_ids.filter(id => id !== crewId)
+      : [...item.assigned_crew_ids, crewId];
+    onUpdateItem({ ...item, assigned_crew_ids: updatedCrewIds, isNewlyAdded: false });
   };
-
-  const getCrewNameAndColor = (crewId: string) => {
-    return crewKey.find(ck => ck.id === crewId);
+  
+  const getCrewColor = (crewId: string) => {
+    const crewMember = crewKey.find(c => c.id === crewId);
+    return crewMember ? crewMember.color : '#6B7280'; // Default gray
   };
 
   return (
-    <div className={`grid grid-cols-[auto_1.5fr_1fr_1fr_2fr_2fr_3fr_auto] gap-2 items-center p-2 border-b border-gray-700/60 last:border-b-0 hover:bg-gray-750/70 transition-colors ${item.isNewlyAdded ? 'bg-indigo-900/20' : ''}`}>
+    <div className="grid grid-cols-[auto_1.5fr_1fr_1fr_2.5fr_2.5fr_2fr_auto] gap-2 items-center py-2 px-1 border-b border-gray-700 hover:bg-gray-750/30 transition-colors">
       <div className="text-gray-400 text-sm flex items-center cursor-grab pl-1" title="Drag to reorder (not implemented)">
         <GripVertical className="h-5 w-5 mr-1" />
-         {indexInGroup}
+        {index + 1}
       </div>
       <input
         type="date"
-        value={item.date || ""}
+        name="date"
+        value={item.date || ''}
         onChange={(e) => handleInputChange("date", e.target.value)}
-        className="bg-gray-600 text-white border border-gray-500 rounded-md p-2 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm"
+        className={inputClass}
       />
       <input
         type="time"
-        value={item.startTime}
-        onChange={(e) => handleInputChange("startTime", e.target.value)}
-        className="bg-gray-600 text-white border border-gray-500 rounded-md p-2 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm"
+        name="start_time"
+        value={item.start_time || ''}
+        onChange={(e) => handleInputChange("start_time", e.target.value)}
+        className={inputClass}
       />
       <input
         type="time"
-        value={item.endTime}
-        onChange={(e) => handleInputChange("endTime", e.target.value)}
-        className="bg-gray-600 text-white border border-gray-500 rounded-md p-2 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm"
+        name="end_time"
+        value={item.end_time || ''}
+        onChange={(e) => handleInputChange("end_time", e.target.value)}
+        className={inputClass}
       />
       <input
         type="text"
-        value={item.activity}
-        placeholder="Activity / Task"
+        name="activity"
+        value={item.activity || ''}
         onChange={(e) => handleInputChange("activity", e.target.value)}
-        className="bg-gray-600 text-white border border-gray-500 rounded-md p-2 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm"
+        className={inputClass}
+        placeholder="Activity / Event"
       />
-      <input
-        type="text"
-        value={item.notes}
-        placeholder="Notes"
+      <textarea
+        name="notes"
+        value={item.notes || ''}
         onChange={(e) => handleInputChange("notes", e.target.value)}
-        className="bg-gray-600 text-white border border-gray-500 rounded-md p-2 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm"
+        className={textareaClass}
+        placeholder="Notes"
+        rows={1}
       />
       <div className="relative">
         <button
-          onClick={() => setShowCrewSelector(!showCrewSelector)}
-          className="w-full bg-gray-600 text-white border border-gray-500 rounded-md p-2 flex justify-between items-center text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          onClick={() => setShowCrewDropdown(!showCrewDropdown)}
+          className={`${inputClass} flex justify-between items-center text-left`}
         >
-          <div className="flex flex-wrap gap-1">
-            {item.assignedCrewIds.length > 0 ? (
-              item.assignedCrewIds.map(id => {
-                const crew = getCrewNameAndColor(id);
-                return crew ? (
-                  <span
-                    key={id}
-                    className="text-xs px-1.5 py-0.5 rounded-full text-white"
-                    style={{ backgroundColor: crew.color }}
-                  >
-                    {crew.name.substring(0,3)}..
-                  </span>
-                ) : null;
-              })
-            ) : (
-              <span className="text-gray-400">Select Crew</span>
-            )}
-          </div>
-          {showCrewSelector ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          <span className="truncate">
+            {item.assigned_crew_ids.length > 0
+              ? item.assigned_crew_ids.map(id => crewKey.find(c => c.id === id)?.name || 'Unknown').join(', ')
+              : 'Assign Crew'}
+          </span>
+          {showCrewDropdown ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
-        {showCrewSelector && (
-          <div className="absolute z-20 mt-1 w-full bg-gray-700 border border-gray-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
+        {showCrewDropdown && (
+          <div className="absolute z-10 mt-1 w-full bg-gray-700 border border-gray-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
             {crewKey.length > 0 ? crewKey.map(crew => (
               <label
                 key={crew.id}
-                className="flex items-center p-2 hover:bg-gray-600 cursor-pointer"
+                className="flex items-center px-3 py-2 hover:bg-gray-600 cursor-pointer text-sm"
               >
                 <input
                   type="checkbox"
-                  checked={item.assignedCrewIds.includes(crew.id)}
-                  onChange={() => handleCrewSelectionChange(crew.id)}
-                  className="h-4 w-4 text-indigo-600 border-gray-500 rounded focus:ring-indigo-500 mr-2"
+                  className="mr-2 h-4 w-4 rounded text-indigo-500 focus:ring-indigo-400 bg-gray-500 border-gray-400"
                   style={{ accentColor: crew.color }}
+                  checked={item.assigned_crew_ids.includes(crew.id)}
+                  onChange={() => handleCrewSelection(crew.id)}
                 />
-                <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: crew.color }}></span>
-                <span className="text-white text-sm">{crew.name}</span>
+                <span className="w-3 h-3 rounded-sm mr-2" style={{ backgroundColor: crew.color }}></span>
+                {crew.name}
               </label>
-            )) : <div className="p-2 text-gray-400 text-sm">No crew defined in Key.</div>}
+            )) : <div className="px-3 py-2 text-gray-400 text-sm">No crew defined in Crew Key.</div>}
           </div>
         )}
+        <div className="flex flex-wrap gap-1 mt-1">
+          {item.assigned_crew_ids.map(id => {
+            const crewMember = crewKey.find(c => c.id === id);
+            return crewMember ? (
+              <span
+                key={id}
+                className="px-1.5 py-0.5 rounded-full text-xs font-medium border"
+                style={{ backgroundColor: `${getCrewColor(id)}33`, borderColor: getCrewColor(id), color: getCrewColor(id) }}
+              >
+                {crewMember.name}
+              </span>
+            ) : null;
+          })}
+        </div>
       </div>
-      <button
-        onClick={() => onDeleteItem(item.id)}
-        className="p-2 text-gray-400 hover:text-red-400 transition-colors"
-        title="Delete Item"
-      >
-        <Trash2 className="h-5 w-5" />
-      </button>
+      <div className="flex items-center justify-end pr-1 space-x-1">
+        <button
+          onClick={onDuplicateItem}
+          className="p-2 text-gray-400 hover:text-indigo-400 transition-colors"
+          title="Duplicate Item"
+        >
+          <Copy size={18} />
+        </button>
+        <button
+          onClick={onDeleteItem}
+          className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+          title="Delete Item"
+        >
+          <Trash2 size={18} />
+        </button>
+      </div>
     </div>
   );
 };
+
 
 const ProductionScheduleTable: React.FC<ProductionScheduleTableProps> = ({
   scheduleItems,
   crewKey,
   onUpdateScheduleItems,
 }) => {
-  const handleAddItemToGroup = (dateForNewItemInGroup?: string) => {
-    const newItem: ScheduleItem = {
-      id: uuidv4(),
-      date: dateForNewItemInGroup || "", 
-      startTime: "",
-      endTime: "",
-      activity: "",
-      notes: "",
-      assignedCrewIds: [],
-      isNewlyAdded: true, 
-    };
-    onUpdateScheduleItems([...scheduleItems, newItem]);
-  };
+  const [items, setItems] = useState<ScheduleItem[]>(scheduleItems);
 
-  const handleUpdateItem = (itemId: string, updatedItemFromRow: ScheduleItem) => {
-    const newItems = scheduleItems.map(item => 
-      item.id === itemId ? { ...updatedItemFromRow, isNewlyAdded: false } : item
+  useEffect(() => {
+    setItems(scheduleItems);
+  }, [scheduleItems]);
+
+  const sortItems = useCallback((itemsToSort: ScheduleItem[]): ScheduleItem[] => {
+    return [...itemsToSort].sort((a, b) => {
+      const dateA = a.date || '';
+      const dateB = b.date || '';
+      if (dateA < dateB) return -1;
+      if (dateA > dateB) return 1;
+      const timeA = a.start_time || '';
+      const timeB = b.start_time || '';
+      if (timeA < timeB) return -1;
+      if (timeA > timeB) return 1;
+      return 0;
+    });
+  }, []);
+
+  const getGroupedAndSortedItems = useCallback(() => {
+    const itemsWithDate = items.filter(item => item.date && !item.isNewlyAdded);
+    const newlyAddedOrNoDateItems = items.filter(item => !item.date || item.isNewlyAdded);
+    
+    const sortedItemsWithDate = sortItems(itemsWithDate);
+
+    const groups: Record<string, ScheduleItem[]> = {};
+    sortedItemsWithDate.forEach(item => {
+      const dateStr = item.date!; // Already filtered for items with date
+      if (!groups[dateStr]) {
+        groups[dateStr] = [];
+      }
+      groups[dateStr].push(item);
+    });
+    
+    const groupedEntries = Object.entries(groups).sort(([dateA], [dateB]) => 
+        new Date(dateA).getTime() - new Date(dateB).getTime()
     );
-    onUpdateScheduleItems(newItems);
+
+    if (newlyAddedOrNoDateItems.length > 0) {
+        groupedEntries.push(['Newly Added / No Date', newlyAddedOrNoDateItems]);
+    }
+    return groupedEntries;
+
+  }, [items, sortItems]);
+
+
+  const groupedItems = getGroupedAndSortedItems();
+
+  const createNewScheduleItem = (date?: string): ScheduleItem => ({
+    id: uuidv4(),
+    date: date || new Date().toISOString().split('T')[0],
+    start_time: '',
+    end_time: '',
+    activity: '',
+    notes: '',
+    assigned_crew_ids: [],
+    isNewlyAdded: true,
+  });
+
+  const handleAddItem = (dateKey?: string) => {
+    let newItemDate: string | undefined = dateKey;
+    if (dateKey === 'Newly Added / No Date' || !dateKey) {
+        newItemDate = new Date().toISOString().split('T')[0];
+    }
+    const newItem = createNewScheduleItem(newItemDate);
+    onUpdateScheduleItems([...items, newItem]);
   };
 
-  const handleDeleteItem = (itemId: string) => {
-    const newItems = scheduleItems.filter(item => item.id !== itemId);
-    onUpdateScheduleItems(newItems);
+  const handleDuplicateItem = (itemToDuplicate: ScheduleItem) => {
+    const newItem: ScheduleItem = {
+      ...itemToDuplicate,
+      id: uuidv4(),
+      isNewlyAdded: true, // Treat as newly added for placement
+    };
+    const originalIndex = items.findIndex(item => item.id === itemToDuplicate.id);
+    const updatedItems = [...items];
+    if (originalIndex !== -1) {
+      updatedItems.splice(originalIndex + 1, 0, newItem);
+    } else {
+      updatedItems.push(newItem);
+    }
+    onUpdateScheduleItems(updatedItems);
+  };
+
+  const handleDeleteItem = (id: string) => {
+    onUpdateScheduleItems(items.filter(item => item.id !== id));
+  };
+
+  const handleUpdateItem = (updatedItem: ScheduleItem) => {
+    onUpdateScheduleItems(
+      items.map(item => (item.id === updatedItem.id ? { ...updatedItem, isNewlyAdded: false } : item))
+    );
   };
   
-  const formatDateHeader = (dateString?: string) => {
-    if (!dateString) return "Invalid Date";
+  const formatDateHeader = (dateKey: string) => {
+    if (dateKey === 'Newly Added / No Date') return dateKey;
     try {
-      // Add T00:00:00 to ensure consistent parsing as local date, not UTC
-      const date = new Date(dateString + 'T00:00:00'); 
-      // Format: Month Day, Year (e.g., April 30, 2025)
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const [year, month, day] = dateKey.split('-').map(Number);
+      const dateObj = new Date(Date.UTC(year, month - 1, day));
+      return dateObj.toLocaleDateString('en-US', { 
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' 
+      });
     } catch (e) {
-      // Fallback for invalid date strings, though input type="date" should prevent most.
-      return dateString; 
+      return dateKey;
     }
   };
 
-  const getGroupedScheduleData = (): ScheduleItemGroup[] => {
-    const itemGroups: Record<string, ScheduleItemGroup> = {};
-  
-    // Sort items: isNewlyAdded items tend towards the bottom of their respective groups or overall.
-    // Then by date, then by start time.
-    const sortedItems = [...scheduleItems].sort((a, b) => {
-      const aDate = a.date || 'zzzz'; // Treat no date as very late for sorting
-      const bDate = b.date || 'zzzz';
-      if (aDate < bDate) return -1;
-      if (aDate > bDate) return 1;
-  
-      // If dates are same (or both are null), sort by start time
-      const timeA = a.startTime || '99:99'; // Treat no time as very late
-      const timeB = b.startTime || '99:99';
-      if (timeA < timeB) return -1;
-      if (timeA > timeB) return 1;
-
-      // If dates and times are the same, newly added items go last
-      const aIsNew = a.isNewlyAdded === true;
-      const bIsNew = b.isNewlyAdded === true;
-      if (aIsNew && !bIsNew) return 1;
-      if (!aIsNew && bIsNew) return -1;
-      
-      return 0; 
-    });
-  
-    sortedItems.forEach(item => {
-      let groupKey: string;
-      let displayHeader: string;
-      let dateForNewItemInThisGroup: string | undefined = item.date;
-      let isThisANewlyAddedItemGroup = false; 
-      let sortOrderVal: number;
-  
-      if (item.date) { // Item has a date, group it by date
-        groupKey = item.date; 
-        displayHeader = formatDateHeader(item.date);
-        dateForNewItemInThisGroup = item.date; // Button in this group adds to this date
-        sortOrderVal = 1; // Dated groups first
-      } else if (item.isNewlyAdded) { // No date AND is newly added
-        groupKey = "NEWLY_ADDED_ITEMS_NO_DATE_GROUP";
-        displayHeader = "Newly Added Items (No Date)";
-        isThisANewlyAddedItemGroup = true; // This group is specifically for new, dateless items
-        dateForNewItemInThisGroup = undefined; // Button adds another new, dateless item
-        sortOrderVal = 3; // This group comes last
-      } else { // No date, and NOT newly added (existing item without a date)
-        groupKey = "NO_DATE_ASSIGNED_GROUP";
-        displayHeader = "Items without an Assigned Date";
-        dateForNewItemInThisGroup = undefined; // Button adds to this "no date" group
-        sortOrderVal = 2; // After dated, before new-no-date
-      }
-  
-      if (!itemGroups[groupKey]) {
-        itemGroups[groupKey] = {
-          key: groupKey,
-          displayHeader,
-          items: [],
-          isNewlyAddedItemGroup: isThisANewlyAddedItemGroup,
-          dateForNewItemInGroup: dateForNewItemInThisGroup,
-          sortOrder: sortOrderVal,
-        };
-      }
-      itemGroups[groupKey].items.push(item);
-    });
-  
-    // Sort the groups themselves
-    return Object.values(itemGroups).sort((a, b) => {
-      if (a.sortOrder !== b.sortOrder) {
-        return a.sortOrder - b.sortOrder;
-      }
-      // If sortOrder is the same (e.g., both are dated groups), sort by the group key (date string)
-      if (a.sortOrder === 1 && b.sortOrder === 1) { 
-        return a.key.localeCompare(b.key); 
-      }
-      return 0; // Should not happen if sortOrders are unique for non-dated groups
-    });
-  };
-
-  const groupedData = getGroupedScheduleData();
-
-  const getButtonTextForGroup = (_group: ScheduleItemGroup) => {
-    // Per user request, the blue button within groups should always say "Add Item to Day".
-    return "Add Item to Day";
-  };
-
   return (
-    <div className="space-y-6"> {/* Increased spacing between groups */}
-      {/* Sticky Global Table Header */}
-      <div className="grid grid-cols-[auto_1.5fr_1fr_1fr_2fr_2fr_3fr_auto] gap-2 p-2 border-b border-gray-600 font-medium text-gray-300 text-sm sticky top-0 bg-gray-800 z-10">
-         <div className="pl-1" title="Row Number">#</div>
-         <div>Date</div>
-        <div>Start Time</div>
-        <div>End Time</div>
-        <div>Activity</div>
-        <div>Notes</div>
-        <div>Crew</div>
-        <div className="text-right pr-1">Action</div>
-      </div>
-
-      {scheduleItems.length === 0 && groupedData.length === 0 && (
-        <div className="text-center py-10">
-            <p className="text-gray-400 text-lg mb-4">
-            No schedule items yet.
-            </p>
-        </div>
-      )}
-
-      {groupedData.map((group) => (
-        <div key={group.key} className="bg-gray-700/40 rounded-lg shadow-md">
-          <div className="flex justify-between items-center p-3 bg-gray-700 rounded-t-lg border-b border-gray-600"> {/* Slightly reduced padding */}
+    <div className="space-y-8">
+      {groupedItems.map(([dateKey, itemsInGroup]) => (
+        <div key={dateKey} className="bg-gray-700/40 rounded-lg shadow-md">
+          <div className="flex justify-between items-center p-4 bg-gray-700 rounded-t-lg border-b border-gray-600">
             <h3 className="text-lg font-semibold text-indigo-300 flex items-center">
-              <CalendarDays size={20} className="mr-2.5 text-indigo-400" /> {/* Increased icon margin */}
-              {group.displayHeader}
+              <CalendarDays size={20} className="mr-2 text-indigo-400" />
+              {formatDateHeader(dateKey)}
             </h3>
-            {/* Optional: Add "Duplicate Day Group" like button here if needed later */}
           </div>
           
-          <div className="px-0.5 pt-0.5 pb-0.5"> {/* Minimal padding around item list */}
-            {group.items.length === 0 ? (
-              <p className="text-gray-500 text-center py-4 px-2 text-sm">No items in this group.</p>
+          <div className="px-2 pt-2">
+            <div className="grid grid-cols-[auto_1.5fr_1fr_1fr_2.5fr_2.5fr_2fr_auto] gap-2 p-2 border-b border-gray-600 font-medium text-gray-400 text-xs sticky top-0 bg-gray-700 z-10">
+              <div className="pl-1">#</div>
+              <div>Date</div>
+              <div>Start</div>
+              <div>End</div>
+              <div>Activity</div>
+              <div>Notes</div>
+              <div>Crew</div>
+              <div className="text-right pr-1">Actions</div>
+            </div>
+
+            {itemsInGroup.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No items for this day.</p>
             ) : (
-              group.items.map((item, itemIndex) => (
-                <ProductionScheduleItemRow
+              itemsInGroup.map((item, index) => (
+                <ScheduleItemRow
                   key={item.id}
                   item={item}
-                  crewKey={crewKey}
                   onUpdateItem={handleUpdateItem}
-                  onDeleteItem={handleDeleteItem}
-                  indexInGroup={itemIndex + 1} 
+                  onDeleteItem={() => handleDeleteItem(item.id)}
+                  onDuplicateItem={() => handleDuplicateItem(item)}
+                  crewKey={crewKey}
+                  index={index}
                 />
               ))
             )}
           </div>
-          <div className="p-3 text-center border-t border-gray-600/50 rounded-b-lg"> {/* Slightly reduced padding */}
+          <div className="p-4 text-center border-t border-gray-600/50">
             <button
-              onClick={() => handleAddItemToGroup(group.dateForNewItemInGroup)}
-              className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors" // Standardized button style
+              onClick={() => handleAddItem(dateKey)}
+              className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
             >
-              <PlusCircle className="h-5 w-5 mr-2" /> {/* Standardized icon size and margin */}
-              {getButtonTextForGroup(group)}
+              <PlusCircle className="h-4 w-4 mr-1.5" />
+              Add Item {dateKey !== 'Newly Added / No Date' ? `to ${formatDateHeader(dateKey).split(',')[0]}` : ''}
             </button>
           </div>
         </div>
       ))}
       
-      {/* Main "Add New Day Group" button at the bottom */}
-      {/* This button adds an item to the "Newly Added Items (No Date)" group, effectively starting a new conceptual day group. */}
-      <div className="mt-8 pt-6 border-t border-gray-700 text-center">
+      {items.length === 0 && (
+         <p className="text-gray-400 text-center py-10 text-lg">
+           No schedule items yet. <br/>
+           Click "Add New Item" to get started.
+         </p>
+      )}
+
+      <div className="mt-10 pt-6 border-t border-gray-700 text-center">
         <button
-          onClick={() => handleAddItemToGroup()} // Adds a generic new item (will go to "Newly Added (No Date)" group)
+          onClick={() => handleAddItem()}
           className="inline-flex items-center bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl text-base"
         >
           <PlusCircle className="h-5 w-5 mr-2" />
-          Add New Day Group
+          Add New Item to Schedule
         </button>
       </div>
     </div>

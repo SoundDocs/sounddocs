@@ -13,9 +13,9 @@ CREATE TABLE IF NOT EXISTS production_schedules (
   account_manager TEXT,
   set_datetime TIMESTAMPTZ,
   strike_datetime TIMESTAMPTZ,
-  schedule_items JSONB DEFAULT '[]'::jsonb, -- Now includes items with: id, date, startTime, endTime, activity, notes, assignedCrewIds
+  schedule_items JSONB DEFAULT '[]'::jsonb, -- Now includes items with: id, date, start_time, end_time, activity, notes, assigned_crew_ids (snake_case)
   crew_key JSONB DEFAULT '[]'::jsonb, 
-  labor_schedule_items JSONB DEFAULT '[]'::jsonb 
+  labor_schedule_items JSONB DEFAULT '[]'::jsonb -- Items use snake_case: id, name, position, date, time_in, time_out, notes
 );
 
 -- Enable RLS
