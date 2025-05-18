@@ -266,16 +266,16 @@ const ProductionScheduleEditor = () => {
     setSaveError(null);
     setSaveSuccess(false);
 
-    const sanitizedScheduleItems = schedule.schedule_items.map(item => {
+    const sanitizedScheduleItems = schedule.schedule_items.map((item: any) => { // item can be any to access both casings
       const { isNewlyAdded, ...restOfItem } = item; 
       return {
         id: restOfItem.id,
         date: restOfItem.date || null,
         activity: restOfItem.activity,
         notes: restOfItem.notes,
-        start_time: restOfItem.startTime, 
-        end_time: restOfItem.endTime,     
-        crew_ids: restOfItem.assignedCrewIds, 
+        start_time: restOfItem.startTime || restOfItem.start_time || "", // Prefer camelCase, fallback to snake_case for DB
+        end_time: restOfItem.endTime || restOfItem.end_time || "",     // Prefer camelCase, fallback to snake_case for DB
+        crew_ids: restOfItem.assignedCrewIds || restOfItem.crew_ids || [], // Prefer assignedCrewIds, fallback to crew_ids
       };
     });
 
@@ -384,7 +384,7 @@ const ProductionScheduleEditor = () => {
   }
 
   const scheduleForExportProps: ScheduleForExport = {
-    id: schedule.id || uuidv4(), // Ensure id is present
+    id: schedule.id || uuidv4(), 
     name: schedule.name,
     created_at: schedule.created_at || new Date().toISOString(),
     last_edited: schedule.last_edited,
@@ -398,32 +398,31 @@ const ProductionScheduleEditor = () => {
       date: parseDateTime(schedule.set_datetime).date, 
       load_in: parseDateTime(schedule.set_datetime).time, 
       strike_datetime: schedule.strike_datetime,
-      // Ensure all other relevant fields from 'schedule.info' if it exists, or from 'schedule' directly are mapped
-      // For example, if these fields are directly on 'schedule' (ProductionScheduleData)
-      event_start: parseDateTime(schedule.set_datetime).full, // Assuming set_datetime can be event_start
-      event_end: undefined, // Add if available
-      event_type: undefined, // Add if available
-      sound_check: undefined, // Add if available
-      room: undefined, // Add if available
-      address: undefined, // Add if available
-      client_artist: undefined, // Add if available
-      contact_name: undefined, // Add if available
-      contact_email: undefined, // Add if available
-      contact_phone: undefined, // Add if available
-      foh_engineer: undefined, // Add if available
-      monitor_engineer: undefined, // Add if available
+      event_start: parseDateTime(schedule.set_datetime).full, 
+      event_end: undefined, 
+      event_type: undefined, 
+      sound_check: undefined, 
+      room: undefined, 
+      address: undefined, 
+      client_artist: undefined, 
+      contact_name: undefined, 
+      contact_email: undefined, 
+      contact_phone: undefined, 
+      foh_engineer: undefined, 
+      monitor_engineer: undefined, 
     },
     crew_key: schedule.crew_key,
-    schedule_items: schedule.schedule_items.map(item => {
-      // Explicitly map fields to ensure correct data is passed
+    schedule_items: schedule.schedule_items.map((item: any) => { // item can be 'any' to access both casings
       return {
         id: item.id,
-        date: item.date, // This should be the date string from the editor item
-        startTime: item.startTime, // This should be the startTime string
-        endTime: item.endTime, // This should be the endTime string
-        activity: item.activity,
-        notes: item.notes,
-        assignedCrewIds: item.assignedCrewIds,
+        date: item.date || "",
+        // Prefer camelCase from editor state, fallback to snake_case if present, then to empty string
+        startTime: item.startTime || item.start_time || "", 
+        endTime: item.endTime || item.end_time || "",
+        activity: item.activity || "",
+        notes: item.notes || "",
+        // Prefer camelCase assignedCrewIds, fallback to snake_case crew_ids
+        assignedCrewIds: item.assignedCrewIds || item.crew_ids || [],
       };
     }),
     labor_schedule_items: schedule.labor_schedule_items,
