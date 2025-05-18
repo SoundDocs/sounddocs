@@ -158,17 +158,24 @@ const ProductionScheduleEditor = () => {
           if (error) throw error;
           if (data) {
             setSchedule({
-              ...data,
+              ...data, // Spreads all fields from DB record (id, user_id, name, etc.)
+                      // Note: data.schedule_items here will have snake_case time fields
               set_datetime: data.set_datetime || "",
               strike_datetime: data.strike_datetime || "",
               crew_key: data.crew_key || [],
-              schedule_items: (data.schedule_items || []).map((item: any) => ({ 
-                ...item, 
-                date: item.date || "", 
-                startTime: item.start_time || "", 
-                endTime: item.end_time || "",     
-                assignedCrewIds: item.crew_ids || [], 
-              })),
+              schedule_items: (data.schedule_items || []).map((dbItem: any): EditorScheduleItem => {
+                // Explicitly map dbItem (from DB with snake_case) to EditorScheduleItem (with camelCase)
+                return {
+                  id: dbItem.id, // Assuming id always exists from DB
+                  date: dbItem.date || undefined, // Keep undefined if null/empty from DB, table handles display
+                  startTime: dbItem.start_time || "", // Map snake_case start_time to camelCase startTime
+                  endTime: dbItem.end_time || "",   // Map snake_case end_time to camelCase endTime
+                  activity: dbItem.activity || "",
+                  notes: dbItem.notes || "",
+                  assignedCrewIds: dbItem.crew_ids || [], // Map snake_case crew_ids to camelCase assignedCrewIds
+                  isNewlyAdded: false // Items from DB are not "newly added" by the UI
+                };
+              }),
               labor_schedule_items: data.labor_schedule_items || [], 
             });
           } else {
@@ -244,6 +251,7 @@ const ProductionScheduleEditor = () => {
 
   const handleUpdateScheduleItems = (items: EditorScheduleItem[]) => {
     if (schedule) {
+      // items received from ProductionScheduleTable should already be correct EditorScheduleItem[]
       setSchedule({
         ...schedule,
         schedule_items: items, 
@@ -266,16 +274,17 @@ const ProductionScheduleEditor = () => {
     setSaveError(null);
     setSaveSuccess(false);
 
-    const sanitizedScheduleItems = schedule.schedule_items.map((item: any) => { // item can be any to access both casings
+    // Sanitize schedule_items for saving: map from EditorScheduleItem (camelCase) to DB format (snake_case)
+    const sanitizedScheduleItems = schedule.schedule_items.map((item: EditorScheduleItem) => {
       const { isNewlyAdded, ...restOfItem } = item; 
       return {
         id: restOfItem.id,
-        date: restOfItem.date || null,
+        date: restOfItem.date || null, // DB expects null for empty date
         activity: restOfItem.activity,
         notes: restOfItem.notes,
-        start_time: restOfItem.startTime || restOfItem.start_time || "", // Prefer camelCase, fallback to snake_case for DB
-        end_time: restOfItem.endTime || restOfItem.end_time || "",     // Prefer camelCase, fallback to snake_case for DB
-        crew_ids: restOfItem.assignedCrewIds || restOfItem.crew_ids || [], // Prefer assignedCrewIds, fallback to crew_ids
+        start_time: restOfItem.startTime || "", // Map camelCase startTime to snake_case start_time
+        end_time: restOfItem.endTime || "",     // Map camelCase endTime to snake_case end_time
+        crew_ids: restOfItem.assignedCrewIds || [], // Map camelCase assignedCrewIds to snake_case crew_ids
       };
     });
 
@@ -301,7 +310,7 @@ const ProductionScheduleEditor = () => {
       user_id: user.id,
       last_edited: new Date().toISOString(),
       crew_key: sanitizedCrewKey,
-      schedule_items: sanitizedScheduleItems, 
+      schedule_items: sanitizedScheduleItems, // Use the correctly mapped snake_case items
       labor_schedule_items: sanitizedLaborScheduleItems,
       ...(id !== "new" && { id: schedule.id }),
       ...(id === "new" && schedule.created_at && { created_at: schedule.created_at }),
@@ -309,12 +318,13 @@ const ProductionScheduleEditor = () => {
     
     let finalDataToSave: any = scheduleDataToSave;
     if (id === "new") {
-      const { id: scheduleId, ...rest } = scheduleDataToSave;
+      const { id: scheduleId, ...rest } = scheduleDataToSave; // Remove 'id' if it's a new schedule
       finalDataToSave = rest;
     }
 
 
     try {
+      let savedData;
       if (id === "new") {
         const { data, error } = await supabase
           .from("production_schedules")
@@ -322,22 +332,8 @@ const ProductionScheduleEditor = () => {
           .select()
           .single();
         if (error) throw error;
-        if (data) {
-          const reloadedData = {
-            ...data,
-            schedule_items: (data.schedule_items || []).map((dbItem: any) => ({
-              ...dbItem, 
-              date: dbItem.date || "",
-              startTime: dbItem.start_time || "",
-              endTime: dbItem.end_time || "",
-              assignedCrewIds: dbItem.crew_ids || [],
-            })),
-            crew_key: data.crew_key || [],
-            labor_schedule_items: data.labor_schedule_items || [],
-          };
-          navigate(`/production-schedule/${data.id}`);
-          setSchedule(reloadedData as ProductionScheduleData); 
-        }
+        savedData = data;
+        if (data) navigate(`/production-schedule/${data.id}`);
       } else {
         const { data, error } = await supabase
           .from("production_schedules")
@@ -347,22 +343,32 @@ const ProductionScheduleEditor = () => {
           .select()
           .single();
         if (error) throw error;
-        if (data) {
-           const reloadedData = {
-            ...data,
-            schedule_items: (data.schedule_items || []).map((dbItem: any) => ({
-              ...dbItem, 
-              date: dbItem.date || "",
-              startTime: dbItem.start_time || "",
-              endTime: dbItem.end_time || "",
-              assignedCrewIds: dbItem.crew_ids || [],
-            })),
-            crew_key: data.crew_key || [],
-            labor_schedule_items: data.labor_schedule_items || [],
-          };
-          setSchedule(reloadedData as ProductionScheduleData);
-        }
+        savedData = data;
       }
+
+      if (savedData) {
+        // After saving, re-map the schedule_items from the response (which will be snake_case)
+        // back to EditorScheduleItem format for the local state.
+        const reloadedData: ProductionScheduleData = {
+          ...savedData,
+          set_datetime: savedData.set_datetime || "",
+          strike_datetime: savedData.strike_datetime || "",
+          crew_key: savedData.crew_key || [],
+          schedule_items: (savedData.schedule_items || []).map((dbItem: any): EditorScheduleItem => ({
+            id: dbItem.id,
+            date: dbItem.date || undefined,
+            startTime: dbItem.start_time || "",
+            endTime: dbItem.end_time || "",
+            activity: dbItem.activity || "",
+            notes: dbItem.notes || "",
+            assignedCrewIds: dbItem.crew_ids || [],
+            isNewlyAdded: false,
+          })),
+          labor_schedule_items: savedData.labor_schedule_items || [],
+        };
+        setSchedule(reloadedData);
+      }
+
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error: any) {
@@ -383,6 +389,8 @@ const ProductionScheduleEditor = () => {
     );
   }
 
+  // Prepare scheduleForExportProps using the editor's state (schedule.schedule_items)
+  // which should be an array of EditorScheduleItem (camelCase time fields)
   const scheduleForExportProps: ScheduleForExport = {
     id: schedule.id || uuidv4(), 
     name: schedule.name,
@@ -412,17 +420,16 @@ const ProductionScheduleEditor = () => {
       monitor_engineer: undefined, 
     },
     crew_key: schedule.crew_key,
-    schedule_items: schedule.schedule_items.map((item: any) => { // item can be 'any' to access both casings
+    schedule_items: schedule.schedule_items.map((item: EditorScheduleItem): ExportScheduleItem => {
+      // item here is an EditorScheduleItem from the editor's state
       return {
         id: item.id,
-        date: item.date || "",
-        // Prefer camelCase from editor state, fallback to snake_case if present, then to empty string
-        startTime: item.startTime || item.start_time || "", 
-        endTime: item.endTime || item.end_time || "",
+        date: item.date || "", // Ensure string for export component, formatDate handles empty
+        startTime: item.startTime || "", // Directly use camelCase startTime from EditorScheduleItem
+        endTime: item.endTime || "",   // Directly use camelCase endTime from EditorScheduleItem
         activity: item.activity || "",
         notes: item.notes || "",
-        // Prefer camelCase assignedCrewIds, fallback to snake_case crew_ids
-        assignedCrewIds: item.assignedCrewIds || item.crew_ids || [],
+        assignedCrewIds: item.assignedCrewIds || [], // Directly use camelCase assignedCrewIds
       };
     }),
     labor_schedule_items: schedule.labor_schedule_items,
