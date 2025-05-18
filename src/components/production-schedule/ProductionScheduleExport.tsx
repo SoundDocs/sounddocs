@@ -14,6 +14,7 @@ import {
   Briefcase, 
   UserCircle, 
   UserSquare, 
+  CalendarDays,
 } from "lucide-react";
 import { ScheduleForExport } from "../../pages/ProductionScheduleEditor"; 
 import { LaborScheduleItem } from "./ProductionScheduleLabor"; 
@@ -26,24 +27,25 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
   ({ schedule }, ref) => {
     const info = schedule.info || {};
     const crewKey = schedule.crew_key || [];
-    const scheduleItems = schedule.schedule_items || [];
+    const scheduleItemsData = schedule.schedule_items || [];
     const laborScheduleItems = schedule.labor_schedule_items || []; 
 
-    const formatDate = (dateString?: string) => {
+    const formatDate = (dateString?: string, options?: Intl.DateTimeFormatOptions) => {
       if (!dateString || dateString.trim() === "") return "N/A";
+      const defaultOptions: Intl.DateTimeFormatOptions = { year: "numeric", month: "long", day: "numeric" };
+      const effectiveOptions = { ...defaultOptions, ...options };
+      
+      // Handle YYYY-MM-DD format specifically to avoid timezone issues if only date is provided
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
         try {
           const [year, month, day] = dateString.split('-').map(Number);
-          return new Date(year, month - 1, day).toLocaleDateString("en-US", {
-            year: "numeric", month: "long", day: "numeric",
-          });
-        } catch (e) { return dateString; }
+          return new Date(year, month - 1, day).toLocaleDateString("en-US", effectiveOptions);
+        } catch (e) { return dateString; } // Fallback
       }
+      // Handle full ISO strings or other parsable date strings
       try {
-        return new Date(dateString).toLocaleDateString("en-US", {
-          year: "numeric", month: "long", day: "numeric",
-        });
-      } catch (e) { return dateString; }
+        return new Date(dateString).toLocaleDateString("en-US", effectiveOptions);
+      } catch (e) { return dateString; } // Fallback
     };
     
     const formatTime = (timeString?: string) => {
@@ -74,6 +76,18 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
       return crewKey.find(crew => crew.id === crewId);
     };
 
+    const sortedScheduleItems = [...scheduleItemsData].sort((a, b) => {
+      const dateA = a.date || '';
+      const dateB = b.date || '';
+      if (dateA < dateB) return -1;
+      if (dateA > dateB) return 1;
+      const timeA = a.start_time || '';
+      const timeB = b.start_time || '';
+      if (timeA < timeB) return -1;
+      if (timeA > timeB) return 1;
+      return 0;
+    });
+
     const sortedLaborScheduleItems = [...(laborScheduleItems || [])].sort((a, b) => {
       const dateA = a.date || '';
       const dateB = b.date || '';
@@ -86,6 +100,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
       return (a.name || '').localeCompare(b.name || '');
     });
     
+    let currentScheduleDay = "";
     let currentLaborDay = "";
 
     return (
@@ -209,11 +224,12 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
           <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-6">
             <ListChecks className="h-5 w-5 mr-2" /> Production Schedule
           </h3>
-          {scheduleItems.length > 0 ? (
+          {sortedScheduleItems.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr style={{ background: "linear-gradient(to right, #2d3748, #1e293b)", borderBottom: "2px solid rgba(99, 102, 241, 0.4)" }}>
+                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm">Date</th>
                     <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm">Start</th>
                     <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm">End</th>
                     <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm">Activity</th>
@@ -222,40 +238,57 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                   </tr>
                 </thead>
                 <tbody>
-                  {scheduleItems.map((item, index) => (
-                    <tr
-                      key={item.id}
-                      style={{
-                        background: index % 2 === 0 ? "rgba(31, 41, 55, 0.7)" : "rgba(45, 55, 72, 0.4)",
-                        borderBottom: "1px solid rgba(55, 65, 81, 0.5)",
-                      }}
-                    >
-                      <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.start_time) || "-"}</td>
-                      <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.end_time) || "-"}</td>
-                      <td className="py-3 px-4 text-white align-middle text-sm font-medium">{item.activity || "-"}</td>
-                      <td className="py-3 px-4 text-gray-300 align-middle text-sm" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>{item.notes || "-"}</td>
-                      <td className="py-3 px-4 text-white align-middle text-sm">
-                        <div className="flex flex-wrap gap-1">
-                          {item.crew_ids?.length > 0 ? item.crew_ids.map(crewId => {
-                            const crewMember = getCrewDetails(crewId);
-                            return crewMember ? (
-                              <span
-                                key={crewId}
-                                className="px-2 py-0.5 rounded-full text-xs font-medium border"
-                                style={{
-                                  backgroundColor: `${crewMember.color}33`, 
-                                  borderColor: crewMember.color,
-                                  color: crewMember.color, 
-                                }}
-                              >
-                                {crewMember.name || "Unnamed"}
-                              </span>
-                            ) : null;
-                          }) : <span className="text-gray-500 text-xs">No crew</span>}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {sortedScheduleItems.map((item, index) => {
+                    const itemDay = formatDate(item.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) || "No Date Assigned";
+                    const showDayHeader = itemDay !== currentScheduleDay && item.date; // Only show header if date exists
+                    if (showDayHeader) {
+                      currentScheduleDay = itemDay;
+                    }
+                    return (
+                    <React.Fragment key={item.id}>
+                      {showDayHeader && (
+                        <tr style={{ background: "rgba(45, 55, 72, 0.6)", borderTop: "2px solid rgba(99, 102, 241, 0.3)", borderBottom: "1px solid rgba(99, 102, 241, 0.2)" }}>
+                          <td colSpan={6} className="py-2 px-4 text-white font-semibold text-sm flex items-center">
+                            <CalendarDays size={16} className="mr-2 text-indigo-300" />
+                            {currentScheduleDay}
+                          </td>
+                        </tr>
+                      )}
+                      <tr
+                        style={{
+                          background: index % 2 === 0 ? "rgba(31, 41, 55, 0.7)" : "rgba(45, 55, 72, 0.4)",
+                          borderBottom: "1px solid rgba(55, 65, 81, 0.5)",
+                        }}
+                      >
+                        <td className="py-3 px-4 text-white align-middle text-sm">{formatDate(item.date, { month: 'short', day: 'numeric' }) || "-"}</td>
+                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.start_time) || "-"}</td>
+                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.end_time) || "-"}</td>
+                        <td className="py-3 px-4 text-white align-middle text-sm font-medium">{item.activity || "-"}</td>
+                        <td className="py-3 px-4 text-gray-300 align-middle text-sm" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>{item.notes || "-"}</td>
+                        <td className="py-3 px-4 text-white align-middle text-sm">
+                          <div className="flex flex-wrap gap-1">
+                            {item.crew_ids?.length > 0 ? item.crew_ids.map(crewId => {
+                              const crewMember = getCrewDetails(crewId);
+                              return crewMember ? (
+                                <span
+                                  key={crewId}
+                                  className="px-2 py-0.5 rounded-full text-xs font-medium border"
+                                  style={{
+                                    backgroundColor: `${crewMember.color}33`, 
+                                    borderColor: crewMember.color,
+                                    color: crewMember.color, 
+                                  }}
+                                >
+                                  {crewMember.name || "Unnamed"}
+                                </span>
+                              ) : null;
+                            }) : <span className="text-gray-500 text-xs">No crew</span>}
+                          </div>
+                        </td>
+                      </tr>
+                    </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -283,7 +316,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                 </thead>
                 <tbody>
                   {sortedLaborScheduleItems.map((item, index) => {
-                    const itemDay = formatDate(item.date) || "No Date Assigned";
+                    const itemDay = formatDate(item.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) || "No Date Assigned";
                     const showDayHeader = itemDay !== currentLaborDay;
                     if (showDayHeader) {
                       currentLaborDay = itemDay;
@@ -292,11 +325,9 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                       <React.Fragment key={item.id}>
                         {showDayHeader && (
                           <tr style={{ background: "rgba(45, 55, 72, 0.6)", borderTop: "2px solid rgba(99, 102, 241, 0.3)", borderBottom: "1px solid rgba(99, 102, 241, 0.2)" }}>
-                            <td
-                              colSpan={6}
-                              className="py-2 px-4 text-white font-semibold text-sm"
-                            >
-                              {currentLaborDay}
+                            <td colSpan={6} className="py-2 px-4 text-white font-semibold text-sm flex items-center">
+                                <CalendarDays size={16} className="mr-2 text-indigo-300" />
+                                {currentLaborDay}
                             </td>
                           </tr>
                         )}
@@ -308,7 +339,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                         >
                           <td className="py-3 px-4 text-white align-middle text-sm font-medium">{item.name || "-"}</td>
                           <td className="py-3 px-4 text-white align-middle text-sm">{item.position || "-"}</td>
-                          <td className="py-3 px-4 text-white align-middle text-sm">{formatDate(item.date) || "-"}</td>
+                          <td className="py-3 px-4 text-white align-middle text-sm">{formatDate(item.date, { month: 'short', day: 'numeric' }) || "-"}</td>
                           <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.time_in) || "-"}</td>
                           <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.time_out) || "-"}</td>
                           <td className="py-3 px-4 text-gray-300 align-middle text-sm" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>{item.notes || "-"}</td>

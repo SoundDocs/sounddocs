@@ -5,8 +5,9 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import ProductionScheduleHeader from "../components/production-schedule/ProductionScheduleHeader";
 import ProductionScheduleCrewKey, { CrewKeyItem } from "../components/production-schedule/ProductionScheduleCrewKey";
+// Import ScheduleItem from its definition source
 import ProductionScheduleTable, { ScheduleItem } from "../components/production-schedule/ProductionScheduleTable";
-import ProductionScheduleLabor, { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor"; // Added import
+import ProductionScheduleLabor, { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor"; 
 import MobileScreenWarning from "../components/MobileScreenWarning";
 import { useScreenSize } from "../hooks/useScreenSize";
 import { Loader, ArrowLeft, Save, AlertCircle, Users } from "lucide-react"; 
@@ -42,15 +43,16 @@ export interface ScheduleForExport {
     monitor_engineer?: string;
   };
   crew_key: CrewKeyItem[];
-  schedule_items: Array<{
+  schedule_items: Array<{ 
     id: string;
-    start_time: string;
-    end_time: string;
+    date?: string; 
+    start_time: string; // Note: Supabase uses startTime, ensure consistency or map
+    end_time: string;   // Note: Supabase uses endTime
     activity: string;
     notes: string;
-    crew_ids: string[];
+    crew_ids: string[]; // Note: Supabase uses assignedCrewIds
   }>;
-  labor_schedule_items: LaborScheduleItem[]; // Added labor schedule items
+  labor_schedule_items: LaborScheduleItem[];
 }
 
 
@@ -59,6 +61,8 @@ const defaultColors = [
   "#EC4899", "#F97316", "#14B8A6", "#64748B", "#84CC16"
 ];
 
+// This interface uses the ScheduleItem imported from ProductionScheduleTable,
+// which now includes `isNewlyAdded`.
 interface ProductionScheduleData {
   id?: string;
   user_id?: string;
@@ -74,8 +78,8 @@ interface ProductionScheduleData {
   set_datetime: string;
   strike_datetime: string;
   crew_key: CrewKeyItem[];
-  schedule_items: ScheduleItem[];
-  labor_schedule_items: LaborScheduleItem[]; // Added labor schedule items
+  schedule_items: ScheduleItem[]; // Uses ScheduleItem from ProductionScheduleTable (which includes isNewlyAdded)
+  labor_schedule_items: LaborScheduleItem[];
 }
 
 const ProductionScheduleEditor = () => {
@@ -135,8 +139,8 @@ const ProductionScheduleEditor = () => {
           set_datetime: "",
           strike_datetime: "",
           crew_key: [],
-          schedule_items: [],
-          labor_schedule_items: [], // Initialize new field
+          schedule_items: [], // isNewlyAdded will be undefined by default
+          labor_schedule_items: [], 
         };
         setSchedule(newSchedule);
         setLoading(false);
@@ -156,8 +160,12 @@ const ProductionScheduleEditor = () => {
               set_datetime: data.set_datetime || "",
               strike_datetime: data.strike_datetime || "",
               crew_key: data.crew_key || [],
-              schedule_items: data.schedule_items || [],
-              labor_schedule_items: data.labor_schedule_items || [], // Load labor items
+              schedule_items: (data.schedule_items || []).map((item: any) => ({ 
+                ...item,
+                date: item.date || "", 
+                // isNewlyAdded will be undefined for loaded items, which is fine
+              })),
+              labor_schedule_items: data.labor_schedule_items || [], 
             });
           } else {
             navigate("/dashboard");
@@ -234,12 +242,12 @@ const ProductionScheduleEditor = () => {
     if (schedule) {
       setSchedule({
         ...schedule,
-        schedule_items: items,
+        schedule_items: items, // items from ProductionScheduleTable now include isNewlyAdded
       });
     }
   };
 
-  const handleUpdateLaborScheduleItems = (items: LaborScheduleItem[]) => { // New handler
+  const handleUpdateLaborScheduleItems = (items: LaborScheduleItem[]) => { 
     if (schedule) {
       setSchedule({
         ...schedule,
@@ -254,32 +262,43 @@ const ProductionScheduleEditor = () => {
     setSaveError(null);
     setSaveSuccess(false);
 
+    // Sanitize schedule items for saving, removing the isNewlyAdded flag
+    const sanitizedScheduleItems = schedule.schedule_items.map(item => {
+      const { isNewlyAdded, ...restOfItem } = item; // Destructure to remove isNewlyAdded
+      return {
+        ...restOfItem,
+        date: restOfItem.date || null, 
+        // Ensure field names match Supabase schema if different from ScheduleItem
+        // Assuming ScheduleItem fields (startTime, endTime, assignedCrewIds) match Supabase
+      };
+    });
+
     const sanitizedCrewKey = schedule.crew_key.map(item => ({
       id: item.id, name: item.name, color: item.color,
     }));
-    const sanitizedScheduleItems = schedule.schedule_items.map(item => ({
-      id: item.id, startTime: item.startTime, endTime: item.endTime,
-      activity: item.activity, notes: item.notes, assignedCrewIds: item.assignedCrewIds,
-    }));
-    const sanitizedLaborScheduleItems = schedule.labor_schedule_items.map(item => ({ // Sanitize labor items
+    
+    const sanitizedLaborScheduleItems = schedule.labor_schedule_items.map(item => ({ 
       id: item.id, name: item.name, position: item.position, date: item.date,
       time_in: item.time_in, time_out: item.time_out, notes: item.notes,
     }));
 
-    const scheduleDataToSave: Omit<ProductionScheduleData, 'id' | 'user_id' | 'created_at'> & { user_id: string, id?: string, created_at?: string } = {
+    const scheduleDataToSave: Omit<ProductionScheduleData, 'id' | 'user_id' | 'created_at' | 'schedule_items'> & { user_id: string, id?: string, created_at?: string, schedule_items: any[] } = {
       ...schedule,
       user_id: user.id,
       last_edited: new Date().toISOString(),
       set_datetime: schedule.set_datetime || null as any,
       strike_datetime: schedule.strike_datetime || null as any,
       crew_key: sanitizedCrewKey,
-      schedule_items: sanitizedScheduleItems,
-      labor_schedule_items: sanitizedLaborScheduleItems, // Add labor items to save data
+      schedule_items: sanitizedScheduleItems, // Use sanitized items
+      labor_schedule_items: sanitizedLaborScheduleItems, 
     };
     
     if (id === "new" && scheduleDataToSave.id) {
       delete scheduleDataToSave.id; 
     }
+    // Remove isNewlyAdded from the top-level schedule object if it somehow got there
+    delete (scheduleDataToSave as any).isNewlyAdded;
+
 
     try {
       if (id === "new") {
@@ -290,8 +309,15 @@ const ProductionScheduleEditor = () => {
           .single();
         if (error) throw error;
         if (data) {
+          // Update state with data from DB (which won't have isNewlyAdded)
+          const reloadedData = {
+            ...data,
+            schedule_items: (data.schedule_items || []).map((item: any) => ({...item, date: item.date || ""})),
+            crew_key: data.crew_key || [],
+            labor_schedule_items: data.labor_schedule_items || [],
+          }
           navigate(`/production-schedule/${data.id}`);
-          setSchedule(data as ProductionScheduleData); 
+          setSchedule(reloadedData as ProductionScheduleData); 
         }
       } else {
         const { data, error } = await supabase
@@ -302,7 +328,15 @@ const ProductionScheduleEditor = () => {
           .select()
           .single();
         if (error) throw error;
-        if (data) setSchedule(data as ProductionScheduleData);
+        if (data) {
+           const reloadedData = {
+            ...data,
+            schedule_items: (data.schedule_items || []).map((item: any) => ({...item, date: item.date || ""})),
+            crew_key: data.crew_key || [],
+            labor_schedule_items: data.labor_schedule_items || [],
+          }
+          setSchedule(reloadedData as ProductionScheduleData);
+        }
       }
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -446,11 +480,11 @@ const ProductionScheduleEditor = () => {
           <div className="p-4 md:p-6 border-b border-gray-700">
             <h2 className="text-xl font-medium text-white">Schedule Timeline</h2>
             <p className="text-gray-400 text-sm">
-              Add and manage schedule items.
+              Add and manage schedule items. Dates will group items. Newly added items appear at the bottom until edited.
             </p>
           </div>
           <div className="p-0 md:p-2 lg:p-4 overflow-x-auto">
-             <div className="min-w-[900px] md:min-w-0">
+             <div className="min-w-[1000px] md:min-w-0"> 
                 <ProductionScheduleTable
                     scheduleItems={schedule.schedule_items}
                     crewKey={schedule.crew_key}
@@ -478,7 +512,7 @@ const ProductionScheduleEditor = () => {
                 <ProductionScheduleLabor
                     laborItems={schedule.labor_schedule_items}
                     onUpdateLaborItems={handleUpdateLaborScheduleItems}
-                    crewKey={schedule.crew_key} // Pass crewKey for potential future use (e.g., name suggestions)
+                    crewKey={schedule.crew_key} 
                 />
             </div>
           </div>

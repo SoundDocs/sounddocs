@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Image as ImageIcon, Trash2, EyeOff, Eye } from "lucide-react"; // Added EyeOff, Eye
-import { StageElementProps } from "./StageElement";
+import { Image as ImageIcon, Trash2 } from "lucide-react";
+import { StageElementProps } from "./StageElement"; // Assuming StageElementProps is exported
 
 interface ElementPropertiesPanelProps {
+  // Renamed from ElementPropertiesProps to avoid conflict
   selectedElement: StageElementProps | null;
   onPropertyChange: (id: string, property: string, value: any) => void;
 }
@@ -14,7 +15,6 @@ const ElementProperties: React.FC<ElementPropertiesPanelProps> = ({
   const [label, setLabel] = useState("");
   const [color, setColor] = useState("#4f46e5");
   const [rotation, setRotation] = useState(0);
-  const [labelHidden, setLabelHidden] = useState(false); // State for label visibility
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -22,7 +22,6 @@ const ElementProperties: React.FC<ElementPropertiesPanelProps> = ({
       setLabel(selectedElement.label);
       setColor(selectedElement.color || "#4f46e5");
       setRotation(selectedElement.rotation);
-      setLabelHidden(selectedElement.labelHidden || false); // Initialize labelHidden state
     }
   }, [selectedElement]);
 
@@ -67,6 +66,7 @@ const ElementProperties: React.FC<ElementPropertiesPanelProps> = ({
     if (!file || !selectedElement) return;
 
     if (file.size > 2 * 1024 * 1024) {
+      // 2MB limit for data URL
       alert("Image size should be less than 2MB.");
       return;
     }
@@ -79,6 +79,8 @@ const ElementProperties: React.FC<ElementPropertiesPanelProps> = ({
     reader.onload = (event) => {
       if (event.target?.result) {
         onPropertyChange(selectedElement.id, "customImageUrl", event.target.result as string);
+        // Optionally, if you want to change the element type to 'custom-image' upon uploading an image:
+        // onPropertyChange(selectedElement.id, 'type', 'custom-image');
       }
     };
     reader.readAsDataURL(file);
@@ -87,13 +89,11 @@ const ElementProperties: React.FC<ElementPropertiesPanelProps> = ({
   const handleRemoveCustomImage = () => {
     if (selectedElement) {
       onPropertyChange(selectedElement.id, "customImageUrl", null);
+      // Optionally, revert type if it was changed to 'custom-image'
+      // if (selectedElement.type === 'custom-image') {
+      //   onPropertyChange(selectedElement.id, 'type', 'generic-instrument'); // or some default
+      // }
     }
-  };
-
-  const handleLabelHiddenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newLabelHidden = e.target.checked;
-    setLabelHidden(newLabelHidden);
-    onPropertyChange(selectedElement.id, "labelHidden", newLabelHidden);
   };
 
   const elementTypes: Record<string, string> = {
@@ -108,7 +108,7 @@ const ElementProperties: React.FC<ElementPropertiesPanelProps> = ({
     trumpet: "Trumpet/Brass",
     saxophone: "Saxophone",
     "generic-instrument": "Other Instrument",
-    "custom-image": "Custom Image",
+    "custom-image": "Custom Image", // Added
     microphone: "Microphone",
     "monitor-wedge": "Wedge Monitor",
     amplifier: "Amplifier",
@@ -142,25 +142,8 @@ const ElementProperties: React.FC<ElementPropertiesPanelProps> = ({
             value={label}
             onChange={handleLabelChange}
             className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-            disabled={selectedElement.type === 'text' && labelHidden} // Text element label is its content
           />
         </div>
-
-        {selectedElement.type !== "text" && (
-          <div className="flex items-center">
-            <input
-              id="labelHidden"
-              type="checkbox"
-              checked={labelHidden}
-              onChange={handleLabelHiddenChange}
-              className="h-4 w-4 text-indigo-600 border-gray-500 rounded focus:ring-indigo-500 mr-2"
-            />
-            <label htmlFor="labelHidden" className="text-sm text-gray-300 flex items-center">
-              {labelHidden ? <EyeOff className="h-4 w-4 mr-1" /> : <Eye className="h-4 w-4 mr-1" />}
-              Hide Label
-            </label>
-          </div>
-        )}
 
         {selectedElement.type !== "text" && !selectedElement.customImageUrl && (
           <div>

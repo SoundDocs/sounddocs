@@ -1,5 +1,5 @@
 import React, { forwardRef } from "react";
-import { Calendar, ListChecks, Palette, UserCheck, Building, Phone, Mail, UserCog, Briefcase, UserCircle, UserSquare } from "lucide-react"; 
+import { Calendar, ListChecks, Palette, UserCheck, Building, Phone, Mail, UserCog, Briefcase, UserCircle, UserSquare, CalendarDays } from "lucide-react"; 
 import { ScheduleForExport } from "../../pages/ProductionScheduleEditor"; 
 import { LaborScheduleItem } from "./ProductionScheduleLabor"; 
 
@@ -11,23 +11,22 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
   ({ schedule }, ref) => {
     const info = schedule.info || {};
     const crewKey = schedule.crew_key || [];
-    const scheduleItems = schedule.schedule_items || [];
+    const scheduleItemsData = schedule.schedule_items || [];
     const laborScheduleItems = schedule.labor_schedule_items || []; 
 
-    const formatDate = (dateString?: string) => {
+    const formatDate = (dateString?: string, options?: Intl.DateTimeFormatOptions) => {
       if (!dateString || dateString.trim() === "") return "N/A";
+      const defaultOptions: Intl.DateTimeFormatOptions = { year: "numeric", month: "long", day: "numeric" };
+      const effectiveOptions = { ...defaultOptions, ...options };
+
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
          try {
           const [year, month, day] = dateString.split('-').map(Number);
-          return new Date(year, month - 1, day).toLocaleDateString("en-US", {
-            year: "numeric", month: "long", day: "numeric",
-          });
+          return new Date(year, month - 1, day).toLocaleDateString("en-US", effectiveOptions);
         } catch (e) { return dateString; }
       }
       try {
-        return new Date(dateString).toLocaleDateString("en-US", {
-          year: "numeric", month: "long", day: "numeric",
-        });
+        return new Date(dateString).toLocaleDateString("en-US", effectiveOptions);
       } catch (e) { return dateString; }
     };
 
@@ -58,6 +57,18 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
       return crewMember ? (crewMember.name || "Unnamed") : "Unknown";
     };
 
+    const sortedScheduleItems = [...scheduleItemsData].sort((a, b) => {
+      const dateA = a.date || '';
+      const dateB = b.date || '';
+      if (dateA < dateB) return -1;
+      if (dateA > dateB) return 1;
+      const timeA = a.start_time || '';
+      const timeB = b.start_time || '';
+      if (timeA < timeB) return -1;
+      if (timeA > timeB) return 1;
+      return 0;
+    });
+
     const sortedLaborScheduleItems = [...(laborScheduleItems || [])].sort((a, b) => {
       const dateA = a.date || '';
       const dateB = b.date || '';
@@ -70,6 +81,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
       return (a.name || '').localeCompare(b.name || '');
     });
 
+    let currentScheduleDay = "";
     let currentLaborDay = "";
 
     return (
@@ -168,29 +180,48 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
           <h3 style={{ fontSize: "16px", fontWeight: "bold", borderBottom: "1px solid #eee", paddingBottom: "8px", marginBottom: "10px" }}>
             <ListChecks size={16} style={{ display: "inline", marginRight: "8px", verticalAlign: "middle" }} /> Production Schedule
           </h3>
-          {scheduleItems.length > 0 ? (
+          {sortedScheduleItems.length > 0 ? (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
               <thead>
                 <tr style={{ backgroundColor: "#f0f0f0", borderBottom: "1px solid #ccc" }}>
+                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "15%" }}>Date</th>
                   <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "10%" }}>Start</th>
                   <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "10%" }}>End</th>
-                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "30%" }}>Activity</th>
-                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "30%" }}>Notes</th>
-                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "20%" }}>Crew</th>
+                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "25%" }}>Activity</th>
+                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "25%" }}>Notes</th>
+                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "15%" }}>Crew</th>
                 </tr>
               </thead>
               <tbody>
-                {scheduleItems.map((item, index) => (
-                  <tr key={item.id} style={{ borderBottom: "1px solid #eee", backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9" }}>
-                    <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.start_time) || "-"}</td>
-                    <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.end_time) || "-"}</td>
-                    <td style={{ padding: "8px", verticalAlign: "top", fontWeight: "500" }}>{item.activity || "-"}</td>
-                    <td style={{ padding: "8px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.notes || "-"}</td>
-                    <td style={{ padding: "8px", verticalAlign: "top" }}>
-                      {item.crew_ids?.length > 0 ? item.crew_ids.map(crewId => getCrewName(crewId)).join(", ") : <span style={{color: "#777"}}>No crew</span>}
-                    </td>
-                  </tr>
-                ))}
+                {sortedScheduleItems.map((item, index) => {
+                  const itemDay = formatDate(item.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) || "No Date Assigned";
+                  const showDayHeader = itemDay !== currentScheduleDay && item.date;
+                  if (showDayHeader) {
+                    currentScheduleDay = itemDay;
+                  }
+                  return (
+                  <React.Fragment key={item.id}>
+                    {showDayHeader && (
+                      <tr style={{ backgroundColor: "#e2e8f0", borderTop: "1px solid #ccc", borderBottom: "1px solid #ccc" }}>
+                        <td colSpan={6} style={{ padding: "6px 8px", fontWeight: "bold", textAlign: "left" }}>
+                           <CalendarDays size={14} style={{ display: "inline", marginRight: "6px", verticalAlign: "text-bottom" }} />
+                           {currentScheduleDay}
+                        </td>
+                      </tr>
+                    )}
+                    <tr style={{ borderBottom: "1px solid #eee", backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9" }}>
+                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatDate(item.date, { month: 'short', day: 'numeric' }) || "-"}</td>
+                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.start_time) || "-"}</td>
+                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.end_time) || "-"}</td>
+                      <td style={{ padding: "8px", verticalAlign: "top", fontWeight: "500" }}>{item.activity || "-"}</td>
+                      <td style={{ padding: "8px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.notes || "-"}</td>
+                      <td style={{ padding: "8px", verticalAlign: "top" }}>
+                        {item.crew_ids?.length > 0 ? item.crew_ids.map(crewId => getCrewName(crewId)).join(", ") : <span style={{color: "#777"}}>No crew</span>}
+                      </td>
+                    </tr>
+                  </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           ) : (
@@ -216,7 +247,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
               </thead>
               <tbody>
                 {sortedLaborScheduleItems.map((item, index) => {
-                  const itemDay = formatDate(item.date) || "No Date Assigned";
+                  const itemDay = formatDate(item.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) || "No Date Assigned";
                   const showDayHeader = itemDay !== currentLaborDay;
                   if (showDayHeader) {
                     currentLaborDay = itemDay;
@@ -229,6 +260,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                             colSpan={6}
                             style={{ padding: "6px 8px", fontWeight: "bold", textAlign: "left" }}
                           >
+                            <CalendarDays size={14} style={{ display: "inline", marginRight: "6px", verticalAlign: "text-bottom" }} />
                             {currentLaborDay}
                           </td>
                         </tr>
@@ -236,7 +268,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                       <tr style={{ borderBottom: "1px solid #eee", backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9" }}>
                         <td style={{ padding: "8px", verticalAlign: "top", fontWeight: "500" }}>{item.name || "-"}</td>
                         <td style={{ padding: "8px", verticalAlign: "top" }}>{item.position || "-"}</td>
-                        <td style={{ padding: "8px", verticalAlign: "top" }}>{formatDate(item.date) || "-"}</td>
+                        <td style={{ padding: "8px", verticalAlign: "top" }}>{formatDate(item.date, { month: 'short', day: 'numeric' }) || "-"}</td>
                         <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.time_in) || "-"}</td>
                         <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.time_out) || "-"}</td>
                         <td style={{ padding: "8px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.notes || "-"}</td>

@@ -29,8 +29,7 @@ export interface StageElementProps {
   color?: string;
   width?: number;
   height?: number;
-  customImageUrl?: string | null;
-  labelHidden?: boolean; // New property to control label visibility
+  customImageUrl?: string | null; // New property for custom image
   selected?: boolean;
   disabled?: boolean;
   onClick?: (id: string) => void;
@@ -53,7 +52,6 @@ const StageElement: React.FC<StageElementProps> = ({
   width,
   height,
   customImageUrl,
-  labelHidden = false, // Default to false
   selected = false,
   disabled = false,
   onClick,
@@ -82,7 +80,7 @@ const StageElement: React.FC<StageElementProps> = ({
       type === "trumpet" ||
       type === "saxophone" ||
       type === "generic-instrument" ||
-      type === "custom-image"
+      type === "custom-image" // Added for custom image type
     ) {
       return { width: 64, height: 64 };
     }
@@ -125,7 +123,7 @@ const StageElement: React.FC<StageElementProps> = ({
     if (customImageUrl) {
       return {
         className: "rounded-md flex items-center justify-center overflow-hidden",
-        style: { backgroundColor: "transparent" },
+        style: { backgroundColor: "transparent" }, // No background color if custom image
       };
     }
     if (
@@ -190,7 +188,7 @@ const StageElement: React.FC<StageElementProps> = ({
   };
 
   const getIconForType = () => {
-    if (customImageUrl) return null;
+    if (customImageUrl) return null; // No icon if custom image is used
 
     const iconSize = Math.max(12, Math.min(24, dimensions.width * 0.5));
     const iconProps = {
@@ -221,7 +219,7 @@ const StageElement: React.FC<StageElementProps> = ({
       case "generic-instrument":
         return <CircleEllipsis {...iconProps} />;
       case "custom-image":
-        return <ImageIcon {...iconProps} />;
+        return <ImageIcon {...iconProps} />; // Icon for the "Custom Image" type itself
       case "amplifier":
         return <Volume2 {...iconProps} />;
       case "monitor-wedge":
@@ -284,7 +282,7 @@ const StageElement: React.FC<StageElementProps> = ({
   };
 
   const handleLabelDoubleClick = (e: React.MouseEvent) => {
-    if (disabled || labelHidden) return; // Do not edit if label is hidden
+    if (disabled) return;
     e.stopPropagation();
     setEditingLabel(true);
     setTempLabel(label);
@@ -319,7 +317,7 @@ const StageElement: React.FC<StageElementProps> = ({
   };
 
   const mobileProps = isMobile && !disabled ? { onTouchEnd: handleTap } : {};
-  const isResizable = !disabled;
+  const isResizable = !disabled; // Allow all non-disabled elements to be resizable
   const elementVisualStyles = type !== "text" ? getElementStyles() : null;
 
   const getFontSize = () => {
@@ -457,8 +455,8 @@ const StageElement: React.FC<StageElementProps> = ({
                     src={customImageUrl}
                     alt={label || "Custom image"}
                     className="object-contain w-full h-full"
-                    style={{ pointerEvents: "none" }}
-                    draggable="false"
+                    style={{ pointerEvents: "none" }} // Prevent image from interfering with drag
+                    draggable="false" // Prevent native browser drag
                   />
                 ) : (
                   getIconForType()
@@ -468,7 +466,7 @@ const StageElement: React.FC<StageElementProps> = ({
           )}
         </div>
 
-        {!labelHidden && type !== "text" && (
+        {type !== "text" && (
           <div
             className="absolute left-1/2 transform -translate-x-1/2 mt-1 whitespace-nowrap flex justify-center"
             style={{
@@ -522,7 +520,7 @@ const StageElement: React.FC<StageElementProps> = ({
               const handleMouseMove = (moveEvent: MouseEvent) => {
                 const deltaX = moveEvent.clientX - startX;
                 const deltaY = moveEvent.clientY - startY;
-                const delta = Math.max(deltaX, deltaY); // Maintain aspect ratio roughly
+                const delta = Math.max(deltaX, deltaY);
 
                 const newWidth = Math.max(20, startWidth + delta);
                 const newHeight = Math.max(20, startHeight + delta);

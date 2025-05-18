@@ -13,26 +13,34 @@ CREATE TABLE IF NOT EXISTS production_schedules (
   account_manager TEXT,
   set_datetime TIMESTAMPTZ,
   strike_datetime TIMESTAMPTZ,
-  schedule_items JSONB DEFAULT '[]'::jsonb -- For future schedule items
+  schedule_items JSONB DEFAULT '[]'::jsonb, -- Now includes items with: id, date, startTime, endTime, activity, notes, assignedCrewIds
+  crew_key JSONB DEFAULT '[]'::jsonb, 
+  labor_schedule_items JSONB DEFAULT '[]'::jsonb 
 );
 
 -- Enable RLS
 ALTER TABLE production_schedules ENABLE ROW LEVEL SECURITY;
 
 -- Policies for production_schedules
+
+-- Drop existing policies if they exist, then recreate them
+DROP POLICY IF EXISTS "Users can view their own production schedules" ON production_schedules;
 CREATE POLICY "Users can view their own production schedules"
   ON production_schedules FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own production schedules" ON production_schedules;
 CREATE POLICY "Users can insert their own production schedules"
   ON production_schedules FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own production schedules" ON production_schedules;
 CREATE POLICY "Users can update their own production schedules"
   ON production_schedules FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete their own production schedules" ON production_schedules;
 CREATE POLICY "Users can delete their own production schedules"
   ON production_schedules FOR DELETE
   USING (auth.uid() = user_id);
@@ -46,6 +54,8 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+-- Drop existing trigger if it exists, then recreate it
+DROP TRIGGER IF EXISTS update_production_schedules_last_edited ON production_schedules;
 CREATE TRIGGER update_production_schedules_last_edited
   BEFORE UPDATE ON production_schedules
   FOR EACH ROW EXECUTE PROCEDURE update_last_edited_column();
