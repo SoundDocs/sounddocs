@@ -30,21 +30,39 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
       if (!dateString || dateString.trim() === "") return "N/A";
       const defaultOptions: Intl.DateTimeFormatOptions = { year: "numeric", month: "long", day: "numeric" };
       const effectiveOptions = { ...defaultOptions, ...options };
-
-      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-         try {
-          const date = new Date(dateString + 'T00:00:00Z'); 
-          return date.toLocaleDateString("en-US", effectiveOptions);
-        } catch (e) { 
-          console.error("Error formatting YYYY-MM-DD date (print):", e);
-          return dateString; 
+    
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString) && !dateString.includes('T')) {
+        try {
+          const [year, month, day] = dateString.split('-').map(Number);
+          const localDateObject = new Date(year, month - 1, day);
+          if (localDateObject.getFullYear() === year &&
+              localDateObject.getMonth() === month - 1 &&
+              localDateObject.getDate() === day) {
+            return localDateObject.toLocaleDateString("en-US", effectiveOptions);
+          } else {
+            console.warn(`Invalid date components from YYYY-MM-DD string (print): ${dateString}`);
+            const date = new Date(dateString); // Fallback attempt
+            if (!isNaN(date.getTime())) {
+                return date.toLocaleDateString("en-US", effectiveOptions);
+            }
+            return dateString;
+          }
+        } catch (e) {
+          console.error(`Error formatting YYYY-MM-DD date (print) '${dateString}':`, e);
+          return dateString;
         }
       }
+    
       try {
-        return new Date(dateString).toLocaleDateString("en-US", effectiveOptions);
-      } catch (e) { 
-        console.error("Error formatting date string (print):", e);
-        return dateString; 
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) {
+            console.warn(`Invalid date string for general parsing (print): ${dateString}`);
+            return dateString;
+        }
+        return date.toLocaleDateString("en-US", effectiveOptions);
+      } catch (e) {
+        console.error(`Error formatting general date string (print) '${dateString}':`, e);
+        return dateString;
       }
     };
 

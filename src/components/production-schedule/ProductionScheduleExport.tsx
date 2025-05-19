@@ -43,22 +43,48 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
       if (!dateString || dateString.trim() === "") return "N/A";
       const defaultOptions: Intl.DateTimeFormatOptions = { year: "numeric", month: "long", day: "numeric" };
       const effectiveOptions = { ...defaultOptions, ...options };
-      
-      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    
+      // If dateString is purely YYYY-MM-DD (like info.date or item.date from detailed/labor schedules)
+      // These strings represent a specific calendar day. We want to display that calendar day.
+      // Parsing 'YYYY-MM-DD' with new Date() can be tricky as it's often treated as UTC midnight.
+      // To ensure it's treated as the intended local day, we can split and reconstruct.
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString) && !dateString.includes('T')) {
         try {
-          const date = new Date(dateString + 'T00:00:00Z'); 
-          return date.toLocaleDateString("en-US", effectiveOptions);
-        } catch (e) { 
-          console.error("Error formatting YYYY-MM-DD date:", e);
+          const [year, month, day] = dateString.split('-').map(Number);
+          // Create a Date object for midnight in the local timezone for the given Y, M, D.
+          const localDateObject = new Date(year, month - 1, day);
+          // Check if the constructed date is valid and indeed represents the input YYYY-MM-DD in local terms.
+          if (localDateObject.getFullYear() === year &&
+              localDateObject.getMonth() === month - 1 &&
+              localDateObject.getDate() === day) {
+            return localDateObject.toLocaleDateString("en-US", effectiveOptions);
+          } else {
+            console.warn(`Invalid date components from YYYY-MM-DD string: ${dateString}`);
+            const date = new Date(dateString); // Fallback attempt
+            if (!isNaN(date.getTime())) {
+                return date.toLocaleDateString("en-US", effectiveOptions);
+            }
+            return dateString; 
+          }
+        } catch (e) {
+          console.error(`Error formatting YYYY-MM-DD date '${dateString}':`, e);
           return dateString; 
-        } 
+        }
       }
+    
+      // For full ISO strings or other parsable date-time strings (e.g., schedule.last_edited, info.strike_datetime)
+      // These represent a specific point in time.
       try {
-        return new Date(dateString).toLocaleDateString("en-US", effectiveOptions);
-      } catch (e) { 
-        console.error("Error formatting date string:", e);
+        const date = new Date(dateString); 
+        if (isNaN(date.getTime())) {
+            console.warn(`Invalid date string for general parsing: ${dateString}`);
+            return dateString; 
+        }
+        return date.toLocaleDateString("en-US", effectiveOptions); // Displays in local timezone
+      } catch (e) {
+        console.error(`Error formatting general date string '${dateString}':`, e);
         return dateString; 
-      } 
+      }
     };
     
     const formatTime = (dateTimeString?: string | null): string => {
