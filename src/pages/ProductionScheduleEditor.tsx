@@ -142,6 +142,9 @@ const ProductionScheduleEditor = () => {
             .single();
 
           if (error) throw error;
+          
+          console.log("[Editor] Raw data from Supabase fetch:", JSON.parse(JSON.stringify(data)));
+
           if (data) {
             setSchedule({
               ...data, 
@@ -149,9 +152,9 @@ const ProductionScheduleEditor = () => {
               strike_datetime: data.strike_datetime || "",
               crew_key: data.crew_key || [],
               labor_schedule_items: data.labor_schedule_items || [], 
-              detailed_schedule_items: (data.detailed_schedule_items || []).map((item: any) => ({
+              detailed_schedule_items: (data.detailed_schedule_items || data.schedule_items || []).map((item: any) => ({
                 ...item,
-                assigned_crew_ids: item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : []) // Migration for old data
+                assigned_crew_ids: item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : []) 
               })),
             });
           } else {
@@ -249,19 +252,19 @@ const ProductionScheduleEditor = () => {
     setSaveError(null);
     setSaveSuccess(false);
 
-    const sanitizedCrewKey = schedule.crew_key.map(item => ({
+    const sanitizedCrewKey = (schedule.crew_key || []).map(item => ({
       id: item.id, name: item.name, color: item.color,
     }));
     
-    const sanitizedLaborScheduleItems = schedule.labor_schedule_items.map(item => ({ 
+    const sanitizedLaborScheduleItems = (schedule.labor_schedule_items || []).map(item => ({ 
       id: item.id, name: item.name, position: item.position, date: item.date,
       time_in: item.time_in, time_out: item.time_out, notes: item.notes,
     }));
 
-    const sanitizedDetailedScheduleItems = schedule.detailed_schedule_items.map(item => ({
+    const sanitizedDetailedScheduleItems = (schedule.detailed_schedule_items || []).map(item => ({
       id: item.id, date: item.date, start_time: item.start_time, end_time: item.end_time,
       activity: item.activity, notes: item.notes, 
-      assigned_crew_ids: item.assigned_crew_ids || [], // Ensure it's an array
+      assigned_crew_ids: item.assigned_crew_ids || [], 
     }));
 
     const scheduleDataToSave = {
@@ -320,7 +323,7 @@ const ProductionScheduleEditor = () => {
           strike_datetime: savedData.strike_datetime || "",
           crew_key: savedData.crew_key || [],
           labor_schedule_items: savedData.labor_schedule_items || [],
-          detailed_schedule_items: (savedData.detailed_schedule_items || []).map((item: any) => ({
+          detailed_schedule_items: (savedData.detailed_schedule_items || savedData.schedule_items || []).map((item: any) => ({ 
             ...item,
             assigned_crew_ids: item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : [])
           })),
@@ -347,6 +350,9 @@ const ProductionScheduleEditor = () => {
       </div>
     );
   }
+  
+  const currentDetailedScheduleItems = schedule.detailed_schedule_items || [];
+  console.log("[Editor] State schedule.detailed_schedule_items before creating export props:", JSON.parse(JSON.stringify(currentDetailedScheduleItems)));
 
   const scheduleForExportProps: ScheduleForExport = {
     id: schedule.id || uuidv4(), 
@@ -376,10 +382,11 @@ const ProductionScheduleEditor = () => {
       foh_engineer: undefined, 
       monitor_engineer: undefined, 
     },
-    crew_key: schedule.crew_key,
-    labor_schedule_items: schedule.labor_schedule_items, 
-    detailed_schedule_items: schedule.detailed_schedule_items,
+    crew_key: schedule.crew_key || [],
+    labor_schedule_items: schedule.labor_schedule_items || [], 
+    detailed_schedule_items: currentDetailedScheduleItems,
   };
+  console.log("[Editor] Constructed scheduleForExportProps:", JSON.parse(JSON.stringify(scheduleForExportProps)));
 
 
   return (
@@ -484,7 +491,7 @@ const ProductionScheduleEditor = () => {
 
         <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden mb-8">
            <div className="p-4 md:p-6 border-b border-gray-700">
-            <h2 className="text-xl font-medium text-white">Crew & Department Key</h2>
+            <h2 className="text-xl font-medium text-white">Crew &amp; Department Key</h2>
             <p className="text-gray-400 text-sm">
               Define crew types and assign colors for easy identification in the schedule.
             </p>

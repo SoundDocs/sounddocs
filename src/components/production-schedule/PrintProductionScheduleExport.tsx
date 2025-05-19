@@ -9,11 +9,31 @@ interface PrintProductionScheduleExportProps {
 
 const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProductionScheduleExportProps>(
   ({ schedule }, ref) => {
+
+    console.log("[PrintExport] Received schedule prop:", schedule ? JSON.parse(JSON.stringify(schedule)) : schedule);
+
     const info = schedule?.info || {};
     const crewKey = schedule?.crew_key || [];
     const laborScheduleItems = schedule?.labor_schedule_items || []; 
-    // Explicitly get detailed_schedule_items from the schedule prop
-    const detailedScheduleItemsFromProp = schedule?.detailed_schedule_items || [];
+    
+    let detailedScheduleItemsToUse: DetailedScheduleItem[] = [];
+    if (schedule && Array.isArray(schedule.detailed_schedule_items) && schedule.detailed_schedule_items.length > 0) {
+      detailedScheduleItemsToUse = schedule.detailed_schedule_items;
+      console.log("[PrintExport] Using schedule.detailed_schedule_items directly.");
+    } else if (schedule && Array.isArray((schedule as any).schedule_items)) {
+      detailedScheduleItemsToUse = ((schedule as any).schedule_items || []).map((item: any) => ({
+        ...item,
+        assigned_crew_ids: item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : [])
+      }));
+      console.warn("[PrintExport] Warning: schedule.detailed_schedule_items was missing or empty. Falling back to schedule.schedule_items. This indicates a prop issue.", JSON.parse(JSON.stringify(schedule)));
+    } else if (schedule && Array.isArray(schedule.detailed_schedule_items)) { // Case where detailed_schedule_items is present but empty
+        detailedScheduleItemsToUse = schedule.detailed_schedule_items;
+        console.log("[PrintExport] Using schedule.detailed_schedule_items (it was present but empty).");
+    } else {
+      console.log("[PrintExport] schedule.detailed_schedule_items and schedule.schedule_items are missing or not arrays.");
+    }
+    console.log("[PrintExport] Extracted detailed_schedule_items (after robust check):", JSON.parse(JSON.stringify(detailedScheduleItemsToUse)));
+
 
     const formatDate = (dateString?: string, options?: Intl.DateTimeFormatOptions) => {
       if (!dateString || dateString.trim() === "") return "N/A";
@@ -67,6 +87,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
     };
 
     const groupAndSortDetailedItems = (items: DetailedScheduleItem[]) => {
+      console.log("[PrintExport] groupAndSortDetailedItems input:", JSON.parse(JSON.stringify(items)));
       const groups: Record<string, DetailedScheduleItem[]> = {};
       (items || []).forEach(item => { 
         const dateStr = item.date || 'No Date Assigned';
@@ -76,15 +97,17 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
       for (const dateKey in groups) {
         groups[dateKey].sort((a, b) => (a.start_time || "00:00").localeCompare(b.start_time || "00:00"));
       }
-      return Object.entries(groups).sort(([dateA], [dateB]) => {
+      const sortedGroups = Object.entries(groups).sort(([dateA], [dateB]) => {
         if (dateA === 'No Date Assigned') return 1;
         if (dateB === 'No Date Assigned') return -1;
         try { return new Date(dateA + 'T00:00:00Z').getTime() - new Date(dateB + 'T00:00:00Z').getTime(); } 
         catch (e) { return 0; }
       });
+      console.log("[PrintExport] groupAndSortDetailedItems output (grouped and sorted):", JSON.parse(JSON.stringify(sortedGroups)));
+      return sortedGroups;
     };
-    // Use the explicitly derived detailedScheduleItemsFromProp
-    const groupedDetailedScheduleItems = groupAndSortDetailedItems(detailedScheduleItemsFromProp);
+    
+    const groupedDetailedScheduleItems = groupAndSortDetailedItems(detailedScheduleItemsToUse);
 
 
     const sortedLaborScheduleItems = [...(laborScheduleItems || [])].sort((a, b) => {
@@ -100,6 +123,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
     });
 
     let currentLaborDayFormatted = ""; 
+    console.log("[PrintExport] Rendering with groupedDetailedScheduleItems count:", groupedDetailedScheduleItems.length);
 
     return (
       <div
@@ -149,7 +173,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
         <div style={{ display: "flex", justifyContent: "space-between", gap: "20px", marginBottom: "20px", fontSize: "13px" }}>
             <div style={{ flex: 1 }}>
                 <h3 style={{ fontSize: "16px", fontWeight: "bold", borderBottom: "1px solid #eee", paddingBottom: "8px", marginBottom: "10px" }}>
-                    <Building size={16} style={{ display: "inline", marginRight: "8px", verticalAlign: "middle" }} /> Venue & Management
+                    <Building size={16} style={{ display: "inline", marginRight: "8px", verticalAlign: "middle" }} /> Venue &amp; Management
                 </h3>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <tbody>
@@ -209,7 +233,9 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                 </tr>
               </thead>
               <tbody>
-                {groupedDetailedScheduleItems.map(([dateKey, itemsInGroup]) => (
+                {groupedDetailedScheduleItems.map(([dateKey, itemsInGroup], groupIndex) => {
+                  console.log(`[PrintExport] Rendering group ${groupIndex} for date: ${dateKey}, items count: ${itemsInGroup.length}`);
+                  return (
                   <React.Fragment key={dateKey}>
                     <tr style={{ backgroundColor: "#e2e8f0", borderTop: "1px solid #ccc", borderBottom: "1px solid #ccc" }}>
                       <td colSpan={5} style={{ padding: "6px 8px", fontWeight: "bold", textAlign: "left" }}>
@@ -217,7 +243,9 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                         {formatDate(dateKey, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                       </td>
                     </tr>
-                    {itemsInGroup.map((item, index) => (
+                    {itemsInGroup.map((item, index) => {
+                      console.log(`[PrintExport] Rendering item ${index} in group ${groupIndex}:`, JSON.parse(JSON.stringify(item)));
+                      return (
                       <tr key={item.id} style={{ borderBottom: "1px solid #eee", backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9", pageBreakInside: "avoid" }}>
                         <td style={{ padding: "6px", verticalAlign: "top" }}>{formatTime(item.start_time) || "-"}</td>
                         <td style={{ padding: "6px", verticalAlign: "top" }}>{formatTime(item.end_time) || "-"}</td>
@@ -225,9 +253,11 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                         <td style={{ padding: "6px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.notes || "-"}</td>
                         <td style={{ padding: "6px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{getCrewNames(item.assigned_crew_ids, crewKey)}</td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </React.Fragment>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

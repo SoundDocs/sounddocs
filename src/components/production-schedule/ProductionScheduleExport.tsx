@@ -11,7 +11,7 @@ import {
   Mail, 
   UserSquare, 
   CalendarDays,
-  Users as UsersIcon, // Renamed to avoid conflict if Users is used as component
+  Users as UsersIcon,
 } from "lucide-react";
 import { ScheduleForExport, DetailedScheduleItem } from "../../pages/ProductionScheduleEditor"; 
 import { CrewKeyItem } from "./ProductionScheduleCrewKey";
@@ -22,11 +22,31 @@ interface ProductionScheduleExportProps {
 
 const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleExportProps>(
   ({ schedule }, ref) => {
+    
+    console.log("[Export] Received schedule prop:", schedule ? JSON.parse(JSON.stringify(schedule)) : schedule);
+
     const info = schedule?.info || {};
     const crewKey = schedule?.crew_key || [];
     const laborScheduleItems = schedule?.labor_schedule_items || []; 
-    // Explicitly get detailed_schedule_items from the schedule prop
-    const detailedScheduleItemsFromProp = schedule?.detailed_schedule_items || [];
+    
+    let detailedScheduleItemsToUse: DetailedScheduleItem[] = [];
+    if (schedule && Array.isArray(schedule.detailed_schedule_items) && schedule.detailed_schedule_items.length > 0) {
+      detailedScheduleItemsToUse = schedule.detailed_schedule_items;
+      console.log("[Export] Using schedule.detailed_schedule_items directly.");
+    } else if (schedule && Array.isArray((schedule as any).schedule_items)) {
+      detailedScheduleItemsToUse = ((schedule as any).schedule_items || []).map((item: any) => ({
+        ...item,
+        assigned_crew_ids: item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : [])
+      }));
+      console.warn("[Export] Warning: schedule.detailed_schedule_items was missing or empty. Falling back to schedule.schedule_items. This indicates a prop issue.", JSON.parse(JSON.stringify(schedule)));
+    } else if (schedule && Array.isArray(schedule.detailed_schedule_items)) { // Case where detailed_schedule_items is present but empty
+        detailedScheduleItemsToUse = schedule.detailed_schedule_items;
+        console.log("[Export] Using schedule.detailed_schedule_items (it was present but empty).");
+    } else {
+      console.log("[Export] schedule.detailed_schedule_items and schedule.schedule_items are missing or not arrays.");
+    }
+    console.log("[Export] Extracted detailed_schedule_items (after robust check):", JSON.parse(JSON.stringify(detailedScheduleItemsToUse)));
+
 
     const formatDate = (dateString?: string, options?: Intl.DateTimeFormatOptions) => {
       if (!dateString || dateString.trim() === "") return "N/A";
@@ -97,6 +117,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
     };
 
     const groupAndSortDetailedItems = (items: DetailedScheduleItem[]) => {
+      console.log("[Export] groupAndSortDetailedItems input:", JSON.parse(JSON.stringify(items)));
       const groups: Record<string, DetailedScheduleItem[]> = {};
       (items || []).forEach(item => { 
         const dateStr = item.date || 'No Date Assigned';
@@ -106,15 +127,17 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
       for (const dateKey in groups) {
         groups[dateKey].sort((a, b) => (a.start_time || "00:00").localeCompare(b.start_time || "00:00"));
       }
-      return Object.entries(groups).sort(([dateA], [dateB]) => {
+      const sortedGroups = Object.entries(groups).sort(([dateA], [dateB]) => {
         if (dateA === 'No Date Assigned') return 1;
         if (dateB === 'No Date Assigned') return -1;
         try { return new Date(dateA + 'T00:00:00Z').getTime() - new Date(dateB + 'T00:00:00Z').getTime(); } 
         catch (e) { return 0; }
       });
+      console.log("[Export] groupAndSortDetailedItems output (grouped and sorted):", JSON.parse(JSON.stringify(sortedGroups)));
+      return sortedGroups;
     };
-    // Use the explicitly derived detailedScheduleItemsFromProp
-    const groupedDetailedScheduleItems = groupAndSortDetailedItems(detailedScheduleItemsFromProp);
+    
+    const groupedDetailedScheduleItems = groupAndSortDetailedItems(detailedScheduleItemsToUse);
 
     const sortedLaborScheduleItems = [...(laborScheduleItems || [])].sort((a, b) => {
       const dateA = a.date || '';
@@ -129,6 +152,8 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
     });
     
     let currentLaborDayFormatted = ""; 
+
+    console.log("[Export] Rendering with groupedDetailedScheduleItems count:", groupedDetailedScheduleItems.length);
 
     return (
       <div
@@ -204,7 +229,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
 
           <div className="bg-gray-800/80 p-6 rounded-lg shadow-md" style={{ borderLeft: "4px solid #4f46e5" }}>
             <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-4">
-              <Building className="h-5 w-5 mr-2" /> Venue & Management
+              <Building className="h-5 w-5 mr-2" /> Venue &amp; Management
             </h3>
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
               {info.venue && (<div><strong className="text-gray-400 block">Venue:</strong> {info.venue}</div>)}
@@ -264,7 +289,9 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                   </tr>
                 </thead>
                 <tbody>
-                  {groupedDetailedScheduleItems.map(([dateKey, itemsInGroup]) => (
+                  {groupedDetailedScheduleItems.map(([dateKey, itemsInGroup], groupIndex) => {
+                    console.log(`[Export] Rendering group ${groupIndex} for date: ${dateKey}, items count: ${itemsInGroup.length}`);
+                    return (
                     <React.Fragment key={dateKey}>
                       <tr style={{ background: "rgba(45, 55, 72, 0.6)", borderTop: "2px solid rgba(99, 102, 241, 0.3)", borderBottom: "1px solid rgba(99, 102, 241, 0.2)" }}>
                         <td colSpan={5} className="py-2 px-4 text-white font-semibold text-sm flex items-center">
@@ -272,7 +299,9 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                           {formatDate(dateKey, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                         </td>
                       </tr>
-                      {itemsInGroup.map((item, index) => (
+                      {itemsInGroup.map((item, index) => {
+                        console.log(`[Export] Rendering item ${index} in group ${groupIndex}:`, JSON.parse(JSON.stringify(item)));
+                        return (
                         <tr
                           key={item.id}
                           style={{
@@ -286,9 +315,11 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                           <td className="py-3 px-4 text-gray-300 align-top text-sm" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>{item.notes || "-"}</td>
                           <td className="py-3 px-4 text-white align-top text-sm">{getCrewDisplay(item.assigned_crew_ids, crewKey)}</td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </React.Fragment>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
