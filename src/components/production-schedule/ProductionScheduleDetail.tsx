@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { PlusCircle, Trash2, GripVertical, CalendarDays, Copy, ChevronDown, Users } from 'lucide-react';
+import { PlusCircle, Trash2, GripVertical, CalendarDays, Copy, ChevronDown, Edit3, Check, X } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { CrewKeyItem } from './ProductionScheduleCrewKey';
 
@@ -10,7 +10,7 @@ export interface DetailedScheduleItem {
   end_time: string; // HH:MM
   activity: string;
   notes: string;
-  assigned_crew_ids: string[]; // Changed from assigned_crew_id: string | null
+  assigned_crew_ids: string[];
 }
 
 interface ProductionScheduleDetailProps {
@@ -162,7 +162,9 @@ const DetailedScheduleItemRow: React.FC<{
 };
 
 const ProductionScheduleDetail: React.FC<ProductionScheduleDetailProps> = ({ detailedItems, onUpdateDetailedItems, crewKey }) => {
-  
+  const [editingDateKey, setEditingDateKey] = useState<string | null>(null);
+  const [tempDate, setTempDate] = useState<string>('');
+
   const getGroupedAndSortedItems = () => {
     const groups: Record<string, DetailedScheduleItem[]> = {};
     detailedItems.forEach(item => {
@@ -173,7 +175,6 @@ const ProductionScheduleDetail: React.FC<ProductionScheduleDetailProps> = ({ det
       groups[dateStr].push(item);
     });
 
-    // Sort items within each group by start_time
     for (const dateKey in groups) {
       groups[dateKey].sort((a, b) => {
         const timeA = a.start_time || "00:00";
@@ -202,7 +203,7 @@ const ProductionScheduleDetail: React.FC<ProductionScheduleDetailProps> = ({ det
     end_time: '',
     activity: '',
     notes: '',
-    assigned_crew_ids: [], // Initialize as empty array
+    assigned_crew_ids: [],
   });
 
   const handleAddItemToDay = (dateKey: string) => {
@@ -235,8 +236,8 @@ const ProductionScheduleDetail: React.FC<ProductionScheduleDetailProps> = ({ det
     let nextDateStr = 'No Date Assigned';
     if (dateKey !== 'No Date Assigned') {
       try {
-        const originalDate = new Date(dateKey);
-        originalDate.setDate(originalDate.getDate() + 1); 
+        const originalDate = new Date(dateKey + 'T00:00:00Z'); // Ensure parsing as specific date
+        originalDate.setUTCDate(originalDate.getUTCDate() + 1); 
         nextDateStr = originalDate.toISOString().split('T')[0];
       } catch (e) {
         console.error("Error calculating next date:", e);
@@ -252,17 +253,16 @@ const ProductionScheduleDetail: React.FC<ProductionScheduleDetailProps> = ({ det
     onUpdateDetailedItems([...detailedItems, ...newItems]);
   };
 
-
   const handleAddNewDayGroup = () => {
     let newDate = new Date();
     const validDates = detailedItems
-      .map(item => item.date ? new Date(item.date).getTime() : 0)
+      .map(item => item.date ? new Date(item.date + 'T00:00:00Z').getTime() : 0)
       .filter(timestamp => timestamp > 0);
 
     if (validDates.length > 0) {
       const latestTimestamp = Math.max(...validDates);
       newDate = new Date(latestTimestamp);
-      newDate.setDate(newDate.getDate() + 1);
+      newDate.setUTCDate(newDate.getUTCDate() + 1);
     }
     
     const initialItemForNewDay = createNewDetailedItem(newDate.toISOString().split('T')[0]);
@@ -286,6 +286,7 @@ const ProductionScheduleDetail: React.FC<ProductionScheduleDetailProps> = ({ det
       const [year, month, day] = dateKey.split('-').map(Number);
       const dateObj = new Date(Date.UTC(year, month - 1, day)); 
       return dateObj.toLocaleDateString('en-US', { 
+        weekday: 'long',
         year: 'numeric', 
         month: 'long', 
         day: 'numeric',
@@ -296,15 +297,62 @@ const ProductionScheduleDetail: React.FC<ProductionScheduleDetailProps> = ({ det
     }
   };
 
+  const handleStartEditDate = (dateKey: string) => {
+    if (dateKey === 'No Date Assigned') return;
+    setEditingDateKey(dateKey);
+    setTempDate(dateKey);
+  };
+
+  const handleConfirmDateChange = () => {
+    if (!editingDateKey || !tempDate || editingDateKey === tempDate) {
+      setEditingDateKey(null);
+      return;
+    }
+    const updatedItems = detailedItems.map(item => {
+      const itemDate = item.date || 'No Date Assigned';
+      if (itemDate === editingDateKey) {
+        return { ...item, date: tempDate };
+      }
+      return item;
+    });
+    onUpdateDetailedItems(updatedItems);
+    setEditingDateKey(null);
+  };
+
+  const handleCancelEditDate = () => {
+    setEditingDateKey(null);
+  };
+
   return (
     <div className="space-y-8">
       {groupedItems.map(([dateKey, itemsInGroup]) => (
         <div key={dateKey} className="bg-gray-700/40 rounded-lg shadow-md">
           <div className="flex justify-between items-center p-4 bg-gray-700 rounded-t-lg border-b border-gray-600">
-            <h3 className="text-lg font-semibold text-indigo-300 flex items-center">
-              <CalendarDays size={20} className="mr-2 text-indigo-400" />
-              {formatDateHeader(dateKey)}
-            </h3>
+            <div className="flex items-center gap-2">
+              <CalendarDays size={20} className="text-indigo-400 flex-shrink-0" />
+              {editingDateKey === dateKey ? (
+                <>
+                  <input
+                    type="date"
+                    value={tempDate}
+                    onChange={(e) => setTempDate(e.target.value)}
+                    className="text-lg font-semibold text-white bg-gray-600 border border-gray-500 rounded-md p-1 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    autoFocus
+                  />
+                  <button onClick={handleConfirmDateChange} className="p-1 text-green-400 hover:text-green-300"><Check size={20} /></button>
+                  <button onClick={handleCancelEditDate} className="p-1 text-red-400 hover:text-red-300"><X size={20} /></button>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-lg font-semibold text-indigo-300">{formatDateHeader(dateKey)}</h3>
+                  {dateKey !== 'No Date Assigned' && (
+                    <button onClick={() => handleStartEditDate(dateKey)} className="p-1 text-gray-400 hover:text-indigo-400">
+                      <Edit3 size={16} />
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
             <button
               onClick={() => handleDuplicateDayGroup(dateKey)}
               className="p-2 text-gray-400 hover:text-indigo-400 transition-colors"

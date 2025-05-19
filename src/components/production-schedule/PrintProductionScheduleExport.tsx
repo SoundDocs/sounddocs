@@ -49,7 +49,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                 });
             }
             return d.toLocaleTimeString("en-US", {
-                hour: "2-digit", minute: "2-digit", hour12: false, 
+                hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC"
             });
         } catch (e) {
             const dateMatch = timeString.match(/\d{2}:\d{2}/);
@@ -67,7 +67,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
 
     const groupAndSortDetailedItems = (items: DetailedScheduleItem[]) => {
       const groups: Record<string, DetailedScheduleItem[]> = {};
-      items.forEach(item => {
+      (items || []).forEach(item => { // Ensure items is an array
         const dateStr = item.date || 'No Date Assigned';
         if (!groups[dateStr]) groups[dateStr] = [];
         groups[dateStr].push(item);
@@ -78,7 +78,8 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
       return Object.entries(groups).sort(([dateA], [dateB]) => {
         if (dateA === 'No Date Assigned') return 1;
         if (dateB === 'No Date Assigned') return -1;
-        try { return new Date(dateA).getTime() - new Date(dateB).getTime(); } catch (e) { return 0; }
+        try { return new Date(dateA + 'T00:00:00Z').getTime() - new Date(dateB + 'T00:00:00Z').getTime(); } // Compare as UTC
+        catch (e) { return 0; }
       });
     };
     const groupedDetailedScheduleItems = groupAndSortDetailedItems(detailedScheduleItems);
