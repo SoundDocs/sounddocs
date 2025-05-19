@@ -152,7 +152,7 @@ const ProductionScheduleEditor = () => {
               strike_datetime: data.strike_datetime || "",
               crew_key: data.crew_key || [],
               labor_schedule_items: data.labor_schedule_items || [], 
-              detailed_schedule_items: (data.detailed_schedule_items || data.schedule_items || []).map((item: any) => ({
+              detailed_schedule_items: (data.detailed_schedule_items || []).map((item: any) => ({
                 ...item,
                 assigned_crew_ids: item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : []) 
               })),
@@ -323,7 +323,7 @@ const ProductionScheduleEditor = () => {
           strike_datetime: savedData.strike_datetime || "",
           crew_key: savedData.crew_key || [],
           labor_schedule_items: savedData.labor_schedule_items || [],
-          detailed_schedule_items: (savedData.detailed_schedule_items || savedData.schedule_items || []).map((item: any) => ({ 
+          detailed_schedule_items: (savedData.detailed_schedule_items || []).map((item: any) => ({ 
             ...item,
             assigned_crew_ids: item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : [])
           })),

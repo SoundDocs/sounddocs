@@ -30,20 +30,11 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
     const laborScheduleItems = schedule?.labor_schedule_items || []; 
     
     let detailedScheduleItemsToUse: DetailedScheduleItem[] = [];
-    if (schedule && Array.isArray(schedule.detailed_schedule_items) && schedule.detailed_schedule_items.length > 0) {
+    if (schedule && Array.isArray(schedule.detailed_schedule_items)) {
       detailedScheduleItemsToUse = schedule.detailed_schedule_items;
-      console.log("[Export] Using schedule.detailed_schedule_items directly.");
-    } else if (schedule && Array.isArray((schedule as any).schedule_items)) {
-      detailedScheduleItemsToUse = ((schedule as any).schedule_items || []).map((item: any) => ({
-        ...item,
-        assigned_crew_ids: item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : [])
-      }));
-      console.warn("[Export] Warning: schedule.detailed_schedule_items was missing or empty. Falling back to schedule.schedule_items. This indicates a prop issue.", JSON.parse(JSON.stringify(schedule)));
-    } else if (schedule && Array.isArray(schedule.detailed_schedule_items)) { // Case where detailed_schedule_items is present but empty
-        detailedScheduleItemsToUse = schedule.detailed_schedule_items;
-        console.log("[Export] Using schedule.detailed_schedule_items (it was present but empty).");
+      console.log("[Export] Using schedule.detailed_schedule_items.");
     } else {
-      console.log("[Export] schedule.detailed_schedule_items and schedule.schedule_items are missing or not arrays.");
+      console.log("[Export] schedule.detailed_schedule_items is missing or not an array.");
     }
     console.log("[Export] Extracted detailed_schedule_items (after robust check):", JSON.parse(JSON.stringify(detailedScheduleItemsToUse)));
 

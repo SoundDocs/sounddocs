@@ -25,8 +25,8 @@ import PrintStagePlotExport from "../components/PrintStagePlotExport";
 import ExportModal from "../components/ExportModal";
 import ProductionScheduleExport from "../components/production-schedule/ProductionScheduleExport"; 
 import PrintProductionScheduleExport from "../components/production-schedule/PrintProductionScheduleExport"; 
-import { ScheduleForExport } from "./ProductionScheduleEditor"; 
-import { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor"; // Added
+import { ScheduleForExport, DetailedScheduleItem } from "./ProductionScheduleEditor"; 
+import { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor"; 
 import { v4 as uuidv4 } from 'uuid';
 
 // Define types for our documents
@@ -73,15 +73,8 @@ interface FullProductionScheduleData {
   set_datetime?: string;
   strike_datetime?: string;
   crew_key?: Array<{ id: string; name: string; color: string }>;
-  schedule_items?: Array<{
-    id: string;
-    startTime: string; 
-    endTime: string;
-    activity: string;
-    notes: string;
-    assignedCrewIds: string[];
-  }>;
-  labor_schedule_items?: LaborScheduleItem[]; // Added
+  detailed_schedule_items?: DetailedScheduleItem[]; // Updated from schedule_items
+  labor_schedule_items?: LaborScheduleItem[]; 
 }
 
 
@@ -132,15 +125,11 @@ const transformToScheduleForExport = (fullSchedule: FullProductionScheduleData):
       strike_datetime: fullSchedule.strike_datetime,
     },
     crew_key: fullSchedule.crew_key?.map(ck => ({ ...ck })) || [],
-    schedule_items: fullSchedule.schedule_items?.map(item => ({
-      id: item.id,
-      start_time: item.startTime, 
-      end_time: item.endTime,
-      activity: item.activity,
-      notes: item.notes,
-      crew_ids: [...(item.assignedCrewIds || [])],
+    detailed_schedule_items: fullSchedule.detailed_schedule_items?.map(item => ({ // Updated from schedule_items
+      ...item,
+      assigned_crew_ids: item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : [])
     })) || [],
-    labor_schedule_items: fullSchedule.labor_schedule_items?.map(item => ({ ...item })) || [], // Added
+    labor_schedule_items: fullSchedule.labor_schedule_items?.map(item => ({ ...item })) || [], 
   };
 };
 
@@ -456,7 +445,6 @@ const Dashboard = () => {
     setExportingItemId(scheduleId);
     setShowProductionScheduleExportModal(false);
     try {
-      // Ensure all columns, including labor_schedule_items, are fetched
       const { data: rawData, error } = await supabase.from("production_schedules").select("*").eq("id", scheduleId).single();
       if (error || !rawData) throw error || new Error("Production schedule not found");
       
