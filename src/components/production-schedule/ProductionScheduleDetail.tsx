@@ -177,9 +177,24 @@ const ProductionScheduleDetail: React.FC<ProductionScheduleDetailProps> = ({ det
 
     for (const dateKey in groups) {
       groups[dateKey].sort((a, b) => {
-        const timeA = a.start_time || "00:00";
-        const timeB = b.start_time || "00:00";
-        return timeA.localeCompare(timeB);
+        const aHasTime = a.start_time && a.start_time !== '';
+        const bHasTime = b.start_time && b.start_time !== '';
+
+        if (aHasTime && !bHasTime) {
+          return -1; // 'a' (with time) comes before 'b' (without time)
+        }
+        if (!aHasTime && bHasTime) {
+          return 1;  // 'a' (without time) comes after 'b' (with time)
+        }
+        
+        // If both have time or both don't have time, sort by time.
+        // Items without time (both !aHasTime and !bHasTime) will effectively keep their relative order
+        // or be sorted by "00:00" if that's preferred, though explicit time comparison is better.
+        if (aHasTime && bHasTime) {
+          return (a.start_time || "00:00").localeCompare(b.start_time || "00:00");
+        }
+        // If neither has a time, maintain original order (or treat as equal for sort stability)
+        return 0; 
       });
     }
 
