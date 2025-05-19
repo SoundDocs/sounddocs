@@ -1,7 +1,7 @@
 import React, { forwardRef } from "react";
-import { Calendar, ListChecks, Palette, UserCheck, Building, Phone, Mail, UserCog, Briefcase, UserCircle, UserSquare, CalendarDays } from "lucide-react"; 
-import { ScheduleForExport } from "../../pages/ProductionScheduleEditor"; 
-import { LaborScheduleItem } from "./ProductionScheduleLabor"; 
+import { Calendar, ListChecks, Palette, UserCheck, Building, Phone, Mail, UserSquare, CalendarDays, Users as UsersIcon } from "lucide-react"; 
+import { ScheduleForExport, DetailedScheduleItem } from "../../pages/ProductionScheduleEditor"; 
+import { CrewKeyItem } from "./ProductionScheduleCrewKey";
 
 interface PrintProductionScheduleExportProps {
   schedule: ScheduleForExport; 
@@ -11,8 +11,8 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
   ({ schedule }, ref) => {
     const info = schedule.info || {};
     const crewKey = schedule.crew_key || [];
-    // scheduleItemsData is removed
     const laborScheduleItems = schedule.labor_schedule_items || []; 
+    const detailedScheduleItems = schedule.detailed_schedule_items || [];
 
     const formatDate = (dateString?: string, options?: Intl.DateTimeFormatOptions) => {
       if (!dateString || dateString.trim() === "") return "N/A";
@@ -21,7 +21,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
 
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
          try {
-          const date = new Date(dateString + 'T00:00:00Z'); // Interpret as UTC
+          const date = new Date(dateString + 'T00:00:00Z'); 
           return date.toLocaleDateString("en-US", effectiveOptions);
         } catch (e) { 
           console.error("Error formatting YYYY-MM-DD date (print):", e);
@@ -58,9 +58,31 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
         }
     };
 
-    // getCrewName is removed as it was for schedule_items
+    const getCrewNames = (crewIds: string[], crewKeyData: CrewKeyItem[]): string => {
+      if (!crewIds || crewIds.length === 0) return "-";
+      return crewIds
+        .map(id => crewKeyData.find(c => c.id === id)?.name || "Unknown")
+        .join(", ");
+    };
 
-    // sortedScheduleItems logic removed
+    const groupAndSortDetailedItems = (items: DetailedScheduleItem[]) => {
+      const groups: Record<string, DetailedScheduleItem[]> = {};
+      items.forEach(item => {
+        const dateStr = item.date || 'No Date Assigned';
+        if (!groups[dateStr]) groups[dateStr] = [];
+        groups[dateStr].push(item);
+      });
+      for (const dateKey in groups) {
+        groups[dateKey].sort((a, b) => (a.start_time || "00:00").localeCompare(b.start_time || "00:00"));
+      }
+      return Object.entries(groups).sort(([dateA], [dateB]) => {
+        if (dateA === 'No Date Assigned') return 1;
+        if (dateB === 'No Date Assigned') return -1;
+        try { return new Date(dateA).getTime() - new Date(dateB).getTime(); } catch (e) { return 0; }
+      });
+    };
+    const groupedDetailedScheduleItems = groupAndSortDetailedItems(detailedScheduleItems);
+
 
     const sortedLaborScheduleItems = [...(laborScheduleItems || [])].sort((a, b) => {
       const dateA = a.date || '';
@@ -74,7 +96,6 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
       return (a.name || '').localeCompare(b.name || '');
     });
 
-    // currentScheduleDayFormatted removed
     let currentLaborDayFormatted = ""; 
 
     return (
@@ -169,41 +190,61 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
           </div>
         )}
 
-        {/* Production Schedule Table Section Removed */}
-        {/*
-        <div style={{ marginBottom: "20px" }}>
-          <h3 style={{ fontSize: "16px", fontWeight: "bold", borderBottom: "1px solid #eee", paddingBottom: "8px", marginBottom: "10px" }}>
-            <ListChecks size={16} style={{ display: "inline", marginRight: "8px", verticalAlign: "middle" }} /> Production Schedule
-          </h3>
-          {sortedScheduleItems.length > 0 ? (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-              // ... table structure for schedule items was here ...
-              <tbody>
-                {sortedScheduleItems.map((item, index) => {
-                  // ... rendering logic for schedule items was here ...
-                })}
-              </tbody>
-            </table>
-          ) : (
-            <p style={{ color: "#555", textAlign: "center", padding: "10px 0" }}>No schedule items defined.</p>
-          )}
-        </div>
-        */}
-
-        {sortedLaborScheduleItems.length > 0 && (
-          <div style={{ marginBottom: "20px" }}>
+        {groupedDetailedScheduleItems.length > 0 && (
+          <div style={{ marginBottom: "20px", pageBreakInside: "avoid" }}>
             <h3 style={{ fontSize: "16px", fontWeight: "bold", borderBottom: "1px solid #eee", paddingBottom: "8px", marginBottom: "10px" }}>
-              <UserSquare size={16} style={{ display: "inline", marginRight: "8px", verticalAlign: "middle" }} /> Labor Schedule
+              <ListChecks size={16} style={{ display: "inline", marginRight: "8px", verticalAlign: "middle" }} /> Detailed Production Schedule
             </h3>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
               <thead>
                 <tr style={{ backgroundColor: "#f0f0f0", borderBottom: "1px solid #ccc" }}>
-                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "20%" }}>Name</th>
-                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "20%" }}>Position</th>
-                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "15%" }}>Date</th>
-                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "10%" }}>Time In</th>
-                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "10%" }}>Time Out</th>
-                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "25%" }}>Notes</th>
+                  <th style={{ padding: "6px", textAlign: "left", fontWeight: "bold", width: "8%" }}>Start</th>
+                  <th style={{ padding: "6px", textAlign: "left", fontWeight: "bold", width: "8%" }}>End</th>
+                  <th style={{ padding: "6px", textAlign: "left", fontWeight: "bold", width: "30%" }}>Activity</th>
+                  <th style={{ padding: "6px", textAlign: "left", fontWeight: "bold", width: "30%" }}>Notes</th>
+                  <th style={{ padding: "6px", textAlign: "left", fontWeight: "bold", width: "24%" }}>Crew</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groupedDetailedScheduleItems.map(([dateKey, itemsInGroup]) => (
+                  <React.Fragment key={dateKey}>
+                    <tr style={{ backgroundColor: "#e2e8f0", borderTop: "1px solid #ccc", borderBottom: "1px solid #ccc" }}>
+                      <td colSpan={5} style={{ padding: "6px 8px", fontWeight: "bold", textAlign: "left" }}>
+                        <CalendarDays size={14} style={{ display: "inline", marginRight: "6px", verticalAlign: "text-bottom" }} />
+                        {formatDate(dateKey, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      </td>
+                    </tr>
+                    {itemsInGroup.map((item, index) => (
+                      <tr key={item.id} style={{ borderBottom: "1px solid #eee", backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9", pageBreakInside: "avoid" }}>
+                        <td style={{ padding: "6px", verticalAlign: "top" }}>{formatTime(item.start_time) || "-"}</td>
+                        <td style={{ padding: "6px", verticalAlign: "top" }}>{formatTime(item.end_time) || "-"}</td>
+                        <td style={{ padding: "6px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.activity || "-"}</td>
+                        <td style={{ padding: "6px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.notes || "-"}</td>
+                        <td style={{ padding: "6px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{getCrewNames(item.assigned_crew_ids, crewKey)}</td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+
+        {sortedLaborScheduleItems.length > 0 && (
+          <div style={{ marginBottom: "20px", pageBreakInside: "avoid" }}>
+            <h3 style={{ fontSize: "16px", fontWeight: "bold", borderBottom: "1px solid #eee", paddingBottom: "8px", marginBottom: "10px" }}>
+              <UsersIcon size={16} style={{ display: "inline", marginRight: "8px", verticalAlign: "middle" }} /> Labor Schedule
+            </h3>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+              <thead>
+                <tr style={{ backgroundColor: "#f0f0f0", borderBottom: "1px solid #ccc" }}>
+                  <th style={{ padding: "6px", textAlign: "left", fontWeight: "bold", width: "20%" }}>Name</th>
+                  <th style={{ padding: "6px", textAlign: "left", fontWeight: "bold", width: "20%" }}>Position</th>
+                  <th style={{ padding: "6px", textAlign: "left", fontWeight: "bold", width: "15%" }}>Date</th>
+                  <th style={{ padding: "6px", textAlign: "left", fontWeight: "bold", width: "10%" }}>Time In</th>
+                  <th style={{ padding: "6px", textAlign: "left", fontWeight: "bold", width: "10%" }}>Time Out</th>
+                  <th style={{ padding: "6px", textAlign: "left", fontWeight: "bold", width: "25%" }}>Notes</th>
                 </tr>
               </thead>
               <tbody>
@@ -226,13 +267,13 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                           </td>
                         </tr>
                       )}
-                      <tr style={{ borderBottom: "1px solid #eee", backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9" }}>
-                        <td style={{ padding: "8px", verticalAlign: "top", fontWeight: "500" }}>{item.name || "-"}</td>
-                        <td style={{ padding: "8px", verticalAlign: "top" }}>{item.position || "-"}</td>
-                        <td style={{ padding: "8px", verticalAlign: "top" }}>{formatDate(item.date, { month: 'short', day: 'numeric' })}</td>
-                        <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.time_in) || "-"}</td>
-                        <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.time_out) || "-"}</td>
-                        <td style={{ padding: "8px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.notes || "-"}</td>
+                      <tr style={{ borderBottom: "1px solid #eee", backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9", pageBreakInside: "avoid" }}>
+                        <td style={{ padding: "6px", verticalAlign: "top", fontWeight: "500" }}>{item.name || "-"}</td>
+                        <td style={{ padding: "6px", verticalAlign: "top" }}>{item.position || "-"}</td>
+                        <td style={{ padding: "6px", verticalAlign: "top" }}>{formatDate(item.date, { month: 'short', day: 'numeric' })}</td>
+                        <td style={{ padding: "6px", verticalAlign: "top" }}>{formatTime(item.time_in) || "-"}</td>
+                        <td style={{ padding: "6px", verticalAlign: "top" }}>{formatTime(item.time_out) || "-"}</td>
+                        <td style={{ padding: "6px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.notes || "-"}</td>
                       </tr>
                     </React.Fragment>
                   );

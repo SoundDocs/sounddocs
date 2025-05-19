@@ -5,15 +5,12 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import ProductionScheduleHeader from "../components/production-schedule/ProductionScheduleHeader";
 import ProductionScheduleCrewKey, { CrewKeyItem } from "../components/production-schedule/ProductionScheduleCrewKey";
-// ProductionScheduleTable is removed as schedule_items functionality is being removed
 import ProductionScheduleLabor, { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor"; 
+import ProductionScheduleDetail, { DetailedScheduleItem } from "../components/production-schedule/ProductionScheduleDetail";
 import MobileScreenWarning from "../components/MobileScreenWarning";
 import { useScreenSize } from "../hooks/useScreenSize";
-import { Loader, ArrowLeft, Save, AlertCircle, Users } from "lucide-react"; 
+import { Loader, ArrowLeft, Save, AlertCircle, Users, ListChecks } from "lucide-react"; 
 import { v4 as uuidv4 } from 'uuid';
-
-// Define the item structure for export, using snake_case
-// ExportScheduleItem is removed as schedule_items functionality is being removed
 
 export interface ScheduleForExport {
   id: string;
@@ -44,8 +41,8 @@ export interface ScheduleForExport {
     monitor_engineer?: string;
   };
   crew_key: CrewKeyItem[];
-  // schedule_items: ExportScheduleItem[]; // Removed
   labor_schedule_items: LaborScheduleItem[];
+  detailed_schedule_items: DetailedScheduleItem[];
 }
 
 
@@ -69,8 +66,8 @@ interface ProductionScheduleData {
   set_datetime: string;
   strike_datetime: string;
   crew_key: CrewKeyItem[];
-  // schedule_items: EditorScheduleItem[]; // Removed
   labor_schedule_items: LaborScheduleItem[]; 
+  detailed_schedule_items: DetailedScheduleItem[];
 }
 
 const ProductionScheduleEditor = () => {
@@ -130,8 +127,8 @@ const ProductionScheduleEditor = () => {
           set_datetime: "",
           strike_datetime: "",
           crew_key: [],
-          // schedule_items: [], // Removed
           labor_schedule_items: [], 
+          detailed_schedule_items: [],
         };
         setSchedule(newSchedule);
         setLoading(false);
@@ -151,8 +148,11 @@ const ProductionScheduleEditor = () => {
               set_datetime: data.set_datetime || "",
               strike_datetime: data.strike_datetime || "",
               crew_key: data.crew_key || [],
-              // schedule_items processing removed
               labor_schedule_items: data.labor_schedule_items || [], 
+              detailed_schedule_items: (data.detailed_schedule_items || []).map((item: any) => ({
+                ...item,
+                assigned_crew_ids: item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : []) // Migration for old data
+              })),
             });
           } else {
             navigate("/dashboard");
@@ -212,22 +212,18 @@ const ProductionScheduleEditor = () => {
 
   const handleDeleteCrewKeyItem = (itemId: string) => {
     if (schedule) {
-      // Update assigned_crew_ids in schedule_items (which are snake_case in state)
-      // This part is removed as schedule_items are removed
-      // const updatedScheduleItems = schedule.schedule_items.map(item => ({
-      //   ...item,
-      //   assigned_crew_ids: item.assigned_crew_ids.filter(id => id !== itemId),
-      // }));
+      const updatedDetailedScheduleItems = schedule.detailed_schedule_items.map(detailItem => ({
+        ...detailItem,
+        assigned_crew_ids: (detailItem.assigned_crew_ids || []).filter(crewId => crewId !== itemId),
+      }));
 
       setSchedule({
         ...schedule,
         crew_key: schedule.crew_key.filter(item => item.id !== itemId),
-        // schedule_items: updatedScheduleItems, // Removed
+        detailed_schedule_items: updatedDetailedScheduleItems,
       });
     }
   };
-
-  // handleUpdateScheduleItems function removed
 
   const handleUpdateLaborScheduleItems = (items: LaborScheduleItem[]) => { 
     if (schedule) {
@@ -238,13 +234,20 @@ const ProductionScheduleEditor = () => {
     }
   };
 
+  const handleUpdateDetailedScheduleItems = (items: DetailedScheduleItem[]) => {
+    if (schedule) {
+      setSchedule({
+        ...schedule,
+        detailed_schedule_items: items,
+      });
+    }
+  };
+
   const handleSave = async () => {
     if (!schedule || !user) return;
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
-
-    // sanitizedScheduleItems logic removed
 
     const sanitizedCrewKey = schedule.crew_key.map(item => ({
       id: item.id, name: item.name, color: item.color,
@@ -253,6 +256,12 @@ const ProductionScheduleEditor = () => {
     const sanitizedLaborScheduleItems = schedule.labor_schedule_items.map(item => ({ 
       id: item.id, name: item.name, position: item.position, date: item.date,
       time_in: item.time_in, time_out: item.time_out, notes: item.notes,
+    }));
+
+    const sanitizedDetailedScheduleItems = schedule.detailed_schedule_items.map(item => ({
+      id: item.id, date: item.date, start_time: item.start_time, end_time: item.end_time,
+      activity: item.activity, notes: item.notes, 
+      assigned_crew_ids: item.assigned_crew_ids || [], // Ensure it's an array
     }));
 
     const scheduleDataToSave = {
@@ -268,8 +277,8 @@ const ProductionScheduleEditor = () => {
       user_id: user.id,
       last_edited: new Date().toISOString(),
       crew_key: sanitizedCrewKey,
-      // schedule_items: sanitizedScheduleItems, // Removed
       labor_schedule_items: sanitizedLaborScheduleItems,
+      detailed_schedule_items: sanitizedDetailedScheduleItems,
       ...(id !== "new" && { id: schedule.id }),
       ...(id === "new" && schedule.created_at && { created_at: schedule.created_at }),
     };
@@ -310,8 +319,11 @@ const ProductionScheduleEditor = () => {
           set_datetime: savedData.set_datetime || "",
           strike_datetime: savedData.strike_datetime || "",
           crew_key: savedData.crew_key || [],
-          // schedule_items mapping removed
           labor_schedule_items: savedData.labor_schedule_items || [],
+          detailed_schedule_items: (savedData.detailed_schedule_items || []).map((item: any) => ({
+            ...item,
+            assigned_crew_ids: item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : [])
+          })),
         };
         setSchedule(reloadedData);
       }
@@ -365,8 +377,8 @@ const ProductionScheduleEditor = () => {
       monitor_engineer: undefined, 
     },
     crew_key: schedule.crew_key,
-    // schedule_items mapping removed
     labor_schedule_items: schedule.labor_schedule_items, 
+    detailed_schedule_items: schedule.detailed_schedule_items,
   };
 
 
@@ -489,28 +501,29 @@ const ProductionScheduleEditor = () => {
           </div>
         </div>
         
-        {/* Schedule Timeline Section Removed */}
-        {/* 
         <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden mb-8">
           <div className="p-4 md:p-6 border-b border-gray-700">
-            <h2 className="text-xl font-medium text-white">Schedule Timeline</h2>
-            <p className="text-gray-400 text-sm">
-              Add and manage schedule items. Dates will group items. Newly added items appear at the bottom until edited.
-            </p>
+            <div className="flex items-center">
+              <ListChecks className="h-6 w-6 mr-3 text-indigo-400" />
+              <div>
+                <h2 className="text-xl font-medium text-white">Detailed Production Schedule</h2>
+                <p className="text-gray-400 text-sm">
+                  Outline the event's timeline, activities, and assigned crew.
+                </p>
+              </div>
+            </div>
           </div>
           <div className="p-0 md:p-2 lg:p-4 overflow-x-auto">
              <div className="min-w-[1000px] md:min-w-0"> 
-                <ProductionScheduleTable
-                    scheduleItems={schedule.schedule_items}
-                    crewKey={schedule.crew_key}
-                    onUpdateScheduleItems={handleUpdateScheduleItems}
+                <ProductionScheduleDetail
+                    detailedItems={schedule.detailed_schedule_items}
+                    onUpdateDetailedItems={handleUpdateDetailedScheduleItems}
+                    crewKey={schedule.crew_key} 
                 />
             </div>
           </div>
         </div>
-        */}
 
-        {/* Labor Schedule Section */}
         <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden mb-8">
           <div className="p-4 md:p-6 border-b border-gray-700">
             <div className="flex items-center">

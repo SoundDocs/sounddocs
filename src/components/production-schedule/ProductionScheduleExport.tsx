@@ -2,22 +2,19 @@ import React, { forwardRef } from "react";
 import {
   Bookmark,
   Calendar,
-  Users, 
   Clock,
-  ListChecks, // This icon might be removed or repurposed if ListChecks was specific to schedule items
+  ListChecks,
   Palette,
   UserCheck, 
   Building, 
   Phone, 
   Mail, 
-  UserCog, 
-  Briefcase, 
-  UserCircle, 
   UserSquare, 
   CalendarDays,
+  Users as UsersIcon, // Renamed to avoid conflict if Users is used as component
 } from "lucide-react";
-import { ScheduleForExport } from "../../pages/ProductionScheduleEditor"; 
-import { LaborScheduleItem } from "./ProductionScheduleLabor"; 
+import { ScheduleForExport, DetailedScheduleItem } from "../../pages/ProductionScheduleEditor"; 
+import { CrewKeyItem } from "./ProductionScheduleCrewKey";
 
 interface ProductionScheduleExportProps {
   schedule: ScheduleForExport; 
@@ -27,8 +24,8 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
   ({ schedule }, ref) => {
     const info = schedule.info || {};
     const crewKey = schedule.crew_key || [];
-    // scheduleItemsData is removed as schedule_items functionality is being removed
     const laborScheduleItems = schedule.labor_schedule_items || []; 
+    const detailedScheduleItems = schedule.detailed_schedule_items || [];
 
     const formatDate = (dateString?: string, options?: Intl.DateTimeFormatOptions) => {
       if (!dateString || dateString.trim() === "") return "N/A";
@@ -76,10 +73,54 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
         }
     };
 
-    // getCrewDetails is removed as it was primarily for schedule_items, labor schedule might handle crew differently or not at all in this component.
-    // If labor items need crew details displayed, this might need to be re-added or adapted.
+    const getCrewNames = (crewIds: string[], crewKeyData: CrewKeyItem[]): string => {
+      if (!crewIds || crewIds.length === 0) return "-";
+      return crewIds
+        .map(id => crewKeyData.find(c => c.id === id)?.name || "Unknown")
+        .join(", ");
+    };
+    
+    const getCrewDisplay = (crewIds: string[], crewKeyData: CrewKeyItem[]) => {
+      if (!crewIds || crewIds.length === 0) return <span className="text-gray-400">-</span>;
+      return (
+        <div className="flex flex-wrap gap-1">
+          {crewIds.map(id => {
+            const crewMember = crewKeyData.find(c => c.id === id);
+            if (!crewMember) return <span key={id} className="text-xs bg-gray-600 text-gray-300 px-1.5 py-0.5 rounded-full">Unknown</span>;
+            return (
+              <span 
+                key={id} 
+                className="text-xs px-1.5 py-0.5 rounded-full font-medium flex items-center"
+                style={{ backgroundColor: `${crewMember.color}40`, color: crewMember.color }} // Semi-transparent background
+              >
+                 <span className="w-2 h-2 rounded-full mr-1.5" style={{backgroundColor: crewMember.color}}></span>
+                {crewMember.name}
+              </span>
+            );
+          })}
+        </div>
+      );
+    };
 
-    // sortedScheduleItems logic removed
+
+    const groupAndSortDetailedItems = (items: DetailedScheduleItem[]) => {
+      const groups: Record<string, DetailedScheduleItem[]> = {};
+      items.forEach(item => {
+        const dateStr = item.date || 'No Date Assigned';
+        if (!groups[dateStr]) groups[dateStr] = [];
+        groups[dateStr].push(item);
+      });
+      for (const dateKey in groups) {
+        groups[dateKey].sort((a, b) => (a.start_time || "00:00").localeCompare(b.start_time || "00:00"));
+      }
+      return Object.entries(groups).sort(([dateA], [dateB]) => {
+        if (dateA === 'No Date Assigned') return 1;
+        if (dateB === 'No Date Assigned') return -1;
+        try { return new Date(dateA).getTime() - new Date(dateB).getTime(); } catch (e) { return 0; }
+      });
+    };
+    const groupedDetailedScheduleItems = groupAndSortDetailedItems(detailedScheduleItems);
+
 
     const sortedLaborScheduleItems = [...(laborScheduleItems || [])].sort((a, b) => {
       const dateA = a.date || '';
@@ -93,7 +134,6 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
       return (a.name || '').localeCompare(b.name || '');
     });
     
-    // currentScheduleDayFormatted removed
     let currentLaborDayFormatted = ""; 
 
     return (
@@ -212,43 +252,60 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
             </div>
           </div>
         )}
-
-        {/* Production Schedule Table Section Removed */}
-        {/*
-        <div className="bg-gray-800/80 p-6 rounded-lg shadow-md mb-8" style={{ borderLeft: "4px solid #4f46e5" }}>
-          <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-6">
-            <ListChecks className="h-5 w-5 mr-2" /> Production Schedule 
-          </h3>
-          {sortedScheduleItems.length > 0 ? (
+        
+        {groupedDetailedScheduleItems.length > 0 && (
+          <div className="bg-gray-800/80 p-6 rounded-lg shadow-md mb-8" style={{ borderLeft: "4px solid #4f46e5" }}>
+            <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-6">
+              <ListChecks className="h-5 w-5 mr-2" /> Detailed Production Schedule
+            </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr style={{ background: "linear-gradient(to right, #2d3748, #1e293b)", borderBottom: "2px solid rgba(99, 102, 241, 0.4)" }}>
-                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm">Date</th>
-                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm">Start</th>
-                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm">End</th>
-                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm">Activity</th>
-                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm">Notes</th>
-                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm">Crew</th>
+                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm w-[8%]">Start</th>
+                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm w-[8%]">End</th>
+                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm w-[30%]">Activity</th>
+                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm w-[30%]">Notes</th>
+                    <th className="py-3 px-4 text-indigo-400 font-medium align-middle text-sm w-[24%]">Crew</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedScheduleItems.map((item, index) => {
-                    // ... rendering logic for schedule items was here ...
-                  })}
+                  {groupedDetailedScheduleItems.map(([dateKey, itemsInGroup]) => (
+                    <React.Fragment key={dateKey}>
+                      <tr style={{ background: "rgba(45, 55, 72, 0.6)", borderTop: "2px solid rgba(99, 102, 241, 0.3)", borderBottom: "1px solid rgba(99, 102, 241, 0.2)" }}>
+                        <td colSpan={5} className="py-2 px-4 text-white font-semibold text-sm flex items-center">
+                          <CalendarDays size={16} className="mr-2 text-indigo-300" />
+                          {formatDate(dateKey, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        </td>
+                      </tr>
+                      {itemsInGroup.map((item, index) => (
+                        <tr
+                          key={item.id}
+                          style={{
+                            background: index % 2 === 0 ? "rgba(31, 41, 55, 0.7)" : "rgba(45, 55, 72, 0.4)",
+                            borderBottom: "1px solid rgba(55, 65, 81, 0.5)",
+                          }}
+                        >
+                          <td className="py-3 px-4 text-white align-top text-sm">{formatTime(item.start_time) || "-"}</td>
+                          <td className="py-3 px-4 text-white align-top text-sm">{formatTime(item.end_time) || "-"}</td>
+                          <td className="py-3 px-4 text-white align-top text-sm" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>{item.activity || "-"}</td>
+                          <td className="py-3 px-4 text-gray-300 align-top text-sm" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>{item.notes || "-"}</td>
+                          <td className="py-3 px-4 text-white align-top text-sm">{getCrewDisplay(item.assigned_crew_ids, crewKey)}</td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  ))}
                 </tbody>
               </table>
             </div>
-          ) : (
-            <p className="text-gray-400 text-center py-4">No schedule items defined.</p>
-          )}
-        </div>
-        */}
+          </div>
+        )}
+
 
         {sortedLaborScheduleItems.length > 0 && (
           <div className="bg-gray-800/80 p-6 rounded-lg shadow-md mb-8" style={{ borderLeft: "4px solid #4f46e5" }}>
             <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-6">
-              <UserSquare className="h-5 w-5 mr-2" /> Labor Schedule
+              <UsersIcon className="h-5 w-5 mr-2" /> Labor Schedule
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
