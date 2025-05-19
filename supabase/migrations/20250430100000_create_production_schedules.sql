@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS production_schedules (
   account_manager TEXT,
   set_datetime TIMESTAMPTZ,
   strike_datetime TIMESTAMPTZ,
-  schedule_items JSONB DEFAULT '[]'::jsonb, -- Now includes items with: id, date, start_time, end_time, activity, notes, assigned_crew_ids (snake_case)
+  -- schedule_items JSONB DEFAULT '[]'::jsonb, -- Removed: This column stored detailed schedule items.
   crew_key JSONB DEFAULT '[]'::jsonb, 
   labor_schedule_items JSONB DEFAULT '[]'::jsonb -- Items use snake_case: id, name, position, date, time_in, time_out, notes
 );

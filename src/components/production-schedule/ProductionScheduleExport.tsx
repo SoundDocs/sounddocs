@@ -4,7 +4,7 @@ import {
   Calendar,
   Users, 
   Clock,
-  ListChecks,
+  ListChecks, // This icon might be removed or repurposed if ListChecks was specific to schedule items
   Palette,
   UserCheck, 
   Building, 
@@ -27,7 +27,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
   ({ schedule }, ref) => {
     const info = schedule.info || {};
     const crewKey = schedule.crew_key || [];
-    const scheduleItemsData = schedule.schedule_items || []; // These items now have start_time, end_time, assigned_crew_ids
+    // scheduleItemsData is removed as schedule_items functionality is being removed
     const laborScheduleItems = schedule.labor_schedule_items || []; 
 
     const formatDate = (dateString?: string, options?: Intl.DateTimeFormatOptions) => {
@@ -76,21 +76,10 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
         }
     };
 
-    const getCrewDetails = (crewId: string) => {
-      return crewKey.find(crew => crew.id === crewId);
-    };
+    // getCrewDetails is removed as it was primarily for schedule_items, labor schedule might handle crew differently or not at all in this component.
+    // If labor items need crew details displayed, this might need to be re-added or adapted.
 
-    const sortedScheduleItems = [...scheduleItemsData].sort((a, b) => {
-      const dateA = a.date || '';
-      const dateB = b.date || '';
-      if (dateA < dateB) return -1;
-      if (dateA > dateB) return 1;
-      const timeA = a.start_time || ''; // Changed to start_time
-      const timeB = b.start_time || ''; // Changed to start_time
-      if (timeA < timeB) return -1;
-      if (timeA > timeB) return 1;
-      return 0;
-    });
+    // sortedScheduleItems logic removed
 
     const sortedLaborScheduleItems = [...(laborScheduleItems || [])].sort((a, b) => {
       const dateA = a.date || '';
@@ -104,7 +93,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
       return (a.name || '').localeCompare(b.name || '');
     });
     
-    let currentScheduleDayFormatted = ""; 
+    // currentScheduleDayFormatted removed
     let currentLaborDayFormatted = ""; 
 
     return (
@@ -224,9 +213,11 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
           </div>
         )}
 
+        {/* Production Schedule Table Section Removed */}
+        {/*
         <div className="bg-gray-800/80 p-6 rounded-lg shadow-md mb-8" style={{ borderLeft: "4px solid #4f46e5" }}>
           <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-6">
-            <ListChecks className="h-5 w-5 mr-2" /> Production Schedule
+            <ListChecks className="h-5 w-5 mr-2" /> Production Schedule 
           </h3>
           {sortedScheduleItems.length > 0 ? (
             <div className="overflow-x-auto">
@@ -243,55 +234,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                 </thead>
                 <tbody>
                   {sortedScheduleItems.map((item, index) => {
-                    const itemDayDisplay = formatDate(item.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-                    const showDayHeader = item.date && itemDayDisplay !== "N/A" && itemDayDisplay !== currentScheduleDayFormatted;
-                    if (showDayHeader) {
-                      currentScheduleDayFormatted = itemDayDisplay;
-                    }
-                    return (
-                    <React.Fragment key={item.id}>
-                      {showDayHeader && (
-                        <tr style={{ background: "rgba(45, 55, 72, 0.6)", borderTop: "2px solid rgba(99, 102, 241, 0.3)", borderBottom: "1px solid rgba(99, 102, 241, 0.2)" }}>
-                          <td colSpan={6} className="py-2 px-4 text-white font-semibold text-sm flex items-center">
-                            <CalendarDays size={16} className="mr-2 text-indigo-300" />
-                            {currentScheduleDayFormatted}
-                          </td>
-                        </tr>
-                      )}
-                      <tr
-                        style={{
-                          background: index % 2 === 0 ? "rgba(31, 41, 55, 0.7)" : "rgba(45, 55, 72, 0.4)",
-                          borderBottom: "1px solid rgba(55, 65, 81, 0.5)",
-                        }}
-                      >
-                        <td className="py-3 px-4 text-white align-middle text-sm">{formatDate(item.date, { month: 'short', day: 'numeric' })}</td>
-                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.start_time) || "-"}</td> 
-                        <td className="py-3 px-4 text-white align-middle text-sm">{formatTime(item.end_time) || "-"}</td>   
-                        <td className="py-3 px-4 text-white align-middle text-sm font-medium">{item.activity || "-"}</td>
-                        <td className="py-3 px-4 text-gray-300 align-middle text-sm" style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word'}}>{item.notes || "-"}</td>
-                        <td className="py-3 px-4 text-white align-middle text-sm">
-                          <div className="flex flex-wrap gap-1">
-                            {item.assigned_crew_ids?.length > 0 ? item.assigned_crew_ids.map(crewId => { // Changed to assigned_crew_ids
-                              const crewMember = getCrewDetails(crewId);
-                              return crewMember ? (
-                                <span
-                                  key={crewId}
-                                  className="px-2 py-0.5 rounded-full text-xs font-medium border"
-                                  style={{
-                                    backgroundColor: `${crewMember.color}33`, 
-                                    borderColor: crewMember.color,
-                                    color: crewMember.color, 
-                                  }}
-                                >
-                                  {crewMember.name || "Unnamed"}
-                                </span>
-                              ) : null;
-                            }) : <span className="text-gray-500 text-xs">No crew</span>}
-                          </div>
-                        </td>
-                      </tr>
-                    </React.Fragment>
-                    );
+                    // ... rendering logic for schedule items was here ...
                   })}
                 </tbody>
               </table>
@@ -300,6 +243,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
             <p className="text-gray-400 text-center py-4">No schedule items defined.</p>
           )}
         </div>
+        */}
 
         {sortedLaborScheduleItems.length > 0 && (
           <div className="bg-gray-800/80 p-6 rounded-lg shadow-md mb-8" style={{ borderLeft: "4px solid #4f46e5" }}>

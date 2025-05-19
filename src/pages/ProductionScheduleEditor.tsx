@@ -5,7 +5,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import ProductionScheduleHeader from "../components/production-schedule/ProductionScheduleHeader";
 import ProductionScheduleCrewKey, { CrewKeyItem } from "../components/production-schedule/ProductionScheduleCrewKey";
-import ProductionScheduleTable, { ScheduleItem as EditorScheduleItem } from "../components/production-schedule/ProductionScheduleTable"; // EditorScheduleItem now uses snake_case
+// ProductionScheduleTable is removed as schedule_items functionality is being removed
 import ProductionScheduleLabor, { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor"; 
 import MobileScreenWarning from "../components/MobileScreenWarning";
 import { useScreenSize } from "../hooks/useScreenSize";
@@ -13,15 +13,7 @@ import { Loader, ArrowLeft, Save, AlertCircle, Users } from "lucide-react";
 import { v4 as uuidv4 } from 'uuid';
 
 // Define the item structure for export, using snake_case
-interface ExportScheduleItem {
-  id: string;
-  date?: string;
-  start_time: string; 
-  end_time: string;   
-  activity: string;
-  notes: string;
-  assigned_crew_ids: string[]; 
-}
+// ExportScheduleItem is removed as schedule_items functionality is being removed
 
 export interface ScheduleForExport {
   id: string;
@@ -52,7 +44,7 @@ export interface ScheduleForExport {
     monitor_engineer?: string;
   };
   crew_key: CrewKeyItem[];
-  schedule_items: ExportScheduleItem[]; // Uses snake_case keys now
+  // schedule_items: ExportScheduleItem[]; // Removed
   labor_schedule_items: LaborScheduleItem[];
 }
 
@@ -77,8 +69,8 @@ interface ProductionScheduleData {
   set_datetime: string;
   strike_datetime: string;
   crew_key: CrewKeyItem[];
-  schedule_items: EditorScheduleItem[]; // Internal state uses snake_case (start_time, end_time) due to EditorScheduleItem import
-  labor_schedule_items: LaborScheduleItem[]; // Labor items use snake_case (time_in, time_out)
+  // schedule_items: EditorScheduleItem[]; // Removed
+  labor_schedule_items: LaborScheduleItem[]; 
 }
 
 const ProductionScheduleEditor = () => {
@@ -138,7 +130,7 @@ const ProductionScheduleEditor = () => {
           set_datetime: "",
           strike_datetime: "",
           crew_key: [],
-          schedule_items: [], 
+          // schedule_items: [], // Removed
           labor_schedule_items: [], 
         };
         setSchedule(newSchedule);
@@ -159,19 +151,7 @@ const ProductionScheduleEditor = () => {
               set_datetime: data.set_datetime || "",
               strike_datetime: data.strike_datetime || "",
               crew_key: data.crew_key || [],
-              schedule_items: (data.schedule_items || []).map((dbItem: any): EditorScheduleItem => {
-                // Map from DB snake_case (e.g., start_time) to internal snake_case (e.g., start_time)
-                return {
-                  id: dbItem.id, 
-                  date: dbItem.date || undefined, 
-                  start_time: dbItem.start_time || "", // DB: start_time -> State: start_time
-                  end_time: dbItem.end_time || "",   // DB: end_time -> State: end_time
-                  activity: dbItem.activity || "",
-                  notes: dbItem.notes || "",
-                  assigned_crew_ids: dbItem.assigned_crew_ids || [], // DB: assigned_crew_ids -> State: assigned_crew_ids
-                  isNewlyAdded: false 
-                };
-              }),
+              // schedule_items processing removed
               labor_schedule_items: data.labor_schedule_items || [], 
             });
           } else {
@@ -233,27 +213,21 @@ const ProductionScheduleEditor = () => {
   const handleDeleteCrewKeyItem = (itemId: string) => {
     if (schedule) {
       // Update assigned_crew_ids in schedule_items (which are snake_case in state)
-      const updatedScheduleItems = schedule.schedule_items.map(item => ({
-        ...item,
-        assigned_crew_ids: item.assigned_crew_ids.filter(id => id !== itemId),
-      }));
+      // This part is removed as schedule_items are removed
+      // const updatedScheduleItems = schedule.schedule_items.map(item => ({
+      //   ...item,
+      //   assigned_crew_ids: item.assigned_crew_ids.filter(id => id !== itemId),
+      // }));
 
       setSchedule({
         ...schedule,
         crew_key: schedule.crew_key.filter(item => item.id !== itemId),
-        schedule_items: updatedScheduleItems,
+        // schedule_items: updatedScheduleItems, // Removed
       });
     }
   };
 
-  const handleUpdateScheduleItems = (items: EditorScheduleItem[]) => {
-    if (schedule) {
-      setSchedule({
-        ...schedule,
-        schedule_items: items, 
-      });
-    }
-  };
+  // handleUpdateScheduleItems function removed
 
   const handleUpdateLaborScheduleItems = (items: LaborScheduleItem[]) => { 
     if (schedule) {
@@ -270,19 +244,7 @@ const ProductionScheduleEditor = () => {
     setSaveError(null);
     setSaveSuccess(false);
 
-    // schedule_items are already snake_case in state (start_time, end_time, assigned_crew_ids)
-    const sanitizedScheduleItems = schedule.schedule_items.map((item: EditorScheduleItem) => {
-      const { isNewlyAdded, ...restOfItem } = item; 
-      return {
-        id: restOfItem.id,
-        date: restOfItem.date || null, 
-        activity: restOfItem.activity,
-        notes: restOfItem.notes,
-        start_time: restOfItem.start_time || "", 
-        end_time: restOfItem.end_time || "",     
-        assigned_crew_ids: restOfItem.assigned_crew_ids || [], 
-      };
-    });
+    // sanitizedScheduleItems logic removed
 
     const sanitizedCrewKey = schedule.crew_key.map(item => ({
       id: item.id, name: item.name, color: item.color,
@@ -306,7 +268,7 @@ const ProductionScheduleEditor = () => {
       user_id: user.id,
       last_edited: new Date().toISOString(),
       crew_key: sanitizedCrewKey,
-      schedule_items: sanitizedScheduleItems, // Contains snake_case keys for time and crew
+      // schedule_items: sanitizedScheduleItems, // Removed
       labor_schedule_items: sanitizedLaborScheduleItems,
       ...(id !== "new" && { id: schedule.id }),
       ...(id === "new" && schedule.created_at && { created_at: schedule.created_at }),
@@ -343,22 +305,12 @@ const ProductionScheduleEditor = () => {
       }
 
       if (savedData) {
-        // When reloading data, map from DB snake_case back to internal snake_case
         const reloadedData: ProductionScheduleData = {
           ...savedData,
           set_datetime: savedData.set_datetime || "",
           strike_datetime: savedData.strike_datetime || "",
           crew_key: savedData.crew_key || [],
-          schedule_items: (savedData.schedule_items || []).map((dbItem: any): EditorScheduleItem => ({
-            id: dbItem.id,
-            date: dbItem.date || undefined,
-            start_time: dbItem.start_time || "", 
-            end_time: dbItem.end_time || "",     
-            activity: dbItem.activity || "",
-            notes: dbItem.notes || "",
-            assigned_crew_ids: dbItem.assigned_crew_ids || [], 
-            isNewlyAdded: false,
-          })),
+          // schedule_items mapping removed
           labor_schedule_items: savedData.labor_schedule_items || [],
         };
         setSchedule(reloadedData);
@@ -384,7 +336,6 @@ const ProductionScheduleEditor = () => {
     );
   }
 
-  // Prepare props for export component, mapping internal snake_case to export's snake_case
   const scheduleForExportProps: ScheduleForExport = {
     id: schedule.id || uuidv4(), 
     name: schedule.name,
@@ -414,19 +365,8 @@ const ProductionScheduleEditor = () => {
       monitor_engineer: undefined, 
     },
     crew_key: schedule.crew_key,
-    schedule_items: schedule.schedule_items.map((item: EditorScheduleItem): ExportScheduleItem => {
-      // Map from internal snake_case (item.start_time) to export snake_case (start_time)
-      return {
-        id: item.id,
-        date: item.date || "", 
-        start_time: item.start_time || "", 
-        end_time: item.end_time || "",   
-        activity: item.activity || "",
-        notes: item.notes || "",
-        assigned_crew_ids: item.assigned_crew_ids || [], 
-      };
-    }),
-    labor_schedule_items: schedule.labor_schedule_items, // Assumed to be already in correct snake_case format
+    // schedule_items mapping removed
+    labor_schedule_items: schedule.labor_schedule_items, 
   };
 
 
@@ -549,6 +489,8 @@ const ProductionScheduleEditor = () => {
           </div>
         </div>
         
+        {/* Schedule Timeline Section Removed */}
+        {/* 
         <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden mb-8">
           <div className="p-4 md:p-6 border-b border-gray-700">
             <h2 className="text-xl font-medium text-white">Schedule Timeline</h2>
@@ -566,6 +508,7 @@ const ProductionScheduleEditor = () => {
             </div>
           </div>
         </div>
+        */}
 
         {/* Labor Schedule Section */}
         <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden mb-8">

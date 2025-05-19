@@ -11,7 +11,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
   ({ schedule }, ref) => {
     const info = schedule.info || {};
     const crewKey = schedule.crew_key || [];
-    const scheduleItemsData = schedule.schedule_items || [];
+    // scheduleItemsData is removed
     const laborScheduleItems = schedule.labor_schedule_items || []; 
 
     const formatDate = (dateString?: string, options?: Intl.DateTimeFormatOptions) => {
@@ -58,22 +58,9 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
         }
     };
 
-    const getCrewName = (crewId: string) => {
-      const crewMember = crewKey.find(crew => crew.id === crewId);
-      return crewMember ? (crewMember.name || "Unnamed") : "Unknown";
-    };
+    // getCrewName is removed as it was for schedule_items
 
-    const sortedScheduleItems = [...scheduleItemsData].sort((a, b) => {
-      const dateA = a.date || '';
-      const dateB = b.date || '';
-      if (dateA < dateB) return -1;
-      if (dateA > dateB) return 1;
-      const timeA = a.startTime || ''; 
-      const timeB = b.startTime || ''; 
-      if (timeA < timeB) return -1;
-      if (timeA > timeB) return 1;
-      return 0;
-    });
+    // sortedScheduleItems logic removed
 
     const sortedLaborScheduleItems = [...(laborScheduleItems || [])].sort((a, b) => {
       const dateA = a.date || '';
@@ -87,8 +74,8 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
       return (a.name || '').localeCompare(b.name || '');
     });
 
-    let currentScheduleDayFormatted = ""; // For Production Schedule section
-    let currentLaborDayFormatted = ""; // For Labor Schedule section
+    // currentScheduleDayFormatted removed
+    let currentLaborDayFormatted = ""; 
 
     return (
       <div
@@ -182,51 +169,18 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
           </div>
         )}
 
+        {/* Production Schedule Table Section Removed */}
+        {/*
         <div style={{ marginBottom: "20px" }}>
           <h3 style={{ fontSize: "16px", fontWeight: "bold", borderBottom: "1px solid #eee", paddingBottom: "8px", marginBottom: "10px" }}>
             <ListChecks size={16} style={{ display: "inline", marginRight: "8px", verticalAlign: "middle" }} /> Production Schedule
           </h3>
           {sortedScheduleItems.length > 0 ? (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-              <thead>
-                <tr style={{ backgroundColor: "#f0f0f0", borderBottom: "1px solid #ccc" }}>
-                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "15%" }}>Date</th>
-                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "10%" }}>Start</th>
-                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "10%" }}>End</th>
-                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "25%" }}>Activity</th>
-                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "25%" }}>Notes</th>
-                  <th style={{ padding: "8px", textAlign: "left", fontWeight: "bold", width: "15%" }}>Crew</th>
-                </tr>
-              </thead>
+              // ... table structure for schedule items was here ...
               <tbody>
                 {sortedScheduleItems.map((item, index) => {
-                  const itemDayDisplay = formatDate(item.date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-                  const showDayHeader = item.date && itemDayDisplay !== "N/A" && itemDayDisplay !== currentScheduleDayFormatted;
-                  if (showDayHeader) {
-                    currentScheduleDayFormatted = itemDayDisplay;
-                  }
-                  return (
-                  <React.Fragment key={item.id}>
-                    {showDayHeader && (
-                      <tr style={{ backgroundColor: "#e2e8f0", borderTop: "1px solid #ccc", borderBottom: "1px solid #ccc" }}>
-                        <td colSpan={6} style={{ padding: "6px 8px", fontWeight: "bold", textAlign: "left" }}>
-                           <CalendarDays size={14} style={{ display: "inline", marginRight: "6px", verticalAlign: "text-bottom" }} />
-                           {currentScheduleDayFormatted}
-                        </td>
-                      </tr>
-                    )}
-                    <tr style={{ borderBottom: "1px solid #eee", backgroundColor: index % 2 === 0 ? "#fff" : "#f9f9f9" }}>
-                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatDate(item.date, { month: 'short', day: 'numeric' })}</td>
-                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.startTime) || "-"}</td>
-                      <td style={{ padding: "8px", verticalAlign: "top" }}>{formatTime(item.endTime) || "-"}</td>
-                      <td style={{ padding: "8px", verticalAlign: "top", fontWeight: "500" }}>{item.activity || "-"}</td>
-                      <td style={{ padding: "8px", verticalAlign: "top", whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.notes || "-"}</td>
-                      <td style={{ padding: "8px", verticalAlign: "top" }}>
-                        {item.assignedCrewIds?.length > 0 ? item.assignedCrewIds.map(crewId => getCrewName(crewId)).join(", ") : <span style={{color: "#777"}}>No crew</span>}
-                      </td>
-                    </tr>
-                  </React.Fragment>
-                  );
+                  // ... rendering logic for schedule items was here ...
                 })}
               </tbody>
             </table>
@@ -234,6 +188,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
             <p style={{ color: "#555", textAlign: "center", padding: "10px 0" }}>No schedule items defined.</p>
           )}
         </div>
+        */}
 
         {sortedLaborScheduleItems.length > 0 && (
           <div style={{ marginBottom: "20px" }}>
