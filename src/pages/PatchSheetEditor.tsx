@@ -28,6 +28,8 @@ interface InputChannel {
     consoleInputNumber?: string;
   };
   notes: string;
+  isStereo?: boolean; // Added for stereo linking
+  stereoChannelNumber?: string; // Added for stereo linking
 }
 
 interface OutputChannel {

@@ -76,7 +76,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
   }, []);
 
   // Static input types - SIMPLIFIED to just 3 types
-  const inputTypeOptions = ["Microphone", "DI", "Wireless"];
+  const inputTypeOptions = ["Microphone", "DI", "Wireless", "FX Return"];
 
   // Static device types by category
   const deviceOptionsByType: Record<string, string[]> = {
@@ -114,6 +114,13 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
       "Sennheiser Digital 6000",
       "Line 6 XD-V",
     ],
+    "FX Return": [ // Added device options for FX Return
+      "Reverb Unit",
+      "Delay Unit",
+      "Multi-FX Processor",
+      "Playback Device",
+      "Computer Interface",
+    ],
   };
 
   // All device options combined
@@ -121,6 +128,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     ...deviceOptionsByType["Microphone"],
     ...deviceOptionsByType["DI"],
     ...deviceOptionsByType["Wireless"],
+    ...deviceOptionsByType["FX Return"], // Added FX Return devices
     "Other",
   ];
 
@@ -504,6 +512,8 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
         updatedInput.phantom = false; // Most DIs don't need phantom (active ones might)
       } else if (value === "Wireless") {
         updatedInput.phantom = false; // Wireless systems don't need phantom
+      } else if (value === "FX Return") { // Added FX Return phantom logic
+        updatedInput.phantom = false; // FX Returns typically don't need phantom
       }
     }
 
@@ -872,6 +882,8 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
       setBulkPhantom(false); // Most DIs don't need phantom
     } else if (value === "Wireless") {
       setBulkPhantom(false); // Wireless systems don't need phantom
+    } else if (value === "FX Return") { // Added FX Return phantom logic for bulk add
+      setBulkPhantom(false); // FX Returns typically don't need phantom
     }
   };
 
