@@ -12,12 +12,13 @@ import PatchSheetEditor from "./pages/PatchSheetEditor";
 import AllPatchSheets from "./pages/AllPatchSheets";
 import StagePlotEditor from "./pages/StagePlotEditor";
 import AllStagePlots from "./pages/AllStagePlots";
-import ProductionScheduleEditor from "./pages/ProductionScheduleEditor"; // New
-import AllProductionSchedules from "./pages/AllProductionSchedules"; // New
+import ProductionScheduleEditor from "./pages/ProductionScheduleEditor"; 
+import AllProductionSchedules from "./pages/AllProductionSchedules"; 
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import SharedPatchSheet from "./pages/SharedPatchSheet";
 import SharedStagePlot from "./pages/SharedStagePlot";
+import SharedProductionSchedule from "./pages/SharedProductionSchedule"; // New
 
 function App() {
   useEffect(() => {
@@ -77,7 +78,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            {/* Production Schedule Routes - NEW */}
+            {/* Production Schedule Routes */}
             <Route
               path="/production-schedule/:id"
               element={
@@ -99,6 +100,7 @@ function App() {
 
             {/* Shared resource view routes - Specific routes MUST come BEFORE generic ones */}
             <Route path="/shared/stage-plot/:shareCode" element={<SharedStagePlot />} />
+            <Route path="/shared/production-schedule/:shareCode" element={<SharedProductionSchedule />} /> {/* New */}
             {/* Generic shared route (should now only catch patch sheets if stage plot route didn't match) */}
             <Route path="/shared/:shareCode" element={<SharedPatchSheet />} />
           </Routes>

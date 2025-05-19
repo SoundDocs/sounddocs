@@ -6,6 +6,7 @@ import Footer from "../components/Footer";
 import ProductionScheduleExport from "../components/production-schedule/ProductionScheduleExport";
 import PrintProductionScheduleExport from "../components/production-schedule/PrintProductionScheduleExport";
 import ExportModal from "../components/ExportModal";
+import ShareModal from "../components/ShareModal"; // Import ShareModal
 import html2canvas from "html2canvas";
 import { ScheduleForExport, DetailedScheduleItem } from "./ProductionScheduleEditor"; 
 import { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor"; 
@@ -24,6 +25,7 @@ import {
   FileText,
   Download,
   Copy,
+  Share2, // Import Share2 icon
 } from "lucide-react";
 
 interface ProductionScheduleSummary {
@@ -49,7 +51,7 @@ interface FullProductionScheduleData {
   set_datetime?: string;
   strike_datetime?: string;
   crew_key?: Array<{ id: string; name: string; color: string }>;
-  detailed_schedule_items?: DetailedScheduleItem[]; // Updated from schedule_items
+  detailed_schedule_items?: DetailedScheduleItem[]; 
   labor_schedule_items?: LaborScheduleItem[]; 
 }
 
@@ -97,7 +99,7 @@ const transformToScheduleForExport = (fullSchedule: FullProductionScheduleData):
       strike_datetime: fullSchedule.strike_datetime,
     },
     crew_key: fullSchedule.crew_key?.map(ck => ({ ...ck })) || [],
-    detailed_schedule_items: fullSchedule.detailed_schedule_items?.map(item => ({ // Updated from schedule_items
+    detailed_schedule_items: fullSchedule.detailed_schedule_items?.map(item => ({ 
       ...item,
       assigned_crew_ids: item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : [])
     })) || [],
@@ -124,6 +126,9 @@ const AllProductionSchedules: React.FC = () => {
   const [currentExportScheduleData, setCurrentExportScheduleData] = useState<ScheduleForExport | null>(null);
   const [isExporting, setIsExporting] = useState(false); 
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+
+  const [showShareModal, setShowShareModal] = useState(false); // State for ShareModal
+  const [selectedShareSchedule, setSelectedShareSchedule] = useState<ProductionScheduleSummary | null>(null); // State for selected schedule to share
 
   const exportRef = useRef<HTMLDivElement>(null);
   const printExportRef = useRef<HTMLDivElement>(null);
@@ -368,6 +373,11 @@ const AllProductionSchedules: React.FC = () => {
     }
   };
 
+  const handleShareSchedule = (schedule: ProductionScheduleSummary) => {
+    setSelectedShareSchedule(schedule);
+    setShowShareModal(true);
+  };
+
 
   if (loading && !user) {
     return (
@@ -512,6 +522,14 @@ const AllProductionSchedules: React.FC = () => {
                       <td className="py-4 px-6">
                         <div className="flex justify-end space-x-2">
                            <button
+                            onClick={() => handleShareSchedule(schedule)}
+                            className="p-2 text-gray-400 hover:text-indigo-400 rounded-md hover:bg-gray-700 transition-colors"
+                            title="Share Schedule"
+                            disabled={isExporting || duplicatingId === schedule.id}
+                          >
+                            <Share2 className="h-5 w-5" />
+                          </button>
+                           <button
                             onClick={() => handleDuplicateSchedule(schedule)}
                             className="p-2 text-gray-400 hover:text-indigo-400 rounded-md hover:bg-gray-700 transition-colors"
                             title="Duplicate Schedule"
@@ -625,6 +643,19 @@ const AllProductionSchedules: React.FC = () => {
             schedule={currentExportScheduleData} 
           />
         </>
+      )}
+
+      {showShareModal && selectedShareSchedule && (
+        <ShareModal
+          isOpen={showShareModal}
+          onClose={() => {
+            setShowShareModal(false);
+            setSelectedShareSchedule(null);
+          }}
+          resourceId={selectedShareSchedule.id}
+          resourceType="production_schedule"
+          resourceName={selectedShareSchedule.name}
+        />
       )}
 
       <Footer />
