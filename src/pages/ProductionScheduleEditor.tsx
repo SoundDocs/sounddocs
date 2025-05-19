@@ -28,7 +28,7 @@ export interface ScheduleForExport {
     load_in?: string; 
     event_start?: string; 
     event_end?: string; 
-    strike_datetime?: string; 
+    strike_datetime?: string | null; // Can be null, expected to be UTC ISO string if present
     event_type?: string;
     sound_check?: string;
     room?: string;
@@ -63,12 +63,85 @@ interface ProductionScheduleData {
   project_manager: string;
   production_manager: string;
   account_manager: string;
-  set_datetime: string;
-  strike_datetime: string;
+  // Stored as UTC ISO string in state after fetch/save, or local YYYY-MM-DDTHH:MM string during editing
+  set_datetime: string | null; 
+  strike_datetime: string | null; 
   crew_key: CrewKeyItem[];
   labor_schedule_items: LaborScheduleItem[]; 
   detailed_schedule_items: DetailedScheduleItem[];
 }
+
+// Helper function to convert a UTC ISO string to a local YYYY-MM-DDTHH:MM string
+// for datetime-local input fields.
+// IMPORTANT: This function should be used within ProductionScheduleHeader.tsx
+// for the `value` prop of datetime-local inputs.
+export const formatUTCToLocalDateTimeInputString = (utcIsoString: string | null): string => {
+  if (!utcIsoString) return "";
+  try {
+    const date = new Date(utcIsoString); // Parses UTC string, Date methods give local
+    if (isNaN(date.getTime())) {
+      // Check if it's already in the target format (e.g. during active editing)
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(utcIsoString)) {
+        return utcIsoString;
+      }
+      console.warn(`Invalid UTC ISO string for input formatting: ${utcIsoString}`);
+      return "";
+    }
+
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  } catch (e) {
+    console.error("Error formatting UTC to local datetime input string:", e);
+    return ""; 
+  }
+};
+
+// Helper to convert local YYYY-MM-DDTHH:MM string from input to UTC ISO string for saving
+const convertLocalInputToUTCISO = (localDateTimeString: string | null): string | null => {
+  if (!localDateTimeString) return null;
+  try {
+    // Input string is YYYY-MM-DDTHH:MM (from datetime-local)
+    // This is interpreted as local time by new Date()
+    const localDate = new Date(localDateTimeString);
+    if (isNaN(localDate.getTime())) {
+      console.warn(`Invalid localDateTimeString for UTC conversion: ${localDateTimeString}`);
+      return null; 
+    }
+    return localDate.toISOString(); // Converts to UTC ISO string
+  } catch (e) {
+    console.error("Error converting local input to UTC ISO:", e);
+    return null;
+  }
+};
+
+// Helper to parse a UTC ISO string into local date and time parts for export info
+const parseUtcToLocalPartsForExportInfo = (utcIsoDateTimeStr: string | null | undefined) => {
+  if (!utcIsoDateTimeStr) return { date: undefined, time: undefined };
+  try {
+    const d = new Date(utcIsoDateTimeStr); // Parses UTC string, Date methods yield local equivalents
+    if (isNaN(d.getTime())) {
+      console.warn(`Invalid UTC ISO string for export parsing: ${utcIsoDateTimeStr}`);
+      return { date: utcIsoDateTimeStr, time: undefined }; 
+    }
+    
+    const localDate = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+    const localTime = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+    
+    return {
+      date: localDate, 
+      time: localTime,
+    };
+  } catch (e) {
+    console.error("Error parsing UTC date for export info:", e);
+    return { date: utcIsoDateTimeStr, time: undefined }; 
+  }
+};
+
 
 const ProductionScheduleEditor = () => {
   const { id } = useParams();
@@ -81,21 +154,6 @@ const ProductionScheduleEditor = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showMobileWarning, setShowMobileWarning] = useState(false);
-
-  const parseDateTime = (dateTimeStr: string | null | undefined) => {
-    if (!dateTimeStr) return { date: undefined, time: undefined, full: undefined };
-    try {
-      const d = new Date(dateTimeStr);
-      if (isNaN(d.getTime())) return { date: dateTimeStr, time: undefined, full: dateTimeStr }; 
-      return {
-        date: d.toISOString().split('T')[0], 
-        time: d.toTimeString().split(' ')[0].substring(0, 5), 
-        full: dateTimeStr,
-      };
-    } catch (e) {
-      return { date: dateTimeStr, time: undefined, full: dateTimeStr }; 
-    }
-  };
   
 
   useEffect(() => {
@@ -124,8 +182,8 @@ const ProductionScheduleEditor = () => {
           project_manager: "",
           production_manager: "",
           account_manager: "",
-          set_datetime: "",
-          strike_datetime: "",
+          set_datetime: null, 
+          strike_datetime: null, 
           crew_key: [],
           labor_schedule_items: [], 
           detailed_schedule_items: [],
@@ -143,13 +201,12 @@ const ProductionScheduleEditor = () => {
 
           if (error) throw error;
           
-          console.log("[Editor] Raw data from Supabase fetch:", JSON.parse(JSON.stringify(data)));
-
           if (data) {
+            // Data from Supabase (set_datetime, strike_datetime) is UTC ISO string
             setSchedule({
               ...data, 
-              set_datetime: data.set_datetime || "",
-              strike_datetime: data.strike_datetime || "",
+              set_datetime: data.set_datetime || null, 
+              strike_datetime: data.strike_datetime || null, 
               crew_key: data.crew_key || [],
               labor_schedule_items: data.labor_schedule_items || [], 
               detailed_schedule_items: (data.detailed_schedule_items || []).map((item: any) => ({
@@ -174,9 +231,12 @@ const ProductionScheduleEditor = () => {
 
   const handleHeaderFieldUpdate = (field: string, value: string) => {
     if (schedule) {
+      // Value from datetime-local input is YYYY-MM-DDTHH:MM (local time string)
+      // Store this local string in state during editing.
+      // It will be converted to UTC ISO on save.
       setSchedule({
         ...schedule,
-        [field]: value,
+        [field]: value || null, 
       });
     }
   };
@@ -267,6 +327,8 @@ const ProductionScheduleEditor = () => {
       assigned_crew_ids: item.assigned_crew_ids || [], 
     }));
 
+    // schedule.set_datetime and schedule.strike_datetime are local YYYY-MM-DDTHH:MM strings here
+    // Convert them to UTC ISO for saving
     const scheduleDataToSave = {
       name: schedule.name,
       show_name: schedule.show_name,
@@ -275,8 +337,8 @@ const ProductionScheduleEditor = () => {
       project_manager: schedule.project_manager,
       production_manager: schedule.production_manager,
       account_manager: schedule.account_manager,
-      set_datetime: schedule.set_datetime || null,
-      strike_datetime: schedule.strike_datetime || null,
+      set_datetime: convertLocalInputToUTCISO(schedule.set_datetime),
+      strike_datetime: convertLocalInputToUTCISO(schedule.strike_datetime),
       user_id: user.id,
       last_edited: new Date().toISOString(),
       crew_key: sanitizedCrewKey,
@@ -291,7 +353,6 @@ const ProductionScheduleEditor = () => {
       const { id: scheduleId, ...rest } = scheduleDataToSave; 
       finalDataToSave = rest;
     }
-
 
     try {
       let savedData;
@@ -317,10 +378,11 @@ const ProductionScheduleEditor = () => {
       }
 
       if (savedData) {
+        // savedData contains UTC ISO strings for datetime fields
         const reloadedData: ProductionScheduleData = {
           ...savedData,
-          set_datetime: savedData.set_datetime || "",
-          strike_datetime: savedData.strike_datetime || "",
+          set_datetime: savedData.set_datetime || null,
+          strike_datetime: savedData.strike_datetime || null,
           crew_key: savedData.crew_key || [],
           labor_schedule_items: savedData.labor_schedule_items || [],
           detailed_schedule_items: (savedData.detailed_schedule_items || []).map((item: any) => ({ 
@@ -328,7 +390,7 @@ const ProductionScheduleEditor = () => {
             assigned_crew_ids: item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : [])
           })),
         };
-        setSchedule(reloadedData);
+        setSchedule(reloadedData); // State now holds UTC ISO strings
       }
 
       setSaveSuccess(true);
@@ -352,7 +414,9 @@ const ProductionScheduleEditor = () => {
   }
   
   const currentDetailedScheduleItems = schedule.detailed_schedule_items || [];
-  console.log("[Editor] State schedule.detailed_schedule_items before creating export props:", JSON.parse(JSON.stringify(currentDetailedScheduleItems)));
+  
+  // schedule.set_datetime is a UTC ISO string here (after fetch/save)
+  const parsedSetDateTimeForExport = parseUtcToLocalPartsForExportInfo(schedule.set_datetime);
 
   const scheduleForExportProps: ScheduleForExport = {
     id: schedule.id || uuidv4(), 
@@ -366,10 +430,10 @@ const ProductionScheduleEditor = () => {
       project_manager: schedule.project_manager,
       production_manager: schedule.production_manager,
       account_manager: schedule.account_manager,
-      date: parseDateTime(schedule.set_datetime).date, 
-      load_in: parseDateTime(schedule.set_datetime).time, 
-      strike_datetime: schedule.strike_datetime,
-      event_start: parseDateTime(schedule.set_datetime).full, 
+      date: parsedSetDateTimeForExport.date, // Local date string (YYYY-MM-DD)
+      load_in: parsedSetDateTimeForExport.time, // Local time string (HH:MM)
+      strike_datetime: schedule.strike_datetime, // UTC ISO string, export components will format to local
+      event_start: undefined, 
       event_end: undefined, 
       event_type: undefined, 
       sound_check: undefined, 
@@ -386,8 +450,6 @@ const ProductionScheduleEditor = () => {
     labor_schedule_items: schedule.labor_schedule_items || [], 
     detailed_schedule_items: currentDetailedScheduleItems,
   };
-  console.log("[Editor] Constructed scheduleForExportProps:", JSON.parse(JSON.stringify(scheduleForExportProps)));
-
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
@@ -472,6 +534,18 @@ const ProductionScheduleEditor = () => {
           </div>
           <div className="p-4 md:p-6 overflow-x-auto">
             <div className="min-w-[800px] md:min-w-0">
+              {/* 
+                IMPORTANT: ProductionScheduleHeader.tsx needs to use the 
+                `formatUTCToLocalDateTimeInputString` helper function (defined in this file)
+                for the `value` prop of its datetime-local inputs.
+                Example for set_datetime input:
+                value={formatUTCToLocalDateTimeInputString(scheduleData.set_datetime)}
+                onChange={(e) => updateField("set_datetime", e.target.value)}
+
+                `scheduleData.set_datetime` (and strike_datetime) will be UTC ISO strings
+                from the `schedule` state. `updateField` will pass the local YYYY-MM-DDTHH:MM
+                string from the input back to `handleHeaderFieldUpdate`.
+              */}
               <ProductionScheduleHeader
                 scheduleData={{
                   show_name: schedule.show_name,
@@ -480,7 +554,8 @@ const ProductionScheduleEditor = () => {
                   project_manager: schedule.project_manager,
                   production_manager: schedule.production_manager,
                   account_manager: schedule.account_manager,
-                  set_datetime: schedule.set_datetime,
+                  // Pass the state values directly; header component handles formatting for display
+                  set_datetime: schedule.set_datetime, 
                   strike_datetime: schedule.strike_datetime,
                 }}
                 updateField={handleHeaderFieldUpdate}

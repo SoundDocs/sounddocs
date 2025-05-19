@@ -26,7 +26,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
     console.log("[PrintExport] Extracted detailed_schedule_items (after robust check):", JSON.parse(JSON.stringify(detailedScheduleItemsToUse)));
 
 
-    const formatDate = (dateString?: string, options?: Intl.DateTimeFormatOptions) => {
+    const formatDate = (dateString?: string | null, options?: Intl.DateTimeFormatOptions) => {
       if (!dateString || dateString.trim() === "") return "N/A";
       const defaultOptions: Intl.DateTimeFormatOptions = { year: "numeric", month: "long", day: "numeric" };
       const effectiveOptions = { ...defaultOptions, ...options };
@@ -48,26 +48,41 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
       }
     };
 
-    const formatTime = (timeString?: string) => {
-        if (!timeString || timeString.trim() === "") return "";
-        if (/^\d{2}:\d{2}$/.test(timeString)) { return timeString; }
-        try {
-            const d = new Date(`1970-01-01T${timeString}Z`);
-             if(isNaN(d.getTime())) {
-                 const fullDate = new Date(timeString);
-                 if(isNaN(fullDate.getTime())) return timeString;
-                 return fullDate.toLocaleTimeString("en-US", {
-                    hour: "2-digit", minute: "2-digit", hour12: false,
-                });
-            }
-            return d.toLocaleTimeString("en-US", {
-                hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC"
-            });
-        } catch (e) {
-            const dateMatch = timeString.match(/\d{2}:\d{2}/);
-            if (dateMatch) return dateMatch[0];
-            return timeString;
+    const formatTime = (dateTimeString?: string | null): string => {
+      if (!dateTimeString || dateTimeString.trim() === "") return "";
+    
+      if (/^\d{2}:\d{2}$/.test(dateTimeString)) {
+        return dateTimeString;
+      }
+    
+      try {
+        const dateObj = new Date(dateTimeString);
+        if (isNaN(dateObj.getTime())) {
+          const timeMatch = dateTimeString.match(/\d{2}:\d{2}/);
+          return timeMatch ? timeMatch[0] : "";
         }
+    
+        if (
+          !dateTimeString.includes('T') &&
+          dateObj.getUTCHours() === 0 &&
+          dateObj.getUTCMinutes() === 0 &&
+          dateObj.getUTCSeconds() === 0 &&
+          dateObj.getUTCMilliseconds() === 0
+        ) {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(dateTimeString)) {
+            return "";
+          }
+        }
+    
+        return dateObj.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+      } catch (e) {
+        const timeMatch = dateTimeString.match(/\d{2}:\d{2}/);
+        return timeMatch ? timeMatch[0] : "";
+      }
     };
 
     const getCrewNames = (crewIds: string[], crewKeyData: CrewKeyItem[]): string => {
@@ -116,6 +131,9 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
     let currentLaborDayFormatted = ""; 
     console.log("[PrintExport] Rendering with groupedDetailedScheduleItems count:", groupedDetailedScheduleItems.length);
 
+    const strikeDateFormatted = formatDate(info.strike_datetime);
+    const strikeTimeFormatted = formatTime(info.strike_datetime);
+
     return (
       <div
         ref={ref}
@@ -152,9 +170,13 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                     {info.event_name && (<tr><td style={{padding: "4px 0", fontWeight: "bold", width: "150px"}}>Event:</td><td>{info.event_name}</td></tr>)}
                     {info.job_number && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Job #:</td><td>{info.job_number}</td></tr>)}
                     {info.date && formatDate(info.date) !== "N/A" && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Date:</td><td>{formatDate(info.date)}</td></tr>)}
-                    {/* Event Time Removed */}
                     {info.load_in && formatTime(info.load_in) && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Load In:</td><td>{formatTime(info.load_in)}</td></tr>)}
-                    {info.strike_datetime && (formatDate(info.strike_datetime) !== "N/A" || formatTime(info.strike_datetime)) && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Strike:</td><td>{formatDate(info.strike_datetime)} {formatTime(info.strike_datetime)}</td></tr>)}
+                    {info.strike_datetime && strikeDateFormatted !== "N/A" && (
+                      <tr>
+                        <td style={{padding: "4px 0", fontWeight: "bold"}}>Strike:</td>
+                        <td>{strikeDateFormatted} {strikeTimeFormatted && ` ${strikeTimeFormatted}`}</td>
+                      </tr>
+                    )}
                 </tbody>
             </table>
         </div>
