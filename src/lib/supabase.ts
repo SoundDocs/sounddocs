@@ -4,3 +4,66 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+/**
+ * Fetches all custom suggestions for a user, optionally filtered by field type prefix.
+ * @param userId The ID of the user.
+ * @param fieldTypePrefix Optional prefix to filter field types (e.g., 'input_').
+ * @returns A record where keys are field types and values are arrays of suggestion strings.
+ */
+export const fetchUserCustomSuggestions = async (
+  userId: string,
+  fieldTypePrefix?: string,
+): Promise<Record<string, string[]>> => {
+  if (!userId) return {};
+
+  let query = supabase
+    .from("user_custom_suggestions")
+    .select("field_type, value")
+    .eq("user_id", userId);
+
+  if (fieldTypePrefix) {
+    query = query.like("field_type", `${fieldTypePrefix}%`);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching user custom suggestions:", error);
+    throw error;
+  }
+
+  const suggestionsMap: Record<string, string[]> = {};
+  if (data) {
+    for (const item of data) {
+      if (!suggestionsMap[item.field_type]) {
+        suggestionsMap[item.field_type] = [];
+      }
+      suggestionsMap[item.field_type].push(item.value);
+    }
+  }
+  return suggestionsMap;
+};
+
+/**
+ * Adds a new custom suggestion for a user if it doesn't already exist.
+ * @param userId The ID of the user.
+ * @param fieldType The type of the field for the suggestion.
+ * @param value The suggestion value.
+ */
+export const addUserCustomSuggestion = async (
+  userId: string,
+  fieldType: string,
+  value: string,
+): Promise<void> => {
+  if (!userId || !fieldType || !value.trim()) return;
+
+  const { error } = await supabase
+    .from("user_custom_suggestions")
+    .insert({ user_id: userId, field_type: fieldType, value: value.trim() }, { onConflict: 'user_id, field_type, value' }); // Use onConflict to ignore duplicates
+
+  if (error && error.code !== '23505') { // 23505 is unique_violation, which we are handling with onConflict
+    console.error("Error adding user custom suggestion:", error);
+    throw error;
+  }
+};
