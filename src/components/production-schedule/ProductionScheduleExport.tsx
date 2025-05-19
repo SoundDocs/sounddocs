@@ -208,11 +208,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
               {info.event_name && (<div><strong className="text-gray-400 block">Event:</strong> {info.event_name}</div>)}
               {info.job_number && (<div><strong className="text-gray-400 block">Job #:</strong> {info.job_number}</div>)}
               {info.date && formatDate(info.date) !== "N/A" && (<div><strong className="text-gray-400 block">Date:</strong> {formatDate(info.date)}</div>)}
-              {(info.event_start || info.event_end) && (formatTime(info.event_start) || formatTime(info.event_end)) && (
-                <div><strong className="text-gray-400 block">Event Time:</strong> 
-                {formatTime(info.event_start)} {formatTime(info.event_start) && formatTime(info.event_end) ? `- ${formatTime(info.event_end)}` : formatTime(info.event_end)}
-                </div>
-              )}
+              {/* Event Time Removed */}
               {info.load_in && formatTime(info.load_in) && (<div><strong className="text-gray-400 block">Load In:</strong> {formatTime(info.load_in)}</div>)}
               {info.strike_datetime && (formatDate(info.strike_datetime) !== "N/A" || formatTime(info.strike_datetime)) && (<div><strong className="text-gray-400 block">Strike:</strong> {formatDate(info.strike_datetime)} {formatTime(info.strike_datetime)}</div>)}
             </div>

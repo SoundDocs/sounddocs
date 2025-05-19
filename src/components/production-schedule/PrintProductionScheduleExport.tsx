@@ -152,9 +152,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                     {info.event_name && (<tr><td style={{padding: "4px 0", fontWeight: "bold", width: "150px"}}>Event:</td><td>{info.event_name}</td></tr>)}
                     {info.job_number && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Job #:</td><td>{info.job_number}</td></tr>)}
                     {info.date && formatDate(info.date) !== "N/A" && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Date:</td><td>{formatDate(info.date)}</td></tr>)}
-                    {(info.event_start || info.event_end) && (formatTime(info.event_start) || formatTime(info.event_end)) && (
-                        <tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Event Time:</td><td>{formatTime(info.event_start)} {formatTime(info.event_start) && formatTime(info.event_end) ? `- ${formatTime(info.event_end)}` : formatTime(info.event_end)}</td></tr>
-                    )}
+                    {/* Event Time Removed */}
                     {info.load_in && formatTime(info.load_in) && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Load In:</td><td>{formatTime(info.load_in)}</td></tr>)}
                     {info.strike_datetime && (formatDate(info.strike_datetime) !== "N/A" || formatTime(info.strike_datetime)) && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Strike:</td><td>{formatDate(info.strike_datetime)} {formatTime(info.strike_datetime)}</td></tr>)}
                 </tbody>
