@@ -131,6 +131,8 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
     let currentLaborDayFormatted = ""; 
     console.log("[PrintExport] Rendering with groupedDetailedScheduleItems count:", groupedDetailedScheduleItems.length);
 
+    const loadInDateFormatted = formatDate(info.date);
+    const loadInTimeFormatted = formatTime(info.load_in);
     const strikeDateFormatted = formatDate(info.strike_datetime);
     const strikeTimeFormatted = formatTime(info.strike_datetime);
 
@@ -169,8 +171,16 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                 <tbody>
                     {info.event_name && (<tr><td style={{padding: "4px 0", fontWeight: "bold", width: "150px"}}>Event:</td><td>{info.event_name}</td></tr>)}
                     {info.job_number && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Job #:</td><td>{info.job_number}</td></tr>)}
-                    {info.date && formatDate(info.date) !== "N/A" && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Date:</td><td>{formatDate(info.date)}</td></tr>)}
-                    {info.load_in && formatTime(info.load_in) && (<tr><td style={{padding: "4px 0", fontWeight: "bold"}}>Load In:</td><td>{formatTime(info.load_in)}</td></tr>)}
+                    {(loadInDateFormatted !== "N/A" || loadInTimeFormatted) && (
+                      <tr>
+                        <td style={{padding: "4px 0", fontWeight: "bold"}}>Load In:</td>
+                        <td>
+                          {loadInDateFormatted !== "N/A" ? loadInDateFormatted : ""}
+                          {loadInDateFormatted !== "N/A" && loadInTimeFormatted ? " " : ""}
+                          {loadInTimeFormatted || ""}
+                        </td>
+                      </tr>
+                    )}
                     {info.strike_datetime && strikeDateFormatted !== "N/A" && (
                       <tr>
                         <td style={{padding: "4px 0", fontWeight: "bold"}}>Strike:</td>

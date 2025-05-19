@@ -163,6 +163,8 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
 
     console.log("[Export] Rendering with groupedDetailedScheduleItems count:", groupedDetailedScheduleItems.length);
 
+    const loadInDateFormatted = formatDate(info.date);
+    const loadInTimeFormatted = formatTime(info.load_in);
     const strikeDateFormatted = formatDate(info.strike_datetime);
     const strikeTimeFormatted = formatTime(info.strike_datetime);
 
@@ -227,8 +229,14 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
               {info.event_name && (<div><strong className="text-gray-400 block">Event:</strong> {info.event_name}</div>)}
               {info.job_number && (<div><strong className="text-gray-400 block">Job #:</strong> {info.job_number}</div>)}
-              {info.date && formatDate(info.date) !== "N/A" && (<div><strong className="text-gray-400 block">Date:</strong> {formatDate(info.date)}</div>)}
-              {info.load_in && formatTime(info.load_in) && (<div><strong className="text-gray-400 block">Load In:</strong> {formatTime(info.load_in)}</div>)}
+              {(loadInDateFormatted !== "N/A" || loadInTimeFormatted) && (
+                <div>
+                  <strong className="text-gray-400 block">Load In:</strong> 
+                  {loadInDateFormatted !== "N/A" ? loadInDateFormatted : ""}
+                  {loadInDateFormatted !== "N/A" && loadInTimeFormatted ? " " : ""}
+                  {loadInTimeFormatted || ""}
+                </div>
+              )}
               {info.strike_datetime && strikeDateFormatted !== "N/A" && (
                 <div>
                   <strong className="text-gray-400 block">Strike:</strong> 
