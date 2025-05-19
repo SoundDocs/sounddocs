@@ -9,11 +9,10 @@ interface PrintProductionScheduleExportProps {
 
 const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProductionScheduleExportProps>(
   ({ schedule }, ref) => {
-    const info = schedule?.info || {};
-    const crewKey = schedule?.crew_key || [];
-    const laborScheduleItems = schedule?.labor_schedule_items || []; 
-    // Explicitly get detailed_schedule_items from the schedule prop
-    const detailedScheduleItemsFromProp = schedule?.detailed_schedule_items || [];
+    const info = schedule.info || {};
+    const crewKey = schedule.crew_key || [];
+    const laborScheduleItems = schedule.labor_schedule_items || []; 
+    const detailedScheduleItems = schedule.detailed_schedule_items || [];
 
     const formatDate = (dateString?: string, options?: Intl.DateTimeFormatOptions) => {
       if (!dateString || dateString.trim() === "") return "N/A";
@@ -68,7 +67,7 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
 
     const groupAndSortDetailedItems = (items: DetailedScheduleItem[]) => {
       const groups: Record<string, DetailedScheduleItem[]> = {};
-      (items || []).forEach(item => { 
+      (items || []).forEach(item => { // Ensure items is an array
         const dateStr = item.date || 'No Date Assigned';
         if (!groups[dateStr]) groups[dateStr] = [];
         groups[dateStr].push(item);
@@ -79,12 +78,11 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
       return Object.entries(groups).sort(([dateA], [dateB]) => {
         if (dateA === 'No Date Assigned') return 1;
         if (dateB === 'No Date Assigned') return -1;
-        try { return new Date(dateA + 'T00:00:00Z').getTime() - new Date(dateB + 'T00:00:00Z').getTime(); } 
+        try { return new Date(dateA + 'T00:00:00Z').getTime() - new Date(dateB + 'T00:00:00Z').getTime(); } // Compare as UTC
         catch (e) { return 0; }
       });
     };
-    // Use the explicitly derived detailedScheduleItemsFromProp
-    const groupedDetailedScheduleItems = groupAndSortDetailedItems(detailedScheduleItemsFromProp);
+    const groupedDetailedScheduleItems = groupAndSortDetailedItems(detailedScheduleItems);
 
 
     const sortedLaborScheduleItems = [...(laborScheduleItems || [])].sort((a, b) => {
@@ -121,9 +119,9 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
             <p style={{ fontSize: "14px", color: "#555", margin: "5px 0 0 0" }}>Production Schedule</p>
           </div>
           <div style={{ textAlign: "right" }}>
-            <h2 style={{ fontSize: "24px", fontWeight: "bold", margin: 0 }}>{schedule?.name || "Untitled Schedule"}</h2>
+            <h2 style={{ fontSize: "24px", fontWeight: "bold", margin: 0 }}>{schedule.name || "Untitled Schedule"}</h2>
             <p style={{ fontSize: "14px", color: "#555", margin: "5px 0 0 0" }}>
-              Last Edited: {formatDate(schedule?.last_edited || schedule?.created_at)}
+              Last Edited: {formatDate(schedule.last_edited || schedule.created_at)}
             </p>
           </div>
         </div>
