@@ -22,27 +22,26 @@ interface ProductionScheduleExportProps {
 
 const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleExportProps>(
   ({ schedule }, ref) => {
-    const info = schedule.info || {};
-    const crewKey = schedule.crew_key || [];
-    const laborScheduleItems = schedule.labor_schedule_items || []; 
-    const detailedScheduleItems = schedule.detailed_schedule_items || [];
+    const info = schedule?.info || {};
+    const crewKey = schedule?.crew_key || [];
+    const laborScheduleItems = schedule?.labor_schedule_items || []; 
+    // Explicitly get detailed_schedule_items from the schedule prop
+    const detailedScheduleItemsFromProp = schedule?.detailed_schedule_items || [];
 
     const formatDate = (dateString?: string, options?: Intl.DateTimeFormatOptions) => {
       if (!dateString || dateString.trim() === "") return "N/A";
       const defaultOptions: Intl.DateTimeFormatOptions = { year: "numeric", month: "long", day: "numeric" };
       const effectiveOptions = { ...defaultOptions, ...options };
       
-      // Handle YYYY-MM-DD format specifically, assuming UTC
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
         try {
-          const date = new Date(dateString + 'T00:00:00Z'); // Treat as UTC
+          const date = new Date(dateString + 'T00:00:00Z'); 
           return date.toLocaleDateString("en-US", effectiveOptions);
         } catch (e) { 
           console.error("Error formatting YYYY-MM-DD date:", e);
           return dateString; 
         } 
       }
-      // Handle full ISO strings or other parsable date strings
       try {
         return new Date(dateString).toLocaleDateString("en-US", effectiveOptions);
       } catch (e) { 
@@ -53,26 +52,22 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
     
     const formatTime = (timeString?: string) => {
         if (!timeString || timeString.trim() === "") return ""; 
-        // If already HH:MM, return as is
         if (/^\d{2}:\d{2}$/.test(timeString)) { 
             return timeString;
         }
-        // Try to parse as part of a datetime string or standalone time
         try {
-            const d = new Date(`1970-01-01T${timeString}Z`); // Assume UTC if just time
+            const d = new Date(`1970-01-01T${timeString}Z`); 
             if(isNaN(d.getTime())) { 
-                 // If parsing as T${timeString}Z fails, try parsing as full date string
                  const fullDate = new Date(timeString);
-                 if(isNaN(fullDate.getTime())) return timeString; // Return original if still invalid
+                 if(isNaN(fullDate.getTime())) return timeString; 
                  return fullDate.toLocaleTimeString("en-US", {
-                    hour: "2-digit", minute: "2-digit", hour12: false, // Use local timezone from full date
+                    hour: "2-digit", minute: "2-digit", hour12: false, 
                 });
             }
             return d.toLocaleTimeString("en-US", {
                 hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" 
             });
         } catch (e) {
-            // Fallback for simple HH:MM extraction if parsing fails
             const dateMatch = timeString.match(/\d{2}:\d{2}/);
             if (dateMatch) return dateMatch[0];
             return timeString; 
@@ -103,7 +98,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
 
     const groupAndSortDetailedItems = (items: DetailedScheduleItem[]) => {
       const groups: Record<string, DetailedScheduleItem[]> = {};
-      (items || []).forEach(item => { // Ensure items is an array
+      (items || []).forEach(item => { 
         const dateStr = item.date || 'No Date Assigned';
         if (!groups[dateStr]) groups[dateStr] = [];
         groups[dateStr].push(item);
@@ -114,11 +109,12 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
       return Object.entries(groups).sort(([dateA], [dateB]) => {
         if (dateA === 'No Date Assigned') return 1;
         if (dateB === 'No Date Assigned') return -1;
-        try { return new Date(dateA + 'T00:00:00Z').getTime() - new Date(dateB + 'T00:00:00Z').getTime(); } // Compare as UTC dates
+        try { return new Date(dateA + 'T00:00:00Z').getTime() - new Date(dateB + 'T00:00:00Z').getTime(); } 
         catch (e) { return 0; }
       });
     };
-    const groupedDetailedScheduleItems = groupAndSortDetailedItems(detailedScheduleItems);
+    // Use the explicitly derived detailedScheduleItemsFromProp
+    const groupedDetailedScheduleItems = groupAndSortDetailedItems(detailedScheduleItemsFromProp);
 
     const sortedLaborScheduleItems = [...(laborScheduleItems || [])].sort((a, b) => {
       const dateA = a.date || '';
@@ -180,9 +176,9 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
             </div>
           </div>
           <div className="text-right z-10">
-            <h2 className="text-2xl font-bold text-white">{schedule.name || "Untitled Schedule"}</h2>
+            <h2 className="text-2xl font-bold text-white">{schedule?.name || "Untitled Schedule"}</h2>
             <p className="text-gray-400">
-              Last Edited: {formatDate(schedule.last_edited || schedule.created_at)}
+              Last Edited: {formatDate(schedule?.last_edited || schedule?.created_at)}
             </p>
           </div>
         </div>
