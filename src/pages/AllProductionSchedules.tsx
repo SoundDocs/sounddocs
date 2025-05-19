@@ -25,7 +25,7 @@ import {
   FileText,
   Download,
   Copy,
-  Share2, // Import Share2 icon
+  Share2, 
 } from "lucide-react";
 
 interface ProductionScheduleSummary {
@@ -127,8 +127,8 @@ const AllProductionSchedules: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false); 
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
-  const [showShareModal, setShowShareModal] = useState(false); // State for ShareModal
-  const [selectedShareSchedule, setSelectedShareSchedule] = useState<ProductionScheduleSummary | null>(null); // State for selected schedule to share
+  const [showShareModal, setShowShareModal] = useState(false); 
+  const [selectedShareSchedule, setSelectedShareSchedule] = useState<ProductionScheduleSummary | null>(null); 
 
   const exportRef = useRef<HTMLDivElement>(null);
   const printExportRef = useRef<HTMLDivElement>(null);
@@ -373,10 +373,10 @@ const AllProductionSchedules: React.FC = () => {
     }
   };
 
-  const handleShareSchedule = (schedule: ProductionScheduleSummary) => {
-    setSelectedShareSchedule(schedule);
-    setShowShareModal(true);
-  };
+  // const handleShareSchedule = (schedule: ProductionScheduleSummary) => {
+  //   setSelectedShareSchedule(schedule);
+  //   setShowShareModal(true);
+  // };
 
 
   if (loading && !user) {
@@ -522,10 +522,10 @@ const AllProductionSchedules: React.FC = () => {
                       <td className="py-4 px-6">
                         <div className="flex justify-end space-x-2">
                            <button
-                            onClick={() => handleShareSchedule(schedule)}
-                            className="p-2 text-gray-400 hover:text-indigo-400 rounded-md hover:bg-gray-700 transition-colors"
-                            title="Share Schedule"
-                            disabled={isExporting || duplicatingId === schedule.id}
+                            // onClick={() => handleShareSchedule(schedule)} // Commented out to disable
+                            className="p-2 text-gray-500 rounded-md cursor-not-allowed" // Adjusted classes for disabled look
+                            title="Share (Coming Soon)" // Updated title
+                            disabled={true} // Always disabled
                           >
                             <Share2 className="h-5 w-5" />
                           </button>
