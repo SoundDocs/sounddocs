@@ -229,9 +229,11 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                   return (
                   <React.Fragment key={dateKey}>
                     <tr style={{ backgroundColor: "#e2e8f0", borderTop: "1px solid #ccc", borderBottom: "1px solid #ccc" }}>
-                      <td colSpan={5} style={{ padding: "6px 8px", fontWeight: "bold", textAlign: "left" }}>
-                        <CalendarDays size={14} style={{ display: "inline", marginRight: "6px", verticalAlign: "text-bottom" }} />
-                        {formatDate(dateKey, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      <td colSpan={5} style={{ padding: "6px 8px", fontWeight: "bold", textAlign: "left", whiteSpace: "nowrap", display: "flex", alignItems: "center" }}>
+                        <CalendarDays size={14} style={{ display: "inline-block", marginRight: "6px", verticalAlign: "middle", flexShrink: 0 }} />
+                        <span style={{ display: "inline-block" }}>
+                          {formatDate(dateKey, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        </span>
                       </td>
                     </tr>
                     {itemsInGroup.map((item, index) => {
@@ -284,10 +286,10 @@ const PrintProductionScheduleExport = forwardRef<HTMLDivElement, PrintProduction
                         <tr style={{ backgroundColor: "#e2e8f0", borderTop: "1px solid #ccc", borderBottom: "1px solid #ccc" }}>
                           <td
                             colSpan={6}
-                            style={{ padding: "6px 8px", fontWeight: "bold", textAlign: "left" }}
+                            style={{ padding: "6px 8px", fontWeight: "bold", textAlign: "left", whiteSpace: "nowrap", display: "flex", alignItems: "center" }}
                           >
-                            <CalendarDays size={14} style={{ display: "inline", marginRight: "6px", verticalAlign: "text-bottom" }} />
-                            {currentLaborDayFormatted}
+                            <CalendarDays size={14} style={{ display: "inline-block", marginRight: "6px", verticalAlign: "middle", flexShrink: 0 }} />
+                            <span style={{ display: "inline-block" }}>{currentLaborDayFormatted}</span>
                           </td>
                         </tr>
                       )}

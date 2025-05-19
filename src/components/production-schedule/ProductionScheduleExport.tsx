@@ -285,8 +285,8 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                     return (
                     <React.Fragment key={dateKey}>
                       <tr style={{ background: "rgba(45, 55, 72, 0.6)", borderTop: "2px solid rgba(99, 102, 241, 0.3)", borderBottom: "1px solid rgba(99, 102, 241, 0.2)" }}>
-                        <td colSpan={5} className="py-2 px-4 text-white font-semibold text-sm flex items-center">
-                          <CalendarDays size={16} className="mr-2 text-indigo-300" />
+                        <td colSpan={5} className="py-2 px-4 text-white font-semibold text-sm flex items-center whitespace-nowrap">
+                          <CalendarDays size={16} className="mr-2 text-indigo-300 flex-shrink-0" />
                           {formatDate(dateKey, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                         </td>
                       </tr>
@@ -346,8 +346,8 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
                       <React.Fragment key={item.id}>
                         {showDayHeader && (
                           <tr style={{ background: "rgba(45, 55, 72, 0.6)", borderTop: "2px solid rgba(99, 102, 241, 0.3)", borderBottom: "1px solid rgba(99, 102, 241, 0.2)" }}>
-                            <td colSpan={6} className="py-2 px-4 text-white font-semibold text-sm flex items-center">
-                                <CalendarDays size={16} className="mr-2 text-indigo-300" />
+                            <td colSpan={6} className="py-2 px-4 text-white font-semibold text-sm flex items-center whitespace-nowrap">
+                                <CalendarDays size={16} className="mr-2 text-indigo-300 flex-shrink-0" />
                                 {currentLaborDayFormatted}
                             </td>
                           </tr>
