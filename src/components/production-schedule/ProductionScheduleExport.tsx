@@ -17,13 +17,15 @@ import { ScheduleForExport, DetailedScheduleItem } from "../../pages/ProductionS
 import { CrewKeyItem } from "./ProductionScheduleCrewKey";
 
 interface ProductionScheduleExportProps {
-  schedule: ScheduleForExport; 
+  schedule: ScheduleForExport;
+  forDisplay?: boolean; // New prop to control display behavior
 }
 
 const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleExportProps>(
-  ({ schedule }, ref) => {
+  ({ schedule, forDisplay }, ref) => {
     
     console.log("[Export] Received schedule prop:", schedule ? JSON.parse(JSON.stringify(schedule)) : schedule);
+    console.log("[Export] forDisplay:", forDisplay);
 
     const info = schedule?.info || {};
     const crewKey = schedule?.crew_key || [];
@@ -44,23 +46,17 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
       const defaultOptions: Intl.DateTimeFormatOptions = { year: "numeric", month: "long", day: "numeric" };
       const effectiveOptions = { ...defaultOptions, ...options };
     
-      // If dateString is purely YYYY-MM-DD (like info.date or item.date from detailed/labor schedules)
-      // These strings represent a specific calendar day. We want to display that calendar day.
-      // Parsing 'YYYY-MM-DD' with new Date() can be tricky as it's often treated as UTC midnight.
-      // To ensure it's treated as the intended local day, we can split and reconstruct.
       if (/^\d{4}-\d{2}-\d{2}$/.test(dateString) && !dateString.includes('T')) {
         try {
           const [year, month, day] = dateString.split('-').map(Number);
-          // Create a Date object for midnight in the local timezone for the given Y, M, D.
           const localDateObject = new Date(year, month - 1, day);
-          // Check if the constructed date is valid and indeed represents the input YYYY-MM-DD in local terms.
           if (localDateObject.getFullYear() === year &&
               localDateObject.getMonth() === month - 1 &&
               localDateObject.getDate() === day) {
             return localDateObject.toLocaleDateString("en-US", effectiveOptions);
           } else {
             console.warn(`Invalid date components from YYYY-MM-DD string: ${dateString}`);
-            const date = new Date(dateString); // Fallback attempt
+            const date = new Date(dateString); 
             if (!isNaN(date.getTime())) {
                 return date.toLocaleDateString("en-US", effectiveOptions);
             }
@@ -72,15 +68,13 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
         }
       }
     
-      // For full ISO strings or other parsable date-time strings (e.g., schedule.last_edited, info.strike_datetime)
-      // These represent a specific point in time.
       try {
         const date = new Date(dateString); 
         if (isNaN(date.getTime())) {
             console.warn(`Invalid date string for general parsing: ${dateString}`);
             return dateString; 
         }
-        return date.toLocaleDateString("en-US", effectiveOptions); // Displays in local timezone
+        return date.toLocaleDateString("en-US", effectiveOptions); 
       } catch (e) {
         console.error(`Error formatting general date string '${dateString}':`, e);
         return dateString; 
@@ -90,7 +84,6 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
     const formatTime = (dateTimeString?: string | null): string => {
       if (!dateTimeString || dateTimeString.trim() === "") return "";
     
-      // Case 1: Input is already HH:MM (less likely for full dateTimeString but good to have)
       if (/^\d{2}:\d{2}$/.test(dateTimeString)) {
         return dateTimeString;
       }
@@ -102,7 +95,6 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
           return timeMatch ? timeMatch[0] : "";
         }
     
-        // Case 3: Input is YYYY-MM-DD (check if time is midnight and original string had no 'T')
         if (
           !dateTimeString.includes('T') &&
           dateObj.getUTCHours() === 0 &&
@@ -111,16 +103,14 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
           dateObj.getUTCMilliseconds() === 0
         ) {
           if (/^\d{4}-\d{2}-\d{2}$/.test(dateTimeString)) {
-            return ""; // It was just a date, so no time to display
+            return ""; 
           }
         }
     
-        // Case 2: Input is a full ISO string or other parsable date-time string
         return dateObj.toLocaleTimeString("en-US", {
           hour: "2-digit",
           minute: "2-digit",
           hour12: false,
-          // timeZone: 'UTC' // Keep commented to display in local time based on browser
         });
       } catch (e) {
         const timeMatch = dateTimeString.match(/\d{2}:\d{2}/);
@@ -194,18 +184,28 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
     const strikeDateFormatted = formatDate(info.strike_datetime);
     const strikeTimeFormatted = formatTime(info.strike_datetime);
 
+    const wrapperStyle: React.CSSProperties = {
+      fontFamily: "Inter, sans-serif",
+      background: "linear-gradient(to bottom, #111827, #0f172a)",
+      boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+      // overflow: "hidden", // May help contain elements if forDisplay is true
+    };
+
+    if (forDisplay) {
+      wrapperStyle.width = "100%"; // Adjust width for responsive display
+      // When forDisplay is true, we don't set position: absolute or left: -9999px
+      // so it renders in the normal document flow.
+    } else {
+      wrapperStyle.width = "1600px"; // Fixed width for export
+      wrapperStyle.position = "absolute";
+      wrapperStyle.left = "-9999px";
+    }
+
     return (
       <div
         ref={ref}
-        className="export-wrapper text-white p-8 rounded-lg shadow-xl"
-        style={{
-          width: "1600px", 
-          position: "absolute",
-          left: "-9999px", 
-          fontFamily: "Inter, sans-serif",
-          background: "linear-gradient(to bottom, #111827, #0f172a)", 
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
-        }}
+        className="export-wrapper text-white p-8 rounded-lg shadow-xl" // Consider if "export-wrapper" class has conflicting styles
+        style={wrapperStyle}
       >
         <div
           className="flex justify-between items-center mb-8 pb-6 relative overflow-hidden"

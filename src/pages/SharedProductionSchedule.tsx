@@ -28,6 +28,10 @@ interface FullProductionScheduleData {
   crew_key?: Array<{ id: string; name: string; color: string }>;
   detailed_schedule_items?: DetailedScheduleItem[];
   labor_schedule_items?: LaborScheduleItem[];
+  // Add contact fields if they are part of the table structure
+  contact_name?: string;
+  contact_email?: string;
+  contact_phone?: string;
 }
 
 // Utility to parse date/time strings
@@ -65,9 +69,12 @@ const transformToScheduleForExport = (fullSchedule: FullProductionScheduleData):
       account_manager: fullSchedule.account_manager,
       date: setDateTimeParts.date,
       load_in: setDateTimeParts.time,
-      event_start: setDateTimeParts.time,
-      event_end: strikeDateTimeParts.time,
+      event_start: setDateTimeParts.time, // Assuming event_start is same as load_in for now
+      event_end: strikeDateTimeParts.time, // Assuming event_end is same as strike for now
       strike_datetime: fullSchedule.strike_datetime,
+      contact_name: fullSchedule.contact_name,
+      contact_email: fullSchedule.contact_email,
+      contact_phone: fullSchedule.contact_phone,
     },
     crew_key: fullSchedule.crew_key?.map(ck => ({ ...ck })) || [],
     detailed_schedule_items: fullSchedule.detailed_schedule_items?.map(item => ({
@@ -85,7 +92,7 @@ const SharedProductionSchedule: React.FC = () => {
   const [shareLinkInfo, setShareLinkInfo] = useState<SharedLink | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const exportRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null); // This ref might be for a download button not shown here
 
   useEffect(() => {
     const fetchSharedSchedule = async () => {
@@ -98,19 +105,29 @@ const SharedProductionSchedule: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
+        console.log(`[SharedProductionSchedule] Fetching resource for shareCode: ${shareCode}`);
         const { resource, shareLink } = await getSharedResource(shareCode);
+        console.log("[SharedProductionSchedule] Fetched resource:", resource);
+        console.log("[SharedProductionSchedule] Fetched shareLink:", shareLink);
+
 
         if (shareLink.resource_type !== "production_schedule") {
+          console.error(`[SharedProductionSchedule] Invalid resource type. Expected 'production_schedule', got '${shareLink.resource_type}'`);
           throw new Error("Invalid resource type for this share link.");
         }
         
         const fullData = resource as FullProductionScheduleData;
-        setSchedule(transformToScheduleForExport(fullData));
+        console.log("[SharedProductionSchedule] Raw fullData for transformation:", JSON.parse(JSON.stringify(fullData)));
+        
+        const transformedSchedule = transformToScheduleForExport(fullData);
+        console.log("[SharedProductionSchedule] Transformed schedule for display:", JSON.parse(JSON.stringify(transformedSchedule)));
+        
+        setSchedule(transformedSchedule);
         setShareLinkInfo(shareLink);
 
       } catch (err: any) {
-        console.error("Error fetching shared production schedule:", err);
-        setError(err.message || "Failed to load shared production schedule.");
+        console.error("[SharedProductionSchedule] Error fetching shared production schedule:", err);
+        setError(err.message || "Failed to load shared production schedule. Please check the console for more details.");
         if (err.message === "Share link has expired" || err.message === "Share link not found") {
           // Optionally redirect or show specific UI for these cases
         }
@@ -133,9 +150,9 @@ const SharedProductionSchedule: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-900 flex flex-col">
         <Header />
-        <div className="flex-grow flex flex-col items-center justify-center text-center">
+        <div className="flex-grow flex flex-col items-center justify-center text-center p-4">
           <AlertTriangle className="h-16 w-16 text-red-500 mb-4" />
           <h1 className="text-2xl font-bold text-white mb-2">Access Denied or Error</h1>
           <p className="text-lg text-red-400 mb-6">{error}</p>
@@ -152,9 +169,21 @@ const SharedProductionSchedule: React.FC = () => {
   }
 
   if (!schedule) {
-    return ( // Should ideally be covered by loading or error state
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <p className="text-xl text-gray-400">Production Schedule not found.</p>
+    return ( 
+      <div className="min-h-screen bg-gray-900 flex flex-col">
+        <Header />
+        <div className="flex-grow flex flex-col items-center justify-center text-center p-4">
+          <AlertTriangle className="h-16 w-16 text-yellow-500 mb-4" />
+          <h1 className="text-2xl font-bold text-white mb-2">Production Schedule Not Found</h1>
+          <p className="text-lg text-gray-400 mb-6">The requested production schedule could not be loaded.</p>
+           <button
+            onClick={() => navigate("/")}
+            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-medium transition-colors"
+          >
+            Go to Homepage
+          </button>
+        </div>
+        <Footer />
       </div>
     );
   }
@@ -179,12 +208,16 @@ const SharedProductionSchedule: React.FC = () => {
           </div>
           <p className="text-sm text-gray-400 mb-6">
             This is a shared, view-only version of a production schedule.
+            {/* Add a Download PDF/Image button here if needed, which would use exportRef */}
           </p>
         </div>
         
-        {/* Render the ProductionScheduleExport component for display */}
-        <div className="bg-slate-900 p-2 sm:p-4 rounded-lg shadow-lg">
-            <ProductionScheduleExport ref={exportRef} schedule={schedule} />
+        <div className="bg-slate-900 p-0 sm:p-0 rounded-lg shadow-lg overflow-x-auto"> {/* Adjusted padding and added overflow */}
+            <ProductionScheduleExport 
+              ref={exportRef} 
+              schedule={schedule} 
+              forDisplay={true} // Pass the new prop
+            />
         </div>
 
       </main>
