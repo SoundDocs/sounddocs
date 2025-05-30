@@ -4,7 +4,7 @@ import { nanoid } from "nanoid";
 export interface SharedLink {
   id: string;
   resource_id: string;
-  resource_type: "patch_sheet" | "stage_plot";
+  resource_type: "patch_sheet" | "stage_plot" | "production_schedule";
   link_type: "view" | "edit";
   share_code: string;
   expires_at: string | null;
@@ -17,7 +17,7 @@ export interface SharedLink {
 // Generate a share link with a custom expiration
 export const createShareLink = async (
   resourceId: string,
-  resourceType: "patch_sheet" | "stage_plot",
+  resourceType: "patch_sheet" | "stage_plot" | "production_schedule",
   linkType: "view" | "edit",
   expirationDays: number | null,
 ): Promise<SharedLink> => {
@@ -88,7 +88,7 @@ export const createShareLink = async (
 // Get all share links for a specific resource
 export const getShareLinks = async (
   resourceId: string,
-  resourceType: "patch_sheet" | "stage_plot",
+  resourceType: "patch_sheet" | "stage_plot" | "production_schedule",
 ): Promise<SharedLink[]> => {
   try {
     const { data, error } = await supabase
@@ -228,7 +228,12 @@ export const getSharedResource = async (shareCode: string) => {
     console.log(`Verified share link for resource fetch:`, shareLink);
 
     // Fetch the resource using the resource_id and resource_type from the link
-    const tableName = shareLink.resource_type === "patch_sheet" ? "patch_sheets" : "stage_plots";
+    const tableName =
+      shareLink.resource_type === "patch_sheet"
+        ? "patch_sheets"
+        : shareLink.resource_type === "stage_plot"
+          ? "stage_plots"
+          : "production_schedules";
     console.log(`Fetching resource from table: ${tableName}, ID: ${shareLink.resource_id}`);
 
     const { data: resourceData, error: resourceError } = await supabase
@@ -265,7 +270,7 @@ export const getSharedResource = async (shareCode: string) => {
 // Generate frontend URL for a share link
 export const getShareUrl = (
   shareCode: string,
-  resourceType?: "patch_sheet" | "stage_plot",
+  resourceType?: "patch_sheet" | "stage_plot" | "production_schedule",
   linkType?: "view" | "edit",
 ): string => {
   const baseUrl = "https://sounddocs.org"; // Use production URL always for sharing
@@ -283,7 +288,14 @@ export const getShareUrl = (
     }
     // Fallback to generic /shared/ for patch sheet view links
     return `${baseUrl}/shared/${shareCode}`;
+  } else if (resourceType === "production_schedule") {
+    if (linkType === "edit") {
+      // Placeholder for future edit functionality
+      return `${baseUrl}/shared/production-schedule/edit/${shareCode}`;
+    }
+    return `${baseUrl}/shared/production-schedule/${shareCode}`;
   }
+
 
   // Fallback for older links or if type is unknown
   console.warn("Generating generic share URL as resourceType was not provided.");
@@ -293,7 +305,7 @@ export const getShareUrl = (
 // Update a shared resource (for edit links)
 export const updateSharedResource = async (
   shareCode: string,
-  resourceType: "patch_sheet" | "stage_plot",
+  resourceType: "patch_sheet" | "stage_plot" | "production_schedule",
   updates: any,
 ) => {
   try {
@@ -325,7 +337,12 @@ export const updateSharedResource = async (
     };
 
     // Determine table name
-    const tableName = resourceType === "patch_sheet" ? "patch_sheets" : "stage_plots";
+    const tableName =
+      resourceType === "patch_sheet"
+        ? "patch_sheets"
+        : resourceType === "stage_plot"
+          ? "stage_plots"
+          : "production_schedules";
     console.log(`Updating resource in table: ${tableName}, ID: ${shareLink.resource_id}`);
 
     // Update the appropriate resource

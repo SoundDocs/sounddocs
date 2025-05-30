@@ -23,7 +23,7 @@ interface ShareModalProps {
   isOpen: boolean;
   onClose: () => void;
   resourceId: string;
-  resourceType: "patch_sheet" | "stage_plot";
+  resourceType: "patch_sheet" | "stage_plot" | "production_schedule";
   resourceName: string;
 }
 
@@ -43,7 +43,12 @@ const ShareModal: React.FC<ShareModalProps> = ({
   const [customExpirationDays, setCustomExpirationDays] = useState<number>(30);
   const [showCustomExpirationInput, setShowCustomExpirationInput] = useState(false); // State to control custom input visibility
 
-  const resourceTypeLabel = resourceType === "patch_sheet" ? "Patch Sheet" : "Stage Plot";
+  const resourceTypeLabel =
+    resourceType === "patch_sheet"
+      ? "Patch Sheet"
+      : resourceType === "stage_plot"
+        ? "Stage Plot"
+        : "Production Schedule";
 
   // Load existing share links when modal opens
   useEffect(() => {
@@ -158,7 +163,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
   const handleCopyLink = async (
     shareCode: string,
     linkId: string,
-    resourceType: "patch_sheet" | "stage_plot",
+    resourceType: "patch_sheet" | "stage_plot" | "production_schedule",
     linkType: "view" | "edit",
   ) => {
     try {
