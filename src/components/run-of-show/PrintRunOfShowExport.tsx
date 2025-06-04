@@ -10,7 +10,7 @@ const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProp
   const defaultColumnsConfig: { key: keyof RunOfShowItem | string; label: string }[] = [
     { key: "itemNumber", label: "Item #" },
     { key: "startTime", label: "Start Time" },
-    { key: "preset", label: "Preset / Scene" }, // This column will hold item preset OR header title
+    { key: "preset", label: "Preset / Scene" },
     { key: "duration", label: "Duration (mm:ss)" },
     { key: "privateNotes", label: "Private Notes" },
     { key: "productionNotes", label: "Production Notes" },
@@ -72,14 +72,14 @@ const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProp
             font-size: 10pt;
             font-weight: normal;
           }
-          .print-export-table .header-row td.header-cell-title { /* Specific for the title cell */
+          .print-export-table .header-row td.header-cell-title { /* Specific for the title cell (now first column for headers) */
             color: #000;
             font-size: 12pt;
             font-weight: bold;
             padding: 10px 10px;
             border-left: 3px solid #6c757d; /* Darker gray accent */
           }
-           .print-export-table .header-row td.header-cell-meta { /* For Item# and Start Time of header */
+           .print-export-table .header-row td.header-cell-meta { /* For Start Time of header */
             font-weight: normal; /* Or bold if preferred */
           }
           .print-export-table .header-row td.header-cell-empty { /* For empty cells in header row */
@@ -154,18 +154,23 @@ const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProp
              if (currentItem.type === 'header') {
               return (
                 <tr key={currentItem.id || `item-${index}`} className="header-row">
-                  <td className="header-cell-meta">{currentItem.itemNumber || ''}</td>
-                  <td className="header-cell-meta">{currentItem.startTime || ''}</td>
-                  <td className="header-cell-title"> {/* Header Title in Preset/Scene column */}
+                  {/* Column 1: Header Title (in Item # column) */}
+                  <td className="header-cell-title">
                     {currentItem.headerTitle || "Section Header"}
                   </td>
-                  {/* Render empty/N/A cells for remaining default columns */}
-                  {defaultColumnsConfig.slice(3).map(col => ( // Slice from "Duration" onwards
-                     <td key={`header-empty-${col.key}`} className="header-cell-empty">N/A</td>
+                  {/* Column 2: Start Time */}
+                  <td className="header-cell-meta">{currentItem.startTime || ''}</td>
+                  {/* Column 3: Preset / Scene (now N/A for headers) */}
+                  <td className="header-cell-empty">N/A</td>
+
+                  {/* Render N/A for remaining default columns (Duration onwards) */}
+                  {defaultColumnsConfig.slice(3).map(colDef => (
+                     <td key={`print-header-empty-default-${colDef.key}`} className="header-cell-empty">N/A</td>
                   ))}
-                  {/* Render empty/N/A cells for custom columns */}
+
+                  {/* Render N/A for custom columns */}
                   {(schedule.custom_column_definitions || []).map(customCol => (
-                    <td key={`header-custom-empty-${customCol.id}`} className="header-cell-empty">N/A</td>
+                    <td key={`print-header-empty-custom-${customCol.id}`} className="header-cell-empty">N/A</td>
                   ))}
                 </tr>
               );
