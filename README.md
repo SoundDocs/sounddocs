@@ -1,116 +1,129 @@
 # SoundDocs 🎛️
 
-**Professional Audio Documentation Made Simple**
+**Professional Audio Documentation, Simplified.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-4.9.5-blue.svg)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18-blue.svg)](https://reactjs.org/)
+[![Vite](https://img.shields.io/badge/Vite-5.x-purple.svg)](https://vitejs.dev/)
+[![Supabase](https://img.shields.io/badge/Supabase-Backend-green.svg)](https://supabase.com/)
 
-SoundDocs is a modern web application designed for audio engineers to create professional technical documentation for live events. Create detailed patch lists, design stage plots, and share your setups with venues and production teams effortlessly.
+SoundDocs is a modern web application meticulously crafted for audio engineers, production managers, and event technicians. Streamline your workflow by creating comprehensive patch lists, intuitive stage plots, detailed run of shows, and production schedules with ease. Share your setups seamlessly with venues, artists, and production teams.
 
-![Hero Preview](https://i.ibb.co/PGhQmGkd/Screenshot-2025-04-27-at-11-37-16.png)
+![SoundDocs Hero Preview](https://i.ibb.co/PGhQmGkd/Screenshot-2025-04-27-at-11-37-16.png)
 
-## ✨ Features
+## ✨ Core Features
 
-### Core Functionality
+SoundDocs empowers you to manage event audio documentation efficiently:
 
-- **Patch Sheet Editor**
-  Document input/output lists, signal flow, equipment specs, and technical notes
-- **Stage Plot Designer**
-  Create visual stage layouts with draggable elements (instruments, mics, monitors)
-- **Smart Export System**
-  Generate high-quality PNG/PDF exports with dark/light mode options
-- **Collaboration Tools**
-  Share documents via secure links with clients and crew
+-   **📝 Patch Sheet Editor:**
+    Design detailed input/output lists, map signal flows, specify equipment, and add critical technical notes. Perfect for FOH, monitors, and broadcast.
+-   **🎨 Stage Plot Designer:**
+    Visually construct stage layouts using a library of draggable elements including instruments, microphones, monitors, DI boxes, and risers. Clearly communicate stage needs.
+-   **🗓️ Run of Show Creator (with Show Mode):**
+    Develop detailed event timelines, cue sheets, and segment breakdowns. Utilize the "Show Mode" for real-time event tracking and execution.
+-   **📊 Production Schedule Manager:**
+    Organize and track all pre-production, setup, rehearsal, show, and strike activities. Ensure your entire team is aligned.
+-   **🚀 Smart Export System:**
+    Generate professional, high-quality PNG exports of your documents. Choose between dark or light mode to suit your presentation needs.
+-   **🤝 Collaboration Tools:**
+    Share your documents securely via unique links. Facilitate smooth communication with clients, band members, and technical crew. (Coming Soon: Real-time collaboration)
 
-### Professional Features
+## 🌟 Professional Enhancements
 
-- Customizable templates for different venue sizes
-- Auto-save functionality with version history
-- Equipment database with common audio gear presets
-- Print-friendly formatting for on-site use
-- Responsive design for mobile field use
+-   **📋 Customizable Templates:** Start quickly with pre-built templates for various event sizes and types, or create your own.
+-   **💾 Auto-Save & Version History:** Never lose your work. Documents are saved automatically, with options to revert to previous versions.
+-   **🎤 Equipment Database:** Access a pre-populated database of common audio gear, or add your own custom equipment for quick reference.
+-   **🖨️ Print-Friendly Formatting:** Optimized layouts ensure your documents look great on paper for on-site use.
+-   **📱 Responsive Design:** Access and edit your documents on the go, whether you're on a desktop, tablet, or mobile device.
 
 ## 🛠️ Tech Stack
 
 ### Frontend
-
-- **Framework**: React 18 + TypeScript
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS + CSS Modules
-- **Icons**: Lucide React
-- **State Management**: React Context API
-- **Routing**: React Router 6
-- **PDF/Image Export**: html2canvas
+-   **Framework**: React 18 with TypeScript
+-   **Build Tool**: Vite
+-   **Styling**: Tailwind CSS
+-   **Icons**: Lucide React
+-   **State Management**: React Context API / Zustand (for more complex states)
+-   **Routing**: React Router 6
+-   **Exporting**: `html2canvas` for image/PDF generation
 
 ### Backend
+-   **Authentication**: Supabase Auth
+-   **Database**: Supabase (PostgreSQL)
+-   **Real-time Features**: Supabase Realtime (for future collaborative editing)
+-   **Storage**: Supabase Storage (for user uploads, templates)
 
-- **Authentication**: Supabase Auth
-- **Database**: Supabase PostgreSQL
-- **Real-time Updates**: Supabase Realtime
-- **Storage**: Supabase Storage
-
-## 🚀 Self Host
+## 🚀 Get Started / Self-Host
 
 ### Prerequisites
+-   Node.js v18+ (LTS recommended)
+-   A Supabase account (the free tier is sufficient to get started)
 
-- Node.js v16+
-- Supabase account (free tier works)
+### Installation & Setup
+1.  **Clone the Repository:**
+    ```bash
+    git clone https://github.com/SoundDocs/sounddocs.git
+    cd sounddocs
+    ```
+2.  **Install Dependencies:**
+    ```bash
+    npm install
+    ```
+3.  **Environment Variables:**
+    Create a `.env` file in the project root and add your Supabase credentials:
+    ```env
+    VITE_SUPABASE_URL=your-supabase-project-url
+    VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+    ```
+    *You can find these in your Supabase project settings.*
+4.  **Database Migrations:**
+    Apply the necessary database schema. Navigate to the Supabase SQL Editor in your project dashboard and run the migration files located in `/supabase/migrations`.
+5.  **Start the Development Server:**
+    ```bash
+    npm run dev
+    ```
+    The application will be available at `http://localhost:5173` (or the next available port).
 
-### Installation
+## 📖 How to Use SoundDocs
 
-1. Clone the repository:
-   - git clone [https://github.com/SoundDocs/sounddocs.git](https://github.com/SoundDocs/sounddocs)
-   - cd sounddocs
-2. Install Dependancies
-   - npm install
-3. Set up environment variables in your .env file:
-   - VITE_SUPABASE_URL=your-supabase-url
-   - VITE_SUPABASE_ANON_KEY=your-supabase-key
-4. Start the development server:
-   - npm run dev
-5. Run the migration files in Supabase SQL editor
-
-## 📖 Usage
-
-- Visit https://sounddocs.org
-- Create Account
-- Sign up using email
-- New Document
-- Choose between Patch Sheet or Stage Plot
-- Build Your Setup
-- Patch Sheets: Add inputs, outputs, and technical specs
-- Stage Plots: Drag-and-drop elements on stage canvas
-- Export & Share
-- Download as PNG/PDF or generate shareable link
+1.  **Navigate** to the live application (e.g., `http://localhost:5173` if running locally, or your deployed URL).
+2.  **Create an Account / Sign In** using email and password.
+3.  From your dashboard, click **"New Document"**.
+4.  **Choose Document Type:** Select "Patch Sheet", "Stage Plot", "Run of Show", or "Production Schedule".
+5.  **Build Your Setup:**
+    -   **Patch Sheets:** Add channels, assign inputs/outputs, specify microphones, DIs, processing, and notes.
+    -   **Stage Plots:** Drag and drop elements onto the canvas. Label items, indicate positions, and specify connections.
+    -   **Run of Shows:** Define event segments, cues, timings, and responsible personnel. Use Show Mode during the event.
+    -   **Production Schedules:** Outline tasks, deadlines, and assignees for all event phases.
+6.  **Save & Export:** Your work is auto-saved. When ready, export your document as a PNG or PDF, or generate a shareable link.
 
 ## 🤝 Contributing
 
-We welcome any and all contributions! Please join our discord server before making any contributions. [discord.gg/hVk6tctuHM](https://discord.com/invite/NRcRtyxFQa)
+We welcome contributions from the community! Whether it's bug fixes, feature enhancements, or documentation improvements, your help is appreciated.
 
-### Local Development
+Please review our [Contributing Guidelines](CONTRIBUTING.md) (to be created) and Code of Conduct before submitting a pull request. Join our Discord server to discuss ideas and collaborate: [discord.gg/hVk6tctuHM](https://discord.com/invite/NRcRtyxFQa)
 
-Getting set up for local development is currently a _tad_ convoluted. There's an [issue to make it better](https://github.com/SoundDocs/sounddocs/issues/16).
-
-Assuming you're on a Mac:
-
-- Install either Docker Desktop or OrbStack if you don't have it already
-- Install Homebrew (https://brew.sh/) if you don't have it already
-- Install nvm (`brew install nvm`) if you don't have it already
-- Install Node.js LTS Iron (`nvm install --lts=iron`)
-- Clone the codebase (`git clone https://github.com/SoundDocs/sounddocs.git`)
-- `cd` into that directory
-- Ensure you're using Node.js LTS Iron (`nvm use --lts=iron`)
-- Run `npm install`
-- Start Supabase locally using `npm run local-db`
-- Start the app locally using `npm run dev`
+### Local Development Quick Start
+(Assumes macOS/Linux, adjust for Windows)
+-   Install Docker Desktop or OrbStack.
+-   Install Homebrew (macOS) or equivalent package manager.
+-   Install `nvm` (Node Version Manager).
+-   Install Node.js (latest LTS version, e.g., Iron): `nvm install --lts`
+-   Clone the repository: `git clone https://github.com/SoundDocs/sounddocs.git && cd sounddocs`
+-   Use the correct Node.js version: `nvm use`
+-   Install dependencies: `npm install`
+-   Start Supabase services locally: `npm run local-db` (if configured with Supabase CLI)
+-   Start the application: `npm run dev`
 
 ## 📄 License
 
-Distributed under the MIT License.
+This project is distributed under the MIT License. See `LICENSE` file for more information.
 
 ## 🙏 Acknowledgements
 
-- Supabase for backend services
-- Lucide for beautiful icons
-- React Draggable for stage elements
-- html2canvas for export functionality
+-   **Supabase Team** for their incredible backend-as-a-service platform.
+-   **Lucide Icons** for the clean and versatile icon set.
+-   **React Draggable & React Resizable** for interactive UI elements.
+-   **html2canvas** for the client-side export functionality.
+-   The open-source community for tools and libraries that make projects like SoundDocs possible.
