@@ -25,8 +25,11 @@ import PrintStagePlotExport from "../components/PrintStagePlotExport";
 import ExportModal from "../components/ExportModal";
 import ProductionScheduleExport from "../components/production-schedule/ProductionScheduleExport"; 
 import PrintProductionScheduleExport from "../components/production-schedule/PrintProductionScheduleExport"; 
+import RunOfShowExport from "../components/run-of-show/RunOfShowExport"; // Import RunOfShowExport
+import PrintRunOfShowExport from "../components/run-of-show/PrintRunOfShowExport"; // Import PrintRunOfShowExport
 import { ScheduleForExport, DetailedScheduleItem } from "./ProductionScheduleEditor"; 
 import { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor"; 
+import { RunOfShowItem, CustomColumnDefinition } from "./RunOfShowEditor"; // Import RunOfShow types
 import { v4 as uuidv4 } from 'uuid';
 
 // Define types for our documents
@@ -49,7 +52,6 @@ interface StagePlot {
   backgroundOpacity?: number;
 }
 
-// Updated ProductionSchedule type for summary
 interface ProductionScheduleSummary {
   id: string;
   name: string;
@@ -57,7 +59,6 @@ interface ProductionScheduleSummary {
   last_edited?: string;
 }
 
-// Type for full production schedule data fetched for export
 interface FullProductionScheduleData {
   id: string;
   name: string;
@@ -73,17 +74,28 @@ interface FullProductionScheduleData {
   set_datetime?: string;
   strike_datetime?: string;
   crew_key?: Array<{ id: string; name: string; color: string }>;
-  detailed_schedule_items?: DetailedScheduleItem[]; // Updated from schedule_items
+  detailed_schedule_items?: DetailedScheduleItem[];
   labor_schedule_items?: LaborScheduleItem[]; 
 }
 
-
-interface RunOfShow {
+interface RunOfShowSummary {
   id: string;
   name: string;
   created_at: string;
   last_edited?: string;
 }
+
+// Type for full run of show data fetched for export
+export interface FullRunOfShowData { // Export this interface if needed by AllRunOfShows directly
+  id: string;
+  name: string;
+  created_at: string;
+  last_edited?: string;
+  user_id: string;
+  items: RunOfShowItem[];
+  custom_column_definitions: CustomColumnDefinition[];
+}
+
 
 // Utility to parse date/time strings, similar to the editor
 const parseDateTime = (dateTimeStr: string | null | undefined) => {
@@ -101,7 +113,6 @@ const parseDateTime = (dateTimeStr: string | null | undefined) => {
   }
 };
 
-// Transforms raw data to the format expected by export components
 const transformToScheduleForExport = (fullSchedule: FullProductionScheduleData): ScheduleForExport => {
   const setDateTimeParts = parseDateTime(fullSchedule.set_datetime);
   const strikeDateTimeParts = parseDateTime(fullSchedule.strike_datetime);
@@ -125,7 +136,7 @@ const transformToScheduleForExport = (fullSchedule: FullProductionScheduleData):
       strike_datetime: fullSchedule.strike_datetime,
     },
     crew_key: fullSchedule.crew_key?.map(ck => ({ ...ck })) || [],
-    detailed_schedule_items: fullSchedule.detailed_schedule_items?.map(item => ({ // Updated from schedule_items
+    detailed_schedule_items: fullSchedule.detailed_schedule_items?.map(item => ({
       ...item,
       assigned_crew_ids: item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : [])
     })) || [],
@@ -141,11 +152,11 @@ const Dashboard = () => {
   const [patchLists, setPatchLists] = useState<PatchList[]>([]);
   const [stagePlots, setStagePlots] = useState<StagePlot[]>([]);
   const [productionSchedules, setProductionSchedules] = useState<ProductionScheduleSummary[]>([]);
-  const [runOfShows, setRunOfShows] = useState<RunOfShow[]>([]);
+  const [runOfShows, setRunOfShows] = useState<RunOfShowSummary[]>([]);
   
   const [recentDocuments, setRecentDocuments] = useState<PatchList[]>([]);
   
-  const [exportingItemId, setExportingItemId] = useState<string | null>(null); // Generic exporting ID
+  const [exportingItemId, setExportingItemId] = useState<string | null>(null);
 
   const [currentExportPatchSheet, setCurrentExportPatchSheet] = useState<PatchList | null>(null);
   const [showPatchSheetExportModal, setShowPatchSheetExportModal] = useState(false);
@@ -159,6 +170,10 @@ const Dashboard = () => {
   const [showProductionScheduleExportModal, setShowProductionScheduleExportModal] = useState(false);
   const [exportProductionScheduleId, setExportProductionScheduleId] = useState<string | null>(null);
 
+  const [currentExportRunOfShow, setCurrentExportRunOfShow] = useState<FullRunOfShowData | null>(null); // New state for RoS export
+  const [showRunOfShowExportModal, setShowRunOfShowExportModal] = useState(false); // New state for RoS export modal
+  const [exportRunOfShowId, setExportRunOfShowId] = useState<string | null>(null); // New state for RoS export ID
+
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<{
@@ -166,7 +181,6 @@ const Dashboard = () => {
     type: "patch" | "stage" | "schedule" | "runofshow";
     name: string;
   } | null>(null);
-  const [supabaseWarning, setSupabaseWarning] = useState(false); // This seems unused, consider removing
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
 
   const patchSheetExportRef = useRef<HTMLDivElement>(null);
@@ -175,6 +189,8 @@ const Dashboard = () => {
   const printStagePlotExportRef = useRef<HTMLDivElement>(null);
   const productionScheduleExportRef = useRef<HTMLDivElement>(null); 
   const printProductionScheduleExportRef = useRef<HTMLDivElement>(null); 
+  const runOfShowExportRef = useRef<HTMLDivElement>(null); // New ref for RoS export
+  const printRunOfShowExportRef = useRef<HTMLDivElement>(null); // New ref for RoS print export
 
   useEffect(() => {
     const checkUser = async () => {
@@ -189,7 +205,7 @@ const Dashboard = () => {
             fetchRecentDocuments(data.user.id),
             fetchStagePlots(data.user.id),
             fetchProductionSchedules(data.user.id),
-            // fetchRunOfShows(data.user.id), 
+            fetchRunOfShows(data.user.id), 
           ]);
         } else {
           navigate("/login");
@@ -248,10 +264,24 @@ const Dashboard = () => {
     }
   };
 
+  const fetchRunOfShows = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("run_of_shows")
+        .select("id, name, created_at, last_edited")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      if (data) setRunOfShows(data as RunOfShowSummary[]);
+    } catch (error) {
+      console.error("Error fetching run of shows:", error);
+    }
+  };
+
   const fetchRecentDocuments = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from("patch_sheets") // Assuming recent docs are patch sheets for now
+        .from("patch_sheets") 
         .select("id, name, created_at, last_edited")
         .eq("user_id", userId)
         .order("last_edited", { ascending: false, nullsFirst: false })
@@ -275,7 +305,7 @@ const Dashboard = () => {
   const handleCreatePatchList = () => navigate("/patch-sheet/new");
   const handleCreateStagePlot = async () => navigate("/stage-plot/new");
   const handleCreateProductionSchedule = () => navigate("/production-schedule/new");
-  const handleCreateRunOfShow = () => alert("Functionality to create Run of Show not yet implemented.");
+  const handleCreateRunOfShow = () => navigate("/run-of-show/new");
 
   const handleDeleteRequest = (id: string, type: "patch" | "stage" | "schedule" | "runofshow", name: string) => {
     setDocumentToDelete({ id, type, name });
@@ -289,6 +319,8 @@ const Dashboard = () => {
       if (documentToDelete.type === "patch") tableName = "patch_sheets";
       else if (documentToDelete.type === "stage") tableName = "stage_plots";
       else if (documentToDelete.type === "schedule") tableName = "production_schedules";
+      else if (documentToDelete.type === "runofshow") tableName = "run_of_shows";
+
 
       if (tableName) {
         const { error } = await supabase.from(tableName).delete().eq("id", documentToDelete.id);
@@ -301,9 +333,9 @@ const Dashboard = () => {
           setStagePlots(stagePlots.filter((item) => item.id !== documentToDelete.id));
         } else if (documentToDelete.type === "schedule") {
           setProductionSchedules(productionSchedules.filter((item) => item.id !== documentToDelete.id));
+        } else if (documentToDelete.type === "runofshow") {
+          setRunOfShows(runOfShows.filter((item) => item.id !== documentToDelete.id));
         }
-      } else {
-         alert(`Functionality to delete ${documentToDelete.type} not yet implemented.`);
       }
     } catch (error) {
       console.error("Error deleting document:", error);
@@ -322,10 +354,9 @@ const Dashboard = () => {
   const handleEditPatchList = (id: string) => navigate(`/patch-sheet/${id}`);
   const handleEditStagePlot = (id: string) => navigate(`/stage-plot/${id}`);
   const handleEditProductionSchedule = (id: string) => navigate(`/production-schedule/${id}`);
-  const handleEditRunOfShow = (id: string) => alert(`Edit functionality for Run of Show ${id} not yet implemented.`);
+  const handleEditRunOfShow = (id: string) => navigate(`/run-of-show/${id}`);
 
-  // Generic Export Click Handler
-  const handleExportClick = (id: string, type: 'patch' | 'stage' | 'schedule') => {
+  const handleExportClick = (id: string, type: 'patch' | 'stage' | 'schedule' | 'runofshow') => {
     if (type === 'patch') {
       setExportPatchSheetId(id);
       setShowPatchSheetExportModal(true);
@@ -335,28 +366,26 @@ const Dashboard = () => {
     } else if (type === 'schedule') {
       setExportProductionScheduleId(id);
       setShowProductionScheduleExportModal(true);
+    } else if (type === 'runofshow') {
+      setExportRunOfShowId(id); // Set ID for RoS
+      setShowRunOfShowExportModal(true); // Show RoS export modal
     }
   };
 
-  const handleExportRunOfShowClick = (runOfShow: RunOfShow) => {
-    alert(`Export functionality for Run of Show ${runOfShow.name} not yet implemented.`);
-  };
-
-  // Generic html2canvas export function
   const exportImageWithCanvas = async (
     targetRef: React.RefObject<HTMLDivElement>,
-    itemName: string, // For filename
+    itemName: string,
     fileNameSuffix: string,
     backgroundColor: string,
     font: string
   ) => {
     if (!targetRef.current) {
       console.error("Export component ref not ready.");
-      setSupabaseError("Export component not ready. Please try again."); // Using supabaseError for general errors
+      setSupabaseError("Export component not ready. Please try again.");
       return;
     }
     
-    await new Promise(resolve => setTimeout(resolve, 100)); // Ensure DOM update
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     if (document.fonts && typeof document.fonts.ready === 'function') {
       try { await document.fonts.ready; } 
@@ -389,7 +418,6 @@ const Dashboard = () => {
     }
   };
 
-  // Patch Sheet Export
   const prepareAndExecutePatchSheetExport = async (patchSheetId: string, type: 'image' | 'print') => {
     setExportingItemId(patchSheetId);
     setShowPatchSheetExportModal(false);
@@ -397,7 +425,7 @@ const Dashboard = () => {
       const { data, error } = await supabase.from("patch_sheets").select("*").eq("id", patchSheetId).single();
       if (error || !data) throw error || new Error("Patch sheet not found");
       setCurrentExportPatchSheet(data);
-      await new Promise(resolve => setTimeout(resolve, 50)); // Allow render
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       if (type === 'image') {
         await exportImageWithCanvas(patchSheetExportRef, data.name, "patch-sheet", "#111827", "Inter");
@@ -414,7 +442,6 @@ const Dashboard = () => {
     }
   };
 
-  // Stage Plot Export
   const prepareAndExecuteStagePlotExport = async (stagePlotId: string, type: 'image' | 'print') => {
     setExportingItemId(stagePlotId);
     setShowStagePlotExportModal(false);
@@ -440,7 +467,6 @@ const Dashboard = () => {
     }
   };
   
-  // Production Schedule Export
   const prepareAndExecuteProductionScheduleExport = async (scheduleId: string, type: 'image' | 'print') => {
     setExportingItemId(scheduleId);
     setShowProductionScheduleExportModal(false);
@@ -464,6 +490,39 @@ const Dashboard = () => {
       setCurrentExportProductionSchedule(null);
       setExportingItemId(null);
       setExportProductionScheduleId(null);
+    }
+  };
+
+  // New: Run of Show Export
+  const prepareAndExecuteRunOfShowExport = async (runOfShowId: string, type: 'image' | 'print') => {
+    setExportingItemId(runOfShowId);
+    setShowRunOfShowExportModal(false);
+    try {
+      const { data, error } = await supabase.from("run_of_shows").select("*").eq("id", runOfShowId).single();
+      if (error || !data) throw error || new Error("Run of Show not found");
+      
+      // Ensure items and custom_column_definitions are arrays
+      const fullData = {
+        ...data,
+        items: data.items || [],
+        custom_column_definitions: data.custom_column_definitions || [],
+      } as FullRunOfShowData;
+
+      setCurrentExportRunOfShow(fullData);
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      if (type === 'image') {
+        await exportImageWithCanvas(runOfShowExportRef, fullData.name, "run-of-show", "#0f172a", "Inter");
+      } else {
+        await exportImageWithCanvas(printRunOfShowExportRef, fullData.name, "run-of-show-print", "#ffffff", "Arial");
+      }
+    } catch (err) {
+      console.error("Error preparing Run of Show export:", err);
+      setSupabaseError("Failed to prepare Run of Show for export.");
+    } finally {
+      setCurrentExportRunOfShow(null);
+      setExportingItemId(null);
+      setExportRunOfShowId(null);
     }
   };
 
@@ -783,7 +842,7 @@ const Dashboard = () => {
                         <button
                           className="p-2 text-gray-400 hover:text-indigo-400"
                           title="Download"
-                          onClick={(e) => { e.stopPropagation(); handleExportRunOfShowClick(ros); }}
+                          onClick={(e) => { e.stopPropagation(); handleExportClick(ros.id, "runofshow"); }}
                           disabled={exportingItemId === ros.id}
                         >
                           {exportingItemId === ros.id ? <Loader className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
@@ -829,7 +888,7 @@ const Dashboard = () => {
                   </button>
                   <button
                     className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                    onClick={() => alert("View All Run of Shows - Not Implemented")}
+                    onClick={() => navigate("/all-run-of-shows")} // Updated navigation
                   >
                     <List className="h-5 w-5 mr-2" />
                     View All {runOfShows.length > 0 && `(${runOfShows.length})`}
@@ -880,6 +939,15 @@ const Dashboard = () => {
         isExporting={!!(exportingItemId && exportProductionScheduleId)}
       />
 
+      <ExportModal // New ExportModal for Run of Show
+        isOpen={showRunOfShowExportModal}
+        onClose={() => { if(!(exportingItemId && exportRunOfShowId)) setShowRunOfShowExportModal(false);}}
+        onExportImage={() => exportRunOfShowId && prepareAndExecuteRunOfShowExport(exportRunOfShowId, 'image')}
+        onExportPdf={() => exportRunOfShowId && prepareAndExecuteRunOfShowExport(exportRunOfShowId, 'print')}
+        title="Run of Show"
+        isExporting={!!(exportingItemId && exportRunOfShowId)}
+      />
+
       {currentExportPatchSheet && (
         <>
           <PatchSheetExport ref={patchSheetExportRef} patchSheet={currentExportPatchSheet} />
@@ -897,17 +965,33 @@ const Dashboard = () => {
       {currentExportProductionSchedule && (
         <>
           <ProductionScheduleExport 
-            key={`export-${currentExportProductionSchedule.id}-${currentExportProductionSchedule.last_edited || currentExportProductionSchedule.created_at}`}
+            key={`export-ps-${currentExportProductionSchedule.id}-${currentExportProductionSchedule.last_edited || currentExportProductionSchedule.created_at}`}
             ref={productionScheduleExportRef} 
             schedule={currentExportProductionSchedule} 
           />
           <PrintProductionScheduleExport 
-            key={`print-export-${currentExportProductionSchedule.id}-${currentExportProductionSchedule.last_edited || currentExportProductionSchedule.created_at}`}
+            key={`print-export-ps-${currentExportProductionSchedule.id}-${currentExportProductionSchedule.last_edited || currentExportProductionSchedule.created_at}`}
             ref={printProductionScheduleExportRef} 
             schedule={currentExportProductionSchedule} 
           />
         </>
       )}
+
+      {currentExportRunOfShow && ( // New: Render RunOfShowExport components
+        <>
+          <RunOfShowExport 
+            key={`export-ros-${currentExportRunOfShow.id}-${currentExportRunOfShow.last_edited || currentExportRunOfShow.created_at}`}
+            ref={runOfShowExportRef} 
+            schedule={currentExportRunOfShow} 
+          />
+          <PrintRunOfShowExport 
+            key={`print-export-ros-${currentExportRunOfShow.id}-${currentExportRunOfShow.last_edited || currentExportRunOfShow.created_at}`}
+            ref={printRunOfShowExportRef} 
+            schedule={currentExportRunOfShow} 
+          />
+        </>
+      )}
+
 
       {showDeleteConfirm && documentToDelete && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
@@ -922,7 +1006,7 @@ const Dashboard = () => {
                     documentToDelete.type === "patch" ? "Patch List" :
                     documentToDelete.type === "stage" ? "Stage Plot" :
                     documentToDelete.type === "schedule" ? "Production Schedule" :
-                    "Run of Show"
+                    "Run of Show" // Updated for Run of Show
                   }
                 </h3>
                 <div className="mt-2">

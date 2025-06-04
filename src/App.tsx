@@ -14,13 +14,15 @@ import StagePlotEditor from "./pages/StagePlotEditor";
 import AllStagePlots from "./pages/AllStagePlots";
 import ProductionScheduleEditor from "./pages/ProductionScheduleEditor"; 
 import AllProductionSchedules from "./pages/AllProductionSchedules"; 
+import RunOfShowEditor from "./pages/RunOfShowEditor";
+import AllRunOfShows from "./pages/AllRunOfShows"; // Import AllRunOfShows
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import SharedPatchSheet from "./pages/SharedPatchSheet";
 import SharedStagePlot from "./pages/SharedStagePlot";
 import SharedProductionSchedule from "./pages/SharedProductionSchedule";
 import ProfilePage from "./pages/ProfilePage";
-import UpdatePasswordPage from "./pages/UpdatePasswordPage"; // Import the new UpdatePasswordPage
+import UpdatePasswordPage from "./pages/UpdatePasswordPage";
 
 function App() {
   useEffect(() => {
@@ -36,7 +38,7 @@ function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/login" element={<SignIn />} />
-            <Route path="/update-password" element={<UpdatePasswordPage />} /> {/* Add route for UpdatePasswordPage */}
+            <Route path="/update-password" element={<UpdatePasswordPage />} />
             <Route
               path="/dashboard"
               element={
@@ -61,7 +63,6 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            {/* Shared Edit Route for Patch Sheets (assuming /shared/edit/ is for patch sheets) */}
             <Route path="/shared/edit/:shareCode" element={<PatchSheetEditor />} />
             <Route
               path="/all-patch-sheets"
@@ -79,7 +80,6 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            {/* Shared Edit Route for Stage Plots */}
             <Route path="/shared/stage-plot/edit/:shareCode" element={<StagePlotEditor />} />
             <Route
               path="/all-stage-plots"
@@ -89,7 +89,6 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            {/* Production Schedule Routes */}
             <Route
               path="/production-schedule/:id"
               element={
@@ -106,13 +105,27 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/run-of-show/:id"
+              element={
+                <ProtectedRoute>
+                  <RunOfShowEditor />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/all-run-of-shows" // Add route for AllRunOfShows
+              element={
+                <ProtectedRoute>
+                  <AllRunOfShows />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
 
-            {/* Shared resource view routes - Specific routes MUST come BEFORE generic ones */}
             <Route path="/shared/stage-plot/:shareCode" element={<SharedStagePlot />} />
             <Route path="/shared/production-schedule/:shareCode" element={<SharedProductionSchedule />} />
-            {/* Generic shared route (should now only catch patch sheets if stage plot route didn't match) */}
             <Route path="/shared/:shareCode" element={<SharedPatchSheet />} />
           </Routes>
         </Router>
