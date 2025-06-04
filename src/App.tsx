@@ -18,7 +18,9 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import SharedPatchSheet from "./pages/SharedPatchSheet";
 import SharedStagePlot from "./pages/SharedStagePlot";
-import SharedProductionSchedule from "./pages/SharedProductionSchedule"; // New
+import SharedProductionSchedule from "./pages/SharedProductionSchedule";
+import ProfilePage from "./pages/ProfilePage";
+import UpdatePasswordPage from "./pages/UpdatePasswordPage"; // Import the new UpdatePasswordPage
 
 function App() {
   useEffect(() => {
@@ -34,11 +36,20 @@ function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/login" element={<SignIn />} />
+            <Route path="/update-password" element={<UpdatePasswordPage />} /> {/* Add route for UpdatePasswordPage */}
             <Route
               path="/dashboard"
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
                 </ProtectedRoute>
               }
             />
@@ -100,7 +111,7 @@ function App() {
 
             {/* Shared resource view routes - Specific routes MUST come BEFORE generic ones */}
             <Route path="/shared/stage-plot/:shareCode" element={<SharedStagePlot />} />
-            <Route path="/shared/production-schedule/:shareCode" element={<SharedProductionSchedule />} /> {/* New */}
+            <Route path="/shared/production-schedule/:shareCode" element={<SharedProductionSchedule />} />
             {/* Generic shared route (should now only catch patch sheets if stage plot route didn't match) */}
             <Route path="/shared/:shareCode" element={<SharedPatchSheet />} />
           </Routes>

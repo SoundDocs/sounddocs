@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Menu, X, Bookmark, LogOut } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Menu, X, Bookmark, LogOut, User as UserIcon, Settings, ChevronDown } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
@@ -12,9 +12,11 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [user, setUser] = useState<any>(null);
   const isSharedRoute = location.pathname.includes("/shared/");
+  const profileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -47,7 +49,21 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
     };
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const handleSignOut = async () => {
+    setIsProfileMenuOpen(false);
     if (onSignOut) {
       onSignOut();
     } else {
@@ -60,16 +76,18 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
     }
     setIsMenuOpen(false);
   };
-
+  
   const goToHome = () => {
-    // If on a shared route, go to root domain
     if (isSharedRoute) {
       window.location.href = "https://sounddocs.org/";
       return;
     }
-
-    // Otherwise use normal navigation
     navigate("/");
+  };
+
+  const navigateToProfile = () => {
+    setIsProfileMenuOpen(false);
+    navigate("/profile");
   };
 
   return (
@@ -90,18 +108,38 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center space-x-8" aria-label="Main Navigation">
-          {dashboard ? (
-            <>
+          {dashboard && user ? (
+            <div className="relative" ref={profileMenuRef}>
               <button
-                onClick={handleSignOut}
+                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                 className="flex items-center text-gray-300 hover:text-white transition-colors duration-200"
+                aria-label="User menu"
+                aria-haspopup="true"
+                aria-expanded={isProfileMenuOpen}
               >
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
+                <UserIcon className="h-6 w-6 rounded-full bg-gray-700 p-1" />
+                <ChevronDown className={`h-4 w-4 ml-1 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
               </button>
-            </>
+              {isProfileMenuOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-md shadow-lg py-1 z-50 border border-gray-700">
+                  <button
+                    onClick={navigateToProfile}
+                    className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Profile
+                  </button>
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
           ) : isSharedRoute ? (
-            // For shared routes, just show a button to main site
             <a
               href="https://sounddocs.org/"
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-md font-medium transition-all duration-200"
@@ -111,13 +149,15 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
           ) : (
             <>
               <a
-                href="#features"
+                href="/#features"
+                onClick={(e) => { e.preventDefault(); navigate('/#features');}}
                 className="text-gray-300 hover:text-white transition-colors duration-200"
               >
                 Features
               </a>
               <a
-                href="#get-started"
+                href="/#get-started"
+                onClick={(e) => { e.preventDefault(); navigate('/#get-started');}}
                 className="text-gray-300 hover:text-white transition-colors duration-200"
               >
                 Get Started
@@ -163,8 +203,16 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
         <div className="md:hidden bg-gray-900 shadow-lg">
           <div className="container mx-auto px-4 py-4">
             <nav className="flex flex-col space-y-4" aria-label="Mobile Navigation">
-              {dashboard ? (
+              {dashboard && user ? (
                 <>
+                  <Link
+                    to="/profile"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center text-gray-300 hover:text-white transition-colors duration-200"
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Profile
+                  </Link>
                   <button
                     onClick={handleSignOut}
                     className="flex items-center text-gray-300 hover:text-white transition-colors duration-200"
@@ -174,7 +222,6 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
                   </button>
                 </>
               ) : isSharedRoute ? (
-                // For shared routes on mobile
                 <a
                   href="https://sounddocs.org/"
                   className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-md font-medium transition-all duration-200 text-center"
@@ -184,15 +231,15 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
               ) : (
                 <>
                   <a
-                    href="#features"
-                    onClick={() => setIsMenuOpen(false)}
+                    href="/#features"
+                    onClick={(e) => { e.preventDefault(); navigate('/#features'); setIsMenuOpen(false);}}
                     className="text-gray-300 hover:text-white transition-colors duration-200"
                   >
                     Features
                   </a>
                   <a
-                    href="#get-started"
-                    onClick={() => setIsMenuOpen(false)}
+                    href="/#get-started"
+                    onClick={(e) => { e.preventDefault(); navigate('/#get-started'); setIsMenuOpen(false);}}
                     className="text-gray-300 hover:text-white transition-colors duration-200"
                   >
                     Get Started
