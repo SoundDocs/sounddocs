@@ -152,7 +152,7 @@ const SharedProductionSchedule: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col">
         <Header />
-        <div className="flex-grow flex flex-col items-center justify-center text-center p-4">
+        <div className="flex-grow flex flex-col items-center justify-center text-center p-4 mt-24"> {/* Added mt-24 */}
           <AlertTriangle className="h-16 w-16 text-red-500 mb-4" />
           <h1 className="text-2xl font-bold text-white mb-2">Access Denied or Error</h1>
           <p className="text-lg text-red-400 mb-6">{error}</p>
@@ -172,7 +172,7 @@ const SharedProductionSchedule: React.FC = () => {
     return ( 
       <div className="min-h-screen bg-gray-900 flex flex-col">
         <Header />
-        <div className="flex-grow flex flex-col items-center justify-center text-center p-4">
+        <div className="flex-grow flex flex-col items-center justify-center text-center p-4 mt-24"> {/* Added mt-24 */}
           <AlertTriangle className="h-16 w-16 text-yellow-500 mb-4" />
           <h1 className="text-2xl font-bold text-white mb-2">Production Schedule Not Found</h1>
           <p className="text-lg text-gray-400 mb-6">The requested production schedule could not be loaded.</p>
@@ -191,7 +191,7 @@ const SharedProductionSchedule: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       <Header />
-      <main className="flex-grow container mx-auto px-2 py-8 sm:px-4">
+      <main className="flex-grow container mx-auto px-2 py-8 sm:px-4 mt-24"> {/* Added mt-24 */}
         <div className="bg-gray-800 rounded-xl shadow-2xl p-4 sm:p-6 mb-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 pb-4 border-b border-gray-700">
             <div>
