@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
-import { Bookmark, AlertCircle, Mail, CheckCircle } from "lucide-react";
+import { Bookmark, AlertCircle, Mail, CheckCircle, Zap } from "lucide-react";
 
 const SignIn = () => {
   const navigate = useNavigate();
@@ -15,10 +15,18 @@ const SignIn = () => {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const [magicLinkLoading, setMagicLinkLoading] = useState(false);
+  const [magicLinkMessage, setMagicLinkMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const clearMessages = () => {
     setError(null);
     setResetMessage(null);
+    setMagicLinkMessage(null);
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    clearMessages();
     setLoading(true);
 
     try {
@@ -42,20 +50,19 @@ const SignIn = () => {
 
   const handlePasswordResetRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    setResetMessage(null);
-    setError(null);
+    clearMessages();
     setResetLoading(true);
 
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/update-password`, // You'll need to create this route/page later
+        redirectTo: `${window.location.origin}/update-password`,
       });
 
       if (resetError) {
         setResetMessage({ type: "error", text: resetError.message });
       } else {
         setResetMessage({ type: "success", text: "Password reset instructions sent to your email." });
-        setResetEmail(""); // Clear the email field on success
+        setResetEmail("");
       }
     } catch (err) {
       setResetMessage({ type: "error", text: "An unexpected error occurred. Please try again." });
@@ -64,6 +71,36 @@ const SignIn = () => {
       setResetLoading(false);
     }
   };
+
+  const handleMagicLinkSignIn = async () => {
+    if (!email) {
+      setMagicLinkMessage({ type: "error", text: "Please enter your email address first." });
+      return;
+    }
+    clearMessages();
+    setMagicLinkLoading(true);
+
+    try {
+      const { error: magicLinkError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`, // Redirect to dashboard after magic link login
+        },
+      });
+
+      if (magicLinkError) {
+        setMagicLinkMessage({ type: "error", text: magicLinkError.message });
+      } else {
+        setMagicLinkMessage({ type: "success", text: "Magic link sent! Check your email to log in." });
+      }
+    } catch (err) {
+      setMagicLinkMessage({ type: "error", text: "An unexpected error occurred. Please try again." });
+      console.error(err);
+    } finally {
+      setMagicLinkLoading(false);
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4 py-12">
@@ -86,10 +123,28 @@ const SignIn = () => {
                     <p className="text-red-400">{error}</p>
                   </div>
                 )}
-                 {resetMessage && resetMessage.type === 'success' && ( // Show success message from password reset if user navigates back
+                {resetMessage && resetMessage.type === 'success' && (
                   <div className="bg-green-400/10 border border-green-400 rounded-lg p-4 flex items-start">
                     <CheckCircle className="h-5 w-5 text-green-400 mr-3 mt-0.5 flex-shrink-0" />
                     <p className="text-green-400">{resetMessage.text}</p>
+                  </div>
+                )}
+                {magicLinkMessage && (
+                  <div
+                    className={`rounded-lg p-4 flex items-start ${
+                      magicLinkMessage.type === "success"
+                        ? "bg-green-400/10 border border-green-400"
+                        : "bg-red-400/10 border border-red-400"
+                    }`}
+                  >
+                    {magicLinkMessage.type === "success" ? (
+                      <CheckCircle className="h-5 w-5 text-green-400 mr-3 mt-0.5 flex-shrink-0" />
+                    ) : (
+                      <AlertCircle className="h-5 w-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
+                    )}
+                    <p className={magicLinkMessage.type === "success" ? "text-green-400" : "text-red-400"}>
+                      {magicLinkMessage.text}
+                    </p>
                   </div>
                 )}
 
@@ -119,7 +174,6 @@ const SignIn = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                     placeholder="••••••••"
-                    required
                   />
                 </div>
 
@@ -128,8 +182,7 @@ const SignIn = () => {
                     type="button"
                     onClick={() => {
                       setIsResettingPassword(true);
-                      setError(null);
-                      setResetMessage(null); // Clear previous reset messages
+                      clearMessages();
                     }}
                     className="text-sm text-indigo-400 hover:text-indigo-300 focus:outline-none"
                   >
@@ -139,11 +192,28 @@ const SignIn = () => {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || magicLinkLoading}
                   className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  {loading ? "Logging in..." : "Log In"}
+                  {loading ? "Logging in..." : "Log In with Password"}
                 </button>
+
+                <div className="relative flex py-2 items-center">
+                    <div className="flex-grow border-t border-gray-600"></div>
+                    <span className="flex-shrink mx-4 text-gray-400 text-sm">OR</span>
+                    <div className="flex-grow border-t border-gray-600"></div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleMagicLinkSignIn}
+                  disabled={magicLinkLoading || loading}
+                  className="w-full bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-md font-medium transition-all duration-200 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  <Zap className="h-5 w-5 mr-2" />
+                  {magicLinkLoading ? "Sending Link..." : "Send Magic Link"}
+                </button>
+
               </form>
             </>
           ) : (
@@ -202,8 +272,7 @@ const SignIn = () => {
                     type="button"
                     onClick={() => {
                       setIsResettingPassword(false);
-                      setResetMessage(null); // Clear reset messages when going back
-                      setError(null);
+                      clearMessages();
                     }}
                     className="text-sm text-indigo-400 hover:text-indigo-300 focus:outline-none"
                   >
