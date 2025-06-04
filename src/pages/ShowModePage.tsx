@@ -384,14 +384,24 @@ import React, { useState, useEffect, useCallback } from 'react';
           
           <main className={`flex-grow flex flex-col ${isFullscreen ? 'p-1 sm:p-2 md:p-4' : 'p-4 md:p-8 container mx-auto mt-16 md:mt-12'}`}>
             {!isFullscreen && (
-              <div className="mb-4 flex justify-start">
+              <div className="mb-4 flex flex-col sm:flex-row justify-between items-start">
                 <button
                   onClick={() => navigate(`/run-of-show/${id}`)}
-                  className="inline-flex items-center text-indigo-400 hover:text-indigo-300 px-3 py-1.5 rounded-md text-sm font-medium transition-colors group bg-gray-800 hover:bg-gray-700"
+                  className="inline-flex items-center text-indigo-400 hover:text-indigo-300 px-3 py-1.5 rounded-md text-sm font-medium transition-colors group bg-gray-800 hover:bg-gray-700 mb-2 sm:mb-0"
                 >
                   <ArrowLeft className="h-4 w-4 mr-2 text-indigo-500 group-hover:text-indigo-400 transition-colors" />
                   Back to Editor
                 </button>
+                <div className="text-xs text-gray-400 bg-gray-800 p-2 rounded-md">
+                  <div className="flex items-center mb-1">
+                    <span className="h-3 w-3 rounded-full bg-green-500 mr-2 border border-green-300"></span>
+                    <span>Current Cue</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="h-3 w-3 rounded-full bg-red-500 mr-2 border border-red-300"></span>
+                    <span>Next Cue</span>
+                  </div>
+                </div>
               </div>
             )}
             
