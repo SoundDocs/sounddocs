@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { Loader, ArrowLeft, Save, Plus, Trash2, Settings, Play, Edit3, Check, X } from "lucide-react";
+import { Loader, ArrowLeft, Save, Plus, Trash2, Edit3, Check, X, FileText } from "lucide-react"; // Added FileText for Add Header
 import { v4 as uuidv4 } from "uuid";
 import MobileScreenWarning from "../components/MobileScreenWarning";
 import { useScreenSize } from "../hooks/useScreenSize";
@@ -11,22 +11,28 @@ import { useScreenSize } from "../hooks/useScreenSize";
 // Interfaces
 export interface RunOfShowItem {
   id: string;
-  itemNumber: string; // User-facing item number (e.g., "1", "1.1", "A")
-  startTime: string; // e.g., "10:00:00" or "T+00:05:00"
-  preset: string;
-  duration: string; // e.g., "05:30" for minutes and seconds
-  privateNotes: string;
-  productionNotes: string;
-  audio: string;
-  video: string;
-  lights: string;
+  type: 'item' | 'header'; // To distinguish between regular items and headers
+  itemNumber: string; 
+  startTime: string; 
+  
+  // Fields for type 'header'
+  headerTitle?: string;
+
+  // Fields for type 'item'
+  preset?: string;
+  duration?: string; 
+  privateNotes?: string;
+  productionNotes?: string;
+  audio?: string;
+  video?: string;
+  lights?: string;
   [customKey: string]: any; // For custom columns
 }
 
 export interface CustomColumnDefinition {
-  id: string;
+  id:string;
   name: string;
-  type: "text" | "number" | "time"; // Example types
+  type: "text" | "number" | "time"; 
 }
 
 interface RunOfShowData {
@@ -79,13 +85,18 @@ const RunOfShowEditor: React.FC = () => {
 
         if (error) throw error;
         if (data) {
+          // Ensure items have a 'type' field, defaulting to 'item' for older data
+          const migratedItems = (data.items || []).map((item: any) => ({
+            ...item,
+            type: item.type || 'item',
+          }));
           setRunOfShow({
             ...data,
-            items: data.items || [],
+            items: migratedItems,
             custom_column_definitions: data.custom_column_definitions || [],
           });
         } else {
-          navigate("/dashboard"); // Not found or not authorized
+          navigate("/dashboard"); 
         }
       } catch (error) {
         console.error("Error fetching run of show:", error);
@@ -118,24 +129,27 @@ const RunOfShowEditor: React.FC = () => {
     }
   };
 
-  const handleAddItem = () => {
+  const handleAddItem = (type: 'item' | 'header' = 'item') => {
     if (runOfShow) {
       const newItem: RunOfShowItem = {
         id: uuidv4(),
-        itemNumber: (runOfShow.items.length + 1).toString(),
+        type: type,
+        itemNumber: type === 'item' ? (runOfShow.items.filter(i => i.type === 'item').length + 1).toString() : "", // Auto-number items, headers can be manual
         startTime: "",
-        preset: "",
-        duration: "", // Initialize duration as empty string
-        privateNotes: "",
-        productionNotes: "",
-        audio: "",
-        video: "",
-        lights: "",
+        headerTitle: type === 'header' ? "New Section Header" : undefined,
+        preset: type === 'item' ? "" : undefined,
+        duration: type === 'item' ? "" : undefined,
+        privateNotes: type === 'item' ? "" : undefined,
+        productionNotes: type === 'item' ? "" : undefined,
+        audio: type === 'item' ? "" : undefined,
+        video: type === 'item' ? "" : undefined,
+        lights: type === 'item' ? "" : undefined,
       };
-      // Initialize custom columns with default empty string
-      runOfShow.custom_column_definitions.forEach(col => {
-        newItem[col.name] = "";
-      });
+      if (type === 'item') {
+        runOfShow.custom_column_definitions.forEach(col => {
+          newItem[col.name] = "";
+        });
+      }
       setRunOfShow({ ...runOfShow, items: [...runOfShow.items, newItem] });
     }
   };
@@ -165,23 +179,20 @@ const RunOfShowEditor: React.FC = () => {
       const newColumn: CustomColumnDefinition = {
         id: uuidv4(),
         name: newColumnName.trim(),
-        type: "text", // Default type, can be expanded
+        type: "text", 
       };
-      // Add new column to definitions
       const updatedDefinitions = [...runOfShow.custom_column_definitions, newColumn];
-      // Add new property to all existing items
-      const updatedItems = runOfShow.items.map(item => ({
-        ...item,
-        [newColumn.name]: "", // Initialize with empty string
-      }));
+      const updatedItems = runOfShow.items.map(item => 
+        item.type === 'item' ? { ...item, [newColumn.name]: "" } : item
+      );
 
       setRunOfShow({
         ...runOfShow,
         custom_column_definitions: updatedDefinitions,
         items: updatedItems,
       });
-      setNewColumnName(""); // Reset input
-      setEditingColumnId(null); // Close input
+      setNewColumnName(""); 
+      setEditingColumnId(null); 
     }
   };
   
@@ -195,6 +206,7 @@ const RunOfShowEditor: React.FC = () => {
         col.id === columnId ? { ...col, name: newName.trim() } : col
       );
       const updatedItems = runOfShow.items.map(item => {
+        if (item.type === 'header') return item; // Skip headers for this property rename
         const { [oldName]: value, ...rest } = item;
         return { ...rest, [newName.trim()]: value };
       });
@@ -217,7 +229,8 @@ const RunOfShowEditor: React.FC = () => {
         (col) => col.id !== columnId
       );
       const updatedItems = runOfShow.items.map((item) => {
-        const { [columnToDelete.name]: _, ...rest } = item; // Remove property from items
+        if (item.type === 'header') return item; // Skip headers
+        const { [columnToDelete.name]: _, ...rest } = item; 
         return rest;
       });
       setRunOfShow({
@@ -236,7 +249,10 @@ const RunOfShowEditor: React.FC = () => {
 
     const dataToSave: Omit<RunOfShowData, 'id' | 'user_id' | 'created_at'> & { user_id: string, last_edited: string, id?: string, created_at?: string } = {
       name: runOfShow.name,
-      items: runOfShow.items,
+      items: runOfShow.items.map(item => ({ // Ensure all items have a type
+        ...item,
+        type: item.type || 'item'
+      })),
       custom_column_definitions: runOfShow.custom_column_definitions,
       user_id: user.id,
       last_edited: new Date().toISOString(),
@@ -266,9 +282,13 @@ const RunOfShowEditor: React.FC = () => {
       }
       
       if (savedData) {
+        const migratedItems = (savedData.items || []).map((item: any) => ({
+            ...item,
+            type: item.type || 'item',
+        }));
         setRunOfShow({
             ...savedData,
-            items: savedData.items || [],
+            items: migratedItems,
             custom_column_definitions: savedData.custom_column_definitions || [],
         });
       }
@@ -292,11 +312,11 @@ const RunOfShowEditor: React.FC = () => {
     );
   }
 
-  const defaultColumns: { key: keyof RunOfShowItem | string; label: string; type?: string }[] = [
+  const defaultColumns: { key: keyof RunOfShowItem | string; label: string; type?: string, headerColSpan?: number }[] = [
     { key: "itemNumber", label: "Item" },
     { key: "startTime", label: "Start", type: "time" },
-    { key: "preset", label: "Preset" },
-    { key: "duration", label: "Duration", type: "text" }, // Changed type to "text"
+    { key: "preset", label: "Preset / Header Title", headerColSpan: 5 }, // Header title will use this, spanning 5 columns
+    { key: "duration", label: "Duration", type: "text" }, 
     { key: "privateNotes", label: "Private Notes" },
     { key: "productionNotes", label: "Production Notes" },
     { key: "audio", label: "Audio" },
@@ -304,7 +324,7 @@ const RunOfShowEditor: React.FC = () => {
     { key: "lights", label: "Lights" },
   ];
 
-  const allColumns = [
+  const allDisplayColumns = [
     ...defaultColumns,
     ...runOfShow.custom_column_definitions.map(col => ({ key: col.name, label: col.name, id: col.id, isCustom: true, type: col.type || "text" }))
   ];
@@ -345,13 +365,13 @@ const RunOfShowEditor: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2 fixed bottom-4 right-4 z-20 md:static md:z-auto sm:ml-auto flex-shrink-0">
-            <button
+            {/* <button
               onClick={() => alert("Show Mode - Not Implemented")}
               className="inline-flex items-center bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-4 py-2 rounded-md font-medium transition-all duration-200 shadow-lg md:shadow-none"
             >
               <Play className="h-4 w-4 mr-2" />
               Show Mode
-            </button>
+            </button> */}
             <button
               onClick={handleSave}
               disabled={saving}
@@ -375,25 +395,34 @@ const RunOfShowEditor: React.FC = () => {
 
         <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden">
           <div className="p-4 md:p-6 border-b border-gray-700 flex justify-between items-center">
-            <h2 className="text-lg font-medium text-white">Show Items</h2>
-            <button
-              onClick={handleAddItem}
-              className="inline-flex items-center bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              Add Item
-            </button>
+            <h2 className="text-lg font-medium text-white">Show Content</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleAddItem('header')}
+                className="inline-flex items-center bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+              >
+                <FileText className="h-4 w-4 mr-1.5" /> 
+                Add Header
+              </button>
+              <button
+                onClick={() => handleAddItem('item')}
+                className="inline-flex items-center bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                Add Item
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto pb-4">
             <table className="min-w-full divide-y divide-gray-700">
               <thead className="bg-gray-700/50 sticky top-0 z-10">
                 <tr>
-                  {allColumns.map((col, index) => (
+                  {allDisplayColumns.map((col, index) => (
                     <th
                       key={col.key || col.id}
                       scope="col"
-                      className={`py-3 px-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap ${index === 0 ? 'pl-4 md:pl-6' : ''} ${index === allColumns.length -1 ? 'pr-4 md:pr-6' : ''}`}
+                      className={`py-3 px-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap ${index === 0 ? 'pl-4 md:pl-6' : ''} ${index === allDisplayColumns.length -1 ? 'pr-4 md:pr-6' : ''}`}
                       style={{ minWidth: col.key === 'itemNumber' ? '80px' : col.key === 'privateNotes' || col.key === 'productionNotes' ? '250px' : '150px' }}
                     >
                       <div className="flex items-center">
@@ -460,35 +489,96 @@ const RunOfShowEditor: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-gray-800 divide-y divide-gray-700">
-                {runOfShow.items.map((item, itemIndex) => (
-                  <tr key={item.id} className="hover:bg-gray-700/50 transition-colors">
-                    {allColumns.map((col, colIndex) => (
-                      <td key={col.key || col.id} className={`px-3 py-2 whitespace-nowrap text-sm text-gray-200 ${colIndex === 0 ? 'pl-4 md:pl-6' : ''}`}>
-                        <input
-                          type={col.key === 'duration' ? 'text' : (col.type || "text")}
-                          value={item[col.key as keyof RunOfShowItem] || ""}
-                          onChange={(e) => handleItemChange(item.id, col.key as keyof RunOfShowItem, e.target.value)}
-                          className="bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-500"
-                          placeholder={col.key === 'duration' ? 'mm:ss' : col.label}
-                        />
+                {runOfShow.items.map((item) => {
+                  if (item.type === 'header') {
+                    return (
+                      <tr key={item.id} className="bg-gray-700/70 hover:bg-gray-600/70 transition-colors">
+                        {/* Item Number for Header */}
+                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-200 pl-4 md:pl-6">
+                          <input
+                            type="text"
+                            value={item.itemNumber}
+                            onChange={(e) => handleItemChange(item.id, "itemNumber", e.target.value)}
+                            className="bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-500 font-semibold"
+                            placeholder="No."
+                          />
+                        </td>
+                        {/* Start Time for Header */}
+                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-200">
+                          <input
+                            type="time"
+                            step="1"
+                            value={item.startTime}
+                            onChange={(e) => handleItemChange(item.id, "startTime", e.target.value)}
+                            className="bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-500 font-semibold"
+                          />
+                        </td>
+                        {/* Header Title (spans multiple columns) */}
+                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-100" colSpan={defaultColumns.find(c => c.key === 'preset')?.headerColSpan || 5}>
+                          <input
+                            type="text"
+                            value={item.headerTitle || ""}
+                            onChange={(e) => handleItemChange(item.id, "headerTitle", e.target.value)}
+                            className="bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-400 text-lg font-bold"
+                            placeholder="Section Header Title"
+                          />
+                        </td>
+                        {/* Empty cells for remaining default columns that were spanned */}
+                        {Array(defaultColumns.length - 3 - (defaultColumns.find(c => c.key === 'preset')?.headerColSpan || 5 > 1 ? 0 : (defaultColumns.find(c => c.key === 'preset')?.headerColSpan || 1) -1 )).fill(null).map((_, i) => (
+                           <td key={`empty-default-${i}`} className="px-3 py-2 text-xs text-gray-500 italic"></td>
+                        ))}
+
+
+                        {/* Empty cells for custom columns */}
+                        {runOfShow.custom_column_definitions.map(cc => (
+                          <td key={cc.id} className="px-3 py-2 text-xs text-gray-500 italic">N/A</td>
+                        ))}
+                        {/* Empty cell for Add Column button space */}
+                        <td className="px-3 py-2"></td>
+                        {/* Action Button */}
+                        <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6">
+                          <button
+                            onClick={() => handleDeleteItem(item.id)}
+                            className="text-red-400 hover:text-red-300 p-1"
+                            title="Delete Header"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  }
+                  // Regular Item Row
+                  return (
+                    <tr key={item.id} className="hover:bg-gray-700/50 transition-colors">
+                      {allDisplayColumns.map((col, colIndex) => (
+                        <td key={col.key || col.id} className={`px-3 py-2 whitespace-nowrap text-sm text-gray-200 ${colIndex === 0 ? 'pl-4 md:pl-6' : ''}`}>
+                          <input
+                            type={col.key === 'duration' ? 'text' : (col.type || "text")}
+                            value={item[col.key as keyof RunOfShowItem] || ""}
+                            onChange={(e) => handleItemChange(item.id, col.key as keyof RunOfShowItem, e.target.value)}
+                            className="bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-500"
+                            placeholder={col.key === 'duration' ? 'mm:ss' : col.label}
+                          />
+                        </td>
+                      ))}
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-200"></td> {/* Cell for Add Column button */}
+                      <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6">
+                        <button
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="text-red-400 hover:text-red-300 p-1"
+                          title="Delete Item"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </td>
-                    ))}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-200"></td> {/* Cell for Add Column button */}
-                    <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6">
-                      <button
-                        onClick={() => handleDeleteItem(item.id)}
-                        className="text-red-400 hover:text-red-300 p-1"
-                        title="Delete Item"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                    </tr>
+                  );
+                })}
                 {runOfShow.items.length === 0 && (
                     <tr>
-                        <td colSpan={allColumns.length + 2} className="text-center py-8 text-gray-400">
-                            No items yet. Click "Add Item" to get started.
+                        <td colSpan={allDisplayColumns.length + 2} className="text-center py-8 text-gray-400">
+                            No content yet. Click "Add Item" or "Add Header" to get started.
                         </td>
                     </tr>
                 )}

@@ -1,14 +1,14 @@
 import React, { forwardRef } from "react";
 import { FullRunOfShowData } from "../../pages/AllRunOfShows";
 import { RunOfShowItem } from "../../pages/RunOfShowEditor";
-import { Bookmark, Clock } from "lucide-react"; // Import icons for branding
+import { Bookmark, Clock } from "lucide-react"; 
 
 interface RunOfShowExportProps {
   schedule: FullRunOfShowData;
 }
 
 const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ schedule }, ref) => {
-  const defaultColumns: { key: keyof RunOfShowItem | string; label: string }[] = [
+  const defaultColumnsConfig: { key: keyof RunOfShowItem | string; label: string }[] = [
     { key: "itemNumber", label: "Item #" },
     { key: "startTime", label: "Start Time" },
     { key: "preset", label: "Preset / Scene" },
@@ -20,8 +20,8 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
     { key: "lights", label: "Lighting Cues" },
   ];
 
-  const allColumns = [
-    ...defaultColumns,
+  const allTableColumns = [
+    ...defaultColumnsConfig,
     ...(schedule.custom_column_definitions || []).map(col => ({ key: col.name, label: col.name }))
   ];
 
@@ -41,12 +41,12 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
       ref={ref} 
       className="export-wrapper text-white p-8 rounded-lg shadow-xl"
       style={{ 
-        width: '1600px', // Increased width for better table layout
+        width: '1600px', 
         fontFamily: 'Inter, sans-serif',
         background: "linear-gradient(to bottom, #111827, #0f172a)",
         boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
-        position: "absolute", // Keep off-screen for html2canvas
-        left: "-9999px",      // Keep off-screen for html2canvas
+        position: "absolute", 
+        left: "-9999px",      
       }}
     >
       <style>
@@ -57,57 +57,72 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
           .export-wrapper table { 
             border-collapse: collapse; 
             width: 100%; 
-            margin-top: 1.5rem; /* 24px */
+            margin-top: 1.5rem; 
           }
           .export-wrapper th, .export-wrapper td { 
-            border: 1px solid rgba(55, 65, 81, 0.7); /* border-gray-700/70 */
-            padding: 0.75rem 1rem; /* 12px 16px */
+            border: 1px solid rgba(55, 65, 81, 0.7); 
+            padding: 0.75rem 1rem; 
             text-align: left; 
-            font-size: 0.875rem; /* 14px */
-            line-height: 1.25rem; /* 20px */
+            font-size: 0.875rem; 
+            line-height: 1.25rem; 
             vertical-align: top; 
             word-break: break-word; 
           }
           .export-wrapper th { 
-            background: linear-gradient(to right, #2d3748, #1e293b); /* Darker header */
-            color: #cbd5e1; /* text-gray-300 */
+            background: linear-gradient(to right, #2d3748, #1e293b); 
+            color: #cbd5e1; 
             font-weight: 600; 
-            border-bottom: 2px solid rgba(99, 102, 241, 0.4); /* Indigo accent */
+            border-bottom: 2px solid rgba(99, 102, 241, 0.4); 
           }
-          .export-wrapper tbody tr:nth-child(odd) td { 
-            background-color: rgba(31, 41, 55, 0.7); /* bg-gray-800/70 */
+          .export-wrapper tbody tr:nth-child(odd) td:not(.header-cell) { 
+            background-color: rgba(31, 41, 55, 0.7); 
           }
-          .export-wrapper tbody tr:nth-child(even) td { 
-            background-color: rgba(45, 55, 72, 0.4); /* bg-gray-700/40 */
+          .export-wrapper tbody tr:nth-child(even) td:not(.header-cell) { 
+            background-color: rgba(45, 55, 72, 0.4); 
           }
           .export-wrapper td { 
-            color: #e2e8f0; /* text-gray-200 */
+            color: #e2e8f0; 
+          }
+          .export-wrapper .header-row td.header-cell {
+            background: linear-gradient(to right, #374151, #1f2937); /* Slightly different gradient for header rows */
+            color: #f3f4f6; /* Lighter text for header */
+            font-size: 1.125rem; /* Larger font for header */
+            font-weight: 600;
+            padding: 1rem 1rem;
+            border-left: 4px solid #6366f1; /* Indigo accent line */
+          }
+          .export-wrapper .header-row td.header-cell-meta {
+             background: linear-gradient(to right, #374151, #1f2937);
+             color: #d1d5db;
+             font-size: 0.875rem;
+             padding: 1rem 1rem;
+             text-align: right;
+             border-left: none;
           }
           .export-wrapper h1 { 
-            font-size: 1.875rem; /* 30px */
+            font-size: 1.875rem; 
             font-weight: 700; 
-            margin-bottom: 0.5rem; /* 8px */
-            color: #f1f5f9; /* text-gray-100 */
+            margin-bottom: 0.5rem; 
+            color: #f1f5f9; 
           }
           .export-wrapper .header-info p { 
-            margin-bottom: 0.25rem; /* 4px */
-            font-size: 0.875rem; /* 14px */
-            color: #94a3b8; /* text-gray-400 */
+            margin-bottom: 0.25rem; 
+            font-size: 0.875rem; 
+            color: #94a3b8; 
           }
           .export-wrapper .header-info strong { 
-            color: #cbd5e1; /* text-gray-300 */
+            color: #cbd5e1; 
             font-weight: 500;
           }
           .export-wrapper .empty-row td {
             text-align: center;
-            padding: 2rem; /* 32px */
-            color: #9ca3af; /* text-gray-400 */
+            padding: 2rem; 
+            color: #9ca3af; 
             font-style: italic;
           }
         `}
       </style>
 
-      {/* Header with enhanced branding */}
       <div
         className="flex justify-between items-center mb-8 pb-6 relative overflow-hidden"
         style={{
@@ -150,24 +165,38 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
       <table>
         <thead>
           <tr>
-            {allColumns.map(col => (
+            {allTableColumns.map(col => (
               <th key={col.key}>{col.label}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {(schedule.items || []).map((item, index) => (
-            <tr key={item.id || `item-${index}`}>
-              {allColumns.map(col => (
-                <td key={`${item.id || `item-${index}`}-${col.key}`}>
-                  {String(item[col.key as keyof RunOfShowItem] || '')}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {(schedule.items || []).map((item, index) => {
+            const currentItem = item as RunOfShowItem; // Cast to ensure 'type' and 'headerTitle' are accessible
+            if (currentItem.type === 'header') {
+              return (
+                <tr key={currentItem.id || `item-${index}`} className="header-row">
+                  <td className="header-cell-meta">{currentItem.itemNumber || ''}</td>
+                  <td className="header-cell-meta">{currentItem.startTime || ''}</td>
+                  <td colSpan={allTableColumns.length - 2} className="header-cell">
+                    {currentItem.headerTitle || "Section Header"}
+                  </td>
+                </tr>
+              );
+            }
+            return (
+              <tr key={currentItem.id || `item-${index}`}>
+                {allTableColumns.map(col => (
+                  <td key={`${currentItem.id || `item-${index}`}-${col.key}`}>
+                    {String(currentItem[col.key as keyof RunOfShowItem] || '')}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
           {(schedule.items || []).length === 0 && (
             <tr className="empty-row">
-              <td colSpan={allColumns.length}>
+              <td colSpan={allTableColumns.length}>
                 No items in this run of show.
               </td>
             </tr>
@@ -175,7 +204,6 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
         </tbody>
       </table>
 
-      {/* Footer with enhanced branding */}
       <div className="relative mt-12 pt-6 overflow-hidden">
         <div
           style={{

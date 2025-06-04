@@ -1,14 +1,13 @@
 import React, { forwardRef } from "react";
 import { FullRunOfShowData } from "../../pages/AllRunOfShows";
 import { RunOfShowItem } from "../../pages/RunOfShowEditor";
-import { FileText, Calendar } from "lucide-react"; // Icons for branding
 
 interface PrintRunOfShowExportProps {
   schedule: FullRunOfShowData;
 }
 
 const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProps>(({ schedule }, ref) => {
-  const defaultColumns: { key: keyof RunOfShowItem | string; label: string }[] = [
+  const defaultColumnsConfig: { key: keyof RunOfShowItem | string; label: string }[] = [
     { key: "itemNumber", label: "Item #" },
     { key: "startTime", label: "Start Time" },
     { key: "preset", label: "Preset / Scene" },
@@ -20,8 +19,8 @@ const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProp
     { key: "lights", label: "Lighting Cues" },
   ];
 
-  const allColumns = [
-    ...defaultColumns,
+  const allTableColumns = [
+    ...defaultColumnsConfig,
     ...(schedule.custom_column_definitions || []).map(col => ({ key: col.name, label: col.name }))
   ];
 
@@ -36,10 +35,10 @@ const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProp
       ref={ref} 
       className="p-8 bg-white text-black" 
       style={{ 
-        width: '1100px', // Standard width for landscape A4 or Letter
+        width: '1100px', 
         fontFamily: 'Arial, sans-serif',
-        position: "absolute", // Keep off-screen for html2canvas/printing
-        left: "-9999px",      // Keep off-screen for html2canvas/printing
+        position: "absolute", 
+        left: "-9999px",      
       }}
     >
       <style>
@@ -57,13 +56,28 @@ const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProp
             word-break: break-word; 
           }
           .print-export-table th { 
-            background-color: #e9ecef; /* Lighter gray for print */
-            color: #212529; /* Darker text for contrast */
+            background-color: #e9ecef; 
+            color: #212529; 
             font-weight: bold; 
           }
           .print-export-table td { 
             background-color: #fff; 
             color: #000; 
+          }
+          .print-export-table .header-row td.header-cell {
+            background-color: #f8f9fa; /* Very light gray for header section */
+            color: #000;
+            font-size: 12pt;
+            font-weight: bold;
+            padding: 10px 10px;
+            border-left: 3px solid #6c757d; /* Darker gray accent */
+          }
+           .print-export-table .header-row td.header-cell-meta {
+            background-color: #f8f9fa;
+            color: #333;
+            font-size: 10pt;
+            font-weight: normal;
+            text-align: left;
           }
           .print-export-header h1 { 
             font-size: 24pt; 
@@ -75,12 +89,6 @@ const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProp
             font-size: 11pt; 
             color: #555; 
             margin: 4px 0 0 0;
-          }
-          .print-export-subheader h2 {
-            font-size: 18pt;
-            font-weight: bold;
-            margin: 0 0 10px 0;
-            color: #000;
           }
           .print-export-info p { 
             margin-bottom: 4px; 
@@ -109,7 +117,6 @@ const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProp
         `}
       </style>
 
-      {/* Branded Header */}
       <div className="print-export-header" style={{ borderBottom: "2px solid #ccc", paddingBottom: "15px", marginBottom: "25px", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div>
           <h1>SoundDocs</h1>
@@ -120,34 +127,46 @@ const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProp
         </div>
       </div>
       
-      {/* Document Info */}
       <div className="print-export-info" style={{ marginBottom: "20px" }}>
         <p><strong>Created:</strong> {formatDate(schedule.created_at, { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
         {schedule.last_edited && <p><strong>Last Edited:</strong> {formatDate(schedule.last_edited, { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>}
       </div>
 
-
       <table className="print-export-table">
         <thead>
           <tr>
-            {allColumns.map(col => (
+            {allTableColumns.map(col => (
               <th key={col.key}>{col.label}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {(schedule.items || []).map((item, index) => (
-            <tr key={item.id || `item-${index}`}>
-              {allColumns.map(col => (
-                <td key={`${item.id || `item-${index}`}-${col.key}`}>
-                  {String(item[col.key as keyof RunOfShowItem] || '')}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {(schedule.items || []).map((item, index) => {
+            const currentItem = item as RunOfShowItem; // Cast to ensure 'type' and 'headerTitle' are accessible
+             if (currentItem.type === 'header') {
+              return (
+                <tr key={currentItem.id || `item-${index}`} className="header-row">
+                  <td className="header-cell-meta">{currentItem.itemNumber || ''}</td>
+                  <td className="header-cell-meta">{currentItem.startTime || ''}</td>
+                  <td colSpan={allTableColumns.length - 2} className="header-cell">
+                    {currentItem.headerTitle || "Section Header"}
+                  </td>
+                </tr>
+              );
+            }
+            return (
+              <tr key={currentItem.id || `item-${index}`}>
+                {allTableColumns.map(col => (
+                  <td key={`${currentItem.id || `item-${index}`}-${col.key}`}>
+                    {String(currentItem[col.key as keyof RunOfShowItem] || '')}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
           {(schedule.items || []).length === 0 && (
             <tr className="print-export-empty-row">
-              <td colSpan={allColumns.length}>
+              <td colSpan={allTableColumns.length}>
                 No items in this run of show.
               </td>
             </tr>
@@ -155,7 +174,6 @@ const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProp
         </tbody>
       </table>
 
-      {/* Branded Footer */}
       <div className="print-export-footer">
         <span>SoundDocs | Professional Audio Documentation</span>
         <span>Generated on {formatDate(new Date().toISOString(), { month: 'long', day: 'numeric', year: 'numeric' })}</span>
