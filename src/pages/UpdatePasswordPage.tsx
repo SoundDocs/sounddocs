@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { Lock, AlertCircle, CheckCircle, Eye, EyeOff, Bookmark } from "lucide-react";
-import { Session } from "@supabase/supabase-js";
+import { Session, AuthSubscription } from "@supabase/supabase-js";
 
 const UpdatePasswordPage: React.FC = () => {
   const navigate = useNavigate();
@@ -16,69 +16,47 @@ const UpdatePasswordPage: React.FC = () => {
   const [checkingToken, setCheckingToken] = useState(true);
 
   useEffect(() => {
-    // Supabase handles the token from the URL fragment automatically when the page loads.
-    // We listen for the PASSWORD_RECOVERY event to confirm the token was processed.
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    let authSubscription: AuthSubscription | null = null;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      authSubscription = subscription; // Store the subscription
       if (event === "PASSWORD_RECOVERY") {
-        setSession(session); // Session is now active for password update
+        setSession(session);
         setCheckingToken(false);
         setMessage({type: "success", text: "You can now update your password."});
       } else if (event === "SIGNED_IN" && session) {
-        // If user is already signed in and somehow lands here, redirect them.
-        // Or if they just updated password and got signed in.
         setSession(session);
         setCheckingToken(false);
       } else if (event === "INITIAL_SESSION") {
-        // This might fire if there's an existing session, or after token processing.
         setSession(session);
         setCheckingToken(false);
-        if (!session?.user?.aud) { // Check if it's a valid user session, not just an initial empty one
-             // If no valid session after initial check and not in recovery mode, token might be invalid/expired
-            // setMessage({ type: "error", text: "Invalid or expired password reset link. Please request a new one." });
-        }
+        // if (!session?.user?.aud) {
+        //   // setMessage({ type: "error", text: "Invalid or expired password reset link. Please request a new one." });
+        // }
       } else if (event === "SIGNED_OUT") {
         setSession(null);
         setCheckingToken(false);
       }
     });
     
-    // Initial check for session, in case onAuthStateChange doesn't fire immediately or as expected for token.
-    // supabase.auth.getSession().then(({ data: { session } }) => {
-    //   if (session) {
-    //     setSession(session);
-    //   }
-    //   // If after a short delay and no session, and not in recovery mode (which onAuthStateChange should handle)
-    //   // then the token might be invalid.
-    //   setTimeout(() => {
-    //       if (!session && !authListener?.data?.subscription) { // A bit of a heuristic
-    //           // setMessage({ type: "error", text: "Invalid or expired password reset link. Please request a new one." });
-    //       }
-    //       setCheckingToken(false);
-    //   }, 1500); // Wait a bit for Supabase to process URL
-    // });
-
-
-    // Fallback if onAuthStateChange doesn't fire as expected for PASSWORD_RECOVERY
-    // This timeout gives Supabase time to process the hash fragment.
     const timer = setTimeout(() => {
-        if (checkingToken) { // if still checkingToken after timeout
+        if (checkingToken) { 
             supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-                if (currentSession) {
+                if (currentSession && currentSession.user.aud === 'authenticated') { // Check if it's a valid user session
                     setSession(currentSession);
-                } else {
+                } else if (!session) { // Only set error if no session was found by onAuthStateChange either
                     setMessage({ type: "error", text: "Invalid or expired password reset link. Please request a new one." });
                 }
                 setCheckingToken(false);
             });
         }
-    }, 2000); // Adjust timeout as needed
-
+    }, 2500); // Increased timeout slightly
 
     return () => {
-      authListener?.unsubscribe();
+      authSubscription?.unsubscribe();
       clearTimeout(timer);
     };
-  }, [checkingToken]);
+  }, []); // Removed checkingToken from dependency array as it caused re-subscriptions
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,7 +103,8 @@ const UpdatePasswordPage: React.FC = () => {
     );
   }
 
-  if (!session && !message?.text.includes("You can now update your password.")) { // Only show error if not in successful recovery state
+  // Show error message if no session AND (no message yet OR message is not the success one for password update)
+  if (!session && (!message || message.type !== "success" || !message.text.includes("You can now update your password."))) {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center text-white p-4">
         <Bookmark className="h-12 w-12 text-indigo-400 mb-6" />
@@ -227,7 +206,7 @@ const UpdatePasswordPage: React.FC = () => {
 
             <button
               type="submit"
-              disabled={loading || !session}
+              disabled={loading || !session} // Disable if no session or loading
               className="w-full flex justify-center items-center bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-3 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Updating..." : "Update Password"}
