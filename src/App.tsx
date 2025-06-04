@@ -19,7 +19,8 @@ import TermsOfService from "./pages/TermsOfService";
 import SharedPatchSheet from "./pages/SharedPatchSheet";
 import SharedStagePlot from "./pages/SharedStagePlot";
 import SharedProductionSchedule from "./pages/SharedProductionSchedule";
-import ProfilePage from "./pages/ProfilePage"; // Import the new ProfilePage
+import ProfilePage from "./pages/ProfilePage";
+import UpdatePasswordPage from "./pages/UpdatePasswordPage"; // Import the new UpdatePasswordPage
 
 function App() {
   useEffect(() => {
@@ -35,6 +36,7 @@ function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/login" element={<SignIn />} />
+            <Route path="/update-password" element={<UpdatePasswordPage />} /> {/* Add route for UpdatePasswordPage */}
             <Route
               path="/dashboard"
               element={
@@ -44,7 +46,7 @@ function App() {
               }
             />
             <Route
-              path="/profile" // Add route for ProfilePage
+              path="/profile"
               element={
                 <ProtectedRoute>
                   <ProfilePage />
