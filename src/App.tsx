@@ -15,7 +15,8 @@ import AllStagePlots from "./pages/AllStagePlots";
 import ProductionScheduleEditor from "./pages/ProductionScheduleEditor"; 
 import AllProductionSchedules from "./pages/AllProductionSchedules"; 
 import RunOfShowEditor from "./pages/RunOfShowEditor";
-import AllRunOfShows from "./pages/AllRunOfShows"; // Import AllRunOfShows
+import AllRunOfShows from "./pages/AllRunOfShows";
+import ShowModePage from "./pages/ShowModePage"; // Import ShowModePage
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import SharedPatchSheet from "./pages/SharedPatchSheet";
@@ -114,10 +115,18 @@ function App() {
               }
             />
             <Route
-              path="/all-run-of-shows" // Add route for AllRunOfShows
+              path="/all-run-of-shows"
               element={
                 <ProtectedRoute>
                   <AllRunOfShows />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/show-mode/:id" // Add route for ShowModePage
+              element={
+                <ProtectedRoute>
+                  <ShowModePage />
                 </ProtectedRoute>
               }
             />

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { Loader, ArrowLeft, Save, Plus, Trash2, Edit3, Check, X, FileText } from "lucide-react";
+import { Loader, ArrowLeft, Save, Plus, Trash2, Edit3, Check, X, FileText, MonitorPlay } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import MobileScreenWarning from "../components/MobileScreenWarning";
 import { useScreenSize } from "../hooks/useScreenSize";
@@ -57,6 +57,7 @@ const RunOfShowEditor: React.FC = () => {
 
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [newColumnName, setNewColumnName] = useState<string>("");
+  const [newColumnType, setNewColumnType] = useState<'text' | 'number' | 'time'>("text");
 
   useEffect(() => {
     if (screenSize === "mobile" || screenSize === "tablet") {
@@ -90,7 +91,7 @@ const RunOfShowEditor: React.FC = () => {
           setRunOfShow({
             ...data,
             items: migratedItems,
-            custom_column_definitions: data.custom_column_definitions || [],
+            custom_column_definitions: (data.custom_column_definitions || []).map((col: any) => ({ ...col, type: col.type || 'text' })),
           });
         } else {
           navigate("/dashboard"); 
@@ -176,7 +177,7 @@ const RunOfShowEditor: React.FC = () => {
       const newColumn: CustomColumnDefinition = {
         id: uuidv4(),
         name: newColumnName.trim(),
-        type: "text", 
+        type: newColumnType, 
       };
       const updatedDefinitions = [...runOfShow.custom_column_definitions, newColumn];
       const updatedItems = runOfShow.items.map(item => 
@@ -189,6 +190,7 @@ const RunOfShowEditor: React.FC = () => {
         items: updatedItems,
       });
       setNewColumnName(""); 
+      setNewColumnType("text");
       setEditingColumnId(null); 
     }
   };
@@ -200,12 +202,16 @@ const RunOfShowEditor: React.FC = () => {
 
       const oldName = oldColumn.name;
       const updatedDefinitions = runOfShow.custom_column_definitions.map(col =>
-        col.id === columnId ? { ...col, name: newName.trim() } : col
+        col.id === columnId ? { ...col, name: newName.trim(), type: newColumnType } : col
       );
       const updatedItems = runOfShow.items.map(item => {
         if (item.type === 'header') return item;
-        const { [oldName]: value, ...rest } = item;
-        return { ...rest, [newName.trim()]: value };
+        // If name changed, transfer value to new key
+        if (oldName !== newName.trim() && item.hasOwnProperty(oldName)) {
+            const { [oldName]: value, ...rest } = item;
+            return { ...rest, [newName.trim()]: value };
+        }
+        return item;
       });
       setRunOfShow({
         ...runOfShow,
@@ -214,6 +220,7 @@ const RunOfShowEditor: React.FC = () => {
       });
       setEditingColumnId(null);
       setNewColumnName("");
+      setNewColumnType("text");
     }
   };
 
@@ -250,7 +257,7 @@ const RunOfShowEditor: React.FC = () => {
         ...item,
         type: item.type || 'item'
       })),
-      custom_column_definitions: runOfShow.custom_column_definitions,
+      custom_column_definitions: runOfShow.custom_column_definitions.map(col => ({...col, type: col.type || 'text'})),
       user_id: user.id,
       last_edited: new Date().toISOString(),
     };
@@ -286,7 +293,7 @@ const RunOfShowEditor: React.FC = () => {
         setRunOfShow({
             ...savedData,
             items: migratedItems,
-            custom_column_definitions: savedData.custom_column_definitions || [],
+            custom_column_definitions: (savedData.custom_column_definitions || []).map((col: any) => ({ ...col, type: col.type || 'text' })),
         });
       }
 
@@ -301,6 +308,15 @@ const RunOfShowEditor: React.FC = () => {
     }
   };
 
+  const handleNavigateToShowMode = () => {
+    if (id && id !== "new") {
+      navigate(`/show-mode/${id}`);
+    } else {
+      setSaveError("Please save the Run of Show before entering Show Mode.");
+      setTimeout(() => setSaveError(null), 5000);
+    }
+  };
+
   if (loading || !runOfShow) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -310,9 +326,9 @@ const RunOfShowEditor: React.FC = () => {
   }
 
   const defaultColumns: { key: keyof RunOfShowItem | string; label: string; type?: string }[] = [
-    { key: "itemNumber", label: "Item #" }, // Label remains "Item #", content changes for headers
+    { key: "itemNumber", label: "Item #" }, 
     { key: "startTime", label: "Start", type: "time" },
-    { key: "preset", label: "Preset / Scene" }, // Label for items, N/A for headers
+    { key: "preset", label: "Preset / Scene" }, 
     { key: "duration", label: "Duration", type: "text" }, 
     { key: "privateNotes", label: "Private Notes" },
     { key: "productionNotes", label: "Production Notes" },
@@ -362,6 +378,13 @@ const RunOfShowEditor: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2 fixed bottom-4 right-4 z-20 md:static md:z-auto sm:ml-auto flex-shrink-0">
+            <button
+              onClick={handleNavigateToShowMode}
+              className="inline-flex items-center bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-4 py-2 rounded-md font-medium transition-all duration-200 shadow-lg md:shadow-none"
+            >
+              <MonitorPlay className="h-4 w-4 mr-2" />
+              Show Mode
+            </button>
             <button
               onClick={handleSave}
               disabled={saving}
@@ -413,31 +436,40 @@ const RunOfShowEditor: React.FC = () => {
                       key={col.key || col.id}
                       scope="col"
                       className={`py-3 px-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap ${index === 0 ? 'pl-4 md:pl-6' : ''} ${index === allDisplayColumns.length -1 ? 'pr-4 md:pr-6' : ''}`}
-                      style={{ minWidth: col.key === 'itemNumber' ? '200px' : col.key === 'privateNotes' || col.key === 'productionNotes' ? '250px' : '150px' }} // Increased minWidth for Item #
+                      style={{ minWidth: col.key === 'itemNumber' ? '200px' : col.key === 'privateNotes' || col.key === 'productionNotes' ? '250px' : '150px' }}
                     >
                       <div className="flex items-center">
                         {editingColumnId === col.id ? (
-                          <>
+                          <div className="flex items-center gap-1">
                             <input
                               type="text"
                               value={newColumnName}
                               onChange={(e) => setNewColumnName(e.target.value)}
-                              className="bg-gray-900 text-white text-xs p-1 rounded border border-indigo-500 focus:ring-indigo-500 focus:border-indigo-500 mr-1"
+                              className="bg-gray-900 text-white text-xs p-1 rounded border border-indigo-500 focus:ring-indigo-500 focus:border-indigo-500"
                               autoFocus
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') handleRenameCustomColumn(col.id!, newColumnName);
-                                if (e.key === 'Escape') { setEditingColumnId(null); setNewColumnName(""); }
+                                if (e.key === 'Escape') { setEditingColumnId(null); setNewColumnName(""); setNewColumnType("text");}
                               }}
                             />
+                            <select 
+                                value={newColumnType} 
+                                onChange={(e) => setNewColumnType(e.target.value as 'text'|'number'|'time')}
+                                className="bg-gray-900 text-white text-xs p-1 rounded border border-indigo-500 focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                                <option value="text">Text</option>
+                                <option value="number">Number</option>
+                                <option value="time">Time</option>
+                            </select>
                             <button onClick={() => handleRenameCustomColumn(col.id!, newColumnName)} className="text-green-400 hover:text-green-300 p-0.5"><Check size={14}/></button>
-                            <button onClick={() => { setEditingColumnId(null); setNewColumnName(""); }} className="text-red-400 hover:text-red-300 p-0.5"><X size={14}/></button>
-                          </>
+                            <button onClick={() => { setEditingColumnId(null); setNewColumnName(""); setNewColumnType("text");}} className="text-red-400 hover:text-red-300 p-0.5"><X size={14}/></button>
+                          </div>
                         ) : (
                           <>
                             {col.label}
                             {col.isCustom && (
                               <>
-                                <button onClick={() => { setEditingColumnId(col.id!); setNewColumnName(col.label); }} className="ml-1.5 text-gray-400 hover:text-indigo-400 p-0.5"><Edit3 size={12}/></button>
+                                <button onClick={() => { setEditingColumnId(col.id!); setNewColumnName(col.label); setNewColumnType(col.type || "text"); }} className="ml-1.5 text-gray-400 hover:text-indigo-400 p-0.5"><Edit3 size={12}/></button>
                                 <button onClick={() => handleDeleteCustomColumn(col.id!)} className="text-gray-400 hover:text-red-400 p-0.5"><Trash2 size={12}/></button>
                               </>
                             )}
@@ -448,25 +480,34 @@ const RunOfShowEditor: React.FC = () => {
                   ))}
                   <th scope="col" className="py-3 px-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap pr-4 md:pr-6">
                     {editingColumnId === 'new' ? (
-                      <div className="flex items-center">
+                      <div className="flex items-center gap-1">
                         <input
                           type="text"
                           value={newColumnName}
                           onChange={(e) => setNewColumnName(e.target.value)}
                           placeholder="New Column Name"
-                          className="bg-gray-900 text-white text-xs p-1 rounded border border-indigo-500 focus:ring-indigo-500 focus:border-indigo-500 mr-1"
+                          className="bg-gray-900 text-white text-xs p-1 rounded border border-indigo-500 focus:ring-indigo-500 focus:border-indigo-500"
                           autoFocus
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') handleAddCustomColumn();
-                            if (e.key === 'Escape') { setEditingColumnId(null); setNewColumnName(""); }
+                            if (e.key === 'Escape') { setEditingColumnId(null); setNewColumnName(""); setNewColumnType("text");}
                           }}
                         />
+                        <select 
+                            value={newColumnType} 
+                            onChange={(e) => setNewColumnType(e.target.value as 'text'|'number'|'time')}
+                            className="bg-gray-900 text-white text-xs p-1 rounded border border-indigo-500 focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            <option value="text">Text</option>
+                            <option value="number">Number</option>
+                            <option value="time">Time</option>
+                        </select>
                         <button onClick={handleAddCustomColumn} className="text-green-400 hover:text-green-300 p-0.5"><Check size={14}/></button>
-                        <button onClick={() => { setEditingColumnId(null); setNewColumnName(""); }} className="text-red-400 hover:text-red-300 p-0.5"><X size={14}/></button>
+                        <button onClick={() => { setEditingColumnId(null); setNewColumnName(""); setNewColumnType("text");}} className="text-red-400 hover:text-red-300 p-0.5"><X size={14}/></button>
                       </div>
                     ) : (
                       <button
-                        onClick={() => { setEditingColumnId('new'); setNewColumnName(""); }}
+                        onClick={() => { setEditingColumnId('new'); setNewColumnName(""); setNewColumnType("text"); }}
                         className="flex items-center text-indigo-400 hover:text-indigo-300 text-xs font-medium"
                       >
                         <Plus size={14} className="mr-1" /> Add Column
@@ -483,7 +524,6 @@ const RunOfShowEditor: React.FC = () => {
                   if (item.type === 'header') {
                     return (
                       <tr key={item.id} className="bg-gray-700/70 hover:bg-gray-600/70 transition-colors">
-                        {/* Column 1: Header Title (in Item # column) */}
                         <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-100 pl-4 md:pl-6">
                           <input
                             type="text"
@@ -493,7 +533,6 @@ const RunOfShowEditor: React.FC = () => {
                             placeholder="Section Header Title"
                           />
                         </td>
-                        {/* Column 2: Start Time */}
                         <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-200">
                           <input
                             type="time"
@@ -503,13 +542,12 @@ const RunOfShowEditor: React.FC = () => {
                             className="bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-500 font-semibold"
                           />
                         </td>
-                        {/* Remaining default and custom columns as N/A */}
                         {allDisplayColumns.slice(2).map(colConfig => (
                           <td key={`header-empty-${colConfig.key || colConfig.id}`} className="px-3 py-2 text-xs text-gray-500 italic">
                             N/A
                           </td>
                         ))}
-                        <td className="px-3 py-2"></td> {/* Empty cell for Add Column button space */}
+                        <td className="px-3 py-2"></td> 
                         <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6">
                           <button
                             onClick={() => handleDeleteItem(item.id)}
@@ -522,21 +560,21 @@ const RunOfShowEditor: React.FC = () => {
                       </tr>
                     );
                   }
-                  // Regular Item Row
                   return (
                     <tr key={item.id} className="hover:bg-gray-700/50 transition-colors">
                       {allDisplayColumns.map((col, colIndex) => (
                         <td key={col.key || col.id} className={`px-3 py-2 whitespace-nowrap text-sm text-gray-200 ${colIndex === 0 ? 'pl-4 md:pl-6' : ''}`}>
                           <input
-                            type={col.key === 'itemNumber' ? 'text' : col.key === 'duration' ? 'text' : (col.type || "text")}
+                            type={col.type || "text"} // Use col.type directly from allDisplayColumns
                             value={item[col.key as keyof RunOfShowItem] || ""}
                             onChange={(e) => handleItemChange(item.id, col.key as keyof RunOfShowItem, e.target.value)}
                             className={`bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-500 ${col.key === 'itemNumber' ? 'font-semibold' : ''}`}
                             placeholder={col.key === 'itemNumber' ? 'Item Name/No.' : col.key === 'preset' ? 'Preset/Scene' : col.key === 'duration' ? 'mm:ss' : col.label}
+                            step={col.type === 'time' ? '1' : col.type === 'number' ? 'any' : undefined}
                           />
                         </td>
                       ))}
-                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-200"></td> {/* Cell for Add Column button */}
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-200"></td> 
                       <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6">
                         <button
                           onClick={() => handleDeleteItem(item.id)}
@@ -560,6 +598,28 @@ const RunOfShowEditor: React.FC = () => {
             </table>
           </div>
         </div>
+
+        <div className="mt-8 flex justify-center items-center gap-4">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg"
+          >
+            {saving ? (
+              <><Loader className="h-5 w-5 mr-2 animate-spin" />Saving...</>
+            ) : (
+              <><Save className="h-5 w-5 mr-2" />Save Run of Show</>
+            )}
+          </button>
+          <button
+            onClick={handleNavigateToShowMode}
+            className="inline-flex items-center bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-6 py-3 rounded-md font-medium transition-all duration-200 shadow-lg"
+          >
+            <MonitorPlay className="h-5 w-5 mr-2" />
+            Show Mode
+          </button>
+        </div>
+
       </main>
       <Footer />
     </div>
