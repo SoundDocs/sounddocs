@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { Loader, ArrowLeft, Save, Plus, Trash2, Edit3, Check, X, FileText } from "lucide-react"; // Added FileText for Add Header
+import { Loader, ArrowLeft, Save, Plus, Trash2, Edit3, Check, X, FileText } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import MobileScreenWarning from "../components/MobileScreenWarning";
 import { useScreenSize } from "../hooks/useScreenSize";
@@ -11,14 +11,12 @@ import { useScreenSize } from "../hooks/useScreenSize";
 // Interfaces
 export interface RunOfShowItem {
   id: string;
-  type: 'item' | 'header'; // To distinguish between regular items and headers
+  type: 'item' | 'header'; 
   itemNumber: string; 
   startTime: string; 
   
-  // Fields for type 'header'
   headerTitle?: string;
 
-  // Fields for type 'item'
   preset?: string;
   duration?: string; 
   privateNotes?: string;
@@ -26,7 +24,7 @@ export interface RunOfShowItem {
   audio?: string;
   video?: string;
   lights?: string;
-  [customKey: string]: any; // For custom columns
+  [customKey: string]: any; 
 }
 
 export interface CustomColumnDefinition {
@@ -85,7 +83,6 @@ const RunOfShowEditor: React.FC = () => {
 
         if (error) throw error;
         if (data) {
-          // Ensure items have a 'type' field, defaulting to 'item' for older data
           const migratedItems = (data.items || []).map((item: any) => ({
             ...item,
             type: item.type || 'item',
@@ -134,10 +131,10 @@ const RunOfShowEditor: React.FC = () => {
       const newItem: RunOfShowItem = {
         id: uuidv4(),
         type: type,
-        itemNumber: type === 'item' ? (runOfShow.items.filter(i => i.type === 'item').length + 1).toString() : "", // Auto-number items, headers can be manual
+        itemNumber: type === 'item' ? (runOfShow.items.filter(i => i.type === 'item').length + 1).toString() : "",
         startTime: "",
         headerTitle: type === 'header' ? "New Section Header" : undefined,
-        preset: type === 'item' ? "" : undefined,
+        preset: type === 'item' ? "" : undefined, // Preset is for items, headerTitle for headers
         duration: type === 'item' ? "" : undefined,
         privateNotes: type === 'item' ? "" : undefined,
         productionNotes: type === 'item' ? "" : undefined,
@@ -206,7 +203,7 @@ const RunOfShowEditor: React.FC = () => {
         col.id === columnId ? { ...col, name: newName.trim() } : col
       );
       const updatedItems = runOfShow.items.map(item => {
-        if (item.type === 'header') return item; // Skip headers for this property rename
+        if (item.type === 'header') return item;
         const { [oldName]: value, ...rest } = item;
         return { ...rest, [newName.trim()]: value };
       });
@@ -229,7 +226,7 @@ const RunOfShowEditor: React.FC = () => {
         (col) => col.id !== columnId
       );
       const updatedItems = runOfShow.items.map((item) => {
-        if (item.type === 'header') return item; // Skip headers
+        if (item.type === 'header') return item;
         const { [columnToDelete.name]: _, ...rest } = item; 
         return rest;
       });
@@ -249,7 +246,7 @@ const RunOfShowEditor: React.FC = () => {
 
     const dataToSave: Omit<RunOfShowData, 'id' | 'user_id' | 'created_at'> & { user_id: string, last_edited: string, id?: string, created_at?: string } = {
       name: runOfShow.name,
-      items: runOfShow.items.map(item => ({ // Ensure all items have a type
+      items: runOfShow.items.map(item => ({
         ...item,
         type: item.type || 'item'
       })),
@@ -312,10 +309,10 @@ const RunOfShowEditor: React.FC = () => {
     );
   }
 
-  const defaultColumns: { key: keyof RunOfShowItem | string; label: string; type?: string, headerColSpan?: number }[] = [
+  const defaultColumns: { key: keyof RunOfShowItem | string; label: string; type?: string }[] = [
     { key: "itemNumber", label: "Item" },
     { key: "startTime", label: "Start", type: "time" },
-    { key: "preset", label: "Preset / Header Title", headerColSpan: 5 }, // Header title will use this, spanning 5 columns
+    { key: "preset", label: "Preset / Header Title" }, // This column will hold item preset OR header title
     { key: "duration", label: "Duration", type: "text" }, 
     { key: "privateNotes", label: "Private Notes" },
     { key: "productionNotes", label: "Production Notes" },
@@ -328,6 +325,9 @@ const RunOfShowEditor: React.FC = () => {
     ...defaultColumns,
     ...runOfShow.custom_column_definitions.map(col => ({ key: col.name, label: col.name, id: col.id, isCustom: true, type: col.type || "text" }))
   ];
+  
+  const presetColumnIndex = defaultColumns.findIndex(c => c.key === 'preset');
+
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
@@ -365,13 +365,6 @@ const RunOfShowEditor: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2 fixed bottom-4 right-4 z-20 md:static md:z-auto sm:ml-auto flex-shrink-0">
-            {/* <button
-              onClick={() => alert("Show Mode - Not Implemented")}
-              className="inline-flex items-center bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-4 py-2 rounded-md font-medium transition-all duration-200 shadow-lg md:shadow-none"
-            >
-              <Play className="h-4 w-4 mr-2" />
-              Show Mode
-            </button> */}
             <button
               onClick={handleSave}
               disabled={saving}
@@ -493,7 +486,7 @@ const RunOfShowEditor: React.FC = () => {
                   if (item.type === 'header') {
                     return (
                       <tr key={item.id} className="bg-gray-700/70 hover:bg-gray-600/70 transition-colors">
-                        {/* Item Number for Header */}
+                        {/* Item Number */}
                         <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-200 pl-4 md:pl-6">
                           <input
                             type="text"
@@ -503,7 +496,7 @@ const RunOfShowEditor: React.FC = () => {
                             placeholder="No."
                           />
                         </td>
-                        {/* Start Time for Header */}
+                        {/* Start Time */}
                         <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-200">
                           <input
                             type="time"
@@ -513,8 +506,8 @@ const RunOfShowEditor: React.FC = () => {
                             className="bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-500 font-semibold"
                           />
                         </td>
-                        {/* Header Title (spans multiple columns) */}
-                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-100" colSpan={defaultColumns.find(c => c.key === 'preset')?.headerColSpan || 5}>
+                        {/* Header Title (in Preset column) */}
+                        <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-100">
                           <input
                             type="text"
                             value={item.headerTitle || ""}
@@ -523,19 +516,15 @@ const RunOfShowEditor: React.FC = () => {
                             placeholder="Section Header Title"
                           />
                         </td>
-                        {/* Empty cells for remaining default columns that were spanned */}
-                        {Array(defaultColumns.length - 3 - (defaultColumns.find(c => c.key === 'preset')?.headerColSpan || 5 > 1 ? 0 : (defaultColumns.find(c => c.key === 'preset')?.headerColSpan || 1) -1 )).fill(null).map((_, i) => (
-                           <td key={`empty-default-${i}`} className="px-3 py-2 text-xs text-gray-500 italic"></td>
+                        {/* Remaining default columns as N/A */}
+                        {defaultColumns.slice(presetColumnIndex + 1).map(col => (
+                          <td key={`header-empty-${col.key}`} className="px-3 py-2 text-xs text-gray-500 italic">N/A</td>
                         ))}
-
-
-                        {/* Empty cells for custom columns */}
+                        {/* Custom columns as N/A */}
                         {runOfShow.custom_column_definitions.map(cc => (
-                          <td key={cc.id} className="px-3 py-2 text-xs text-gray-500 italic">N/A</td>
+                          <td key={`header-custom-empty-${cc.id}`} className="px-3 py-2 text-xs text-gray-500 italic">N/A</td>
                         ))}
-                        {/* Empty cell for Add Column button space */}
-                        <td className="px-3 py-2"></td>
-                        {/* Action Button */}
+                        <td className="px-3 py-2"></td> {/* Empty cell for Add Column button space */}
                         <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6">
                           <button
                             onClick={() => handleDeleteItem(item.id)}
@@ -558,7 +547,7 @@ const RunOfShowEditor: React.FC = () => {
                             value={item[col.key as keyof RunOfShowItem] || ""}
                             onChange={(e) => handleItemChange(item.id, col.key as keyof RunOfShowItem, e.target.value)}
                             className="bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-500"
-                            placeholder={col.key === 'duration' ? 'mm:ss' : col.label}
+                            placeholder={col.key === 'preset' ? 'Item Preset/Scene' : col.key === 'duration' ? 'mm:ss' : col.label}
                           />
                         </td>
                       ))}

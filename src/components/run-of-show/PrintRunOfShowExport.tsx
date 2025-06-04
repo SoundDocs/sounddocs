@@ -10,7 +10,7 @@ const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProp
   const defaultColumnsConfig: { key: keyof RunOfShowItem | string; label: string }[] = [
     { key: "itemNumber", label: "Item #" },
     { key: "startTime", label: "Start Time" },
-    { key: "preset", label: "Preset / Scene" },
+    { key: "preset", label: "Preset / Scene" }, // This column will hold item preset OR header title
     { key: "duration", label: "Duration (mm:ss)" },
     { key: "privateNotes", label: "Private Notes" },
     { key: "productionNotes", label: "Production Notes" },
@@ -64,21 +64,29 @@ const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProp
             background-color: #fff; 
             color: #000; 
           }
-          .print-export-table .header-row td.header-cell {
+          .print-export-table .header-row {
             background-color: #f8f9fa; /* Very light gray for header section */
+          }
+          .print-export-table .header-row td { /* General styling for cells in header row */
+            color: #333;
+            font-size: 10pt;
+            font-weight: normal;
+          }
+          .print-export-table .header-row td.header-cell-title { /* Specific for the title cell */
             color: #000;
             font-size: 12pt;
             font-weight: bold;
             padding: 10px 10px;
             border-left: 3px solid #6c757d; /* Darker gray accent */
           }
-           .print-export-table .header-row td.header-cell-meta {
-            background-color: #f8f9fa;
-            color: #333;
-            font-size: 10pt;
-            font-weight: normal;
-            text-align: left;
+           .print-export-table .header-row td.header-cell-meta { /* For Item# and Start Time of header */
+            font-weight: normal; /* Or bold if preferred */
           }
+          .print-export-table .header-row td.header-cell-empty { /* For empty cells in header row */
+            color: #777; 
+            font-style: italic;
+          }
+
           .print-export-header h1 { 
             font-size: 24pt; 
             font-weight: bold; 
@@ -142,18 +150,27 @@ const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProp
         </thead>
         <tbody>
           {(schedule.items || []).map((item, index) => {
-            const currentItem = item as RunOfShowItem; // Cast to ensure 'type' and 'headerTitle' are accessible
+            const currentItem = item as RunOfShowItem;
              if (currentItem.type === 'header') {
               return (
                 <tr key={currentItem.id || `item-${index}`} className="header-row">
                   <td className="header-cell-meta">{currentItem.itemNumber || ''}</td>
                   <td className="header-cell-meta">{currentItem.startTime || ''}</td>
-                  <td colSpan={allTableColumns.length - 2} className="header-cell">
+                  <td className="header-cell-title"> {/* Header Title in Preset/Scene column */}
                     {currentItem.headerTitle || "Section Header"}
                   </td>
+                  {/* Render empty/N/A cells for remaining default columns */}
+                  {defaultColumnsConfig.slice(3).map(col => ( // Slice from "Duration" onwards
+                     <td key={`header-empty-${col.key}`} className="header-cell-empty">N/A</td>
+                  ))}
+                  {/* Render empty/N/A cells for custom columns */}
+                  {(schedule.custom_column_definitions || []).map(customCol => (
+                    <td key={`header-custom-empty-${customCol.id}`} className="header-cell-empty">N/A</td>
+                  ))}
                 </tr>
               );
             }
+            // Regular item row
             return (
               <tr key={currentItem.id || `item-${index}`}>
                 {allTableColumns.map(col => (

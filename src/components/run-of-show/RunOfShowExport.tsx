@@ -11,7 +11,7 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
   const defaultColumnsConfig: { key: keyof RunOfShowItem | string; label: string }[] = [
     { key: "itemNumber", label: "Item #" },
     { key: "startTime", label: "Start Time" },
-    { key: "preset", label: "Preset / Scene" },
+    { key: "preset", label: "Preset / Scene" }, // This column will hold item preset OR header title
     { key: "duration", label: "Duration (mm:ss)" },
     { key: "privateNotes", label: "Private Notes" },
     { key: "productionNotes", label: "Production Notes" },
@@ -74,31 +74,39 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
             font-weight: 600; 
             border-bottom: 2px solid rgba(99, 102, 241, 0.4); 
           }
-          .export-wrapper tbody tr:nth-child(odd) td:not(.header-cell) { 
+          .export-wrapper tbody tr:nth-child(odd) td:not(.header-cell-title) { 
             background-color: rgba(31, 41, 55, 0.7); 
           }
-          .export-wrapper tbody tr:nth-child(even) td:not(.header-cell) { 
+          .export-wrapper tbody tr:nth-child(even) td:not(.header-cell-title) { 
             background-color: rgba(45, 55, 72, 0.4); 
           }
           .export-wrapper td { 
             color: #e2e8f0; 
           }
-          .export-wrapper .header-row td.header-cell {
-            background: linear-gradient(to right, #374151, #1f2937); /* Slightly different gradient for header rows */
-            color: #f3f4f6; /* Lighter text for header */
-            font-size: 1.125rem; /* Larger font for header */
-            font-weight: 600;
-            padding: 1rem 1rem;
-            border-left: 4px solid #6366f1; /* Indigo accent line */
+          .export-wrapper .header-row {
+            background: linear-gradient(to right, #374151, #1f2937); /* Gradient for the entire header row */
           }
-          .export-wrapper .header-row td.header-cell-meta {
-             background: linear-gradient(to right, #374151, #1f2937);
+          .export-wrapper .header-row td { /* General styling for cells in header row */
              color: #d1d5db;
              font-size: 0.875rem;
              padding: 1rem 1rem;
-             text-align: right;
-             border-left: none;
+             border-color: rgba(55, 65, 81, 0.7); /* Match other cell borders */
           }
+          .export-wrapper .header-row td.header-cell-title { /* Specific for the title cell */
+            color: #f3f4f6; /* Lighter text for header title */
+            font-size: 1.125rem; /* Larger font for header title */
+            font-weight: 600;
+            border-left: 4px solid #6366f1; /* Indigo accent line for the title cell */
+          }
+           .export-wrapper .header-row td.header-cell-meta { /* For Item# and Start Time of header */
+             font-weight: 500;
+             color: #cbd5e1;
+          }
+          .export-wrapper .header-row td.header-cell-empty { /* For empty cells in header row */
+            color: #6b7280; /* Dimmer text for N/A or empty */
+            font-style: italic;
+          }
+
           .export-wrapper h1 { 
             font-size: 1.875rem; 
             font-weight: 700; 
@@ -172,18 +180,27 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
         </thead>
         <tbody>
           {(schedule.items || []).map((item, index) => {
-            const currentItem = item as RunOfShowItem; // Cast to ensure 'type' and 'headerTitle' are accessible
+            const currentItem = item as RunOfShowItem; 
             if (currentItem.type === 'header') {
               return (
                 <tr key={currentItem.id || `item-${index}`} className="header-row">
                   <td className="header-cell-meta">{currentItem.itemNumber || ''}</td>
                   <td className="header-cell-meta">{currentItem.startTime || ''}</td>
-                  <td colSpan={allTableColumns.length - 2} className="header-cell">
+                  <td className="header-cell-title"> {/* Header Title in Preset/Scene column */}
                     {currentItem.headerTitle || "Section Header"}
                   </td>
+                  {/* Render empty/N/A cells for remaining default columns */}
+                  {defaultColumnsConfig.slice(3).map(col => ( // Slice from "Duration" onwards
+                     <td key={`header-empty-${col.key}`} className="header-cell-empty">N/A</td>
+                  ))}
+                  {/* Render empty/N/A cells for custom columns */}
+                  {(schedule.custom_column_definitions || []).map(customCol => (
+                    <td key={`header-custom-empty-${customCol.id}`} className="header-cell-empty">N/A</td>
+                  ))}
                 </tr>
               );
             }
+            // Regular item row
             return (
               <tr key={currentItem.id || `item-${index}`}>
                 {allTableColumns.map(col => (
