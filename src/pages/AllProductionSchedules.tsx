@@ -6,7 +6,7 @@ import Footer from "../components/Footer";
 import ProductionScheduleExport from "../components/production-schedule/ProductionScheduleExport";
 import PrintProductionScheduleExport from "../components/production-schedule/PrintProductionScheduleExport";
 import ExportModal from "../components/ExportModal";
-import ShareModal from "../components/ShareModal"; // Import ShareModal
+import ShareModal from "../components/ShareModal";
 import html2canvas from "html2canvas";
 import { ScheduleForExport, DetailedScheduleItem } from "./ProductionScheduleEditor"; 
 import { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor"; 
@@ -373,10 +373,10 @@ const AllProductionSchedules: React.FC = () => {
     }
   };
 
-  // const handleShareSchedule = (schedule: ProductionScheduleSummary) => {
-  //   setSelectedShareSchedule(schedule);
-  //   setShowShareModal(true);
-  // };
+  const handleShareSchedule = (schedule: ProductionScheduleSummary) => {
+    setSelectedShareSchedule(schedule);
+    setShowShareModal(true);
+  };
 
 
   if (loading && !user) {
@@ -522,10 +522,10 @@ const AllProductionSchedules: React.FC = () => {
                       <td className="py-4 px-6">
                         <div className="flex justify-end space-x-2">
                            <button
-                            // onClick={() => handleShareSchedule(schedule)} // Commented out to disable
-                            className="p-2 text-gray-500 rounded-md cursor-not-allowed" // Adjusted classes for disabled look
-                            title="Share (Coming Soon)" // Updated title
-                            disabled={true} // Always disabled
+                            onClick={() => handleShareSchedule(schedule)}
+                            className="p-2 text-gray-400 hover:text-indigo-400 rounded-md hover:bg-gray-700 transition-colors"
+                            title="Share Schedule"
+                            disabled={isExporting || duplicatingId === schedule.id}
                           >
                             <Share2 className="h-5 w-5" />
                           </button>
