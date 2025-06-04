@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
     import { supabase } from '../lib/supabase';
     import Header from '../components/Header';
     import Footer from '../components/Footer';
-    import { Loader, Clock, Play, Pause, SkipForward, Maximize, Minimize, ArrowLeft } from 'lucide-react';
+    import { Loader, Clock, Play, Pause, SkipForward, SkipBack, ChevronsUp, Maximize, Minimize, ArrowLeft } from 'lucide-react';
     import { RunOfShowItem, CustomColumnDefinition } from './RunOfShowEditor';
 
     interface FullRunOfShowData {
@@ -51,7 +51,7 @@ import React, { useState, useEffect, useCallback } from 'react';
       const [isFullscreen, setIsFullscreen] = useState(false);
 
       const [currentItemIndex, setCurrentItemIndex] = useState<number | null>(null);
-      const [isPlaying, setIsPlaying] = useState(false);
+      const [isTimerActive, setIsTimerActive] = useState(false);
       const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
       const [itemTimerId, setItemTimerId] = useState<NodeJS.Timeout | null>(null);
 
@@ -61,6 +61,33 @@ import React, { useState, useEffect, useCallback } from 'react';
         }, 1000);
         return () => clearInterval(timer);
       }, []);
+
+      const findNextPlayableItemIndex = useCallback((startIndex: number | null): number | null => {
+        if (startIndex === null || !runOfShow || !runOfShow.items) return null;
+        for (let i = startIndex + 1; i < runOfShow.items.length; i++) {
+          if (runOfShow.items[i].type === 'item') {
+            return i;
+          }
+        }
+        return null;
+      }, [runOfShow]);
+
+      const findPreviousPlayableItemIndex = useCallback((startIndex: number | null): number | null => {
+        if (startIndex === null || !runOfShow || !runOfShow.items) return null;
+        for (let i = startIndex - 1; i >= 0; i--) {
+          if (runOfShow.items[i].type === 'item') {
+            return i;
+          }
+        }
+        return null;
+      }, [runOfShow]);
+      
+      const findFirstPlayableItemIndex = useCallback((): number | null => {
+        if (!runOfShow || !runOfShow.items) return null;
+        const firstIndex = runOfShow.items.findIndex(item => item.type === 'item');
+        return firstIndex !== -1 ? firstIndex : null;
+      }, [runOfShow]);
+
 
       useEffect(() => {
         const fetchRunOfShowData = async () => {
@@ -95,6 +122,13 @@ import React, { useState, useEffect, useCallback } from 'react';
               });
               const firstItemIdx = migratedItems.findIndex(item => item.type === 'item');
               setCurrentItemIndex(firstItemIdx !== -1 ? firstItemIdx : null);
+              setIsTimerActive(false);
+              if (firstItemIdx !== -1) {
+                const firstItem = migratedItems[firstItemIdx];
+                setTimeRemaining(parseDurationToSeconds(firstItem.duration));
+              } else {
+                setTimeRemaining(null);
+              }
             } else {
               setError("Run of Show not found or access denied.");
             }
@@ -107,80 +141,166 @@ import React, { useState, useEffect, useCallback } from 'react';
         };
         fetchRunOfShowData();
       }, [id, navigate]);
-
-      const findNextPlayableItemIndex = useCallback((startIndex: number | null): number | null => {
-        if (startIndex === null || !runOfShow || !runOfShow.items) return null;
-        for (let i = startIndex + 1; i < runOfShow.items.length; i++) {
-          if (runOfShow.items[i].type === 'item') {
-            return i;
-          }
-        }
-        return null;
-      }, [runOfShow]);
-
-      const handleNextItem = useCallback(() => {
-        setCurrentItemIndex(prevIndex => {
-          const nextIndex = findNextPlayableItemIndex(prevIndex);
-          if (nextIndex === null) {
-            setIsPlaying(false);
-            return prevIndex;
-          }
-          return nextIndex;
-        });
-      }, [findNextPlayableItemIndex, setIsPlaying]);
-
+      
       useEffect(() => {
         if (itemTimerId) {
           clearInterval(itemTimerId);
           setItemTimerId(null);
         }
-        setTimeRemaining(null);
 
-        if (isPlaying && currentItemIndex !== null && runOfShow) {
-          const currentItem = runOfShow.items[currentItemIndex];
-          if (currentItem && currentItem.type === 'item') {
-            const duration = parseDurationToSeconds(currentItem.duration);
-            if (duration !== null && duration > 0) {
-              setTimeRemaining(duration);
-              const newTimerId = setInterval(() => {
-                setTimeRemaining(prevTime => {
-                  if (prevTime === null || prevTime <= 1) {
-                    clearInterval(newTimerId);
-                    handleNextItem();
-                    return null;
-                  }
-                  return prevTime - 1;
-                });
-              }, 1000);
-              setItemTimerId(newTimerId);
+        if (isTimerActive && currentItemIndex !== null && runOfShow && timeRemaining !== null && timeRemaining > 0) {
+          const newTimerId = setInterval(() => {
+            setTimeRemaining(prevTime => {
+              if (prevTime === null || prevTime <= 1) {
+                clearInterval(newTimerId);
+                setItemTimerId(null);
+                setIsTimerActive(false);
+
+                const nextIdx = findNextPlayableItemIndex(currentItemIndex);
+                // Auto-advance: set current item and its duration, but don't start timer
+                setCurrentItemIndex(nextIdx); 
+                if (nextIdx !== null && runOfShow.items[nextIdx]?.type === 'item') {
+                  setTimeRemaining(parseDurationToSeconds(runOfShow.items[nextIdx].duration));
+                } else {
+                  setTimeRemaining(null);
+                }
+                return null;
+              }
+              return prevTime - 1;
+            });
+          }, 1000);
+          setItemTimerId(newTimerId);
+        }
+        return () => {
+          if (itemTimerId) {
+            clearInterval(itemTimerId);
+            setItemTimerId(null);
+          }
+        };
+      }, [isTimerActive, currentItemIndex, runOfShow, timeRemaining, findNextPlayableItemIndex]);
+
+      const navigateToCue = useCallback((newIndex: number | null) => {
+        setIsTimerActive(false); // Always stop timer on manual navigation
+        setCurrentItemIndex(newIndex);
+        if (newIndex !== null && runOfShow && runOfShow.items[newIndex]?.type === 'item') {
+          setTimeRemaining(parseDurationToSeconds(runOfShow.items[newIndex].duration));
+        } else {
+          setTimeRemaining(null);
+        }
+      }, [runOfShow]);
+
+      const handleSpacebarPress = useCallback(() => {
+        if (currentItemIndex === null || !runOfShow) return;
+
+        const currentItem = runOfShow.items[currentItemIndex];
+        const currentItemDuration = parseDurationToSeconds(currentItem?.duration);
+
+        if (isTimerActive) { 
+          setIsTimerActive(false); 
+          
+          const nextIndex = findNextPlayableItemIndex(currentItemIndex);
+          setCurrentItemIndex(nextIndex);
+
+          if (nextIndex !== null) {
+            const nextItem = runOfShow.items[nextIndex];
+            const nextItemDuration = parseDurationToSeconds(nextItem?.duration);
+            if (nextItem?.type === 'item' && nextItemDuration !== null) {
+              setTimeRemaining(nextItemDuration);
+              setIsTimerActive(true); 
+            } else {
+              setTimeRemaining(null);
+              setIsTimerActive(false);
+            }
+          } else {
+            setTimeRemaining(null); 
+            setIsTimerActive(false);
+          }
+        } else { 
+          if (currentItem?.type === 'item' && currentItemDuration !== null) {
+            const startDuration = (timeRemaining !== null && timeRemaining > 0 && timeRemaining <= currentItemDuration) 
+                                  ? timeRemaining 
+                                  : currentItemDuration;
+            setTimeRemaining(startDuration);
+            setIsTimerActive(true);
+          } else { 
+            const nextIndex = findNextPlayableItemIndex(currentItemIndex);
+            setCurrentItemIndex(nextIndex);
+
+            if (nextIndex !== null) {
+              const nextItem = runOfShow.items[nextIndex];
+              const nextItemDuration = parseDurationToSeconds(nextItem?.duration);
+              if (nextItem?.type === 'item' && nextItemDuration !== null) {
+                setTimeRemaining(nextItemDuration);
+                setIsTimerActive(true);
+              } else {
+                setTimeRemaining(null);
+                setIsTimerActive(false);
+              }
+            } else {
+              setTimeRemaining(null);
+              setIsTimerActive(false);
             }
           }
         }
-        return () => {
-          if (itemTimerId) clearInterval(itemTimerId);
-        };
-      }, [currentItemIndex, isPlaying, runOfShow, handleNextItem]);
-
+      }, [currentItemIndex, runOfShow, isTimerActive, timeRemaining, findNextPlayableItemIndex]);
+      
       useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
           if (event.code === 'Space') {
             event.preventDefault();
-            handleNextItem();
+            handleSpacebarPress();
+          } else if (event.code === 'ArrowUp') {
+            event.preventDefault();
+            const prevIndex = findPreviousPlayableItemIndex(currentItemIndex);
+            navigateToCue(prevIndex);
+          } else if (event.code === 'ArrowDown') {
+            event.preventDefault();
+            const nextIndex = findNextPlayableItemIndex(currentItemIndex);
+            navigateToCue(nextIndex);
           }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => {
           window.removeEventListener('keydown', handleKeyDown);
         };
-      }, [handleNextItem]);
+      }, [handleSpacebarPress, currentItemIndex, navigateToCue, findPreviousPlayableItemIndex, findNextPlayableItemIndex]);
       
       const togglePlayPause = () => {
-        setIsPlaying(prev => !prev);
+        if (currentItemIndex === null || !runOfShow) return;
+        const currentItem = runOfShow.items[currentItemIndex];
+        const currentItemDuration = parseDurationToSeconds(currentItem?.duration);
+
+        if (currentItem?.type === 'item' && currentItemDuration !== null) {
+          if (isTimerActive) { 
+            setIsTimerActive(false); 
+          } else { 
+            const startDuration = (timeRemaining !== null && timeRemaining > 0 && timeRemaining <= currentItemDuration) 
+                                  ? timeRemaining 
+                                  : currentItemDuration;
+            setTimeRemaining(startDuration);
+            setIsTimerActive(true);
+          }
+        } else {
+          setIsTimerActive(false);
+          setTimeRemaining(null);
+        }
       };
 
-      const handleSkipForward = () => {
-        handleNextItem();
-      };
+      const handleSkipForward = useCallback(() => {
+        const nextIndex = findNextPlayableItemIndex(currentItemIndex);
+        navigateToCue(nextIndex);
+      }, [currentItemIndex, findNextPlayableItemIndex, navigateToCue]);
+
+      const handleSkipBackward = useCallback(() => {
+        const prevIndex = findPreviousPlayableItemIndex(currentItemIndex);
+        navigateToCue(prevIndex);
+      }, [currentItemIndex, findPreviousPlayableItemIndex, navigateToCue]);
+
+      const handleGoToTop = useCallback(() => {
+        const firstIndex = findFirstPlayableItemIndex();
+        navigateToCue(firstIndex);
+      }, [findFirstPlayableItemIndex, navigateToCue]);
+
 
       const toggleFullscreen = () => {
         if (!document.fullscreenElement) {
@@ -254,6 +374,9 @@ import React, { useState, useEffect, useCallback } from 'react';
       ];
 
       const nextPlayableItemActualIndex = findNextPlayableItemIndex(currentItemIndex);
+      const prevPlayableItemActualIndex = findPreviousPlayableItemIndex(currentItemIndex);
+      const firstPlayableItemActualIndex = findFirstPlayableItemIndex();
+
 
       return (
         <div className={`min-h-screen flex flex-col bg-gray-950 text-white transition-all duration-300 ${isFullscreen ? 'p-1 sm:p-2' : 'p-0'}`}>
@@ -283,15 +406,33 @@ import React, { useState, useEffect, useCallback } from 'react';
               <div className="flex items-center space-x-1 sm:space-x-2">
                 <button 
                   className="p-1.5 sm:p-2 text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors" 
-                  title={isPlaying ? "Pause" : "Play"}
-                  onClick={togglePlayPause}
+                  title="Go to Top"
+                  onClick={handleGoToTop}
+                  disabled={currentItemIndex === null || currentItemIndex === firstPlayableItemActualIndex || firstPlayableItemActualIndex === null}
                 >
-                  {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+                  <ChevronsUp size={20} />
                 </button>
                 <button 
                   className="p-1.5 sm:p-2 text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors" 
-                  title="Next Item"
+                  title="Previous Cue"
+                  onClick={handleSkipBackward}
+                  disabled={currentItemIndex === null || prevPlayableItemActualIndex === null}
+                >
+                  <SkipBack size={20} />
+                </button>
+                <button 
+                  className="p-1.5 sm:p-2 text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors" 
+                  title={isTimerActive ? "Pause" : "Play"}
+                  onClick={togglePlayPause}
+                  disabled={currentItemIndex === null || !runOfShow.items[currentItemIndex] || parseDurationToSeconds(runOfShow.items[currentItemIndex].duration) === null}
+                >
+                  {isTimerActive ? <Pause size={20} /> : <Play size={20} />}
+                </button>
+                <button 
+                  className="p-1.5 sm:p-2 text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors" 
+                  title="Next Cue"
                   onClick={handleSkipForward}
+                  disabled={currentItemIndex === null || nextPlayableItemActualIndex === null}
                 >
                   <SkipForward size={20} />
                 </button>
@@ -368,14 +509,17 @@ import React, { useState, useEffect, useCallback } from 'react';
               </table>
             </div>
             <div className="mt-3 sm:mt-4 text-center text-xs text-gray-500 flex items-center justify-center gap-x-4">
-              <span>Press <kbd className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs font-semibold text-gray-200 bg-gray-700 border border-gray-600 rounded-md">Space</kbd> to advance.</span>
+              <span>Press <kbd className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs font-semibold text-gray-200 bg-gray-700 border border-gray-600 rounded-md">Space</kbd> to advance/control timer.</span>
               {(() => {
                 if (currentItemIndex !== null && runOfShow && runOfShow.items[currentItemIndex]?.type === 'item') {
                   const currentItem = runOfShow.items[currentItemIndex];
-                  if (isPlaying && timeRemaining !== null) {
+                  const itemFullDuration = parseDurationToSeconds(currentItem.duration);
+
+                  if (isTimerActive && timeRemaining !== null) {
                     return <span className="font-mono text-sm text-yellow-400">Ends in: {formatTime(timeRemaining)}</span>;
-                  } else if (currentItem.duration && parseDurationToSeconds(currentItem.duration) !== null) {
-                    return <span className="font-mono text-sm text-gray-400">Duration: {currentItem.duration}</span>;
+                  } else if (itemFullDuration !== null) {
+                    const displayTime = timeRemaining !== null ? timeRemaining : itemFullDuration;
+                    return <span className="font-mono text-sm text-gray-400">Duration: {formatTime(displayTime)}</span>;
                   }
                 }
                 return null;
