@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
     import Header from '../components/Header';
     import Footer from '../components/Footer';
     import { Loader, Clock, Play, Pause, SkipForward, SkipBack, ChevronsUp, Maximize, Minimize, ArrowLeft } from 'lucide-react';
-    import { RunOfShowItem, CustomColumnDefinition } from './RunOfShowEditor';
+    import { RunOfShowItem, CustomColumnDefinition } from './RunOfShowEditor'; // Ensure RunOfShowItem includes highlightColor
 
     interface FullRunOfShowData {
       id: string;
@@ -63,8 +63,9 @@ import React, { useState, useEffect, useCallback } from 'react';
       }, []);
 
       const findNextPlayableItemIndex = useCallback((startIndex: number | null): number | null => {
-        if (startIndex === null || !runOfShow || !runOfShow.items) return null;
-        for (let i = startIndex + 1; i < runOfShow.items.length; i++) {
+        if (!runOfShow || !runOfShow.items) return null;
+        const startFrom = startIndex === null ? -1 : startIndex; // If null, start search from beginning
+        for (let i = startFrom + 1; i < runOfShow.items.length; i++) {
           if (runOfShow.items[i].type === 'item') {
             return i;
           }
@@ -73,8 +74,9 @@ import React, { useState, useEffect, useCallback } from 'react';
       }, [runOfShow]);
 
       const findPreviousPlayableItemIndex = useCallback((startIndex: number | null): number | null => {
-        if (startIndex === null || !runOfShow || !runOfShow.items) return null;
-        for (let i = startIndex - 1; i >= 0; i--) {
+        if (!runOfShow || !runOfShow.items) return null;
+        const startFrom = startIndex === null ? runOfShow.items.length : startIndex; // If null, start search from end
+        for (let i = startFrom - 1; i >= 0; i--) {
           if (runOfShow.items[i].type === 'item') {
             return i;
           }
@@ -114,6 +116,7 @@ import React, { useState, useEffect, useCallback } from 'react';
               const migratedItems = (data.items || []).map((item: any) => ({
                 ...item,
                 type: item.type || 'item',
+                highlightColor: item.highlightColor || undefined, 
               }));
               setRunOfShow({
                 ...data,
@@ -157,7 +160,6 @@ import React, { useState, useEffect, useCallback } from 'react';
                 setIsTimerActive(false);
 
                 const nextIdx = findNextPlayableItemIndex(currentItemIndex);
-                // Auto-advance: set current item and its duration, but don't start timer
                 setCurrentItemIndex(nextIdx); 
                 if (nextIdx !== null && runOfShow.items[nextIdx]?.type === 'item') {
                   setTimeRemaining(parseDurationToSeconds(runOfShow.items[nextIdx].duration));
@@ -180,7 +182,7 @@ import React, { useState, useEffect, useCallback } from 'react';
       }, [isTimerActive, currentItemIndex, runOfShow, timeRemaining, findNextPlayableItemIndex]);
 
       const navigateToCue = useCallback((newIndex: number | null) => {
-        setIsTimerActive(false); // Always stop timer on manual navigation
+        setIsTimerActive(false); 
         setCurrentItemIndex(newIndex);
         if (newIndex !== null && runOfShow && runOfShow.items[newIndex]?.type === 'item') {
           setTimeRemaining(parseDurationToSeconds(runOfShow.items[newIndex].duration));
@@ -190,7 +192,19 @@ import React, { useState, useEffect, useCallback } from 'react';
       }, [runOfShow]);
 
       const handleSpacebarPress = useCallback(() => {
-        if (currentItemIndex === null || !runOfShow) return;
+        if (currentItemIndex === null || !runOfShow) { // If no current item, try to start from the first playable
+            const firstPlayable = findFirstPlayableItemIndex();
+            if (firstPlayable !== null) {
+                const firstItem = runOfShow!.items[firstPlayable];
+                const firstItemDuration = parseDurationToSeconds(firstItem?.duration);
+                if (firstItem?.type === 'item' && firstItemDuration !== null) {
+                    setCurrentItemIndex(firstPlayable);
+                    setTimeRemaining(firstItemDuration);
+                    setIsTimerActive(true);
+                }
+            }
+            return;
+        }
 
         const currentItem = runOfShow.items[currentItemIndex];
         const currentItemDuration = parseDurationToSeconds(currentItem?.duration);
@@ -242,7 +256,7 @@ import React, { useState, useEffect, useCallback } from 'react';
             }
           }
         }
-      }, [currentItemIndex, runOfShow, isTimerActive, timeRemaining, findNextPlayableItemIndex]);
+      }, [currentItemIndex, runOfShow, isTimerActive, timeRemaining, findNextPlayableItemIndex, findFirstPlayableItemIndex]);
       
       useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -266,7 +280,19 @@ import React, { useState, useEffect, useCallback } from 'react';
       }, [handleSpacebarPress, currentItemIndex, navigateToCue, findPreviousPlayableItemIndex, findNextPlayableItemIndex]);
       
       const togglePlayPause = () => {
-        if (currentItemIndex === null || !runOfShow) return;
+        if (currentItemIndex === null || !runOfShow) {
+             const firstPlayable = findFirstPlayableItemIndex();
+            if (firstPlayable !== null) {
+                const firstItem = runOfShow!.items[firstPlayable];
+                const firstItemDuration = parseDurationToSeconds(firstItem?.duration);
+                if (firstItem?.type === 'item' && firstItemDuration !== null) {
+                    setCurrentItemIndex(firstPlayable);
+                    setTimeRemaining(firstItemDuration);
+                    setIsTimerActive(true);
+                }
+            }
+            return;
+        }
         const currentItem = runOfShow.items[currentItemIndex];
         const currentItemDuration = parseDurationToSeconds(currentItem?.duration);
 
@@ -377,6 +403,14 @@ import React, { useState, useEffect, useCallback } from 'react';
       const prevPlayableItemActualIndex = findPreviousPlayableItemIndex(currentItemIndex);
       const firstPlayableItemActualIndex = findFirstPlayableItemIndex();
 
+      const isPlayPauseDisabled = () => {
+        if (currentItemIndex === null) { // If no item is selected, check if there's a first playable item
+            return firstPlayableItemActualIndex === null;
+        }
+        // If an item is selected, check if it's playable
+        return !runOfShow.items[currentItemIndex] || parseDurationToSeconds(runOfShow.items[currentItemIndex].duration) === null;
+      };
+
 
       return (
         <div className={`min-h-screen flex flex-col bg-gray-950 text-white transition-all duration-300 ${isFullscreen ? 'p-1 sm:p-2' : 'p-0'}`}>
@@ -415,34 +449,34 @@ import React, { useState, useEffect, useCallback } from 'react';
               </h1>
               <div className="flex items-center space-x-1 sm:space-x-2">
                 <button 
-                  className="p-1.5 sm:p-2 text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors" 
+                  className="p-1.5 sm:p-2 text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
                   title="Go to Top"
                   onClick={handleGoToTop}
-                  disabled={currentItemIndex === null || currentItemIndex === firstPlayableItemActualIndex || firstPlayableItemActualIndex === null}
+                  disabled={firstPlayableItemActualIndex === null || currentItemIndex === firstPlayableItemActualIndex}
                 >
                   <ChevronsUp size={20} />
                 </button>
                 <button 
-                  className="p-1.5 sm:p-2 text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors" 
+                  className="p-1.5 sm:p-2 text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
                   title="Previous Cue"
                   onClick={handleSkipBackward}
-                  disabled={currentItemIndex === null || prevPlayableItemActualIndex === null}
+                  disabled={prevPlayableItemActualIndex === null}
                 >
                   <SkipBack size={20} />
                 </button>
                 <button 
-                  className="p-1.5 sm:p-2 text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors" 
+                  className="p-1.5 sm:p-2 text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
                   title={isTimerActive ? "Pause" : "Play"}
                   onClick={togglePlayPause}
-                  disabled={currentItemIndex === null || !runOfShow.items[currentItemIndex] || parseDurationToSeconds(runOfShow.items[currentItemIndex].duration) === null}
+                  disabled={isPlayPauseDisabled()}
                 >
                   {isTimerActive ? <Pause size={20} /> : <Play size={20} />}
                 </button>
                 <button 
-                  className="p-1.5 sm:p-2 text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors" 
+                  className="p-1.5 sm:p-2 text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
                   title="Next Cue"
                   onClick={handleSkipForward}
-                  disabled={currentItemIndex === null || nextPlayableItemActualIndex === null}
+                  disabled={nextPlayableItemActualIndex === null}
                 >
                   <SkipForward size={20} />
                 </button>
@@ -480,16 +514,27 @@ import React, { useState, useEffect, useCallback } from 'react';
                     const isNext = index === nextPlayableItemActualIndex && item.type === 'item';
 
                     let rowClass = "hover:bg-gray-700/50 transition-colors duration-150";
+                    let rowStyle: React.CSSProperties = {};
+
                     if (item.type === 'header') {
                       rowClass = "bg-gray-700/70 hover:bg-gray-600/70 font-semibold";
-                    } else if (isCurrent) {
-                      rowClass = "bg-green-600/40 hover:bg-green-600/50 border-l-4 border-green-400";
-                    } else if (isNext) {
-                      rowClass = "bg-red-600/40 hover:bg-red-600/50 border-l-4 border-red-400";
+                    } else {
+                      // Apply custom highlight color if not current or next
+                      if (item.highlightColor && !isCurrent && !isNext) {
+                        rowStyle.backgroundColor = item.highlightColor;
+                      }
+                      // Current and Next cue styles take precedence
+                      if (isCurrent) {
+                        rowClass = "bg-green-600/40 hover:bg-green-600/50 border-l-4 border-green-400";
+                        delete rowStyle.backgroundColor; // Ensure current cue style overrides custom highlight
+                      } else if (isNext) {
+                        rowClass = "bg-red-600/40 hover:bg-red-600/50 border-l-4 border-red-400";
+                        delete rowStyle.backgroundColor; // Ensure next cue style overrides custom highlight
+                      }
                     }
 
                     return (
-                      <tr key={item.id} className={rowClass}>
+                      <tr key={item.id} className={rowClass} style={rowStyle}>
                         {allDisplayColumns.map((colConfig, colIdx) => (
                           <td 
                             key={colConfig.key || colConfig.id} 
@@ -531,6 +576,12 @@ import React, { useState, useEffect, useCallback } from 'react';
                     const displayTime = timeRemaining !== null ? timeRemaining : itemFullDuration;
                     return <span className="font-mono text-sm text-gray-400">Duration: {formatTime(displayTime)}</span>;
                   }
+                } else if (currentItemIndex === null && firstPlayableItemActualIndex !== null && runOfShow) {
+                    const firstItem = runOfShow.items[firstPlayableItemActualIndex];
+                    const firstItemDuration = parseDurationToSeconds(firstItem.duration);
+                    if (firstItemDuration !== null) {
+                         return <span className="font-mono text-sm text-gray-400">Next Duration: {formatTime(firstItemDuration)}</span>;
+                    }
                 }
                 return null;
               })()}

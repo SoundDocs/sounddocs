@@ -1,10 +1,26 @@
 import React, { forwardRef } from "react";
 import { FullRunOfShowData } from "../../pages/AllRunOfShows";
-import { RunOfShowItem } from "../../pages/RunOfShowEditor";
+import { RunOfShowItem } from "../../pages/RunOfShowEditor"; // Ensure RunOfShowItem includes highlightColor
 
 interface PrintRunOfShowExportProps {
   schedule: FullRunOfShowData;
 }
+
+// Basic function to determine if a color is light or dark.
+// Returns true for light colors (suggesting dark text), false for dark colors (suggesting light text).
+const isColorLight = (hexColor?: string): boolean => {
+  if (!hexColor) return true;
+  try {
+    const color = hexColor.startsWith("#") ? hexColor.substring(1) : hexColor;
+    const r = parseInt(color.substring(0, 2), 16);
+    const g = parseInt(color.substring(2, 4), 16);
+    const b = parseInt(color.substring(4, 6), 16);
+    const hsp = Math.sqrt(0.299 * (r * r) + 0.587 * (g * g) + 0.114 * (b * b));
+    return hsp > 127.5;
+  } catch (e) {
+    return true;
+  }
+};
 
 const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProps>(({ schedule }, ref) => {
   const defaultColumnsConfig: { key: keyof RunOfShowItem | string; label: string }[] = [
@@ -61,7 +77,7 @@ const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProp
             font-weight: bold; 
           }
           .print-export-table td { 
-            background-color: #fff; 
+            background-color: #fff; /* Default, will be overridden by highlight */
             color: #000; 
           }
           .print-export-table .header-row {
@@ -154,21 +170,14 @@ const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProp
              if (currentItem.type === 'header') {
               return (
                 <tr key={currentItem.id || `item-${index}`} className="header-row">
-                  {/* Column 1: Header Title (in Item # column) */}
                   <td className="header-cell-title">
                     {currentItem.headerTitle || "Section Header"}
                   </td>
-                  {/* Column 2: Start Time */}
                   <td className="header-cell-meta">{currentItem.startTime || ''}</td>
-                  {/* Column 3: Preset / Scene (now N/A for headers) */}
                   <td className="header-cell-empty">N/A</td>
-
-                  {/* Render N/A for remaining default columns (Duration onwards) */}
                   {defaultColumnsConfig.slice(3).map(colDef => (
                      <td key={`print-header-empty-default-${colDef.key}`} className="header-cell-empty">N/A</td>
                   ))}
-
-                  {/* Render N/A for custom columns */}
                   {(schedule.custom_column_definitions || []).map(customCol => (
                     <td key={`print-header-empty-custom-${customCol.id}`} className="header-cell-empty">N/A</td>
                   ))}
@@ -176,10 +185,23 @@ const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProp
               );
             }
             // Regular item row
+            const cellStyle: React.CSSProperties = {};
+            if (currentItem.highlightColor) {
+              cellStyle.backgroundColor = currentItem.highlightColor;
+              if (!isColorLight(currentItem.highlightColor)) {
+                cellStyle.color = '#FFFFFF'; // Light text for dark backgrounds
+              } else {
+                cellStyle.color = '#000000'; // Dark text for light backgrounds
+              }
+            }
+
             return (
               <tr key={currentItem.id || `item-${index}`}>
                 {allTableColumns.map(col => (
-                  <td key={`${currentItem.id || `item-${index}`}-${col.key}`}>
+                  <td 
+                    key={`${currentItem.id || `item-${index}`}-${col.key}`}
+                    style={cellStyle} // Apply style to each cell
+                  >
                     {String(currentItem[col.key as keyof RunOfShowItem] || '')}
                   </td>
                 ))}

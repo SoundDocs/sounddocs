@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { Loader, ArrowLeft, Save, Plus, Trash2, Edit3, Check, X, FileText, MonitorPlay } from "lucide-react";
+import { Loader, ArrowLeft, Save, Plus, Trash2, Edit3, Check, X, FileText, MonitorPlay, Palette } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import MobileScreenWarning from "../components/MobileScreenWarning";
 import { useScreenSize } from "../hooks/useScreenSize";
@@ -14,6 +14,7 @@ export interface RunOfShowItem {
   type: 'item' | 'header'; 
   itemNumber: string; 
   startTime: string; 
+  highlightColor?: string; // New field for row highlight color
   
   headerTitle?: string;
 
@@ -43,6 +44,22 @@ interface RunOfShowData {
   last_edited?: string;
 }
 
+const PREDEFINED_HIGHLIGHT_COLORS: { name: string; value?: string; tailwindClass?: string }[] = [
+  { name: "Default", value: undefined, tailwindClass: "bg-transparent" },
+  { name: "Blue", value: "#2563EB", tailwindClass: "bg-blue-600" }, 
+  { name: "Green", value: "#059669", tailwindClass: "bg-green-600" }, 
+  { name: "Yellow", value: "#CA8A04", tailwindClass: "bg-yellow-600" }, 
+  { name: "Red", value: "#DC2626", tailwindClass: "bg-red-600" }, 
+  { name: "Purple", value: "#7C3AED", tailwindClass: "bg-violet-600" },
+  { name: "Orange", value: "#EA580C", tailwindClass: "bg-orange-600" },
+  { name: "Pink", value: "#DB2777", tailwindClass: "bg-pink-600" },
+  { name: "Gray", value: "#4B5563", tailwindClass: "bg-gray-600" },
+  { name: "Teal", value: "#0D9488", tailwindClass: "bg-teal-600" },
+  { name: "Indigo", value: "#4F46E5", tailwindClass: "bg-indigo-600" },
+  { name: "Lime", value: "#65A30D", tailwindClass: "bg-lime-600" },
+];
+
+
 const RunOfShowEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -58,6 +75,10 @@ const RunOfShowEditor: React.FC = () => {
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [newColumnName, setNewColumnName] = useState<string>("");
   const [newColumnType, setNewColumnType] = useState<'text' | 'number' | 'time'>("text");
+  
+  const [colorPickerModalTargetItemId, setColorPickerModalTargetItemId] = useState<string | null>(null);
+  const colorPickerModalRef = useRef<HTMLDivElement>(null);
+
 
   useEffect(() => {
     if (screenSize === "mobile" || screenSize === "tablet") {
@@ -87,6 +108,7 @@ const RunOfShowEditor: React.FC = () => {
           const migratedItems = (data.items || []).map((item: any) => ({
             ...item,
             type: item.type || 'item',
+            highlightColor: item.highlightColor || undefined, 
           }));
           setRunOfShow({
             ...data,
@@ -121,6 +143,21 @@ const RunOfShowEditor: React.FC = () => {
     init();
   }, [id, navigate, fetchRunOfShow]);
 
+  useEffect(() => {
+    const handleClickOutsideModal = (event: MouseEvent) => {
+      if (colorPickerModalRef.current && !colorPickerModalRef.current.contains(event.target as Node)) {
+        setColorPickerModalTargetItemId(null); // Close modal if click is outside its content
+      }
+    };
+    if (colorPickerModalTargetItemId) {
+      document.addEventListener("mousedown", handleClickOutsideModal);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutsideModal);
+    };
+  }, [colorPickerModalTargetItemId]);
+
+
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (runOfShow) {
       setRunOfShow({ ...runOfShow, name: e.target.value });
@@ -134,6 +171,7 @@ const RunOfShowEditor: React.FC = () => {
         type: type,
         itemNumber: type === 'item' ? (runOfShow.items.filter(i => i.type === 'item').length + 1).toString() : "",
         startTime: "",
+        highlightColor: undefined, 
         headerTitle: type === 'header' ? "New Section Header" : undefined,
         preset: type === 'item' ? "" : undefined,
         duration: type === 'item' ? "" : undefined,
@@ -152,7 +190,7 @@ const RunOfShowEditor: React.FC = () => {
     }
   };
 
-  const handleItemChange = (itemId: string, field: keyof RunOfShowItem | string, value: string) => {
+  const handleItemChange = (itemId: string, field: keyof RunOfShowItem | string, value: any) => {
     if (runOfShow) {
       setRunOfShow({
         ...runOfShow,
@@ -206,7 +244,6 @@ const RunOfShowEditor: React.FC = () => {
       );
       const updatedItems = runOfShow.items.map(item => {
         if (item.type === 'header') return item;
-        // If name changed, transfer value to new key
         if (oldName !== newName.trim() && item.hasOwnProperty(oldName)) {
             const { [oldName]: value, ...rest } = item;
             return { ...rest, [newName.trim()]: value };
@@ -253,9 +290,10 @@ const RunOfShowEditor: React.FC = () => {
 
     const dataToSave: Omit<RunOfShowData, 'id' | 'user_id' | 'created_at'> & { user_id: string, last_edited: string, id?: string, created_at?: string } = {
       name: runOfShow.name,
-      items: runOfShow.items.map(item => ({
+      items: runOfShow.items.map(item => ({ 
         ...item,
-        type: item.type || 'item'
+        type: item.type || 'item',
+        highlightColor: item.highlightColor || undefined,
       })),
       custom_column_definitions: runOfShow.custom_column_definitions.map(col => ({...col, type: col.type || 'text'})),
       user_id: user.id,
@@ -289,6 +327,7 @@ const RunOfShowEditor: React.FC = () => {
         const migratedItems = (savedData.items || []).map((item: any) => ({
             ...item,
             type: item.type || 'item',
+            highlightColor: item.highlightColor || undefined,
         }));
         setRunOfShow({
             ...savedData,
@@ -316,6 +355,18 @@ const RunOfShowEditor: React.FC = () => {
       setTimeout(() => setSaveError(null), 5000);
     }
   };
+
+  const handleOpenColorPickerModal = (itemId: string) => {
+    setColorPickerModalTargetItemId(itemId);
+  };
+
+  const handleSelectColor = (colorValue?: string) => {
+    if (colorPickerModalTargetItemId) {
+      handleItemChange(colorPickerModalTargetItemId, 'highlightColor', colorValue);
+    }
+    setColorPickerModalTargetItemId(null); // Close modal
+  };
+
 
   if (loading || !runOfShow) {
     return (
@@ -514,13 +565,14 @@ const RunOfShowEditor: React.FC = () => {
                       </button>
                     )}
                   </th>
-                  <th scope="col" className="relative py-3 px-3 pr-4 md:pr-6" style={{ minWidth: '80px' }}>
+                  <th scope="col" className="relative py-3 px-3 pr-4 md:pr-6" style={{ minWidth: '100px' }}>
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-gray-800 divide-y divide-gray-700">
                 {runOfShow.items.map((item) => {
+                  const rowStyle = item.type === 'item' && item.highlightColor ? { backgroundColor: item.highlightColor } : {};
                   if (item.type === 'header') {
                     return (
                       <tr key={item.id} className="bg-gray-700/70 hover:bg-gray-600/70 transition-colors">
@@ -561,11 +613,11 @@ const RunOfShowEditor: React.FC = () => {
                     );
                   }
                   return (
-                    <tr key={item.id} className="hover:bg-gray-700/50 transition-colors">
+                    <tr key={item.id} className="hover:bg-gray-700/50 transition-colors" style={rowStyle}>
                       {allDisplayColumns.map((col, colIndex) => (
                         <td key={col.key || col.id} className={`px-3 py-2 whitespace-nowrap text-sm text-gray-200 ${colIndex === 0 ? 'pl-4 md:pl-6' : ''}`}>
                           <input
-                            type={col.type || "text"} // Use col.type directly from allDisplayColumns
+                            type={col.type || "text"} 
                             value={item[col.key as keyof RunOfShowItem] || ""}
                             onChange={(e) => handleItemChange(item.id, col.key as keyof RunOfShowItem, e.target.value)}
                             className={`bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-500 ${col.key === 'itemNumber' ? 'font-semibold' : ''}`}
@@ -575,14 +627,23 @@ const RunOfShowEditor: React.FC = () => {
                         </td>
                       ))}
                       <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-200"></td> 
-                      <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6">
-                        <button
-                          onClick={() => handleDeleteItem(item.id)}
-                          className="text-red-400 hover:text-red-300 p-1"
-                          title="Delete Item"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                      <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6 relative">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => handleOpenColorPickerModal(item.id)}
+                            className="text-indigo-400 hover:text-indigo-300 p-1"
+                            title="Highlight Row"
+                          >
+                            <Palette className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteItem(item.id)}
+                            className="text-red-400 hover:text-red-300 p-1"
+                            title="Delete Item"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -622,6 +683,57 @@ const RunOfShowEditor: React.FC = () => {
 
       </main>
       <Footer />
+
+      {/* Color Picker Modal */}
+      {colorPickerModalTargetItemId && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div 
+            ref={colorPickerModalRef} 
+            className="bg-gray-800 p-4 rounded-lg shadow-2xl w-full max-w-xs sm:max-w-sm transform transition-all"
+            onClick={(e) => e.stopPropagation()} 
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-white">Highlight Color</h3>
+              <button 
+                onClick={() => setColorPickerModalTargetItemId(null)} 
+                className="text-gray-400 hover:text-white transition-colors"
+                aria-label="Close color picker"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-4 gap-2">
+              {PREDEFINED_HIGHLIGHT_COLORS.map((color) => (
+                <button
+                  key={color.name}
+                  title={color.name}
+                  onClick={() => handleSelectColor(color.value)}
+                  className="w-full h-12 sm:h-14 rounded-md transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-indigo-400"
+                  style={{ 
+                    backgroundColor: color.value || '#374151', // gray-700 for default
+                    border: `2px solid ${color.value ? 'transparent' : '#4B5563'}`, // gray-600 for default border
+                  }}
+                >
+                  {/* Optional: Add a checkmark or visual indicator for the currently selected color if needed */}
+                  {runOfShow?.items.find(item => item.id === colorPickerModalTargetItemId)?.highlightColor === color.value && (
+                     <Check size={20} className="mx-auto text-white mix-blend-difference" />
+                  )}
+                   {color.value === undefined && runOfShow?.items.find(item => item.id === colorPickerModalTargetItemId)?.highlightColor === undefined && (
+                     <Check size={20} className="mx-auto text-white mix-blend-difference" />
+                  )}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => handleSelectColor(undefined)} // Clear color option
+              className="mt-4 w-full bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-md font-medium transition-colors text-sm"
+            >
+              Clear Highlight
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

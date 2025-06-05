@@ -1,11 +1,30 @@
 import React, { forwardRef } from "react";
 import { FullRunOfShowData } from "../../pages/AllRunOfShows";
-import { RunOfShowItem } from "../../pages/RunOfShowEditor";
+import { RunOfShowItem } from "../../pages/RunOfShowEditor"; // Ensure RunOfShowItem includes highlightColor
 import { Bookmark, Clock } from "lucide-react"; 
 
 interface RunOfShowExportProps {
   schedule: FullRunOfShowData;
 }
+
+// Basic function to determine if a color is light or dark.
+// Returns true for light colors (suggesting dark text), false for dark colors (suggesting light text).
+// This is a very simplified version. For robust solution, use a library or more complex logic.
+const isColorLight = (hexColor?: string): boolean => {
+  if (!hexColor) return true; // Default to light background assumption
+  try {
+    const color = hexColor.startsWith("#") ? hexColor.substring(1) : hexColor;
+    const r = parseInt(color.substring(0, 2), 16);
+    const g = parseInt(color.substring(2, 4), 16);
+    const b = parseInt(color.substring(4, 6), 16);
+    // HSP (Highly Sensitive Poo) equation
+    const hsp = Math.sqrt(0.299 * (r * r) + 0.587 * (g * g) + 0.114 * (b * b));
+    return hsp > 127.5; // Threshold for light/dark
+  } catch (e) {
+    return true; // Fallback for invalid color
+  }
+};
+
 
 const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ schedule }, ref) => {
   const defaultColumnsConfig: { key: keyof RunOfShowItem | string; label: string }[] = [
@@ -74,14 +93,15 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
             font-weight: 600; 
             border-bottom: 2px solid rgba(99, 102, 241, 0.4); 
           }
-          .export-wrapper tbody tr:nth-child(odd) td:not(.header-cell-title):not(.header-row td) { 
+          /* Default row colors - these will be overridden by specific highlightColor if present */
+          .export-wrapper tbody tr:nth-child(odd) td:not(.header-cell-title):not(.header-row td):not([style*="background-color"]) { 
             background-color: rgba(31, 41, 55, 0.7); 
           }
-          .export-wrapper tbody tr:nth-child(even) td:not(.header-cell-title):not(.header-row td) { 
+          .export-wrapper tbody tr:nth-child(even) td:not(.header-cell-title):not(.header-row td):not([style*="background-color"]) { 
             background-color: rgba(45, 55, 72, 0.4); 
           }
           .export-wrapper td { 
-            color: #e2e8f0; 
+            color: #e2e8f0; /* Default light text for dark backgrounds */
           }
           .export-wrapper .header-row {
             background: linear-gradient(to right, #374151, #1f2937); /* Gradient for the entire header row */
@@ -184,21 +204,14 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
             if (currentItem.type === 'header') {
               return (
                 <tr key={currentItem.id || `item-${index}`} className="header-row">
-                  {/* Column 1: Header Title (in Item # column) */}
                   <td className="header-cell-title">
                     {currentItem.headerTitle || "Section Header"}
                   </td>
-                  {/* Column 2: Start Time */}
                   <td className="header-cell-meta">{currentItem.startTime || ''}</td>
-                  {/* Column 3: Preset / Scene (now N/A for headers) */}
                   <td className="header-cell-empty">N/A</td>
-                  
-                  {/* Render N/A for remaining default columns (Duration onwards) */}
                   {defaultColumnsConfig.slice(3).map(colDef => (
                      <td key={`header-empty-default-${colDef.key}`} className="header-cell-empty">N/A</td>
                   ))}
-                  
-                  {/* Render N/A for custom columns */}
                   {(schedule.custom_column_definitions || []).map(customCol => (
                     <td key={`header-empty-custom-${customCol.id}`} className="header-cell-empty">N/A</td>
                   ))}
@@ -206,10 +219,24 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
               );
             }
             // Regular item row
+            const rowStyle: React.CSSProperties = {};
+            if (currentItem.highlightColor) {
+              rowStyle.backgroundColor = currentItem.highlightColor;
+              // Adjust text color for contrast if needed (using simplified logic)
+              if (!isColorLight(currentItem.highlightColor)) {
+                rowStyle.color = '#FFFFFF'; // Use light text on dark background
+              } else {
+                rowStyle.color = '#1f2937'; // Use dark text on light background (Tailwind gray-800)
+              }
+            }
+
             return (
               <tr key={currentItem.id || `item-${index}`}>
                 {allTableColumns.map(col => (
-                  <td key={`${currentItem.id || `item-${index}`}-${col.key}`}>
+                  <td 
+                    key={`${currentItem.id || `item-${index}`}-${col.key}`}
+                    style={rowStyle} // Apply style to each cell in the highlighted row
+                  >
                     {String(currentItem[col.key as keyof RunOfShowItem] || '')}
                   </td>
                 ))}
