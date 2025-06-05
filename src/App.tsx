@@ -17,7 +17,7 @@ import AllProductionSchedules from "./pages/AllProductionSchedules";
 import RunOfShowEditor from "./pages/RunOfShowEditor";
 import AllRunOfShows from "./pages/AllRunOfShows";
 import ShowModePage from "./pages/ShowModePage";
-import SharedShowModePage from "./pages/SharedShowModePage"; // Import SharedShowModePage
+import SharedShowModePage from "./pages/SharedShowModePage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import SharedPatchSheet from "./pages/SharedPatchSheet";
@@ -25,6 +25,7 @@ import SharedStagePlot from "./pages/SharedStagePlot";
 import SharedProductionSchedule from "./pages/SharedProductionSchedule";
 import ProfilePage from "./pages/ProfilePage";
 import UpdatePasswordPage from "./pages/UpdatePasswordPage";
+import SharedWithMePage from "./pages/SharedWithMePage"; // Import the new page
 
 function App() {
   useEffect(() => {
@@ -58,6 +59,15 @@ function App() {
               }
             />
             <Route
+              path="/shared-with-me" 
+              element={
+                <ProtectedRoute>
+                  <SharedWithMePage />
+                </ProtectedRoute>
+              }
+            />
+            {/* Patch Sheet Routes */}
+            <Route
               path="/patch-sheet/:id"
               element={
                 <ProtectedRoute>
@@ -65,7 +75,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route path="/shared/edit/:shareCode" element={<PatchSheetEditor />} />
+            <Route path="/shared/edit/:shareCode" element={<PatchSheetEditor />} /> 
+            <Route path="/shared/:shareCode" element={<SharedPatchSheet />} />
             <Route
               path="/all-patch-sheets"
               element={
@@ -74,6 +85,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            {/* Stage Plot Routes */}
             <Route
               path="/stage-plot/:id"
               element={
@@ -83,6 +95,7 @@ function App() {
               }
             />
             <Route path="/shared/stage-plot/edit/:shareCode" element={<StagePlotEditor />} />
+            <Route path="/shared/stage-plot/:shareCode" element={<SharedStagePlot />} />
             <Route
               path="/all-stage-plots"
               element={
@@ -91,6 +104,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            {/* Production Schedule Routes */}
             <Route
               path="/production-schedule/:id"
               element={
@@ -99,6 +113,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/shared/production-schedule/edit/:shareCode" element={<ProductionScheduleEditor />} />
+            <Route path="/shared/production-schedule/:shareCode" element={<SharedProductionSchedule />} />
             <Route
               path="/all-production-schedules"
               element={
@@ -107,6 +123,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            {/* Run of Show Routes */}
             <Route
               path="/run-of-show/:id"
               element={
@@ -115,6 +132,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/shared/run-of-show/edit/:shareCode" element={<RunOfShowEditor />} /> {/* New Route for Shared Edit */}
+            <Route path="/shared/run-of-show/:shareCode" element={<SharedShowModePage />} /> {/* View-only Show Mode */}
             <Route
               path="/all-run-of-shows"
               element={
@@ -131,15 +150,11 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            {/* New route for SharedShowModePage - NOT protected */}
-            <Route path="/shared/run-of-show/:shareCode" element={<SharedShowModePage />} />
-
+            
+            {/* Static Pages */}
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
 
-            <Route path="/shared/stage-plot/:shareCode" element={<SharedStagePlot />} />
-            <Route path="/shared/production-schedule/:shareCode" element={<SharedProductionSchedule />} />
-            <Route path="/shared/:shareCode" element={<SharedPatchSheet />} />
           </Routes>
         </Router>
       </AuthProvider>

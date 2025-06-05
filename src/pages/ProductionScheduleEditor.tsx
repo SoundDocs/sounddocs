@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -11,6 +11,7 @@ import MobileScreenWarning from "../components/MobileScreenWarning";
 import { useScreenSize } from "../hooks/useScreenSize";
 import { Loader, ArrowLeft, Save, AlertCircle, Users, ListChecks } from "lucide-react"; 
 import { v4 as uuidv4 } from 'uuid';
+import { getSharedResource, updateSharedResource, getShareUrl, SharedLink } from "../lib/shareUtils"; // Added SharedLink
 
 export interface ScheduleForExport {
   id: string;
@@ -28,7 +29,7 @@ export interface ScheduleForExport {
     load_in?: string; 
     event_start?: string; 
     event_end?: string; 
-    strike_datetime?: string | null; // Can be null, expected to be UTC ISO string if present
+    strike_datetime?: string | null; 
     event_type?: string;
     sound_check?: string;
     room?: string;
@@ -53,7 +54,7 @@ const defaultColors = [
 
 interface ProductionScheduleData {
   id?: string;
-  user_id?: string;
+  user_id?: string; // Owner's user_id
   name: string;
   created_at?: string;
   last_edited?: string;
@@ -63,7 +64,6 @@ interface ProductionScheduleData {
   project_manager: string;
   production_manager: string;
   account_manager: string;
-  // Stored as UTC ISO string in state after fetch/save, or local YYYY-MM-DDTHH:MM string during editing
   set_datetime: string | null; 
   strike_datetime: string | null; 
   crew_key: CrewKeyItem[];
@@ -71,16 +71,11 @@ interface ProductionScheduleData {
   detailed_schedule_items: DetailedScheduleItem[];
 }
 
-// Helper function to convert a UTC ISO string to a local YYYY-MM-DDTHH:MM string
-// for datetime-local input fields.
-// IMPORTANT: This function should be used within ProductionScheduleHeader.tsx
-// for the `value` prop of datetime-local inputs.
 export const formatUTCToLocalDateTimeInputString = (utcIsoString: string | null): string => {
   if (!utcIsoString) return "";
   try {
-    const date = new Date(utcIsoString); // Parses UTC string, Date methods give local
+    const date = new Date(utcIsoString); 
     if (isNaN(date.getTime())) {
-      // Check if it's already in the target format (e.g. during active editing)
       if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(utcIsoString)) {
         return utcIsoString;
       }
@@ -101,29 +96,25 @@ export const formatUTCToLocalDateTimeInputString = (utcIsoString: string | null)
   }
 };
 
-// Helper to convert local YYYY-MM-DDTHH:MM string from input to UTC ISO string for saving
 const convertLocalInputToUTCISO = (localDateTimeString: string | null): string | null => {
   if (!localDateTimeString) return null;
   try {
-    // Input string is YYYY-MM-DDTHH:MM (from datetime-local)
-    // This is interpreted as local time by new Date()
     const localDate = new Date(localDateTimeString);
     if (isNaN(localDate.getTime())) {
       console.warn(`Invalid localDateTimeString for UTC conversion: ${localDateTimeString}`);
       return null; 
     }
-    return localDate.toISOString(); // Converts to UTC ISO string
+    return localDate.toISOString(); 
   } catch (e) {
     console.error("Error converting local input to UTC ISO:", e);
     return null;
   }
 };
 
-// Helper to parse a UTC ISO string into local date and time parts for export info
 const parseUtcToLocalPartsForExportInfo = (utcIsoDateTimeStr: string | null | undefined) => {
   if (!utcIsoDateTimeStr) return { date: undefined, time: undefined };
   try {
-    const d = new Date(utcIsoDateTimeStr); // Parses UTC string, Date methods yield local equivalents
+    const d = new Date(utcIsoDateTimeStr); 
     if (isNaN(d.getTime())) {
       console.warn(`Invalid UTC ISO string for export parsing: ${utcIsoDateTimeStr}`);
       return { date: utcIsoDateTimeStr, time: undefined }; 
@@ -144,16 +135,19 @@ const parseUtcToLocalPartsForExportInfo = (utcIsoDateTimeStr: string | null | un
 
 
 const ProductionScheduleEditor = () => {
-  const { id } = useParams();
+  const { id, shareCode } = useParams(); // Get both id and shareCode
   const navigate = useNavigate();
+  const location = useLocation();
   const screenSize = useScreenSize();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [schedule, setSchedule] = useState<ProductionScheduleData | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any>(null); // Current logged-in user
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showMobileWarning, setShowMobileWarning] = useState(false);
+  const [isSharedEdit, setIsSharedEdit] = useState(false);
+  const [currentShareLink, setCurrentShareLink] = useState<SharedLink | null>(null);
   
 
   useEffect(() => {
@@ -166,14 +160,79 @@ const ProductionScheduleEditor = () => {
     const fetchUserAndSchedule = async () => {
       setLoading(true);
       const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError || !userData.user) {
+      if (userError && !shareCode) { 
         console.error("User not authenticated:", userError);
         navigate("/login");
         return;
       }
-      setUser(userData.user);
+      setUser(userData?.user || null);
 
-      if (id === "new") {
+      const currentPathIsSharedEdit = location.pathname.includes("/shared/production-schedule/edit/");
+      console.log(`[ProdSchedEditor] Path: ${location.pathname}, shareCode: ${shareCode}, currentPathIsSharedEdit: ${currentPathIsSharedEdit}`);
+
+
+      if (currentPathIsSharedEdit && shareCode) {
+        console.log("[ProdSchedEditor] Attempting to fetch SHARED resource with shareCode:", shareCode);
+        try {
+          const { resource, shareLink: fetchedShareLink } = await getSharedResource(shareCode);
+          
+          // CRITICAL DEBUG LOGGING
+          console.log("[ProdSchedEditor] DEBUG: Fetched Shared Link Details:", JSON.stringify(fetchedShareLink, null, 2));
+          console.log("[ProdSchedEditor] DEBUG: Fetched Resource Details:", JSON.stringify(resource, null, 2));
+          console.log(`[ProdSchedEditor] DEBUG: Checking conditions: fetchedShareLink.resource_type ('${fetchedShareLink.resource_type}') !== 'production_schedule'`);
+          console.log(`[ProdSchedEditor] DEBUG: Checking conditions: fetchedShareLink.link_type ('${fetchedShareLink.link_type}') !== "edit"`);
+
+
+          if (fetchedShareLink.resource_type !== 'production_schedule') {
+            console.error("[ProdSchedEditor] Share code is for a different resource type:", fetchedShareLink.resource_type, "Expected: production_schedule");
+            navigate("/dashboard"); 
+            setLoading(false);
+            return;
+          }
+          
+          if (fetchedShareLink.link_type !== "edit") {
+            console.warn(`[ProdSchedEditor] Link type is '${fetchedShareLink.link_type}', not 'edit'. Redirecting to view page.`);
+            window.location.href = getShareUrl(shareCode, 'production_schedule', 'view');
+            // setLoading(false); // Important to stop further processing if redirecting
+            return; 
+          }
+          
+          const sharedScheduleData: ProductionScheduleData = {
+            id: resource.id, 
+            user_id: resource.user_id, 
+            name: resource.name || "Untitled Shared Schedule",
+            created_at: resource.created_at,
+            last_edited: resource.last_edited,
+            show_name: resource.show_name || "",
+            job_number: resource.job_number || "",
+            facility_name: resource.facility_name || "",
+            project_manager: resource.project_manager || "",
+            production_manager: resource.production_manager || "",
+            account_manager: resource.account_manager || "",
+            set_datetime: resource.set_datetime || null,
+            strike_datetime: resource.strike_datetime || null,
+            crew_key: resource.crew_key || [],
+            labor_schedule_items: resource.labor_schedule_items || [],
+            detailed_schedule_items: (resource.detailed_schedule_items || []).map((item: any) => ({
+              ...item,
+              assigned_crew_ids: item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : [])
+            })),
+          };
+          setSchedule(sharedScheduleData);
+          setCurrentShareLink(fetchedShareLink);
+          setIsSharedEdit(true);
+          console.log("[ProdSchedEditor] SHARED production_schedule resource loaded successfully for editing.");
+
+        } catch (error: any) {
+          console.error("[ProdSchedEditor] Error fetching SHARED production schedule:", error.message, error);
+          navigate("/dashboard"); 
+        } finally {
+          setLoading(false);
+        }
+      } else if (id === "new") { 
+        if (!userData?.user) { 
+            navigate("/login"); return;
+        }
         const newSchedule: ProductionScheduleData = {
           name: "Untitled Production Schedule",
           show_name: "",
@@ -187,22 +246,27 @@ const ProductionScheduleEditor = () => {
           crew_key: [],
           labor_schedule_items: [], 
           detailed_schedule_items: [],
+          user_id: userData.user.id, 
+          created_at: new Date().toISOString(),
         };
         setSchedule(newSchedule);
+        setIsSharedEdit(false);
         setLoading(false);
-      } else {
+      } else if (id) { 
+         if (!userData?.user) { 
+            navigate("/login"); return;
+        }
         try {
           const { data, error } = await supabase
             .from("production_schedules")
             .select("*")
             .eq("id", id)
-            .eq("user_id", userData.user.id)
+            .eq("user_id", userData.user.id) 
             .single();
 
           if (error) throw error;
           
           if (data) {
-            // Data from Supabase (set_datetime, strike_datetime) is UTC ISO string
             setSchedule({
               ...data, 
               set_datetime: data.set_datetime || null, 
@@ -215,25 +279,27 @@ const ProductionScheduleEditor = () => {
               })),
             });
           } else {
-            navigate("/dashboard");
+            navigate("/dashboard"); 
           }
         } catch (error) {
           console.error("Error fetching production schedule:", error);
           navigate("/dashboard");
         } finally {
+          setIsSharedEdit(false);
           setLoading(false);
         }
+      } else {
+        console.error("[ProdSchedEditor] Invalid route state. No id, no shareCode, not 'new'.");
+        navigate("/dashboard");
+        setLoading(false);
       }
     };
 
     fetchUserAndSchedule();
-  }, [id, navigate]);
+  }, [id, shareCode, navigate, location.pathname]);
 
   const handleHeaderFieldUpdate = (field: string, value: string) => {
     if (schedule) {
-      // Value from datetime-local input is YYYY-MM-DDTHH:MM (local time string)
-      // Store this local string in state during editing.
-      // It will be converted to UTC ISO on save.
       setSchedule({
         ...schedule,
         [field]: value || null, 
@@ -307,7 +373,13 @@ const ProductionScheduleEditor = () => {
   };
 
   const handleSave = async () => {
-    if (!schedule || !user) return;
+    if (!schedule) return; 
+    if (!user && !isSharedEdit) { 
+        setSaveError("You must be logged in to save.");
+        setTimeout(() => setSaveError(null), 5000);
+        return;
+    }
+
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
@@ -327,9 +399,7 @@ const ProductionScheduleEditor = () => {
       assigned_crew_ids: item.assigned_crew_ids || [], 
     }));
 
-    // schedule.set_datetime and schedule.strike_datetime are local YYYY-MM-DDTHH:MM strings here
-    // Convert them to UTC ISO for saving
-    const scheduleDataToSave = {
+    const baseDataToSave = {
       name: schedule.name,
       show_name: schedule.show_name,
       job_number: schedule.job_number,
@@ -339,46 +409,57 @@ const ProductionScheduleEditor = () => {
       account_manager: schedule.account_manager,
       set_datetime: convertLocalInputToUTCISO(schedule.set_datetime),
       strike_datetime: convertLocalInputToUTCISO(schedule.strike_datetime),
-      user_id: user.id,
       last_edited: new Date().toISOString(),
       crew_key: sanitizedCrewKey,
       labor_schedule_items: sanitizedLaborScheduleItems,
       detailed_schedule_items: sanitizedDetailedScheduleItems,
-      ...(id !== "new" && { id: schedule.id }),
-      ...(id === "new" && schedule.created_at && { created_at: schedule.created_at }),
     };
     
-    let finalDataToSave: any = scheduleDataToSave;
-    if (id === "new") {
-      const { id: scheduleId, ...rest } = scheduleDataToSave; 
-      finalDataToSave = rest;
-    }
-
     try {
       let savedData;
-      if (id === "new") {
-        const { data, error } = await supabase
-          .from("production_schedules")
-          .insert(finalDataToSave)
-          .select()
-          .single();
-        if (error) throw error;
-        savedData = data;
-        if (data) navigate(`/production-schedule/${data.id}`);
+      if (isSharedEdit && shareCode) {
+        console.log("[ProdSchedEditor] Saving SHARED production schedule with shareCode:", shareCode);
+        savedData = await updateSharedResource(shareCode, "production_schedule", baseDataToSave);
+        if (savedData) {
+           setSchedule({
+            ...schedule, 
+            ...savedData, 
+            set_datetime: savedData.set_datetime || null, 
+            strike_datetime: savedData.strike_datetime || null,
+           });
+        }
+      } else if (user) { 
+        const dataForOwnedSave: any = {
+          ...baseDataToSave,
+          user_id: user.id, 
+        };
+
+        if (id === "new") {
+          dataForOwnedSave.created_at = schedule.created_at || new Date().toISOString();
+          const { data, error } = await supabase
+            .from("production_schedules")
+            .insert(dataForOwnedSave)
+            .select()
+            .single();
+          if (error) throw error;
+          savedData = data;
+          if (data) navigate(`/production-schedule/${data.id}`);
+        } else { 
+          const { data, error } = await supabase
+            .from("production_schedules")
+            .update(dataForOwnedSave)
+            .eq("id", schedule.id as string) 
+            .eq("user_id", user.id)
+            .select()
+            .single();
+          if (error) throw error;
+          savedData = data;
+        }
       } else {
-        const { data, error } = await supabase
-          .from("production_schedules")
-          .update(finalDataToSave)
-          .eq("id", id as string)
-          .eq("user_id", user.id)
-          .select()
-          .single();
-        if (error) throw error;
-        savedData = data;
+        throw new Error("Cannot save: No user session and not a shared edit.");
       }
 
-      if (savedData) {
-        // savedData contains UTC ISO strings for datetime fields
+      if (savedData && !isSharedEdit) { 
         const reloadedData: ProductionScheduleData = {
           ...savedData,
           set_datetime: savedData.set_datetime || null,
@@ -390,7 +471,9 @@ const ProductionScheduleEditor = () => {
             assigned_crew_ids: item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : [])
           })),
         };
-        setSchedule(reloadedData); // State now holds UTC ISO strings
+        setSchedule(reloadedData); 
+      } else if (savedData && isSharedEdit) {
+        setSchedule(prev => prev ? ({...prev, last_edited: savedData.last_edited || prev.last_edited }) : null);
       }
 
       setSaveSuccess(true);
@@ -414,8 +497,6 @@ const ProductionScheduleEditor = () => {
   }
   
   const currentDetailedScheduleItems = schedule.detailed_schedule_items || [];
-  
-  // schedule.set_datetime is a UTC ISO string here (after fetch/save)
   const parsedSetDateTimeForExport = parseUtcToLocalPartsForExportInfo(schedule.set_datetime);
 
   const scheduleForExportProps: ScheduleForExport = {
@@ -430,9 +511,9 @@ const ProductionScheduleEditor = () => {
       project_manager: schedule.project_manager,
       production_manager: schedule.production_manager,
       account_manager: schedule.account_manager,
-      date: parsedSetDateTimeForExport.date, // Local date string (YYYY-MM-DD)
-      load_in: parsedSetDateTimeForExport.time, // Local time string (HH:MM)
-      strike_datetime: schedule.strike_datetime, // UTC ISO string, export components will format to local
+      date: parsedSetDateTimeForExport.date, 
+      load_in: parsedSetDateTimeForExport.time, 
+      strike_datetime: schedule.strike_datetime, 
       event_start: undefined, 
       event_end: undefined, 
       event_type: undefined, 
@@ -451,6 +532,15 @@ const ProductionScheduleEditor = () => {
     detailed_schedule_items: currentDetailedScheduleItems,
   };
 
+  const backButtonNavigation = () => {
+    if (isSharedEdit && shareCode && currentShareLink) {
+      navigate("/dashboard"); 
+    } else {
+      navigate("/dashboard"); 
+    }
+  };
+
+
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       {showMobileWarning && (
@@ -462,14 +552,14 @@ const ProductionScheduleEditor = () => {
         />
       )}
 
-      <Header dashboard={true} scheduleForExport={scheduleForExportProps} scheduleType="production" />
+      <Header dashboard={!isSharedEdit} scheduleForExport={isSharedEdit ? undefined : scheduleForExportProps} scheduleType="production" />
 
 
       <main className="flex-grow container mx-auto px-4 py-6 md:py-12 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
           <div className="flex items-center flex-grow min-w-0"> 
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={backButtonNavigation}
               className="mr-2 md:mr-4 flex items-center text-gray-400 hover:text-white transition-colors flex-shrink-0" 
             >
               <ArrowLeft className="h-5 w-5" />
@@ -486,6 +576,7 @@ const ProductionScheduleEditor = () => {
                 {schedule.last_edited
                   ? `Last edited: ${new Date(schedule.last_edited).toLocaleString()}`
                   : `Created: ${new Date(schedule.created_at || Date.now()).toLocaleString()}`}
+                 {isSharedEdit && schedule.user_id && <span className="ml-2">(Shared, Original Owner: ...{schedule.user_id.slice(-6)})</span>}
               </p>
             </div>
           </div>
@@ -534,18 +625,6 @@ const ProductionScheduleEditor = () => {
           </div>
           <div className="p-4 md:p-6 overflow-x-auto">
             <div className="min-w-[800px] md:min-w-0">
-              {/* 
-                IMPORTANT: ProductionScheduleHeader.tsx needs to use the 
-                `formatUTCToLocalDateTimeInputString` helper function (defined in this file)
-                for the `value` prop of its datetime-local inputs.
-                Example for set_datetime input:
-                value={formatUTCToLocalDateTimeInputString(scheduleData.set_datetime)}
-                onChange={(e) => updateField("set_datetime", e.target.value)}
-
-                `scheduleData.set_datetime` (and strike_datetime) will be UTC ISO strings
-                from the `schedule` state. `updateField` will pass the local YYYY-MM-DDTHH:MM
-                string from the input back to `handleHeaderFieldUpdate`.
-              */}
               <ProductionScheduleHeader
                 scheduleData={{
                   show_name: schedule.show_name,
@@ -554,7 +633,6 @@ const ProductionScheduleEditor = () => {
                   project_manager: schedule.project_manager,
                   production_manager: schedule.production_manager,
                   account_manager: schedule.account_manager,
-                  // Pass the state values directly; header component handles formatting for display
                   set_datetime: schedule.set_datetime, 
                   strike_datetime: schedule.strike_datetime,
                 }}

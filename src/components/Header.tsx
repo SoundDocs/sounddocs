@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Menu, X, Bookmark, LogOut, User as UserIcon, Settings, ChevronDown } from "lucide-react";
+import { Menu, X, Bookmark, LogOut, User as UserIcon, Users as UsersIcon, Settings, ChevronDown } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
@@ -109,35 +109,45 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center space-x-8" aria-label="Main Navigation">
           {dashboard && user ? (
-            <div className="relative" ref={profileMenuRef}>
-              <button
-                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                className="flex items-center text-gray-300 hover:text-white transition-colors duration-200"
-                aria-label="User menu"
-                aria-haspopup="true"
-                aria-expanded={isProfileMenuOpen}
+            <div className="flex items-center space-x-3"> {/* Reduced space for tighter grouping */}
+              <Link
+                to="/shared-with-me"
+                className="text-gray-300 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                aria-label="Shared with me"
+                title="Shared with me"
               >
-                <UserIcon className="h-6 w-6 rounded-full bg-gray-700 p-1" />
-                <ChevronDown className={`h-4 w-4 ml-1 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {isProfileMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-md shadow-lg py-1 z-50 border border-gray-700">
-                  <button
-                    onClick={navigateToProfile}
-                    className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
-                  >
-                    <Settings className="h-4 w-4 mr-2" />
-                    Profile
-                  </button>
-                  <button
-                    onClick={handleSignOut}
-                    className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
-                  >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Sign Out
-                  </button>
-                </div>
-              )}
+                <UsersIcon className="h-5 w-5" />
+              </Link>
+              <div className="relative" ref={profileMenuRef}>
+                <button
+                  onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                  className="flex items-center text-gray-300 hover:text-white transition-colors duration-200 p-2 rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  aria-label="User menu"
+                  aria-haspopup="true"
+                  aria-expanded={isProfileMenuOpen}
+                >
+                  <UserIcon className="h-5 w-5" />
+                  <ChevronDown className={`h-4 w-4 ml-1 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {isProfileMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-md shadow-lg py-1 z-50 border border-gray-700">
+                    <button
+                      onClick={navigateToProfile}
+                      className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      Profile
+                    </button>
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           ) : isSharedRoute ? (
             <a
@@ -205,6 +215,14 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
             <nav className="flex flex-col space-y-4" aria-label="Mobile Navigation">
               {dashboard && user ? (
                 <>
+                  <Link
+                    to="/shared-with-me"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center text-gray-300 hover:text-white transition-colors duration-200"
+                  >
+                    <UsersIcon className="h-4 w-4 mr-2" />
+                    Shared with me
+                  </Link>
                   <Link
                     to="/profile"
                     onClick={() => setIsMenuOpen(false)}

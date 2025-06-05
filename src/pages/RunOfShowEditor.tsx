@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { Loader, ArrowLeft, Save, Plus, Trash2, Edit3, Check, X, FileText, MonitorPlay, Palette } from "lucide-react";
+import { Loader, ArrowLeft, Save, Plus, Trash2, Edit3, Check, X, FileText, MonitorPlay, Palette, AlertTriangle } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import MobileScreenWarning from "../components/MobileScreenWarning";
 import { useScreenSize } from "../hooks/useScreenSize";
+import { verifyShareLink, SharedLink, ResourceType } from "../lib/shareUtils";
+
 
 // Interfaces
 export interface RunOfShowItem {
@@ -14,7 +16,7 @@ export interface RunOfShowItem {
   type: 'item' | 'header'; 
   itemNumber: string; 
   startTime: string; 
-  highlightColor?: string; // New field for row highlight color
+  highlightColor?: string;
   
   headerTitle?: string;
 
@@ -42,6 +44,7 @@ interface RunOfShowData {
   custom_column_definitions: CustomColumnDefinition[];
   created_at?: string;
   last_edited?: string;
+  live_show_data?: any | null; // Added for consistency with shared data
 }
 
 const PREDEFINED_HIGHLIGHT_COLORS: { name: string; value?: string; tailwindClass?: string }[] = [
@@ -61,13 +64,16 @@ const PREDEFINED_HIGHLIGHT_COLORS: { name: string; value?: string; tailwindClass
 
 
 const RunOfShowEditor: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id, shareCode } = useParams<{ id?: string; shareCode?: string }>();
+  console.log('[RoSEditor] Top Level Params:', { id, shareCode });
   const navigate = useNavigate();
+  const location = useLocation();
   const screenSize = useScreenSize();
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [runOfShow, setRunOfShow] = useState<RunOfShowData | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any>(null); // Authenticated user
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showMobileWarning, setShowMobileWarning] = useState(false);
@@ -79,6 +85,9 @@ const RunOfShowEditor: React.FC = () => {
   const [colorPickerModalTargetItemId, setColorPickerModalTargetItemId] = useState<string | null>(null);
   const colorPickerModalRef = useRef<HTMLDivElement>(null);
 
+  const [currentIsSharedEdit, setCurrentIsSharedEdit] = useState(false);
+  const [sharedLinkData, setSharedLinkData] = useState<SharedLink | null>(null);
+
 
   useEffect(() => {
     if (screenSize === "mobile" || screenSize === "tablet") {
@@ -86,67 +95,180 @@ const RunOfShowEditor: React.FC = () => {
     }
   }, [screenSize]);
 
-  const fetchRunOfShow = useCallback(async (userId: string) => {
-    if (id === "new") {
-      setRunOfShow({
-        name: "Untitled Run of Show",
-        items: [],
-        custom_column_definitions: [],
-      });
-      setLoading(false);
-    } else {
-      try {
-        const { data, error } = await supabase
+  // Effect 1: Determine and set currentIsSharedEdit
+  useEffect(() => {
+    const pathIsSharedEdit = location.pathname.includes('/shared/run-of-show/edit/');
+    const derivedIsSharedEdit = pathIsSharedEdit && !!shareCode;
+    console.log('[RoSEditor] Effect 1 - Setting currentIsSharedEdit:', { 
+      pathname: location.pathname,
+      shareCodeParam: shareCode,
+      pathIsSharedEdit,
+      derivedIsSharedEdit 
+    });
+    setCurrentIsSharedEdit(derivedIsSharedEdit);
+  }, [location.pathname, shareCode]);
+
+
+  const fetchAndSetRunOfShow = useCallback(async (userIdToFetch?: string, resourceIdToFetch?: string) => {
+    setLoading(true); 
+    setSaveError(null);
+    console.log('[RoSEditor] fetchAndSetRunOfShow called. currentIsSharedEdit (state):', currentIsSharedEdit, 'Params:', { userIdToFetch, resourceIdToFetch });
+  
+    try {
+      let data: RunOfShowData | null = null;
+      let error: any = null;
+  
+      if (currentIsSharedEdit && shareCode && resourceIdToFetch) { 
+        console.log(`[RoSEditor] Fetching shared RoS by resource_id: ${resourceIdToFetch} via shareCode: ${shareCode}`);
+        const response = await supabase
+          .from("run_of_shows")
+          .select("*")
+          .eq("id", resourceIdToFetch)
+          .single();
+        data = response.data;
+        error = response.error;
+      } else if (id === "new") {
+        console.log("[RoSEditor] Creating new RoS");
+        setRunOfShow({
+          name: "Untitled Run of Show",
+          items: [],
+          custom_column_definitions: [],
+          live_show_data: null,
+        });
+        setLoading(false);
+        return;
+      } else if (id && userIdToFetch) { 
+        console.log(`[RoSEditor] Fetching owned RoS by id: ${id} for user: ${userIdToFetch}`);
+        const response = await supabase
           .from("run_of_shows")
           .select("*")
           .eq("id", id)
-          .eq("user_id", userId)
+          .eq("user_id", userIdToFetch)
           .single();
-
-        if (error) throw error;
-        if (data) {
-          const migratedItems = (data.items || []).map((item: any) => ({
-            ...item,
-            type: item.type || 'item',
-            highlightColor: item.highlightColor || undefined, 
-          }));
-          setRunOfShow({
-            ...data,
-            items: migratedItems,
-            custom_column_definitions: (data.custom_column_definitions || []).map((col: any) => ({ ...col, type: col.type || 'text' })),
-          });
-        } else {
-          navigate("/dashboard"); 
+        data = response.data;
+        error = response.error;
+      } else {
+        console.warn("[RoSEditor] fetchAndSetRunOfShow: Invalid parameters or state for fetching.");
+        throw new Error("Invalid parameters for fetching Run of Show.");
+      }
+  
+      if (error) throw error; 
+  
+      if (data) {
+        const migratedItems = (data.items || []).map((item: any) => ({
+          ...item,
+          type: item.type || 'item',
+          highlightColor: item.highlightColor || undefined, 
+        }));
+        setRunOfShow({
+          ...data,
+          items: migratedItems,
+          custom_column_definitions: (data.custom_column_definitions || []).map((col: any) => ({ ...col, type: col.type || 'text' })),
+        });
+      } else { 
+        setSaveError("Run of Show not found or access denied.");
+        if (!currentIsSharedEdit) { 
+          console.log('[RoSEditor] fetchAndSetRunOfShow: Data null, !currentIsSharedEdit -> navigating to dashboard.');
+          navigate("/dashboard");
         }
-      } catch (error) {
-        console.error("Error fetching run of show:", error);
-        setSaveError("Failed to load run of show data.");
+      }
+    } catch (err: any) {
+      console.error("Error fetching run of show:", err);
+      setSaveError(`Failed to load run of show data: ${err.message}`);
+      if (!currentIsSharedEdit) { 
+        console.log('[RoSEditor] fetchAndSetRunOfShow: Caught error, !currentIsSharedEdit -> navigating to dashboard.');
         navigate("/dashboard");
-      } finally {
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [id, shareCode, currentIsSharedEdit, navigate]); 
+
+
+  // Effect 2: Initialize and fetch data, depends on currentIsSharedEdit being correctly set
+  useEffect(() => {
+    console.log('[RoSEditor] Effect 2 - Init effect. currentIsSharedEdit:', currentIsSharedEdit, 'id:', id, 'shareCode:', shareCode);
+  
+    const init = async () => {
+      // setLoading(true); // Moved to fetchAndSetRunOfShow and start of this effect if needed
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) {
+        if (!currentIsSharedEdit) { 
+          console.error("User not authenticated for non-shared path:", authError);
+          navigate("/login");
+          return;
+        }
+        setUser(null); 
+      } else {
+        setUser(authData.user);
+      }
+  
+      if (currentIsSharedEdit && shareCode) { 
+        try {
+          console.log(`[RoSEditor] Verifying shareCode for shared edit: ${shareCode}. currentIsSharedEdit is true.`);
+          const verifiedLink = await verifyShareLink(shareCode);
+          if (verifiedLink.resource_type === 'run_of_show' && verifiedLink.link_type === 'edit') {
+            setSharedLinkData(verifiedLink);
+            await fetchAndSetRunOfShow(undefined, verifiedLink.resource_id);
+          } else {
+            throw new Error("Invalid share link type or resource for editing.");
+          }
+        } catch (err: any) {
+          console.error("Error verifying share link for RoS edit:", err);
+          setSaveError(`Error: ${err.message}. You may not have permission to edit this document or the link is invalid.`);
+          setLoading(false);
+        }
+      } else if (id) { 
+        console.log(`[RoSEditor] Path for owned/new document. id: ${id}. currentIsSharedEdit is false.`);
+        await fetchAndSetRunOfShow(authData.user?.id);
+      } else if (!id && !shareCode) {
+        // This case handles scenarios where neither id nor shareCode is present,
+        // which might indicate an invalid route or parameters for this editor.
+        // Example: Navigating to /run-of-show/ or /shared/run-of-show/edit/ without params.
+        console.log('[RoSEditor] Invalid route state: no id, no shareCode.');
+        setSaveError("Invalid route: Document ID or Share Code is missing.");
+        setLoading(false);
+      } else {
+        // This is a fallback for any other unhandled combination.
+        // For instance, if currentIsSharedEdit is false but shareCode is present (shouldn't happen with Effect 1)
+        // Or if currentIsSharedEdit is true but shareCode is missing.
+        console.log('[RoSEditor] Unhandled route state or parameters missing. currentIsSharedEdit:', currentIsSharedEdit, 'id:', id, 'shareCode:', shareCode);
+        setSaveError("Could not determine how to load the document due to inconsistent parameters.");
         setLoading(false);
       }
-    }
-  }, [id, navigate]);
-
-  useEffect(() => {
-    const init = async () => {
-      setLoading(true);
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError || !userData.user) {
-        console.error("User not authenticated:", userError);
-        navigate("/login");
-        return;
-      }
-      setUser(userData.user);
-      await fetchRunOfShow(userData.user.id);
     };
-    init();
-  }, [id, navigate, fetchRunOfShow]);
+  
+    // Determine if we have enough information to proceed with init
+    const canInitialize = (currentIsSharedEdit && !!shareCode) || (!currentIsSharedEdit && !!id);
+    
+    if (canInitialize) {
+      setLoading(true); // Set loading true before starting init
+      init();
+    } else {
+      // If not enough info, and the path suggests it *should* be one of these types, set an error.
+      // This handles cases like /run-of-show/ (no id) or /shared/run-of-show/edit/ (no shareCode).
+      if (location.pathname.startsWith('/run-of-show/') && !id) {
+        setSaveError("Document ID missing from URL.");
+        setLoading(false);
+      } else if (location.pathname.startsWith('/shared/run-of-show/edit/') && !shareCode) {
+        setSaveError("Share code missing from URL for shared document.");
+        setLoading(false);
+      } else if (!location.pathname.startsWith('/run-of-show/new') && !id && !shareCode) {
+        // Generic case if path doesn't match expected patterns and no params
+        // For /run-of-show/new, id will be "new", so that's handled by canInitialize.
+        setSaveError("Invalid page URL or parameters.");
+        setLoading(false);
+      }
+      // If it's /run-of-show/new, `id` will be "new", so `canInitialize` will be true.
+    }
+  
+  }, [id, shareCode, currentIsSharedEdit, navigate, fetchAndSetRunOfShow, location.pathname]);
+
 
   useEffect(() => {
     const handleClickOutsideModal = (event: MouseEvent) => {
       if (colorPickerModalRef.current && !colorPickerModalRef.current.contains(event.target as Node)) {
-        setColorPickerModalTargetItemId(null); // Close modal if click is outside its content
+        setColorPickerModalTargetItemId(null);
       }
     };
     if (colorPickerModalTargetItemId) {
@@ -283,12 +405,25 @@ const RunOfShowEditor: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!runOfShow || !user) return;
+    if (!runOfShow) return;
+    
+    if (!user && currentIsSharedEdit) {
+        setSaveError("You must be logged in to save changes, even to a shared document. Please log in or sign up, then try claiming this share link again.");
+        setTimeout(() => setSaveError(null), 7000);
+        return;
+    }
+     if (!user && !currentIsSharedEdit && id !== "new") { 
+        navigate("/login");
+        return;
+    }
+
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
 
-    const dataToSave: Omit<RunOfShowData, 'id' | 'user_id' | 'created_at'> & { user_id: string, last_edited: string, id?: string, created_at?: string } = {
+    const liveShowDataToSave = runOfShow.live_show_data || null;
+
+    const dataToSave: Partial<RunOfShowData> & { last_edited: string } = {
       name: runOfShow.name,
       items: runOfShow.items.map(item => ({ 
         ...item,
@@ -296,31 +431,47 @@ const RunOfShowEditor: React.FC = () => {
         highlightColor: item.highlightColor || undefined,
       })),
       custom_column_definitions: runOfShow.custom_column_definitions.map(col => ({...col, type: col.type || 'text'})),
-      user_id: user.id,
       last_edited: new Date().toISOString(),
+      live_show_data: liveShowDataToSave,
     };
 
     try {
       let savedData;
-      if (id === "new") {
+      if (currentIsSharedEdit && runOfShow.id && sharedLinkData) { // Ensure sharedLinkData and runOfShow.id (resource_id) are present
+        console.log(`[RoSEditor] Saving shared RoS ID: ${runOfShow.id}`);
         const { data, error } = await supabase
           .from("run_of_shows")
-          .insert({ ...dataToSave, created_at: new Date().toISOString() })
+          .update(dataToSave) 
+          .eq("id", runOfShow.id) 
+          .select()
+          .single();
+        if (error) throw error;
+        savedData = data;
+
+      } else if (id === "new" && user) {
+        console.log("[RoSEditor] Saving new RoS for user:", user.id);
+        const { data, error } = await supabase
+          .from("run_of_shows")
+          .insert({ ...dataToSave, user_id: user.id, created_at: new Date().toISOString() })
           .select()
           .single();
         if (error) throw error;
         savedData = data;
         if (data) navigate(`/run-of-show/${data.id}`);
-      } else {
+
+      } else if (runOfShow.id && user) { 
+        console.log(`[RoSEditor] Saving owned RoS ID: ${runOfShow.id} for user: ${user.id}`);
         const { data, error } = await supabase
           .from("run_of_shows")
-          .update(dataToSave)
-          .eq("id", id as string)
-          .eq("user_id", user.id)
+          .update({ ...dataToSave, user_id: user.id }) 
+          .eq("id", runOfShow.id)
+          .eq("user_id", user.id) 
           .select()
           .single();
         if (error) throw error;
         savedData = data;
+      } else {
+        throw new Error("Cannot save: Invalid state or missing user/ID/sharedLink information.");
       }
       
       if (savedData) {
@@ -330,7 +481,7 @@ const RunOfShowEditor: React.FC = () => {
             highlightColor: item.highlightColor || undefined,
         }));
         setRunOfShow({
-            ...savedData,
+            ...(savedData as RunOfShowData), // Cast to ensure type compatibility
             items: migratedItems,
             custom_column_definitions: (savedData.custom_column_definitions || []).map((col: any) => ({ ...col, type: col.type || 'text' })),
         });
@@ -348,8 +499,9 @@ const RunOfShowEditor: React.FC = () => {
   };
 
   const handleNavigateToShowMode = () => {
-    if (id && id !== "new") {
-      navigate(`/show-mode/${id}`);
+    const targetId = currentIsSharedEdit ? sharedLinkData?.resource_id : id;
+    if (targetId && targetId !== "new") {
+      navigate(`/show-mode/${targetId}`);
     } else {
       setSaveError("Please save the Run of Show before entering Show Mode.");
       setTimeout(() => setSaveError(null), 5000);
@@ -364,17 +516,62 @@ const RunOfShowEditor: React.FC = () => {
     if (colorPickerModalTargetItemId) {
       handleItemChange(colorPickerModalTargetItemId, 'highlightColor', colorValue);
     }
-    setColorPickerModalTargetItemId(null); // Close modal
+    setColorPickerModalTargetItemId(null);
   };
 
 
-  if (loading || !runOfShow) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <Loader className="h-12 w-12 text-indigo-500 animate-spin" />
       </div>
     );
   }
+  
+  if (saveError && !runOfShow) { 
+    return (
+        <div className="min-h-screen bg-gray-900 flex flex-col">
+            <Header dashboard={true} />
+            <main className="flex-grow container mx-auto px-4 py-12 flex flex-col items-center justify-center text-center">
+                <AlertTriangle className="h-16 w-16 text-red-400 mb-4" />
+                <h1 className="text-2xl font-bold text-red-400 mb-2">Error Loading Run of Show</h1>
+                <p className="text-gray-300 mb-6">{saveError}</p>
+                <button
+                    onClick={() => navigate(currentIsSharedEdit ? "/shared-with-me" : "/dashboard")}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-md font-medium"
+                >
+                    {currentIsSharedEdit ? "Back to Shared With Me" : "Back to Dashboard"}
+                </button>
+            </main>
+            <Footer />
+        </div>
+    );
+  }
+
+
+  if (!runOfShow) { 
+    return (
+      <div className="min-h-screen bg-gray-900 flex flex-col">
+        <Header dashboard={true} />
+         <main className="flex-grow container mx-auto px-4 py-12 flex flex-col items-center justify-center text-center">
+            <AlertTriangle className="h-16 w-16 text-yellow-400 mb-4" />
+            <h1 className="text-2xl font-bold text-yellow-400 mb-2">Run of Show Not Loaded</h1>
+            <p className="text-gray-300 mb-6">
+              The Run of Show data could not be loaded. This might be due to an invalid link or insufficient permissions.
+              Please check the URL or try returning to your dashboard.
+            </p>
+            <button
+                onClick={() => navigate(currentIsSharedEdit ? "/shared-with-me" : "/dashboard")}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-md font-medium"
+            >
+                {currentIsSharedEdit ? "Back to Shared With Me" : "Back to Dashboard"}
+            </button>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
 
   const defaultColumns: { key: keyof RunOfShowItem | string; label: string; type?: string }[] = [
     { key: "itemNumber", label: "Item #" }, 
@@ -408,7 +605,7 @@ const RunOfShowEditor: React.FC = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
           <div className="flex items-center flex-grow min-w-0">
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate(currentIsSharedEdit ? "/shared-with-me" : (id === "new" ? "/dashboard" : `/all-run-of-shows`))}
               className="mr-2 md:mr-4 flex items-center text-gray-400 hover:text-white transition-colors flex-shrink-0"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -422,9 +619,10 @@ const RunOfShowEditor: React.FC = () => {
                 placeholder="Enter Run of Show Name"
               />
               <p className="text-xs sm:text-sm text-gray-400 truncate">
-                {runOfShow.last_edited
+                {currentIsSharedEdit && sharedLinkData ? `Editing shared document (Owner ID: ${sharedLinkData.user_id || 'Unknown'})` : 
+                  (runOfShow.last_edited
                   ? `Last edited: ${new Date(runOfShow.last_edited).toLocaleString()}`
-                  : `Created: ${new Date(runOfShow.created_at || Date.now()).toLocaleString()}`}
+                  : `Created: ${new Date(runOfShow.created_at || Date.now()).toLocaleString()}`)}
               </p>
             </div>
           </div>
@@ -711,11 +909,10 @@ const RunOfShowEditor: React.FC = () => {
                   onClick={() => handleSelectColor(color.value)}
                   className="w-full h-12 sm:h-14 rounded-md transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-indigo-400"
                   style={{ 
-                    backgroundColor: color.value || '#374151', // gray-700 for default
-                    border: `2px solid ${color.value ? 'transparent' : '#4B5563'}`, // gray-600 for default border
+                    backgroundColor: color.value || '#374151', 
+                    border: `2px solid ${color.value ? 'transparent' : '#4B5563'}`, 
                   }}
                 >
-                  {/* Optional: Add a checkmark or visual indicator for the currently selected color if needed */}
                   {runOfShow?.items.find(item => item.id === colorPickerModalTargetItemId)?.highlightColor === color.value && (
                      <Check size={20} className="mx-auto text-white mix-blend-difference" />
                   )}
@@ -726,7 +923,7 @@ const RunOfShowEditor: React.FC = () => {
               ))}
             </div>
             <button
-              onClick={() => handleSelectColor(undefined)} // Clear color option
+              onClick={() => handleSelectColor(undefined)} 
               className="mt-4 w-full bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-md font-medium transition-colors text-sm"
             >
               Clear Highlight
