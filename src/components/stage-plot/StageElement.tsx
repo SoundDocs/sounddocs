@@ -190,7 +190,7 @@ const StageElement: React.FC<StageElementProps> = ({
   const getIconForType = () => {
     if (customImageUrl) return null; // No icon if custom image is used
 
-    const iconSize = Math.max(12, Math.min(24, dimensions.width * 0.5));
+    const iconSize = Math.max(12, Math.min(24, Math.min(dimensions.width, dimensions.height) * 0.5));
     const iconProps = {
       style: { height: `${iconSize}px`, width: `${iconSize}px` },
       className: "text-white",
@@ -317,7 +317,7 @@ const StageElement: React.FC<StageElementProps> = ({
   };
 
   const mobileProps = isMobile && !disabled ? { onTouchEnd: handleTap } : {};
-  const isResizable = !disabled; // Allow all non-disabled elements to be resizable
+  const isResizable = !disabled; 
   const elementVisualStyles = type !== "text" ? getElementStyles() : null;
 
   const getFontSize = () => {
@@ -506,7 +506,7 @@ const StageElement: React.FC<StageElementProps> = ({
 
         {selected && isResizable && (
           <div
-            className="resize-handle absolute -right-2 -bottom-2 w-4 h-4 bg-white rounded-full border-2 border-indigo-500 cursor-nwse-resize z-30"
+            className="resize-handle absolute -right-2 -bottom-2 w-4 h-4 bg-white rounded-full border-2 border-indigo-500 cursor-nwse-resize z-30 touch-manipulation"
             onMouseDown={(e) => {
               if (disabled || !onResize) return;
               e.stopPropagation();
@@ -520,10 +520,9 @@ const StageElement: React.FC<StageElementProps> = ({
               const handleMouseMove = (moveEvent: MouseEvent) => {
                 const deltaX = moveEvent.clientX - startX;
                 const deltaY = moveEvent.clientY - startY;
-                const delta = Math.max(deltaX, deltaY);
-
-                const newWidth = Math.max(20, startWidth + delta);
-                const newHeight = Math.max(20, startHeight + delta);
+                
+                const newWidth = Math.max(20, startWidth + deltaX); // Min width 20
+                const newHeight = Math.max(20, startHeight + deltaY); // Min height 20
 
                 onResize(id, newWidth, newHeight);
               };
