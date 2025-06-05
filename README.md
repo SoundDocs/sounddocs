@@ -87,16 +87,15 @@ SoundDocs empowers you to manage event audio documentation efficiently:
 
 ## 📖 How to Use SoundDocs
 
-1.  **Navigate** to the live application (e.g., `http://localhost:5173` if running locally, or your deployed URL).
+1.  **Navigate** to the live application (e.g., `http://localhost:5173` if running locally, or https://sounddocs.org).
 2.  **Create an Account / Sign In** using email and password.
-3.  From your dashboard, click **"New Document"**.
-4.  **Choose Document Type:** Select "Patch Sheet", "Stage Plot", "Run of Show", or "Production Schedule".
-5.  **Build Your Setup:**
+3.  **Choose Document Type:** Click New "Patch Sheet", "Stage Plot", "Run of Show", or "Production Schedule".
+4.  **Build Your Setup:**
     -   **Patch Sheets:** Add channels, assign inputs/outputs, specify microphones, DIs, processing, and notes.
     -   **Stage Plots:** Drag and drop elements onto the canvas. Label items, indicate positions, and specify connections.
     -   **Run of Shows:** Define event segments, cues, timings, and responsible personnel. Use Show Mode during the event.
     -   **Production Schedules:** Outline tasks, deadlines, and assignees for all event phases.
-6.  **Save & Export:** Your work is auto-saved. When ready, export your document as a PNG or PDF, or generate a shareable link.
+5.  **Save & Export:** Your work is auto-saved. When ready, export your document as a PNG or PDF, or generate a shareable link.
 
 ## 🤝 Contributing
 
@@ -104,17 +103,22 @@ We welcome contributions from the community! Whether it's bug fixes, feature enh
 
 Please review our [Contributing Guidelines](CONTRIBUTING.md) (to be created) and Code of Conduct before submitting a pull request. Join our Discord server to discuss ideas and collaborate: [discord.gg/hVk6tctuHM](https://discord.com/invite/NRcRtyxFQa)
 
-### Local Development Quick Start
-(Assumes macOS/Linux, adjust for Windows)
--   Install Docker Desktop or OrbStack.
--   Install Homebrew (macOS) or equivalent package manager.
--   Install `nvm` (Node Version Manager).
--   Install Node.js (latest LTS version, e.g., Iron): `nvm install --lts`
--   Clone the repository: `git clone https://github.com/SoundDocs/sounddocs.git && cd sounddocs`
--   Use the correct Node.js version: `nvm use`
--   Install dependencies: `npm install`
--   Start Supabase services locally: `npm run local-db` (if configured with Supabase CLI)
--   Start the application: `npm run dev`
+### Local Development
+
+Getting set up for local development is currently a tad convoluted. There's an issue to make it better.
+
+Assuming you're on a Mac:
+
+- Install either Docker Desktop or OrbStack if you don't have it already
+- Install Homebrew (https://brew.sh/) if you don't have it already
+- Install nvm (brew install nvm) if you don't have it already
+- Install Node.js LTS Iron (nvm install --lts=iron)
+- Clone the codebase (git clone https://github.com/SoundDocs/sounddocs.git)
+- cd into that directory
+- Ensure you're using Node.js LTS Iron (nvm use --lts=iron)
+- Run npm install
+- Start Supabase locally using npm run local-db
+- Start the app locally using npm run dev
 
 ## 📄 License
 
