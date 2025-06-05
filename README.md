@@ -29,14 +29,6 @@ SoundDocs empowers you to manage event audio documentation efficiently:
 -   **🤝 Collaboration Tools:**
     Share your documents securely via unique links. Facilitate smooth communication with clients, band members, and technical crew. (Coming Soon: Real-time collaboration)
 
-## 🌟 Professional Enhancements
-
--   **📋 Customizable Templates:** Start quickly with pre-built templates for various event sizes and types, or create your own.
--   **💾 Auto-Save & Version History:** Never lose your work. Documents are saved automatically, with options to revert to previous versions.
--   **🎤 Equipment Database:** Access a pre-populated database of common audio gear, or add your own custom equipment for quick reference.
--   **🖨️ Print-Friendly Formatting:** Optimized layouts ensure your documents look great on paper for on-site use.
--   **📱 Responsive Design:** Access and edit your documents on the go, whether you're on a desktop, tablet, or mobile device.
-
 ## 🛠️ Tech Stack
 
 ### Frontend
