@@ -16,7 +16,8 @@ import ProductionScheduleEditor from "./pages/ProductionScheduleEditor";
 import AllProductionSchedules from "./pages/AllProductionSchedules"; 
 import RunOfShowEditor from "./pages/RunOfShowEditor";
 import AllRunOfShows from "./pages/AllRunOfShows";
-import ShowModePage from "./pages/ShowModePage"; // Import ShowModePage
+import ShowModePage from "./pages/ShowModePage";
+import SharedShowModePage from "./pages/SharedShowModePage"; // Import SharedShowModePage
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import SharedPatchSheet from "./pages/SharedPatchSheet";
@@ -123,13 +124,16 @@ function App() {
               }
             />
             <Route
-              path="/show-mode/:id" // Add route for ShowModePage
+              path="/show-mode/:id" 
               element={
                 <ProtectedRoute>
                   <ShowModePage />
                 </ProtectedRoute>
               }
             />
+            {/* New route for SharedShowModePage - NOT protected */}
+            <Route path="/shared/run-of-show/:shareCode" element={<SharedShowModePage />} />
+
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
 

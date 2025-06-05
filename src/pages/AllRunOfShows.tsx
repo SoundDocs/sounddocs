@@ -6,8 +6,9 @@ import Footer from "../components/Footer";
 import RunOfShowExport from "../components/run-of-show/RunOfShowExport";
 import PrintRunOfShowExport from "../components/run-of-show/PrintRunOfShowExport";
 import ExportModal from "../components/ExportModal";
+import ShareModal from "../components/ShareModal"; // Import ShareModal
 import html2canvas from "html2canvas";
-import { RunOfShowItem, CustomColumnDefinition } from "./RunOfShowEditor"; // Import from editor
+import { RunOfShowItem, CustomColumnDefinition } from "./RunOfShowEditor";
 import {
   PlusCircle,
   Edit,
@@ -15,14 +16,14 @@ import {
   ArrowLeft,
   Loader,
   AlertTriangle,
-  ClipboardList, // Changed icon
+  ClipboardList,
   Search,
   SortAsc,
   SortDesc,
   FileText,
   Download,
   Copy,
-  // Share2, // Share icon removed
+  Share2, // Added Share2 icon
 } from "lucide-react";
 
 interface RunOfShowSummary {
@@ -32,8 +33,6 @@ interface RunOfShowSummary {
   last_edited?: string;
 }
 
-// This will be the raw data fetched from Supabase for a single run of show
-// and also the data format for export components.
 export interface FullRunOfShowData {
   id: string;
   name: string;
@@ -42,6 +41,7 @@ export interface FullRunOfShowData {
   user_id: string;
   items: RunOfShowItem[];
   custom_column_definitions: CustomColumnDefinition[];
+  live_show_data?: any; // Added for consistency, though not directly used in this component's primary display
 }
 
 type SortField = "name" | "created_at" | "last_edited";
@@ -66,6 +66,10 @@ const AllRunOfShows: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [sharingRunOfShow, setSharingRunOfShow] = useState<RunOfShowSummary | null>(null);
+
+
   const exportRef = useRef<HTMLDivElement>(null);
   const printExportRef = useRef<HTMLDivElement>(null);
 
@@ -83,7 +87,7 @@ const AllRunOfShows: React.FC = () => {
       try {
         const { data, error: dbError } = await supabase
           .from("run_of_shows")
-          .select("id, name, created_at, last_edited")
+          .select("id, name, created_at, last_edited") // live_show_data not needed for summary
           .eq("user_id", userData.user.id);
         
         if (dbError) throw dbError;
@@ -161,10 +165,21 @@ const AllRunOfShows: React.FC = () => {
     setShowExportModal(true);
   };
 
+  const handleOpenShareModal = (ros: RunOfShowSummary) => {
+    setSharingRunOfShow(ros);
+    setShowShareModal(true);
+  };
+
+  const handleCloseShareModal = () => {
+    setShowShareModal(false);
+    setSharingRunOfShow(null);
+  };
+
+
   const fetchFullRunOfShowDataForExport = async (runOfShowId: string): Promise<FullRunOfShowData | null> => {
     const { data, error } = await supabase
       .from("run_of_shows")
-      .select("*") // Fetches all columns including items and custom_column_definitions
+      .select("*, live_show_data") // Fetch all columns including items, custom_column_definitions, and live_show_data
       .eq("id", runOfShowId)
       .single();
     if (error) {
@@ -172,11 +187,11 @@ const AllRunOfShows: React.FC = () => {
       setError("Failed to fetch run of show details for export.");
       return null;
     }
-    // Ensure items and custom_column_definitions are arrays
     return {
       ...data,
       items: data.items || [],
       custom_column_definitions: data.custom_column_definitions || [],
+      live_show_data: data.live_show_data || null,
     } as FullRunOfShowData;
   };
 
@@ -191,14 +206,16 @@ const AllRunOfShows: React.FC = () => {
         throw new Error("Could not fetch original run of show data for duplication.");
       }
 
-      const { id, created_at, last_edited, user_id, ...restOfRunOfShow } = fullRunOfShow;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id, created_at, last_edited, user_id, live_show_data, ...restOfRunOfShow } = fullRunOfShow;
       
       const newRunOfShowData = {
-        ...restOfRunOfShow, // This includes items and custom_column_definitions
+        ...restOfRunOfShow,
         name: `Copy of ${fullRunOfShow.name}`,
         user_id: user.id,
         created_at: new Date().toISOString(),
         last_edited: new Date().toISOString(),
+        live_show_data: null, // Reset live_show_data for duplicated item
       };
 
       const { data: newRunOfShow, error: insertError } = await supabase
@@ -293,18 +310,14 @@ const AllRunOfShows: React.FC = () => {
     exportType: 'image' | 'print'
   ) => {
     if (!runOfShowIdToExport) return;
-
     setIsExporting(true);
-    
     const fullData = await fetchFullRunOfShowDataForExport(runOfShowIdToExport);
     if (!fullData) {
       setIsExporting(false);
       return;
     }
     setCurrentExportRunOfShowData(fullData);
-
     await new Promise(resolve => setTimeout(resolve, 50));
-
     if (exportType === 'image') {
       exportImageWithCanvas(exportRef, fullData, "image", '#0f172a', 'Inter');
     } else if (exportType === 'print') {
@@ -454,7 +467,14 @@ const AllRunOfShows: React.FC = () => {
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex justify-end space-x-2">
-                           {/* Share button removed */}
+                           <button
+                            onClick={() => handleOpenShareModal(ros)}
+                            className="p-2 text-gray-400 hover:text-teal-400 rounded-md hover:bg-gray-700 transition-colors"
+                            title="Share Run of Show (View-Only)"
+                            disabled={isExporting || duplicatingId === ros.id}
+                          >
+                            <Share2 className="h-5 w-5" />
+                          </button>
                            <button
                             onClick={() => handleDuplicateRunOfShow(ros)}
                             className="p-2 text-gray-400 hover:text-indigo-400 rounded-md hover:bg-gray-700 transition-colors"
@@ -554,6 +574,14 @@ const AllRunOfShows: React.FC = () => {
         onExportPdf={() => exportRunOfShowId && prepareAndExecuteExport(exportRunOfShowId, 'print')}
         title="Run of Show"
         isExporting={isExporting && !!exportRunOfShowId} 
+      />
+
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={handleCloseShareModal}
+        resourceId={sharingRunOfShow?.id || null}
+        resourceName={sharingRunOfShow?.name || null}
+        resourceType="run_of_show"
       />
 
       {currentExportRunOfShowData && (

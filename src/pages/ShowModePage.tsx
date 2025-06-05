@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
     import { useParams, useNavigate } from 'react-router-dom';
     import { supabase } from '../lib/supabase';
     import Header from '../components/Header';
     import Footer from '../components/Footer';
     import { Loader, Clock, Play, Pause, SkipForward, SkipBack, ChevronsUp, Maximize, Minimize, ArrowLeft } from 'lucide-react';
-    import { RunOfShowItem, CustomColumnDefinition } from './RunOfShowEditor'; // Ensure RunOfShowItem includes highlightColor
+    import { RunOfShowItem, CustomColumnDefinition } from './RunOfShowEditor'; 
 
     interface FullRunOfShowData {
       id: string;
@@ -14,6 +14,7 @@ import React, { useState, useEffect, useCallback } from 'react';
       created_at?: string;
       last_edited?: string;
       user_id?: string;
+      live_show_data?: any; // Added to type
     }
 
     const parseDurationToSeconds = (durationStr?: string): number | null => {
@@ -55,6 +56,8 @@ import React, { useState, useEffect, useCallback } from 'react';
       const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
       const [itemTimerId, setItemTimerId] = useState<NodeJS.Timeout | null>(null);
 
+      const lastPublishedStateRef = useRef<any>(null);
+
       useEffect(() => {
         const timer = setInterval(() => {
           setCurrentTime(new Date().toLocaleTimeString());
@@ -64,7 +67,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 
       const findNextPlayableItemIndex = useCallback((startIndex: number | null): number | null => {
         if (!runOfShow || !runOfShow.items) return null;
-        const startFrom = startIndex === null ? -1 : startIndex; // If null, start search from beginning
+        const startFrom = startIndex === null ? -1 : startIndex;
         for (let i = startFrom + 1; i < runOfShow.items.length; i++) {
           if (runOfShow.items[i].type === 'item') {
             return i;
@@ -75,7 +78,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 
       const findPreviousPlayableItemIndex = useCallback((startIndex: number | null): number | null => {
         if (!runOfShow || !runOfShow.items) return null;
-        const startFrom = startIndex === null ? runOfShow.items.length : startIndex; // If null, start search from end
+        const startFrom = startIndex === null ? runOfShow.items.length : startIndex;
         for (let i = startFrom - 1; i >= 0; i--) {
           if (runOfShow.items[i].type === 'item') {
             return i;
@@ -181,6 +184,61 @@ import React, { useState, useEffect, useCallback } from 'react';
         };
       }, [isTimerActive, currentItemIndex, runOfShow, timeRemaining, findNextPlayableItemIndex]);
 
+      // Publish live state to Supabase
+      useEffect(() => {
+        const publishLiveState = async () => {
+          if (!runOfShow?.id) return;
+
+          const newState = {
+            currentItemIndex,
+            isTimerActive,
+            timeRemaining,
+            lastUpdated: new Date().toISOString(),
+          };
+
+          // Only publish if state has actually changed
+          if (JSON.stringify(newState) === JSON.stringify(lastPublishedStateRef.current)) {
+            return;
+          }
+          
+          lastPublishedStateRef.current = newState;
+
+          try {
+            const { error: updateError } = await supabase
+              .from('run_of_shows')
+              .update({ live_show_data: newState })
+              .eq('id', runOfShow.id);
+
+            if (updateError) {
+              console.error('Error publishing live state:', updateError);
+            }
+          } catch (e) {
+            console.error('Exception publishing live state:', e);
+          }
+        };
+
+        // Debounce or throttle if updates are too frequent, for now direct publish
+        publishLiveState();
+      }, [currentItemIndex, isTimerActive, timeRemaining, runOfShow?.id]);
+
+      // Clear live_show_data on unmount or if show mode is exited
+      useEffect(() => {
+        return () => {
+          if (runOfShow?.id) {
+            supabase
+              .from('run_of_shows')
+              .update({ live_show_data: null })
+              .eq('id', runOfShow.id)
+              .then(({ error: clearError }) => {
+                if (clearError) {
+                  console.error('Error clearing live_show_data on unmount:', clearError);
+                }
+              });
+          }
+        };
+      }, [runOfShow?.id]);
+
+
       const navigateToCue = useCallback((newIndex: number | null) => {
         setIsTimerActive(false); 
         setCurrentItemIndex(newIndex);
@@ -192,7 +250,7 @@ import React, { useState, useEffect, useCallback } from 'react';
       }, [runOfShow]);
 
       const handleSpacebarPress = useCallback(() => {
-        if (currentItemIndex === null || !runOfShow) { // If no current item, try to start from the first playable
+        if (currentItemIndex === null || !runOfShow) { 
             const firstPlayable = findFirstPlayableItemIndex();
             if (firstPlayable !== null) {
                 const firstItem = runOfShow!.items[firstPlayable];
@@ -404,10 +462,9 @@ import React, { useState, useEffect, useCallback } from 'react';
       const firstPlayableItemActualIndex = findFirstPlayableItemIndex();
 
       const isPlayPauseDisabled = () => {
-        if (currentItemIndex === null) { // If no item is selected, check if there's a first playable item
+        if (currentItemIndex === null) { 
             return firstPlayableItemActualIndex === null;
         }
-        // If an item is selected, check if it's playable
         return !runOfShow.items[currentItemIndex] || parseDurationToSeconds(runOfShow.items[currentItemIndex].duration) === null;
       };
 
@@ -519,17 +576,15 @@ import React, { useState, useEffect, useCallback } from 'react';
                     if (item.type === 'header') {
                       rowClass = "bg-gray-700/70 hover:bg-gray-600/70 font-semibold";
                     } else {
-                      // Apply custom highlight color if not current or next
                       if (item.highlightColor && !isCurrent && !isNext) {
                         rowStyle.backgroundColor = item.highlightColor;
                       }
-                      // Current and Next cue styles take precedence
                       if (isCurrent) {
                         rowClass = "bg-green-600/40 hover:bg-green-600/50 border-l-4 border-green-400";
-                        delete rowStyle.backgroundColor; // Ensure current cue style overrides custom highlight
+                        delete rowStyle.backgroundColor; 
                       } else if (isNext) {
                         rowClass = "bg-red-600/40 hover:bg-red-600/50 border-l-4 border-red-400";
-                        delete rowStyle.backgroundColor; // Ensure next cue style overrides custom highlight
+                        delete rowStyle.backgroundColor; 
                       }
                     }
 
