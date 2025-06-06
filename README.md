@@ -27,7 +27,7 @@ SoundDocs empowers you to manage event audio documentation efficiently:
 -   **🚀 Smart Export System:**
     Generate professional, high-quality PNG exports of your documents. Choose between dark or light mode to suit your presentation needs.
 -   **🤝 Collaboration Tools:**
-    Share your documents securely via unique links. Facilitate smooth communication with clients, band members, and technical crew. (Coming Soon: Real-time collaboration)
+    Share your documents securely via unique links. Facilitate smooth communication with clients, band members, and technical crew.
 
 ## 🛠️ Tech Stack
 
@@ -38,7 +38,7 @@ SoundDocs empowers you to manage event audio documentation efficiently:
 -   **Icons**: Lucide React
 -   **State Management**: React Context API / Zustand (for more complex states)
 -   **Routing**: React Router 6
--   **Exporting**: `html2canvas` for image/PDF generation
+-   **Exporting**: `html2canvas` for image generation
 
 ### Backend
 -   **Authentication**: Supabase Auth
