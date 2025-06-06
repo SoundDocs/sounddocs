@@ -43,7 +43,7 @@ SoundDocs empowers you to manage event audio documentation efficiently:
 ### Backend
 -   **Authentication**: Supabase Auth
 -   **Database**: Supabase (PostgreSQL)
--   **Real-time Features**: Supabase Realtime (for future collaborative editing)
+-   **Real-time Features**: Supabase Realtime
 -   **Storage**: Supabase Storage (for user uploads, templates)
 
 ## 🚀 Get Started / Self-Host
