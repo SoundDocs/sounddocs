@@ -123,3 +123,7 @@ This project is distributed under the MIT License. See `LICENSE` file for more i
 -   **React Draggable & React Resizable** for interactive UI elements.
 -   **html2canvas** for the client-side export functionality.
 -   The open-source community for tools and libraries that make projects like SoundDocs possible.
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=SoundDocs/sounddocs&type=Date)](https://star-history.com/#SoundDocs/sounddocs&Date)
