@@ -534,9 +534,9 @@ const ProductionScheduleEditor = () => {
 
   const backButtonNavigation = () => {
     if (isSharedEdit && shareCode && currentShareLink) {
-      navigate("/dashboard"); 
+      navigate("/shared-with-me"); 
     } else {
-      navigate("/dashboard"); 
+      navigate("/production"); 
     }
   };
 

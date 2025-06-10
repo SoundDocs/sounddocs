@@ -285,7 +285,7 @@ const PatchSheetEditor = () => {
               onClick={() =>
                 isSharedEdit && shareCode // Use state here, reliable after initial load
                   ? (window.location.href = getShareUrl(shareCode, patchSheet?.resource_type || 'patch_sheet' , 'view')) // Fallback to patch_sheet if type unknown
-                  : navigate("/dashboard")
+                  : navigate("/audio")
               }
               className="mr-2 md:mr-4 flex items-center text-gray-400 hover:text-white transition-colors"
             >

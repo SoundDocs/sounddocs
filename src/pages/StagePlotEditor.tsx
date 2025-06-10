@@ -549,7 +549,7 @@ const StagePlotEditor = () => {
                    window.location.href = getShareUrl(shareCode, 'stage_plot', 'view'); 
                 }
                  else {
-                  navigate("/dashboard");
+                  navigate("/audio");
                 }
               }}
               className="mr-2 md:mr-4 flex items-center text-gray-400 hover:text-white transition-colors"

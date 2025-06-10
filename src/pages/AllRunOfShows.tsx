@@ -339,11 +339,11 @@ const AllRunOfShows: React.FC = () => {
       <main className="flex-grow container mx-auto px-4 py-12 mt-12">
         <div className="flex items-center justify-between mb-8">
           <button
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/production")}
             className="flex items-center text-gray-400 hover:text-white transition-colors"
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
-            Back to Dashboard
+            Back to Production
           </button>
 
           <button

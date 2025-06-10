@@ -36,7 +36,13 @@ import React, { useEffect } from "react";
     import CommonPinoutsPage from "./pages/guides/CommonPinoutsPage";
     import FrequencyBandsPage from "./pages/guides/FrequencyBandsPage";
     import DecibelChartPage from "./pages/guides/DecibelChartPage";
-    import GlossariesPage from "./pages/guides/GlossariesPage"; // Import the new page
+    import GlossariesPage from "./pages/guides/GlossariesPage";
+
+    // New Category Pages
+    import AudioPage from "./pages/AudioPage";
+    import VideoPage from "./pages/VideoPage";
+    import LightingPage from "./pages/LightingPage";
+    import ProductionPage from "./pages/ProductionPage";
 
 
     function App() {
@@ -66,7 +72,7 @@ import React, { useEffect } from "react";
                 <Route path="/resources/guides/pinouts" element={<CommonPinoutsPage />} />
                 <Route path="/resources/guides/frequency-bands" element={<FrequencyBandsPage />} />
                 <Route path="/resources/guides/db-chart" element={<DecibelChartPage />} />
-                <Route path="/resources/guides/glossaries" element={<GlossariesPage />} /> {/* Add route for Glossaries */}
+                <Route path="/resources/guides/glossaries" element={<GlossariesPage />} />
 
 
                 <Route
@@ -74,6 +80,39 @@ import React, { useEffect } from "react";
                   element={
                     <ProtectedRoute>
                       <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                {/* New Category Page Routes */}
+                <Route
+                  path="/audio"
+                  element={
+                    <ProtectedRoute>
+                      <AudioPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/video"
+                  element={
+                    <ProtectedRoute>
+                      <VideoPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/lighting"
+                  element={
+                    <ProtectedRoute>
+                      <LightingPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/production"
+                  element={
+                    <ProtectedRoute>
+                      <ProductionPage />
                     </ProtectedRoute>
                   }
                 />

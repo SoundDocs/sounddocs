@@ -605,7 +605,7 @@ const RunOfShowEditor: React.FC = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
           <div className="flex items-center flex-grow min-w-0">
             <button
-              onClick={() => navigate(currentIsSharedEdit ? "/shared-with-me" : (id === "new" ? "/dashboard" : `/all-run-of-shows`))}
+              onClick={() => navigate(currentIsSharedEdit ? "/shared-with-me" : (id === "new" ? "/production" : `/all-run-of-shows`))}
               className="mr-2 md:mr-4 flex items-center text-gray-400 hover:text-white transition-colors flex-shrink-0"
             >
               <ArrowLeft className="h-5 w-5" />
