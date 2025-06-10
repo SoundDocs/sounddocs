@@ -28,10 +28,15 @@ import React, { useEffect } from "react";
     import SharedWithMePage from "./pages/SharedWithMePage";
     import Resources from "./pages/Resources";
     import RatesPage from "./pages/RatesPage";
-    import AudioFormulasPage from "./pages/AudioFormulasPage"; // This is now the category hub
-    import AudioCategoryPage from "./pages/AudioCategoryPage"; // Dedicated Audio formulas
-    import VideoCategoryPage from "./pages/VideoCategoryPage"; // Dedicated Video formulas
-    import LightingCategoryPage from "./pages/LightingCategoryPage"; // Dedicated Lighting formulas
+    import AudioFormulasPage from "./pages/AudioFormulasPage"; 
+    import AudioCategoryPage from "./pages/AudioCategoryPage"; 
+    import VideoCategoryPage from "./pages/VideoCategoryPage"; 
+    import LightingCategoryPage from "./pages/LightingCategoryPage"; 
+    import ReferenceGuidesPage from "./pages/ReferenceGuidesPage";
+    import CommonPinoutsPage from "./pages/guides/CommonPinoutsPage";
+    import FrequencyBandsPage from "./pages/guides/FrequencyBandsPage";
+    import DecibelChartPage from "./pages/guides/DecibelChartPage";
+    import GlossariesPage from "./pages/guides/GlossariesPage"; // Import the new page
 
 
     function App() {
@@ -53,10 +58,15 @@ import React, { useEffect } from "react";
                 {/* Resources Routes */}
                 <Route path="/resources" element={<Resources />} />
                 <Route path="/resources/rates" element={<RatesPage />} />
-                <Route path="/resources/audio-formulas" element={<AudioFormulasPage />} /> {/* Hub Page */}
-                <Route path="/resources/formulas/audio" element={<AudioCategoryPage />} /> {/* Specific Audio Formulas */}
-                <Route path="/resources/formulas/video" element={<VideoCategoryPage />} /> {/* Specific Video Formulas */}
-                <Route path="/resources/formulas/lighting" element={<LightingCategoryPage />} /> {/* Specific Lighting Formulas */}
+                <Route path="/resources/audio-formulas" element={<AudioFormulasPage />} />
+                <Route path="/resources/formulas/audio" element={<AudioCategoryPage />} /> 
+                <Route path="/resources/formulas/video" element={<VideoCategoryPage />} /> 
+                <Route path="/resources/formulas/lighting" element={<LightingCategoryPage />} /> 
+                <Route path="/resources/reference-guides" element={<ReferenceGuidesPage />} />
+                <Route path="/resources/guides/pinouts" element={<CommonPinoutsPage />} />
+                <Route path="/resources/guides/frequency-bands" element={<FrequencyBandsPage />} />
+                <Route path="/resources/guides/db-chart" element={<DecibelChartPage />} />
+                <Route path="/resources/guides/glossaries" element={<GlossariesPage />} /> {/* Add route for Glossaries */}
 
 
                 <Route
