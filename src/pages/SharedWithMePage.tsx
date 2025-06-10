@@ -192,7 +192,7 @@ const SharedWithMePage: React.FC = () => {
                   value={shareInput}
                   onChange={(e) => setShareInput(e.target.value)}
                   className="block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm py-3 px-4 text-white placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  placeholder="e.g., abcdef123456 or https://app.sounddocs.com/shared/..."
+                  placeholder="e.g., abcdef123456 or https://sounddocs.org/shared/..."
                   disabled={isClaimingLoading}
                 />
               </div>
