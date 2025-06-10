@@ -201,16 +201,6 @@ import React, { useState, useEffect, useCallback } from 'react';
           <Header dashboard={false} />
           
           <main className="flex-grow flex flex-col p-4 md:p-8 container mx-auto mt-16 md:mt-12">
-            <div className="mb-4 flex justify-end">
-                <a 
-                    href="https://sounddocs.org" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center text-xs text-indigo-400 hover:text-indigo-300 px-3 py-1.5 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors group"
-                >
-                    SoundDocs.org <ExternalLink size={12} className="ml-1.5"/>
-                </a>
-            </div>
             <div className="flex flex-col sm:flex-row justify-between items-center mb-4 md:mb-6 p-2 sm:p-3 bg-gray-900 rounded-lg shadow-md">
               <div className="flex items-center">
                 <Clock className="h-5 w-5 sm:h-6 sm:w-6 mr-2 text-indigo-400" />
