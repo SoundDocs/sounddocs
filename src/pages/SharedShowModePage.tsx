@@ -72,7 +72,6 @@ import React, { useState, useEffect, useCallback } from 'react';
             if (shareLink.resource_type !== 'run_of_show') {
               throw new Error("This share link is not for a Run of Show.");
             }
-            // The RPC get_public_run_of_show_by_share_code returns data structured as SharedRunOfShowData
             setSharedData(resource as SharedRunOfShowData);
           } catch (err: any) {
             console.error("Error fetching shared Run of Show:", err);
@@ -85,7 +84,7 @@ import React, { useState, useEffect, useCallback } from 'react';
       }, [shareCode]);
 
       useEffect(() => {
-        if (!sharedData || !sharedData.id) return; // sharedData.id is the run_of_shows.id
+        if (!sharedData || !sharedData.id) return; 
 
         const channel = supabase
           .channel(`public:run_of_shows:id=eq.${sharedData.id}`)
@@ -99,16 +98,13 @@ import React, { useState, useEffect, useCallback } from 'react';
             },
             (payload) => {
               console.log('Real-time update received:', payload);
-              const updatedRunOfShow = payload.new as SharedRunOfShowData; // Assuming payload.new matches this structure
+              const updatedRunOfShow = payload.new as SharedRunOfShowData; 
               setSharedData(prevData => {
                 if (!prevData) return null;
-                // Merge new live_show_data and potentially items if they are part of the payload and sanitized
-                // The RPC sanitizes items, so if items are updated by owner, this view might need a re-fetch or trust payload.new.items
-                // For now, primarily focusing on live_show_data updates.
                 return {
                   ...prevData,
                   live_show_data: updatedRunOfShow.live_show_data,
-                  items: updatedRunOfShow.items || prevData.items, // Use new items if available, else keep old
+                  items: updatedRunOfShow.items || prevData.items, 
                   last_edited: updatedRunOfShow.last_edited || prevData.last_edited,
                 };
               });
@@ -169,13 +165,11 @@ import React, { useState, useEffect, useCallback } from 'react';
         );
       }
       
-      // Define columns for display, excluding privateNotes
       const defaultColumns: { key: keyof RunOfShowItem | string; label: string; type?: string }[] = [
         { key: "itemNumber", label: "Item #" },
         { key: "startTime", label: "Start", type: "time" },
         { key: "preset", label: "Preset / Scene" },
         { key: "duration", label: "Duration", type: "text" }, 
-        // { key: "privateNotes", label: "Private Notes" }, // EXCLUDED
         { key: "productionNotes", label: "Production Notes" },
         { key: "audio", label: "Audio" },
         { key: "video", label: "Video" },
@@ -191,7 +185,7 @@ import React, { useState, useEffect, useCallback } from 'react';
             isCustom: true, 
             type: col.type || "text" 
         }))
-      ].filter(col => col.key !== 'privateNotes'); // Ensure privateNotes is definitely out
+      ].filter(col => col.key !== 'privateNotes'); 
 
       const liveState = sharedData.live_show_data || {};
       const currentItemIndex = liveState.currentItemIndex !== undefined ? liveState.currentItemIndex : null;
@@ -214,7 +208,7 @@ import React, { useState, useEffect, useCallback } from 'react';
                     rel="noopener noreferrer"
                     className="inline-flex items-center text-xs text-indigo-400 hover:text-indigo-300 px-3 py-1.5 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors group"
                 >
-                    Powered by SoundDocs.org <ExternalLink size={12} className="ml-1.5"/>
+                    Powered by SoundDocs.live <ExternalLink size={12} className="ml-1.5"/>
                 </a>
             </div>
             <div className="flex flex-col sm:flex-row justify-between items-center mb-4 md:mb-6 p-2 sm:p-3 bg-gray-900 rounded-lg shadow-md">
@@ -226,8 +220,18 @@ import React, { useState, useEffect, useCallback } from 'react';
                 {sharedData.name}
               </h1>
               <div className="flex items-center space-x-1 sm:space-x-2 text-xs text-gray-400">
-                {/* Placeholder for any future minimal controls or status indicators */}
                 <span>View-Only Mode</span>
+              </div>
+            </div>
+
+            <div className="my-3 flex justify-start items-center gap-x-4 text-xs text-gray-400 bg-gray-800/50 p-2 rounded-md">
+              <div className="flex items-center">
+                <span className="h-3 w-3 rounded-full bg-green-500 mr-1.5 border border-green-300 shadow-sm"></span>
+                <span>Current Cue</span>
+              </div>
+              <div className="flex items-center">
+                <span className="h-3 w-3 rounded-full bg-red-500 mr-1.5 border border-red-300 shadow-sm"></span>
+                <span>Next Cue</span>
               </div>
             </div>
 
@@ -304,28 +308,43 @@ import React, { useState, useEffect, useCallback } from 'react';
             </div>
             <div className="mt-3 sm:mt-4 text-center text-xs text-gray-500 flex items-center justify-center gap-x-4">
               {(() => {
-                if (currentItemIndex !== null && items[currentItemIndex]?.type === 'item') {
-                  const currentItem = items[currentItemIndex];
+                let statusText = <span className="font-mono text-sm text-gray-400">Show status will update live.</span>;
+                const currentItem = currentItemIndex !== null && items[currentItemIndex]?.type === 'item' ? items[currentItemIndex] : null;
+                const nextItem = nextPlayableItemActualIndex !== null && items[nextPlayableItemActualIndex]?.type === 'item' ? items[nextPlayableItemActualIndex] : null;
+
+                if (currentItem) {
+                  const itemDesc = `${currentItem.itemNumber || 'Cue'} ${currentItem.preset ? `- ${currentItem.preset}` : ''}`.trim();
                   const itemFullDuration = parseDurationToSeconds(currentItem.duration);
 
                   if (isTimerActive && timeRemaining !== null) {
-                    return <span className="font-mono text-sm text-yellow-400">Current Cue Ends in: {formatTime(timeRemaining)}</span>;
+                    statusText = <span className="font-mono text-sm text-yellow-400">Now Playing: <b>{itemDesc}</b> - Ends in: {formatTime(timeRemaining)}</span>;
                   } else if (itemFullDuration !== null) {
                     const displayTime = timeRemaining !== null ? timeRemaining : itemFullDuration;
-                    return <span className="font-mono text-sm text-gray-400">Current Cue Duration: {formatTime(displayTime)}</span>;
+                    const isPaused = timeRemaining !== null && itemFullDuration !== null && timeRemaining < itemFullDuration && !isTimerActive;
+                    statusText = <span className="font-mono text-sm text-gray-300">Current: <b>{itemDesc}</b> - Duration: {formatTime(displayTime)} {isPaused ? '(Paused)' : ''}</span>;
+                  } else { // Current item, but no duration (should not happen for 'item' type if data is clean)
+                     statusText = <span className="font-mono text-sm text-gray-300">Current: <b>{itemDesc}</b></span>;
                   }
-                } else if (currentItemIndex === null && nextPlayableItemActualIndex !== null && items[nextPlayableItemActualIndex]) {
-                    const firstItem = items[nextPlayableItemActualIndex];
-                    const firstItemDuration = parseDurationToSeconds(firstItem.duration);
-                    if (firstItemDuration !== null) {
-                         return <span className="font-mono text-sm text-gray-400">Next Cue Duration: {formatTime(firstItemDuration)}</span>;
-                    }
+                } else if (nextItem) { 
+                  const itemDesc = `${nextItem.itemNumber || 'Cue'} ${nextItem.preset ? `- ${nextItem.preset}` : ''}`.trim();
+                  const nextItemDuration = parseDurationToSeconds(nextItem.duration);
+                  if (nextItemDuration !== null) {
+                    statusText = <span className="font-mono text-sm text-indigo-300">Next Up: <b>{itemDesc}</b> - Duration: {formatTime(nextItemDuration)}</span>;
+                  } else {
+                     statusText = <span className="font-mono text-sm text-indigo-300">Next Up: <b>{itemDesc}</b></span>;
+                  }
+                } else if (currentItemIndex !== null && !currentItem && !nextItem) { 
+                  statusText = <span className="font-mono text-sm text-gray-500">Show has ended or is at a non-playable item.</span>;
+                } else if (items.length > 0 && !currentItem && !nextItem) { 
+                   statusText = <span className="font-mono text-sm text-gray-500">No playable cues in this show.</span>;
+                } else if (items.length === 0) {
+                   statusText = <span className="font-mono text-sm text-gray-500">Show is empty.</span>;
                 }
-                return <span className="font-mono text-sm text-gray-400">Show status will update live.</span>;
+                return statusText;
               })()}
             </div>
              <div className="mt-2 text-center text-xs text-gray-600">
-                Last live update: {liveState.lastUpdated ? new Date(liveState.lastUpdated).toLocaleTimeString() : 'N/A'}
+                Last live update: {liveState.lastUpdated ? new Date(liveState.lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'N/A'}
             </div>
           </main>
           <Footer />
