@@ -148,7 +148,7 @@
         {
           roleFamily: "Production Management & Coordination",
           titles: ["Production Manager (PM)", "Technical Director (TD)", "Production Coordinator", "Show Caller", "Stage Manager"],
-          rate: "$700 - $1500+",
+          rate: "$700 - $1200+",
           overtime: [
             "Often a flat day rate or project fee, especially for PM/TD roles.",
             "If hourly, OT rules similar to Lead Techs may apply for coordinators/callers.",
