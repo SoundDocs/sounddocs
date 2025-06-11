@@ -14,6 +14,7 @@ interface StageCanvasProps {
   onElementDelete: (id: string) => void;
   onElementDuplicate?: (id: string) => void;
   onElementResize?: (id: string, width: number, height: number) => void;
+  isViewMode: boolean; // Prop from parent
 }
 
 const StageCanvas: React.FC<StageCanvasProps> = ({
@@ -29,19 +30,19 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
   onElementDelete,
   onElementDuplicate,
   onElementResize,
+  isViewMode, // Use this prop
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [startDistance, setStartDistance] = useState<null | number>(null);
   const [isMobile, setIsMobile] = useState(false);
-  const [isViewMode, setIsViewMode] = useState(false);
+  // Removed internal isViewMode state: const [isViewMode, setIsViewMode] = useState(false);
 
   useEffect(() => {
-    // Check if we're on mobile and set view mode
     const checkMobile = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      setIsViewMode(mobile); // On mobile, it's view-only
+      // Removed setIsViewMode(mobile); // Component now relies on the prop for view mode
     };
 
     checkMobile();
@@ -53,7 +54,6 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
   useEffect(() => {
     if (!containerRef.current || !isMobile) return;
 
-    // Setup touch handlers for zooming
     const container = containerRef.current;
 
     const handleTouchStart = (e: TouchEvent) => {
@@ -68,7 +68,7 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
 
     const handleTouchMove = (e: TouchEvent) => {
       if (e.touches.length === 2 && startDistance !== null) {
-        e.preventDefault(); // Prevent default to stop scrolling
+        e.preventDefault(); 
 
         const distance = Math.hypot(
           e.touches[0].pageX - e.touches[1].pageX,
@@ -76,7 +76,7 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
         );
 
         const delta = distance / startDistance;
-        const newScale = Math.min(Math.max(scale * delta, 0.5), 2); // Limit zoom 0.5x to 2x
+        const newScale = Math.min(Math.max(scale * delta, 0.5), 2); 
 
         setScale(newScale);
         setStartDistance(distance);
@@ -87,13 +87,11 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
       setStartDistance(null);
     };
 
-    // Add event listeners
     container.addEventListener("touchstart", handleTouchStart, { passive: false });
     container.addEventListener("touchmove", handleTouchMove, { passive: false });
     container.addEventListener("touchend", handleTouchEnd);
 
     return () => {
-      // Clean up
       container.removeEventListener("touchstart", handleTouchStart);
       container.removeEventListener("touchmove", handleTouchMove);
       container.removeEventListener("touchend", handleTouchEnd);
@@ -101,7 +99,6 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
   }, [isMobile, scale, startDistance]);
 
   const getStageDimensions = () => {
-    // Using fixed pixel values for consistency
     switch (stageSize) {
       case "x-small-narrow":
         return { width: 300, height: 300 };
@@ -129,26 +126,21 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
   };
 
   const handleCanvasClick = (e: React.MouseEvent) => {
-    if (isViewMode) return;
+    if (isViewMode) return; // Use prop
 
-    // Only deselect if clicking directly on the canvas, not on an element
     if (e.currentTarget === e.target) {
       onSelectElement(null);
     }
   };
 
-  // Reset zoom when size changes
   useEffect(() => {
     setScale(1);
   }, [stageSize]);
 
   const dimensions = getStageDimensions();
-
-  // Determine responsive width based on screen size
-  const mobileCanvasPadding = 16; // 8px on each side
+  const mobileCanvasPadding = 16; 
   const getCanvasWidth = () => {
     if (isMobile) {
-      // For mobile, adjust to screen width minus padding
       return `calc(100vw - ${mobileCanvasPadding * 2}px)`;
     }
     return `${dimensions.width}px`;
@@ -161,16 +153,13 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
       ref={containerRef}
     >
       <div className="flex flex-col items-center">
-        {" "}
-        {/* Main container for labels and canvas */}
         {isMobile && (
           <div className="text-xs text-gray-400 py-2">
-            {isViewMode
-              ? "Pinch to zoom, view only mode"
-              : "Pinch to zoom, drag elements to position"}
+            {isViewMode // Use prop
+              ? "Pinch to zoom. View only."
+              : "Pinch to zoom. Drag elements to position."}
           </div>
         )}
-        {/* Back of stage label - Positioned ABOVE the canvas */}
         <div className="flex justify-center mb-2 w-full">
           <div className="bg-gray-800/80 text-white text-xs md:text-sm px-4 py-1.5 rounded-full shadow-md">
             Back of Stage
@@ -189,7 +178,6 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
           }}
           onClick={handleCanvasClick}
         >
-          {/* Background image if present */}
           {backgroundImage && (
             <div
               className="absolute inset-0 bg-center bg-no-repeat bg-contain pointer-events-none"
@@ -201,7 +189,6 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
             />
           )}
 
-          {/* Stage elements */}
           {elements.map((element) => (
             <StageElement
               key={element.id}
@@ -214,11 +201,10 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
               onDelete={onElementDelete}
               onDuplicate={onElementDuplicate}
               onResize={onElementResize}
-              disabled={isViewMode}
+              disabled={isViewMode} // Use prop
             />
           ))}
         </div>
-        {/* Front of stage label - Positioned BELOW the canvas */}
         <div className="flex justify-center mt-2 w-full">
           <div className="bg-gray-800/80 text-white text-xs md:text-sm px-4 py-1.5 rounded-full shadow-md">
             Front of Stage / Audience

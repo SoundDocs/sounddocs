@@ -5,8 +5,8 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { Loader, ArrowLeft, Save, Plus, Trash2, Edit3, Check, X, FileText, MonitorPlay, Palette, AlertTriangle } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
-import MobileScreenWarning from "../components/MobileScreenWarning";
-import { useScreenSize } from "../hooks/useScreenSize";
+// import MobileScreenWarning from "../components/MobileScreenWarning"; // Removed
+// import { useScreenSize } from "../hooks/useScreenSize"; // Removed
 import { verifyShareLink, SharedLink, ResourceType } from "../lib/shareUtils";
 
 
@@ -68,7 +68,7 @@ const RunOfShowEditor: React.FC = () => {
   console.log('[RoSEditor] Top Level Params:', { id, shareCode });
   const navigate = useNavigate();
   const location = useLocation();
-  const screenSize = useScreenSize();
+  // const screenSize = useScreenSize(); // Removed
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -76,7 +76,7 @@ const RunOfShowEditor: React.FC = () => {
   const [user, setUser] = useState<any>(null); // Authenticated user
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [showMobileWarning, setShowMobileWarning] = useState(false);
+  // const [showMobileWarning, setShowMobileWarning] = useState(false); // Removed
 
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [newColumnName, setNewColumnName] = useState<string>("");
@@ -89,11 +89,11 @@ const RunOfShowEditor: React.FC = () => {
   const [sharedLinkData, setSharedLinkData] = useState<SharedLink | null>(null);
 
 
-  useEffect(() => {
-    if (screenSize === "mobile" || screenSize === "tablet") {
-      setShowMobileWarning(true);
-    }
-  }, [screenSize]);
+  // useEffect(() => { // Removed useEffect for showMobileWarning
+  //   if (screenSize === "mobile" || screenSize === "tablet") {
+  //     setShowMobileWarning(true);
+  //   }
+  // }, [screenSize]);
 
   // Effect 1: Determine and set currentIsSharedEdit
   useEffect(() => {
@@ -609,14 +609,7 @@ const RunOfShowEditor: React.FC = () => {
   
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      {showMobileWarning && (
-        <MobileScreenWarning
-          title="Run of Show Editor"
-          description="This editor is best experienced on larger screens. Some content might be truncated or difficult to interact with on smaller devices."
-          continueAnyway={true}
-          editorType="runofshow"
-        />
-      )}
+      {/* Removed MobileScreenWarning component and its conditional rendering */}
       <Header dashboard={true} />
       <main className="flex-grow container mx-auto px-2 sm:px-4 py-6 md:py-12 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">

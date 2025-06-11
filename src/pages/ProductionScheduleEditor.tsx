@@ -7,8 +7,8 @@ import ProductionScheduleHeader from "../components/production-schedule/Producti
 import ProductionScheduleCrewKey, { CrewKeyItem } from "../components/production-schedule/ProductionScheduleCrewKey";
 import ProductionScheduleLabor, { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor"; 
 import ProductionScheduleDetail, { DetailedScheduleItem } from "../components/production-schedule/ProductionScheduleDetail";
-import MobileScreenWarning from "../components/MobileScreenWarning";
-import { useScreenSize } from "../hooks/useScreenSize";
+// import MobileScreenWarning from "../components/MobileScreenWarning"; // Removed
+// import { useScreenSize } from "../hooks/useScreenSize"; // Removed
 import { Loader, ArrowLeft, Save, AlertCircle, Users, ListChecks } from "lucide-react"; 
 import { v4 as uuidv4 } from 'uuid';
 import { getSharedResource, updateSharedResource, getShareUrl, SharedLink } from "../lib/shareUtils"; // Added SharedLink
@@ -138,23 +138,23 @@ const ProductionScheduleEditor = () => {
   const { id, shareCode } = useParams(); // Get both id and shareCode
   const navigate = useNavigate();
   const location = useLocation();
-  const screenSize = useScreenSize();
+  // const screenSize = useScreenSize(); // Removed
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [schedule, setSchedule] = useState<ProductionScheduleData | null>(null);
   const [user, setUser] = useState<any>(null); // Current logged-in user
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [showMobileWarning, setShowMobileWarning] = useState(false);
+  // const [showMobileWarning, setShowMobileWarning] = useState(false); // Removed
   const [isSharedEdit, setIsSharedEdit] = useState(false);
   const [currentShareLink, setCurrentShareLink] = useState<SharedLink | null>(null);
   
 
-  useEffect(() => {
-    if (screenSize === "mobile" || screenSize === "tablet") {
-      setShowMobileWarning(true);
-    }
-  }, [screenSize]);
+  // useEffect(() => { // Removed useEffect for showMobileWarning
+  //   if (screenSize === "mobile" || screenSize === "tablet") {
+  //     setShowMobileWarning(true);
+  //   }
+  // }, [screenSize]);
 
   useEffect(() => {
     const fetchUserAndSchedule = async () => {
@@ -176,7 +176,6 @@ const ProductionScheduleEditor = () => {
         try {
           const { resource, shareLink: fetchedShareLink } = await getSharedResource(shareCode);
           
-          // CRITICAL DEBUG LOGGING
           console.log("[ProdSchedEditor] DEBUG: Fetched Shared Link Details:", JSON.stringify(fetchedShareLink, null, 2));
           console.log("[ProdSchedEditor] DEBUG: Fetched Resource Details:", JSON.stringify(resource, null, 2));
           console.log(`[ProdSchedEditor] DEBUG: Checking conditions: fetchedShareLink.resource_type ('${fetchedShareLink.resource_type}') !== 'production_schedule'`);
@@ -193,7 +192,6 @@ const ProductionScheduleEditor = () => {
           if (fetchedShareLink.link_type !== "edit") {
             console.warn(`[ProdSchedEditor] Link type is '${fetchedShareLink.link_type}', not 'edit'. Redirecting to view page.`);
             window.location.href = getShareUrl(shareCode, 'production_schedule', 'view');
-            // setLoading(false); // Important to stop further processing if redirecting
             return; 
           }
           
@@ -540,11 +538,10 @@ const ProductionScheduleEditor = () => {
     } else if (fromPath) {
       navigate(fromPath);
     } else {
-      // Fallback if 'from' state is somehow missing
       if (id === "new") {
-        navigate("/production"); // Default for new if no 'from'
+        navigate("/production"); 
       } else {
-        navigate("/all-production-schedules"); // Default for existing if no 'from'
+        navigate("/all-production-schedules"); 
       }
     }
   };
@@ -552,14 +549,7 @@ const ProductionScheduleEditor = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      {showMobileWarning && (
-        <MobileScreenWarning
-          title="Optimized for Larger Screens"
-          description="This editor works best on larger screens. You can continue, but some features may be harder to use on mobile."
-          continueAnyway={true}
-          editorType="schedule"
-        />
-      )}
+      {/* Removed MobileScreenWarning component and its conditional rendering */}
 
       <Header dashboard={!isSharedEdit} scheduleForExport={isSharedEdit ? undefined : scheduleForExportProps} scheduleType="production" />
 

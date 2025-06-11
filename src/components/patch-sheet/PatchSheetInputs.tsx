@@ -410,7 +410,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
         </div>
       ) : (
         <div className="space-y-4 overflow-x-auto">
-          <div className="min-w-[800px] md:min-w-0">
+          <div className="md:min-w-0"> {/* Changed: Removed min-w-[800px] */}
             {inputs.map((input) => {
               const editingInput = editingInputs[input.id] || input;
               const isEditMode = editModeInputs[input.id];

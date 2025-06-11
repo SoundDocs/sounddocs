@@ -6,8 +6,8 @@ import Footer from "../components/Footer";
 import StageCanvas from "../components/stage-plot/StageCanvas";
 import ElementToolbar from "../components/stage-plot/ElementToolbar";
 import ElementProperties from "../components/stage-plot/ElementProperties";
-import MobileScreenWarning from "../components/MobileScreenWarning";
-import { useScreenSize } from "../hooks/useScreenSize";
+// import MobileScreenWarning from "../components/MobileScreenWarning"; // Removed
+// import { useScreenSize } from "../hooks/useScreenSize"; // Removed
 import { StageElementProps } from "../components/stage-plot/StageElement";
 import {
   ArrowLeft,
@@ -42,14 +42,13 @@ function isValidStageWidth(maybeWidth: string): maybeWidth is StageWidth {
 function parseStageSize(stageSizeString: string): StageSize {
   const segments = stageSizeString.split("-");
 
-  // Handle cases like "medium" which implies "medium-wide"
   if (segments.length === 1 && isValidStageDepth(segments[0])) {
     return { depth: segments[0] as StageDepth, width: "wide" };
   }
   
-  if (segments.length < 2) { // Ensure at least two segments for depth-width
+  if (segments.length < 2) {
     console.warn(`Invalid stage size string format: ${stageSizeString}. Defaulting.`);
-    return { depth: "medium", width: "wide" }; // Default or throw error
+    return { depth: "medium", width: "wide" };
   }
 
   const depth = segments.slice(0, -1).join("-");
@@ -57,12 +56,12 @@ function parseStageSize(stageSizeString: string): StageSize {
 
   if (!isValidStageDepth(depth)) {
     console.warn(`Invalid stage depth: ${depth} in ${stageSizeString}. Defaulting.`);
-    return { depth: "medium", width: "wide" }; // Default or throw error
+    return { depth: "medium", width: "wide" };
   }
 
   if (!isValidStageWidth(width)) {
     console.warn(`Invalid stage width: ${width} in ${stageSizeString}. Defaulting.`);
-    return { depth: "medium", width: "wide" }; // Default or throw error
+    return { depth: "medium", width: "wide" };
   }
 
   return { depth, width };
@@ -76,7 +75,7 @@ const StagePlotEditor = () => {
   const { id, shareCode } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const screenSize = useScreenSize();
+  // const screenSize = useScreenSize(); // Removed
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [stagePlot, setStagePlot] = useState<{ stage_size?: string; [k: string]: any } | null>(
@@ -88,7 +87,7 @@ const StagePlotEditor = () => {
   const [user, setUser] = useState<any>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [isViewMode, setIsViewMode] = useState(false);
+  const [isViewMode, setIsViewMode] = useState(false); // Default to false (editable)
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
   const [backgroundOpacity, setBackgroundOpacity] = useState(50);
   const [showImageUpload, setShowImageUpload] = useState(false);
@@ -102,14 +101,11 @@ const StagePlotEditor = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setIsSharedEdit(location.pathname.includes("/shared/stage-plot/edit/"));
-
-    if (screenSize === "mobile" || screenSize === "tablet") {
-      setIsViewMode(true);
-    } else {
-      setIsViewMode(false); 
-    }
-  }, [screenSize, location.pathname]);
+    const pathIsSharedEdit = location.pathname.includes("/shared/stage-plot/edit/");
+    setIsSharedEdit(pathIsSharedEdit);
+    // isViewMode is now primarily controlled by share link type during data fetching or other explicit settings.
+    // Screen size no longer forces view mode.
+  }, [location.pathname]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -145,9 +141,16 @@ const StagePlotEditor = () => {
           }
           
           if (fetchedShareLink.link_type !== "edit") {
+            // This implies it's a 'view' link. The editor page should ideally not be reached
+            // or should be forced into view mode. Current logic redirects.
+            // For robustness, if it somehow lands here, set view mode.
+            setIsViewMode(true); 
+            // Redirect to the proper view URL to maintain consistency
             window.location.href = getShareUrl(shareCode, 'stage_plot', 'view');
             return; 
           }
+          // If it's an edit link, ensure isViewMode is false
+          setIsViewMode(false);
 
           setStagePlot(resource);
           setShareLink(fetchedShareLink);
@@ -164,7 +167,7 @@ const StagePlotEditor = () => {
           if (resource.backgroundOpacity !== undefined) {
             setBackgroundOpacity(resource.backgroundOpacity);
           }
-          setIsSharedEdit(true); 
+          // setIsSharedEdit(true); // Already set in the other useEffect
           setLoading(false);
           return;
         } catch (error: any) {
@@ -173,12 +176,10 @@ const StagePlotEditor = () => {
           return;
         }
       } else {
+        // Not a shared edit link, so it's editable
+        setIsViewMode(false);
         if (id === "new") {
-          if (screenSize === "mobile" || screenSize === "tablet") {
-            navigate("/dashboard"); 
-            setLoading(false);
-            return;
-          }
+          // Creating new stage plots is now allowed on all screen sizes
           setStagePlot({
             name: "Untitled Stage Plot",
             created_at: new Date().toISOString(),
@@ -187,7 +188,7 @@ const StagePlotEditor = () => {
           });
           setStageSize(parseStageSize("medium-wide"));
           setElements([]);
-          setIsSharedEdit(false); 
+          // setIsSharedEdit(false); // Already set in the other useEffect
           setLoading(false);
           return;
         }
@@ -226,7 +227,7 @@ const StagePlotEditor = () => {
           if (data.backgroundOpacity !== undefined) {
             setBackgroundOpacity(data.backgroundOpacity);
           }
-          setIsSharedEdit(false); 
+          // setIsSharedEdit(false); // Already set
           setLoading(false);
         } catch (error) {
           navigate("/dashboard");
@@ -237,7 +238,7 @@ const StagePlotEditor = () => {
 
     fetchUser();
     fetchStagePlotData();
-  }, [id, shareCode, location.pathname, navigate, screenSize]);
+  }, [id, shareCode, location.pathname, navigate]);
 
   const getDefaultColorForType = (type: string): string => {
     if (type === "electric-guitar") return "#2563eb";
@@ -504,18 +505,15 @@ const StagePlotEditor = () => {
     const fromPath = location.state?.from as string | undefined;
 
     if (isSharedEdit && shareCode) {
-      // For shared edits, navigate to the view page of the shared resource
-      // Use shareLink if available, otherwise default to 'stage_plot'
       const resourceType = shareLink?.resource_type || 'stage_plot';
       window.location.href = getShareUrl(shareCode, resourceType, 'view');
     } else if (fromPath) {
       navigate(fromPath);
     } else {
-      // Fallback if 'from' state is somehow missing for non-shared documents
       if (id === "new") {
-        navigate("/audio"); // Default for new if no 'from'
+        navigate("/audio"); 
       } else {
-        navigate("/all-stage-plots"); // Default for existing if no 'from'
+        navigate("/all-stage-plots"); 
       }
     }
   };
@@ -528,34 +526,11 @@ const StagePlotEditor = () => {
     );
   }
 
-  if ((screenSize === "mobile" || screenSize === "tablet") && id === "new" && !isSharedEdit) {
-    return (
-      <MobileScreenWarning
-        title="Not Available on Mobile"
-        description="Creating stage plots is only available on desktop devices. Please use a computer to create a new stage plot."
-        continueAnyway={false}
-        returnPath="/dashboard"
-        editorType="stage"
-      />
-    );
-  }
+  // Removed MobileScreenWarning related to id === "new" on mobile
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      {(screenSize === "mobile" || screenSize === "tablet") && !isViewMode && (
-        <MobileScreenWarning
-          title="View-Only Recommended"
-          description={
-            id === "new" && !isSharedEdit
-              ? "Creating stage plots requires a desktop device."
-              : "Editing stage plots is best on desktop. You are currently in view mode."
-          }
-          continueAnyway={true} 
-          onContinue={() => setIsViewMode(true)} 
-          returnPath={isSharedEdit && shareCode ? getShareUrl(shareCode, 'stage_plot', 'view') : "/dashboard"}
-          editorType="stage"
-        />
-      )}
+      {/* Removed MobileScreenWarning component and its conditional rendering */}
 
       <Header dashboard={!isSharedEdit} />
 
@@ -791,7 +766,7 @@ const StagePlotEditor = () => {
               onElementDelete={handleElementDelete}
               onElementDuplicate={handleElementDuplicate}
               onElementResize={handleElementResize}
-              isViewMode={isViewMode}
+              isViewMode={isViewMode} 
             />
           </div>
         </div>

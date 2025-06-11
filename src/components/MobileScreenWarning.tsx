@@ -7,7 +7,7 @@ interface MobileScreenWarningProps {
   description?: string;
   continueAnyway?: boolean;
   returnPath?: string; // Custom return path
-  editorType?: "patch" | "stage"; // Identify whether it's for patch sheet or stage plot
+  editorType?: "patch" | "stage" | "runofshow"; // Identify editor type
 }
 
 const MobileScreenWarning: React.FC<MobileScreenWarningProps> = ({
@@ -37,8 +37,8 @@ const MobileScreenWarning: React.FC<MobileScreenWarningProps> = ({
           Return to Dashboard
         </button>
 
-        {/* Only show Continue Anyway for patch sheet editor */}
-        {continueAnyway && editorType === "patch" && (
+        {/* Only show Continue Anyway for patch sheet or runofshow editor */}
+        {continueAnyway && (editorType === "patch" || editorType === "runofshow") && (
           <button
             onClick={() => {
               // Close the modal and continue to the page

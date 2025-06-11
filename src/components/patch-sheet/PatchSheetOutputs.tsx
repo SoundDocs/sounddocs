@@ -357,7 +357,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
         </div>
       ) : (
         <div className="space-y-4 overflow-x-auto">
-          <div className="min-w-[800px] md:min-w-0">
+          <div className="md:min-w-0"> {/* Changed: Removed min-w-[800px] */}
             {outputs.map(output => {
               const editingOutput = editingOutputs[output.id] || output;
               const isEditMode = editModeOutputs[output.id];

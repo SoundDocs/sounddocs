@@ -5,8 +5,8 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import PatchSheetInputs from "../components/patch-sheet/PatchSheetInputs";
 import PatchSheetOutputs from "../components/patch-sheet/PatchSheetOutputs";
-import MobileScreenWarning from "../components/MobileScreenWarning";
-import { useScreenSize } from "../hooks/useScreenSize";
+// import MobileScreenWarning from "../components/MobileScreenWarning"; // Removed
+// import { useScreenSize } from "../hooks/useScreenSize"; // Removed
 import { Loader, ArrowLeft, Save, AlertCircle } from "lucide-react";
 import { getSharedResource, updateSharedResource, getShareUrl } from "../lib/shareUtils";
 
@@ -53,7 +53,7 @@ const PatchSheetEditor = () => {
   const { id, shareCode } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const screenSize = useScreenSize();
+  // const screenSize = useScreenSize(); // Removed
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [patchSheet, setPatchSheet] = useState<any>(null);
@@ -63,16 +63,16 @@ const PatchSheetEditor = () => {
   const [outputs, setOutputs] = useState<OutputChannel[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [showMobileWarning, setShowMobileWarning] = useState(false);
+  // const [showMobileWarning, setShowMobileWarning] = useState(false); // Removed
   const [isSharedEdit, setIsSharedEdit] = useState(false);
   const [shareLink, setShareLink] = useState<any>(null);
 
   useEffect(() => {
-    if (screenSize === "mobile" || screenSize === "tablet") {
-      setShowMobileWarning(true);
-    }
+    // if (screenSize === "mobile" || screenSize === "tablet") { // Removed
+    //   setShowMobileWarning(true);
+    // }
     setIsSharedEdit(location.pathname.includes("/shared/edit/"));
-  }, [screenSize, location.pathname]);
+  }, [location.pathname]); // screenSize dependency removed
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -275,14 +275,14 @@ const PatchSheetEditor = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      {showMobileWarning && (
+      {/* {showMobileWarning && ( // Removed
         <MobileScreenWarning
           title="Optimized for Larger Screens"
           description="This editor works best on larger screens. You can continue, but some features may be harder to use on mobile."
           continueAnyway={true}
           editorType="patch"
         />
-      )}
+      )} */}
 
       <Header dashboard={!isSharedEdit} />
 
@@ -379,7 +379,7 @@ const PatchSheetEditor = () => {
           </div>
 
           <div className="p-4 md:p-6 overflow-x-auto">
-            <div className="min-w-[800px] md:min-w-0">
+            <div className="md:min-w-0"> {/* Changed: Removed min-w-[800px] */}
               {activeTab === "inputs" && (
                 <PatchSheetInputs inputs={inputs} updateInputs={updateInputs} />
               )}
