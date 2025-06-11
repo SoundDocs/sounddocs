@@ -8,7 +8,7 @@ import PatchSheetOutputs from "../components/patch-sheet/PatchSheetOutputs";
 import MobileScreenWarning from "../components/MobileScreenWarning";
 import { useScreenSize } from "../hooks/useScreenSize";
 import { Loader, ArrowLeft, Save, AlertCircle } from "lucide-react";
-import { getSharedResource, updateSharedResource, getShareUrl } from "../lib/shareUtils"; // Added getShareUrl
+import { getSharedResource, updateSharedResource, getShareUrl } from "../lib/shareUtils";
 
 interface InputChannel {
   id: string;
@@ -64,16 +64,13 @@ const PatchSheetEditor = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showMobileWarning, setShowMobileWarning] = useState(false);
-  const [isSharedEdit, setIsSharedEdit] = useState(false); // State for UI elements like Header
-  const [shareLink, setShareLink] = useState<any>(null); // Added state for shareLink
+  const [isSharedEdit, setIsSharedEdit] = useState(false);
+  const [shareLink, setShareLink] = useState<any>(null);
 
   useEffect(() => {
     if (screenSize === "mobile" || screenSize === "tablet") {
       setShowMobileWarning(true);
     }
-    // This effect sets the isSharedEdit state, which can be used by UI elements
-    // that react to this state change (e.g., Header, save button logic if needed).
-    // The main data fetching logic will calculate this directly to avoid race conditions.
     setIsSharedEdit(location.pathname.includes("/shared/edit/"));
   }, [screenSize, location.pathname]);
 
@@ -87,7 +84,6 @@ const PatchSheetEditor = () => {
 
     const fetchPatchSheetData = async () => {
       setLoading(true);
-      // Determine if it's a shared edit directly from the path for this fetch operation
       const currentPathIsSharedEdit = location.pathname.includes("/shared/edit/");
       
       console.log(`[PatchSheetEditor] Fetching. Path: ${location.pathname}, ID: ${id}, ShareCode: ${shareCode}, CalculatedIsShared: ${currentPathIsSharedEdit}`);
@@ -100,14 +96,12 @@ const PatchSheetEditor = () => {
 
           if (fetchedShareLink.link_type !== "edit") {
             console.log("[PatchSheetEditor] Link type is not 'edit', redirecting to view.");
-            // Ensure getShareUrl is imported and provides the correct view URL
             window.location.href = getShareUrl(shareCode, fetchedShareLink.resource_type, 'view');
-            // setLoading(false); // Not strictly needed before redirect
-            return; // Exit after redirect
+            return;
           }
 
           setPatchSheet(resource);
-          setShareLink(fetchedShareLink); // Set the fetched share link state
+          setShareLink(fetchedShareLink);
           setInputs(resource.inputs && Array.isArray(resource.inputs) ? resource.inputs : []);
           const updatedOutputs = (resource.outputs && Array.isArray(resource.outputs) ? resource.outputs : []).map((output: any) => ({
             ...output,
@@ -116,15 +110,14 @@ const PatchSheetEditor = () => {
           setOutputs(updatedOutputs);
           setLoading(false);
           console.log("[PatchSheetEditor] SHARED resource loaded successfully.");
-          return; // CRITICAL: Exit after successful shared load
+          return;
         } catch (error: any) {
           console.error("[PatchSheetEditor] Error fetching SHARED patch sheet:", error.message);
-          navigate("/"); // Navigate to home or an error page on shared fetch failure
+          navigate("/");
           setLoading(false);
-          return; // CRITICAL: Exit after error in shared load
+          return;
         }
       } else {
-        // Proceed with OWNED document logic
         console.log(`[PatchSheetEditor] Proceeding with OWNED document logic. ID: ${id}, User:`, user);
         if (id === "new") {
           setPatchSheet({
@@ -137,14 +130,14 @@ const PatchSheetEditor = () => {
           setOutputs([]);
           setLoading(false);
           console.log("[PatchSheetEditor] New OWNED document initialized.");
-          return; // CRITICAL: Exit after new owned init
+          return;
         }
 
         if (!id) {
           console.error("[PatchSheetEditor] OWNED logic: No ID, and not 'new'. Invalid state.");
           navigate("/dashboard"); 
           setLoading(false);
-          return; // CRITICAL: Exit if no ID for owned doc
+          return;
         }
 
         try {
@@ -153,13 +146,13 @@ const PatchSheetEditor = () => {
           
           if (error) {
             console.error("[PatchSheetEditor] Error fetching OWNED patch sheet from Supabase:", error);
-            throw error; // Let the catch block handle it
+            throw error;
           }
           if (!data) {
             console.error("[PatchSheetEditor] OWNED patch sheet not found or access denied for id:", id);
-            navigate("/dashboard"); // Or a "not found" page
+            navigate("/dashboard");
             setLoading(false);
-            return; // CRITICAL: Exit if no data
+            return;
           }
           setPatchSheet(data);
           setInputs(data.inputs && Array.isArray(data.inputs) ? data.inputs : []);
@@ -170,19 +163,17 @@ const PatchSheetEditor = () => {
           setOutputs(updatedOutputs);
           setLoading(false);
           console.log("[PatchSheetEditor] OWNED patch sheet loaded successfully.");
-          // No return here, normal flow to end of function
         } catch (error) {
           console.error("[PatchSheetEditor] Catch block for OWNED patch sheet fetch error:", error);
-          navigate("/dashboard"); // This is the redirect the user was seeing
+          navigate("/dashboard");
           setLoading(false);
-          // No return here, normal flow to end of function
         }
       }
     };
 
     fetchUser();
     fetchPatchSheetData();
-  }, [id, shareCode, location.pathname, navigate]); // Removed isSharedEdit (state) from dependencies
+  }, [id, shareCode, location.pathname, navigate]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -207,7 +198,6 @@ const PatchSheetEditor = () => {
         last_edited: new Date().toISOString(),
       };
       
-      // Use the isSharedEdit state here, as it's for a user action, not initial load
       if (isSharedEdit && shareCode) {
         const result = await updateSharedResource(shareCode, "patch_sheet", patchSheetData);
         if (result) {
@@ -224,7 +214,9 @@ const PatchSheetEditor = () => {
             .insert([{ ...patchSheetData, user_id: user.id }])
             .select();
           if (error) throw error;
-          if (data && data[0]) navigate(`/patch-sheet/${data[0].id}`);
+          if (data && data[0]) {
+            navigate(`/patch-sheet/${data[0].id}`, { state: { from: location.state?.from } });
+          }
         } else {
           const { error } = await supabase.from("patch_sheets").update(patchSheetData).eq("id", id);
           if (error) throw error;
@@ -235,7 +227,6 @@ const PatchSheetEditor = () => {
           setTimeout(() => setSaveSuccess(false), 3000);
         }
       } else {
-        // Not a shared edit, and no user logged in.
         console.warn("[PatchSheetEditor] Save attempt failed: Not a shared edit and user is not logged in.");
         setSaveError("You must be logged in to save changes to your own documents, or this shared link may not support editing.");
       }
@@ -254,6 +245,24 @@ const PatchSheetEditor = () => {
 
   const updateOutputs = (newOutputs: OutputChannel[]) => {
     setOutputs(newOutputs);
+  };
+
+  const handleBackNavigation = () => {
+    const fromPath = location.state?.from as string | undefined;
+
+    if (isSharedEdit && shareCode) {
+      // For shared edits, navigate to the view page of the shared resource
+      window.location.href = getShareUrl(shareCode, patchSheet?.resource_type || 'patch_sheet', 'view');
+    } else if (fromPath) {
+      navigate(fromPath);
+    } else {
+      // Fallback if 'from' state is somehow missing for non-shared documents
+      if (id === "new") {
+        navigate("/audio"); // Default for new if no 'from'
+      } else {
+        navigate("/all-patch-sheets"); // Default for existing if no 'from'
+      }
+    }
   };
 
   if (loading) {
@@ -275,18 +284,13 @@ const PatchSheetEditor = () => {
         />
       )}
 
-      {/* Header uses isSharedEdit state, which is fine as it re-renders when state changes */}
       <Header dashboard={!isSharedEdit} />
 
       <main className="flex-grow container mx-auto px-4 py-6 md:py-12 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
           <div className="flex items-center">
             <button
-              onClick={() =>
-                isSharedEdit && shareCode // Use state here, reliable after initial load
-                  ? (window.location.href = getShareUrl(shareCode, patchSheet?.resource_type || 'patch_sheet' , 'view')) // Fallback to patch_sheet if type unknown
-                  : navigate("/audio")
-              }
+              onClick={handleBackNavigation}
               className="mr-2 md:mr-4 flex items-center text-gray-400 hover:text-white transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />

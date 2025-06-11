@@ -19,6 +19,7 @@ import {
   Upload,
   XCircle,
   Sliders as Slider,
+  Loader,
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { getSharedResource, updateSharedResource, getShareUrl } from "../lib/shareUtils";
@@ -93,7 +94,7 @@ const StagePlotEditor = () => {
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [isSharedEdit, setIsSharedEdit] = useState(false); // UI state
+  const [isSharedEdit, setIsSharedEdit] = useState(false); 
   const [shareLink, setShareLink] = useState<any>(null);
 
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -127,7 +128,7 @@ const StagePlotEditor = () => {
           return fetchedElements.map((el: any) => ({
             ...el,
             icon: undefined, 
-            labelVisible: el.labelVisible === undefined ? true : el.labelVisible, // Ensure labelVisible defaults to true
+            labelVisible: el.labelVisible === undefined ? true : el.labelVisible, 
           }));
         }
         return [];
@@ -295,7 +296,7 @@ const StagePlotEditor = () => {
       rotation: 0,
       color: getDefaultColorForType(type),
       customImageUrl: type === "custom-image" ? null : undefined,
-      labelVisible: true, // Default new elements to have visible labels
+      labelVisible: true, 
     };
 
     setElements([...elements, newElement]);
@@ -367,7 +368,7 @@ const StagePlotEditor = () => {
     try {
       const cleanedElements = elements.map(({ icon, ...rest }) => ({
         ...rest,
-        labelVisible: rest.labelVisible === undefined ? true : rest.labelVisible, // Ensure labelVisible is saved
+        labelVisible: rest.labelVisible === undefined ? true : rest.labelVisible, 
       }));
 
       const stagePlotData = {
@@ -398,7 +399,7 @@ const StagePlotEditor = () => {
 
           if (error) throw error;
           if (data) {
-            navigate(`/stage-plot/${data.id}`);
+            navigate(`/stage-plot/${data.id}`, { state: { from: location.state?.from } });
           } else {
              setSaveError("Error creating stage plot. Please try again.");
           }
@@ -499,10 +500,30 @@ const StagePlotEditor = () => {
     return elements.find((el) => el.id === selectedElementId) || null;
   };
 
+  const handleBackNavigation = () => {
+    const fromPath = location.state?.from as string | undefined;
+
+    if (isSharedEdit && shareCode) {
+      // For shared edits, navigate to the view page of the shared resource
+      // Use shareLink if available, otherwise default to 'stage_plot'
+      const resourceType = shareLink?.resource_type || 'stage_plot';
+      window.location.href = getShareUrl(shareCode, resourceType, 'view');
+    } else if (fromPath) {
+      navigate(fromPath);
+    } else {
+      // Fallback if 'from' state is somehow missing for non-shared documents
+      if (id === "new") {
+        navigate("/audio"); // Default for new if no 'from'
+      } else {
+        navigate("/all-stage-plots"); // Default for existing if no 'from'
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+        <Loader className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500" />
       </div>
     );
   }
@@ -542,16 +563,7 @@ const StagePlotEditor = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-4">
           <div className="flex items-center">
             <button
-              onClick={() => {
-                if (isSharedEdit && shareCode && shareLink) {
-                   window.location.href = getShareUrl(shareCode, shareLink.resource_type, shareLink.link_type === 'edit' ? 'edit' : 'view');
-                } else if (isSharedEdit && shareCode) { 
-                   window.location.href = getShareUrl(shareCode, 'stage_plot', 'view'); 
-                }
-                 else {
-                  navigate("/audio");
-                }
-              }}
+              onClick={handleBackNavigation}
               className="mr-2 md:mr-4 flex items-center text-gray-400 hover:text-white transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />

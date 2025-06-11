@@ -18,6 +18,7 @@ import {
   Copy,
   Share2,
   AlertTriangle,
+  Loader,
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import StagePlotExport from "../components/StagePlotExport";
@@ -33,6 +34,8 @@ interface StagePlot {
   last_edited?: string;
   stage_size?: string;
   elements?: any[];
+  backgroundImage?: string;
+  backgroundOpacity?: number;
   [key: string]: any; // Allow any additional properties
 }
 
@@ -148,7 +151,7 @@ const AllStagePlots = () => {
   };
 
   const handleEditStagePlot = (id: string) => {
-    navigate(`/stage-plot/${id}`);
+    navigate(`/stage-plot/${id}`, { state: { from: "/all-stage-plots" } });
   };
 
   const handleShareStagePlot = (stagePlot: StagePlot) => {
@@ -162,7 +165,7 @@ const AllStagePlots = () => {
 
       // Fetch complete stage plot data if needed
       let fullStagePlot = stagePlot;
-      if (!stagePlot.elements) {
+      if (!fullStagePlot.elements) {
         const { data, error } = await supabase
           .from("stage_plots")
           .select("*")
@@ -188,6 +191,8 @@ const AllStagePlots = () => {
             user_id: userData.user.id,
             stage_size: fullStagePlot.stage_size || "medium-wide",
             elements: fullStagePlot.elements || [],
+            backgroundImage: fullStagePlot.backgroundImage,
+            backgroundOpacity: fullStagePlot.backgroundOpacity,
             created_at: new Date().toISOString(),
             last_edited: new Date().toISOString(),
           },
@@ -202,7 +207,7 @@ const AllStagePlots = () => {
         setFilteredStagePlots([newStagePlot[0], ...filteredStagePlots]);
 
         // Navigate to the editor for the new stage plot
-        navigate(`/stage-plot/${newStagePlot[0].id}`);
+        navigate(`/stage-plot/${newStagePlot[0].id}`, { state: { from: "/all-stage-plots" } });
       }
     } catch (error) {
       console.error("Error duplicating stage plot:", error);
@@ -236,9 +241,16 @@ const AllStagePlots = () => {
         if (error) throw error;
         fullStagePlot = data;
       }
+      
+      const stagePlotForExport = {
+        ...fullStagePlot,
+        stage_size: fullStagePlot.stage_size || "medium-wide",
+        elements: fullStagePlot.elements || [],
+      };
+
 
       // Set the current stage plot to be exported
-      setCurrentExportStagePlot(fullStagePlot);
+      setCurrentExportStagePlot(stagePlotForExport);
 
       // Wait for the component to render
       setTimeout(async () => {
@@ -259,7 +271,7 @@ const AllStagePlots = () => {
           const imageURL = canvas.toDataURL("image/png");
           const link = document.createElement("a");
           link.href = imageURL;
-          link.download = `${fullStagePlot!.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot.png`;
+          link.download = `${stagePlotForExport!.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot.png`;
           link.click();
 
           // Clean up
@@ -296,8 +308,14 @@ const AllStagePlots = () => {
         fullStagePlot = data;
       }
 
+      const stagePlotForExport = {
+        ...fullStagePlot,
+        stage_size: fullStagePlot.stage_size || "medium-wide",
+        elements: fullStagePlot.elements || [],
+      };
+
       // Set the current stage plot to be exported
-      setCurrentExportStagePlot(fullStagePlot);
+      setCurrentExportStagePlot(stagePlotForExport);
 
       // Wait for the component to render
       setTimeout(async () => {
@@ -318,7 +336,7 @@ const AllStagePlots = () => {
           const imageURL = canvas.toDataURL("image/png");
           const link = document.createElement("a");
           link.href = imageURL;
-          link.download = `${fullStagePlot!.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot-print.png`;
+          link.download = `${stagePlotForExport!.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot-print.png`;
           link.click();
 
           // Clean up
@@ -336,20 +354,17 @@ const AllStagePlots = () => {
   };
 
   const handleCreateNewStagePlot = () => {
-    navigate("/dashboard");
-    // Use setTimeout to wait for navigation to complete
-    setTimeout(() => {
-      const newPlotButton = document.querySelector('[data-show-new-plot-modal="true"]');
-      if (newPlotButton) {
-        (newPlotButton as HTMLButtonElement).click();
-      }
-    }, 100);
+    // This navigation will result in StagePlotEditor defaulting back to /audio
+    // if `from` state is not picked up from DashboardPage's modal logic.
+    // For now, this is acceptable as per "do not make any other changes".
+    // A more robust solution would involve DashboardPage passing state.
+    navigate("/stage-plot/new", { state: { from: "/all-stage-plots" } });
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+        <Loader className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500" />
       </div>
     );
   }

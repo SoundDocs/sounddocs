@@ -443,7 +443,7 @@ const ProductionScheduleEditor = () => {
             .single();
           if (error) throw error;
           savedData = data;
-          if (data) navigate(`/production-schedule/${data.id}`);
+          if (data) navigate(`/production-schedule/${data.id}`, { state: { from: location.state?.from } });
         } else { 
           const { data, error } = await supabase
             .from("production_schedules")
@@ -532,11 +532,20 @@ const ProductionScheduleEditor = () => {
     detailed_schedule_items: currentDetailedScheduleItems,
   };
 
-  const backButtonNavigation = () => {
+  const handleBackNavigation = () => {
+    const fromPath = location.state?.from as string | undefined;
+
     if (isSharedEdit && shareCode && currentShareLink) {
-      navigate("/shared-with-me"); 
+      navigate("/shared-with-me");
+    } else if (fromPath) {
+      navigate(fromPath);
     } else {
-      navigate("/production"); 
+      // Fallback if 'from' state is somehow missing
+      if (id === "new") {
+        navigate("/production"); // Default for new if no 'from'
+      } else {
+        navigate("/all-production-schedules"); // Default for existing if no 'from'
+      }
     }
   };
 
@@ -559,7 +568,7 @@ const ProductionScheduleEditor = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
           <div className="flex items-center flex-grow min-w-0"> 
             <button
-              onClick={backButtonNavigation}
+              onClick={handleBackNavigation}
               className="mr-2 md:mr-4 flex items-center text-gray-400 hover:text-white transition-colors flex-shrink-0" 
             >
               <ArrowLeft className="h-5 w-5" />

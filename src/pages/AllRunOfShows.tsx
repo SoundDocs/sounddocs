@@ -347,7 +347,7 @@ const AllRunOfShows: React.FC = () => {
           </button>
 
           <button
-            onClick={() => navigate("/run-of-show/new")}
+            onClick={() => navigate("/run-of-show/new", { state: { from: "/all-run-of-shows" } })}
             className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-md font-medium transition-all duration-200"
           >
             <PlusCircle className="h-5 w-5 mr-2" />
@@ -422,7 +422,7 @@ const AllRunOfShows: React.FC = () => {
               </p>
               {!searchTerm && (
                 <button
-                  onClick={() => navigate("/run-of-show/new")}
+                  onClick={() => navigate("/run-of-show/new", { state: { from: "/all-run-of-shows" } })}
                   className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-colors text-lg"
                 >
                   <PlusCircle className="h-6 w-6 mr-2" />
@@ -451,7 +451,7 @@ const AllRunOfShows: React.FC = () => {
                           <FileText className="h-5 w-5 text-indigo-400 mr-3 flex-shrink-0" />
                           <span
                             className="text-white font-medium hover:text-indigo-400 cursor-pointer"
-                            onClick={() => navigate(`/run-of-show/${ros.id}`)}
+                            onClick={() => navigate(`/run-of-show/${ros.id}`, { state: { from: "/all-run-of-shows" } })}
                           >
                             {ros.name}
                           </span>
@@ -492,7 +492,7 @@ const AllRunOfShows: React.FC = () => {
                             <Download className={`h-5 w-5 ${(isExporting && exportRunOfShowId === ros.id) ? "animate-pulse" : ""}`} />
                           </button>
                           <button
-                            onClick={() => navigate(`/run-of-show/${ros.id}`)}
+                            onClick={() => navigate(`/run-of-show/${ros.id}`, { state: { from: "/all-run-of-shows" } })}
                             className="p-2 text-gray-400 hover:text-indigo-400 rounded-md hover:bg-gray-700 transition-colors"
                             title="Edit"
                             disabled={isExporting || duplicatingId === ros.id}

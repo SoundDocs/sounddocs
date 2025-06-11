@@ -139,8 +139,8 @@ const AudioPage = () => {
     }
   };
 
-  const handleCreatePatchList = () => navigate("/patch-sheet/new");
-  const handleCreateStagePlot = async () => navigate("/stage-plot/new");
+  const handleCreatePatchList = () => navigate("/patch-sheet/new", { state: { from: "/audio" } });
+  const handleCreateStagePlot = async () => navigate("/stage-plot/new", { state: { from: "/audio" } });
 
   const handleDeleteRequest = (id: string, type: "patch" | "stage", name: string) => {
     setDocumentToDelete({ id, type, name });
@@ -178,8 +178,8 @@ const AudioPage = () => {
     setDocumentToDelete(null);
   };
 
-  const handleEditPatchList = (id: string) => navigate(`/patch-sheet/${id}`);
-  const handleEditStagePlot = (id: string) => navigate(`/stage-plot/${id}`);
+  const handleEditPatchList = (id: string) => navigate(`/patch-sheet/${id}`, { state: { from: "/audio" } });
+  const handleEditStagePlot = (id: string) => navigate(`/stage-plot/${id}`, { state: { from: "/audio" } });
 
   const handleExportClick = (id: string, type: 'patch' | 'stage') => {
     if (type === 'patch') {

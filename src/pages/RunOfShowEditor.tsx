@@ -457,7 +457,7 @@ const RunOfShowEditor: React.FC = () => {
           .single();
         if (error) throw error;
         savedData = data;
-        if (data) navigate(`/run-of-show/${data.id}`);
+        if (data) navigate(`/run-of-show/${data.id}`, { state: { from: location.state?.from } }); // Preserve 'from' state on new save
 
       } else if (runOfShow.id && user) { 
         console.log(`[RoSEditor] Saving owned RoS ID: ${runOfShow.id} for user: ${user.id}`);
@@ -517,6 +517,23 @@ const RunOfShowEditor: React.FC = () => {
       handleItemChange(colorPickerModalTargetItemId, 'highlightColor', colorValue);
     }
     setColorPickerModalTargetItemId(null);
+  };
+
+  const handleBackNavigation = () => {
+    const fromPath = location.state?.from as string | undefined;
+
+    if (currentIsSharedEdit) {
+      navigate("/shared-with-me");
+    } else if (fromPath) {
+      navigate(fromPath);
+    } else {
+      // Fallback if 'from' state is somehow missing
+      if (id === "new") {
+        navigate("/production"); // Default for new if no 'from'
+      } else {
+        navigate("/all-run-of-shows"); // Default for existing if no 'from'
+      }
+    }
   };
 
 
@@ -605,7 +622,7 @@ const RunOfShowEditor: React.FC = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
           <div className="flex items-center flex-grow min-w-0">
             <button
-              onClick={() => navigate(currentIsSharedEdit ? "/shared-with-me" : (id === "new" ? "/production" : `/all-run-of-shows`))}
+              onClick={handleBackNavigation}
               className="mr-2 md:mr-4 flex items-center text-gray-400 hover:text-white transition-colors flex-shrink-0"
             >
               <ArrowLeft className="h-5 w-5" />

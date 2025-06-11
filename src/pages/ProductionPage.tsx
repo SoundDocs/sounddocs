@@ -212,8 +212,8 @@ const ProductionPage = () => {
     }
   };
 
-  const handleCreateProductionSchedule = () => navigate("/production-schedule/new");
-  const handleCreateRunOfShow = () => navigate("/run-of-show/new");
+  const handleCreateProductionSchedule = () => navigate("/production-schedule/new", { state: { from: "/production" } });
+  const handleCreateRunOfShow = () => navigate("/run-of-show/new", { state: { from: "/production" } });
 
   const handleDeleteRequest = (id: string, type: "schedule" | "runofshow", name: string) => {
     setDocumentToDelete({ id, type, name });
@@ -251,8 +251,8 @@ const ProductionPage = () => {
     setDocumentToDelete(null);
   };
 
-  const handleEditProductionSchedule = (id: string) => navigate(`/production-schedule/${id}`);
-  const handleEditRunOfShow = (id: string) => navigate(`/run-of-show/${id}`);
+  const handleEditProductionSchedule = (id: string) => navigate(`/production-schedule/${id}`, { state: { from: "/production" } });
+  const handleEditRunOfShow = (id: string) => navigate(`/run-of-show/${id}`, { state: { from: "/production" } });
 
   const handleExportClick = (id: string, type: 'schedule' | 'runofshow') => {
     if (type === 'schedule') {
