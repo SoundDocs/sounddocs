@@ -48,7 +48,7 @@ import React, { useEffect } from "react";
     function App() {
       useEffect(() => {
         // Update title
-        document.title = "SoundDocs | Patch Lists & Stage Plots for Audio Engineers";
+        document.title = "SoundDocs | Event Production Docs, Tools & Resources";
       }, []);
 
       return (
