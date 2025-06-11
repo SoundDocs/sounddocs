@@ -1,5 +1,5 @@
 import React from 'react';
-import { PlusCircle, Trash2, GripVertical, CalendarDays, Copy } from 'lucide-react';
+import { PlusCircle, Trash2, CalendarDays, Copy, ArrowUp, ArrowDown } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface LaborScheduleItem {
@@ -23,12 +23,20 @@ const LaborScheduleItemRow: React.FC<{
   onUpdateItem: (updatedItem: LaborScheduleItem) => void;
   onDeleteItem: () => void;
   onDuplicateItem: () => void;
+  onMoveItemUp: () => void;
+  onMoveItemDown: () => void;
+  isFirstItem: boolean;
+  isLastItem: boolean;
   index: number;
 }> = ({
   item,
   onUpdateItem,
   onDeleteItem,
   onDuplicateItem,
+  onMoveItemUp,
+  onMoveItemDown,
+  isFirstItem,
+  isLastItem,
   index,
 }) => {
   const inputClass = "bg-gray-600 text-white border border-gray-500 rounded-md p-2 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm w-full";
@@ -44,9 +52,24 @@ const LaborScheduleItemRow: React.FC<{
 
   return (
     <div className="grid grid-cols-[auto_2fr_2fr_1.5fr_1fr_1fr_3fr_auto] gap-2 items-center py-2 px-1 border-b border-gray-700 hover:bg-gray-750/30 transition-colors">
-      <div className="text-gray-400 text-sm flex items-center cursor-grab pl-1" title="Drag to reorder (not implemented)">
-        <GripVertical className="h-5 w-5 mr-1" />
-        {index + 1}
+      <div className="text-gray-400 text-sm flex flex-col items-center justify-center pt-1 space-y-0.5">
+        <button
+          onClick={onMoveItemUp}
+          disabled={isFirstItem}
+          className="p-0.5 text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          title="Move Up"
+        >
+          <ArrowUp size={16} />
+        </button>
+        <span className="font-mono text-xs select-none">{index + 1}</span>
+        <button
+          onClick={onMoveItemDown}
+          disabled={isLastItem}
+          className="p-0.5 text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          title="Move Down"
+        >
+          <ArrowDown size={16} />
+        </button>
       </div>
       <input
         type="text"
@@ -124,12 +147,15 @@ const ProductionScheduleLabor: React.FC<ProductionScheduleLaborProps> = ({ labor
       }
       groups[dateStr].push(item);
     });
+    // Items within groups maintain their order from laborItems array.
 
     return Object.entries(groups).sort(([dateA], [dateB]) => {
       if (dateA === 'No Date Assigned') return 1;
       if (dateB === 'No Date Assigned') return -1;
       try {
-        return new Date(dateA).getTime() - new Date(dateB).getTime();
+        const timeA = new Date(dateA + 'T00:00:00Z').getTime();
+        const timeB = new Date(dateB + 'T00:00:00Z').getTime();
+        return timeA - timeB;
       } catch (e) {
         return 0;
       }
@@ -150,7 +176,7 @@ const ProductionScheduleLabor: React.FC<ProductionScheduleLaborProps> = ({ labor
 
   const handleAddItemToDay = (dateKey: string) => {
     const newItemDate = dateKey === 'No Date Assigned' 
-      ? new Date().toISOString().split('T')[0] // Default to today if no date
+      ? new Date().toISOString().split('T')[0] 
       : dateKey;
     const newItem = createNewLaborItem(newItemDate);
     onUpdateLaborItems([...laborItems, newItem]);
@@ -178,12 +204,11 @@ const ProductionScheduleLabor: React.FC<ProductionScheduleLaborProps> = ({ labor
     let nextDateStr = 'No Date Assigned';
     if (dateKey !== 'No Date Assigned') {
       try {
-        const originalDate = new Date(dateKey);
-        originalDate.setDate(originalDate.getDate() + 1); // Increment day by 1
+        const originalDate = new Date(dateKey + 'T00:00:00Z');
+        originalDate.setUTCDate(originalDate.getUTCDate() + 1); 
         nextDateStr = originalDate.toISOString().split('T')[0];
       } catch (e) {
         console.error("Error calculating next date:", e);
-        // Fallback to duplicating with the same date if calculation fails, or handle as preferred
         nextDateStr = dateKey; 
       }
     }
@@ -200,17 +225,17 @@ const ProductionScheduleLabor: React.FC<ProductionScheduleLaborProps> = ({ labor
   const handleAddNewDayGroup = () => {
     let newDate = new Date();
     const validDates = laborItems
-      .map(item => item.date ? new Date(item.date).getTime() : 0)
+      .map(item => item.date ? new Date(item.date + 'T00:00:00Z').getTime() : 0)
       .filter(timestamp => timestamp > 0);
 
     if (validDates.length > 0) {
       const latestTimestamp = Math.max(...validDates);
       newDate = new Date(latestTimestamp);
-      newDate.setDate(newDate.getDate() + 1);
+      newDate.setUTCDate(newDate.getUTCDate() + 1);
     }
     
     const initialItemForNewDay = createNewLaborItem(newDate.toISOString().split('T')[0]);
-    initialItemForNewDay.notes = 'New day started'; // Pre-fill notes for clarity
+    initialItemForNewDay.notes = 'New day started'; 
     onUpdateLaborItems([...laborItems, initialItemForNewDay]);
   };
 
@@ -223,12 +248,37 @@ const ProductionScheduleLabor: React.FC<ProductionScheduleLaborProps> = ({ labor
       laborItems.map(item => (item.id === updatedItem.id ? updatedItem : item))
     );
   };
+
+  const handleMoveItem = (itemToMoveId: string, direction: 'up' | 'down') => {
+    const allItemsCopy = [...laborItems];
+    const itemIndexInFullList = allItemsCopy.findIndex(item => item.id === itemToMoveId);
+
+    if (itemIndexInFullList === -1) return;
+
+    const itemToMove = allItemsCopy[itemIndexInFullList];
+    const itemDateKey = itemToMove.date || 'No Date Assigned';
+
+    if (direction === 'up') {
+      if (itemIndexInFullList === 0) return; 
+      const itemAbove = allItemsCopy[itemIndexInFullList - 1];
+      if ((itemAbove.date || 'No Date Assigned') !== itemDateKey) return; 
+      
+      [allItemsCopy[itemIndexInFullList], allItemsCopy[itemIndexInFullList - 1]] = [allItemsCopy[itemIndexInFullList - 1], allItemsCopy[itemIndexInFullList]];
+    } else { // direction === 'down'
+      if (itemIndexInFullList === allItemsCopy.length - 1) return; 
+      const itemBelow = allItemsCopy[itemIndexInFullList + 1];
+      if ((itemBelow.date || 'No Date Assigned') !== itemDateKey) return;
+
+      [allItemsCopy[itemIndexInFullList], allItemsCopy[itemIndexInFullList + 1]] = [allItemsCopy[itemIndexInFullList + 1], allItemsCopy[itemIndexInFullList]];
+    }
+    onUpdateLaborItems(allItemsCopy);
+  };
   
   const formatDateHeader = (dateKey: string) => {
     if (dateKey === 'No Date Assigned') return 'Items without an Assigned Date';
     try {
       const [year, month, day] = dateKey.split('-').map(Number);
-      const dateObj = new Date(Date.UTC(year, month - 1, day)); // Use UTC to avoid timezone shifts
+      const dateObj = new Date(Date.UTC(year, month - 1, day)); 
       return dateObj.toLocaleDateString('en-US', { 
         year: 'numeric', 
         month: 'long', 
@@ -236,7 +286,7 @@ const ProductionScheduleLabor: React.FC<ProductionScheduleLaborProps> = ({ labor
         timeZone: 'UTC' 
       });
     } catch (e) {
-      return dateKey; // Fallback if date is invalid
+      return dateKey; 
     }
   };
 
@@ -260,7 +310,7 @@ const ProductionScheduleLabor: React.FC<ProductionScheduleLaborProps> = ({ labor
           
           <div className="px-2 pt-2">
             <div className="grid grid-cols-[auto_2fr_2fr_1.5fr_1fr_1fr_3fr_auto] gap-2 p-2 border-b border-gray-600 font-medium text-gray-400 text-xs sticky top-0 bg-gray-700 z-10">
-              <div className="pl-1">#</div>
+              <div className="pl-1 text-center">Order</div>
               <div>Name</div>
               <div>Position</div>
               <div>Date</div>
@@ -273,14 +323,18 @@ const ProductionScheduleLabor: React.FC<ProductionScheduleLaborProps> = ({ labor
             {itemsInGroup.length === 0 ? (
               <p className="text-gray-500 text-center py-4">No items for this day.</p>
             ) : (
-              itemsInGroup.map((item, index) => (
+              itemsInGroup.map((item, indexInGroup) => (
                 <LaborScheduleItemRow
                   key={item.id}
                   item={item}
                   onUpdateItem={handleUpdateItem}
                   onDeleteItem={() => handleDeleteItem(item.id)}
                   onDuplicateItem={() => handleDuplicateItem(item)}
-                  index={index}
+                  onMoveItemUp={() => handleMoveItem(item.id, 'up')}
+                  onMoveItemDown={() => handleMoveItem(item.id, 'down')}
+                  isFirstItem={indexInGroup === 0}
+                  isLastItem={indexInGroup === itemsInGroup.length - 1}
+                  index={indexInGroup}
                 />
               ))
             )}
