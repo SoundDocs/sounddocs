@@ -43,6 +43,13 @@ import React, { useEffect } from "react";
     import VideoPage from "./pages/VideoPage";
     import LightingPage from "./pages/LightingPage";
     import ProductionPage from "./pages/ProductionPage";
+    import CorporateMicPlotEditor from "./pages/CorporateMicPlotEditor";
+    import TheaterMicPlotEditor from "./pages/TheaterMicPlotEditor";
+    import AllMicPlots from "./pages/AllMicPlots";
+    import AllCorporateMicPlots from "./pages/AllCorporateMicPlots";
+    import AllTheaterMicPlots from "./pages/AllTheaterMicPlots"; 
+    import SharedCorporateMicPlot from "./pages/SharedCorporateMicPlot"; 
+    import SharedTheaterMicPlot from "./pages/SharedTheaterMicPlot"; // New Shared Theater Mic Plot Page
 
 
     function App() {
@@ -141,8 +148,8 @@ import React, { useEffect } from "react";
                     </ProtectedRoute>
                   }
                 />
-                <Route path="/shared/edit/:shareCode" element={<PatchSheetEditor />} />
-                <Route path="/shared/:shareCode" element={<SharedPatchSheet />} />
+                <Route path="/shared/edit/:shareCode" element={<PatchSheetEditor />} /> 
+                <Route path="/shared/:shareCode" element={<SharedPatchSheet />} /> 
                 <Route
                   path="/all-patch-sheets"
                   element={
@@ -199,7 +206,7 @@ import React, { useEffect } from "react";
                   }
                 />
                 <Route path="/shared/run-of-show/edit/:shareCode" element={<RunOfShowEditor />} />
-                <Route path="/shared/run-of-show/:shareCode" element={<SharedShowModePage />} />
+                <Route path="/shared/run-of-show/:shareCode" element={<SharedShowModePage />} /> 
                 <Route
                   path="/all-run-of-shows"
                   element={
@@ -213,6 +220,60 @@ import React, { useEffect } from "react";
                   element={
                     <ProtectedRoute>
                       <ShowModePage />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Corporate Mic Plot Editor Routes */}
+                <Route
+                  path="/corporate-mic-plot/:id" 
+                  element={
+                    <ProtectedRoute>
+                      <CorporateMicPlotEditor />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/shared/corporate-mic-plot/edit/:shareCode" element={<CorporateMicPlotEditor />} />
+                <Route path="/shared/corporate-mic-plot/:shareCode" element={<SharedCorporateMicPlot />} />
+
+                {/* Theater Mic Plot Editor Routes */}
+                <Route
+                  path="/theater-mic-plot/:id"
+                  element={
+                    <ProtectedRoute>
+                      <TheaterMicPlotEditor />
+                    </ProtectedRoute>
+                  }
+                />
+                {/* Shared Theater Mic Plot Routes - NEW */}
+                <Route path="/shared/theater-mic-plot/edit/:shareCode" element={<TheaterMicPlotEditor />} />
+                <Route path="/shared/theater-mic-plot/:shareCode" element={<SharedTheaterMicPlot />} />
+
+
+                {/* All Mic Plots Page Route */}
+                <Route
+                  path="/all-mic-plots"
+                  element={
+                    <ProtectedRoute>
+                      <AllMicPlots />
+                    </ProtectedRoute>
+                  }
+                />
+                {/* All Corporate Mic Plots Page Route */}
+                <Route
+                  path="/all-corporate-mic-plots"
+                  element={
+                    <ProtectedRoute>
+                      <AllCorporateMicPlots />
+                    </ProtectedRoute>
+                  }
+                />
+                {/* All Theater Mic Plots Page Route */}
+                <Route
+                  path="/all-theater-mic-plots"
+                  element={
+                    <ProtectedRoute>
+                      <AllTheaterMicPlots />
                     </ProtectedRoute>
                   }
                 />

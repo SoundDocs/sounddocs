@@ -1,8 +1,8 @@
 import { supabase } from "./supabase";
 import { nanoid } from "nanoid";
 
-// Updated ResourceType to include 'run_of_show'
-export type ResourceType = "patch_sheet" | "stage_plot" | "production_schedule" | "run_of_show";
+// Updated ResourceType to include 'corporate_mic_plot' and 'theater_mic_plot'
+export type ResourceType = "patch_sheet" | "stage_plot" | "production_schedule" | "run_of_show" | "corporate_mic_plot" | "theater_mic_plot";
 
 export interface SharedLink {
   id: string; // This is shared_links.id
@@ -200,7 +200,7 @@ export const getSharedResource = async (shareCode: string): Promise<{ resource: 
       console.error("Error calling RPC get_shared_link_by_code:", linkRpcError);
       if (linkRpcError.message.includes("SHARE_LINK_NOT_FOUND")) throw new Error("Share link not found.");
       if (linkRpcError.message.includes("SHARE_LINK_EXPIRED")) throw new Error("This share link has expired.");
-      if (linkRpcError.message.includes("LINK_NOT_FOR_VIEWING")) throw new Error("Failed to fetch shared Run of Show: LINK_NOT_FOR_VIEWING");
+      if (linkRpcError.message.includes("LINK_NOT_FOR_VIEWING")) throw new Error("Failed to fetch shared resource: LINK_NOT_FOR_VIEWING");
       throw new Error(`Share link verification failed: ${linkRpcError.message}`);
     }
 
@@ -217,8 +217,6 @@ export const getSharedResource = async (shareCode: string): Promise<{ resource: 
     let resourceData;
 
     if (verifiedLink.resource_type === "run_of_show") {
-      // This RPC is for VIEWING. For EDITING, the editor component will fetch directly.
-      // If link_type is 'edit', this RPC will throw LINK_NOT_FOR_VIEWING, which is handled above.
       const { data: rosData, error: rosError } = await supabase.rpc("get_public_run_of_show_by_share_code", {
         p_share_code: shareCode,
       });
@@ -226,7 +224,6 @@ export const getSharedResource = async (shareCode: string): Promise<{ resource: 
       if (rosError) {
         console.error("Error calling RPC get_public_run_of_show_by_share_code:", rosError);
         if (rosError.message.includes("RUN_OF_SHOW_NOT_FOUND")) throw new Error("The linked Run of Show could not be found.");
-        // The LINK_NOT_FOR_VIEWING case is now handled by the get_shared_link_by_code RPC error check if it propagates
         throw new Error(`Failed to fetch shared Run of Show: ${rosError.message}`);
       }
       if (!rosData || rosData.length === 0) {
@@ -234,12 +231,27 @@ export const getSharedResource = async (shareCode: string): Promise<{ resource: 
       }
       resourceData = rosData[0] as SharedRunOfShowData;
     } else {
-      const tableName =
-        verifiedLink.resource_type === "patch_sheet"
-          ? "patch_sheets"
-          : verifiedLink.resource_type === "stage_plot"
-            ? "stage_plots"
-            : "production_schedules"; 
+      let tableName: string;
+      switch (verifiedLink.resource_type) {
+        case "patch_sheet":
+          tableName = "patch_sheets";
+          break;
+        case "stage_plot":
+          tableName = "stage_plots";
+          break;
+        case "production_schedule":
+          tableName = "production_schedules";
+          break;
+        case "corporate_mic_plot":
+          tableName = "corporate_mic_plots";
+          break;
+        case "theater_mic_plot": // Added case for theater_mic_plot
+          tableName = "theater_mic_plots";
+          break;
+        default:
+          console.error(`Unsupported resource type encountered: ${verifiedLink.resource_type}`);
+          throw new Error(`Unsupported resource type: ${verifiedLink.resource_type}`);
+      }
 
       const { data: tableResourceData, error: tableResourceError } = await supabase
         .from(tableName)
@@ -290,7 +302,7 @@ export const getShareUrl = (
     if (linkType === "edit") {
       return `${baseUrl}/shared/run-of-show/edit/${shareCode}`;
     }
-    return `${baseUrl}/shared/run-of-show/${shareCode}`; // View-only (Show Mode)
+    return `${baseUrl}/shared/run-of-show/${shareCode}`;
   } else if (resourceType === "stage_plot") {
     if (linkType === "edit") {
       return `${baseUrl}/shared/stage-plot/edit/${shareCode}`;
@@ -298,15 +310,26 @@ export const getShareUrl = (
     return `${baseUrl}/shared/stage-plot/${shareCode}`;
   } else if (resourceType === "patch_sheet") {
     if (linkType === "edit") {
-      return `${baseUrl}/shared/edit/${shareCode}`; // Generic edit for patch sheets
+      return `${baseUrl}/shared/edit/${shareCode}`; 
     }
-    return `${baseUrl}/shared/${shareCode}`; // Generic view for patch sheets
+    return `${baseUrl}/shared/${shareCode}`; 
   } else if (resourceType === "production_schedule") {
     if (linkType === "edit") {
       return `${baseUrl}/shared/production-schedule/edit/${shareCode}`;
     }
     return `${baseUrl}/shared/production-schedule/${shareCode}`;
+  } else if (resourceType === "corporate_mic_plot") {
+    if (linkType === "edit") {
+      return `${baseUrl}/shared/corporate-mic-plot/edit/${shareCode}`;
+    }
+    return `${baseUrl}/shared/corporate-mic-plot/${shareCode}`;
+  } else if (resourceType === "theater_mic_plot") { // Added case for theater_mic_plot
+    if (linkType === "edit") {
+      return `${baseUrl}/shared/theater-mic-plot/edit/${shareCode}`;
+    }
+    return `${baseUrl}/shared/theater-mic-plot/${shareCode}`;
   }
+
 
   console.warn(`Generating generic share URL for share_code ${shareCode} as resourceType "${resourceType}" or linkType "${linkType}" was not fully matched or provided for specific routing.`);
   return `${baseUrl}/shared/${shareCode}`; 
@@ -320,8 +343,6 @@ export const updateSharedResource = async (
   try {
     if (!shareCode) throw new Error("Share code is required");
     
-    // For Run of Show, updates are handled directly in RunOfShowEditor due to complexity (live_show_data etc.)
-    // This function can be used for simpler resources or adapted if needed.
     if (resourceType === "run_of_show") {
         console.warn("Run of Show updates should be handled by RunOfShowEditor's save logic directly.");
         throw new Error("Direct update for Run of Show via this generic function is not recommended.");
@@ -337,12 +358,28 @@ export const updateSharedResource = async (
     }
 
     const updatesWithTimestamp = { ...updates, last_edited: new Date().toISOString() };
-    const tableName =
-      resourceType === "patch_sheet"
-        ? "patch_sheets"
-        : resourceType === "stage_plot"
-          ? "stage_plots"
-          : "production_schedules"; // Excludes run_of_shows here
+    
+    let tableName: string;
+    switch (resourceType) {
+      case "patch_sheet":
+        tableName = "patch_sheets";
+        break;
+      case "stage_plot":
+        tableName = "stage_plots";
+        break;
+      case "production_schedule":
+        tableName = "production_schedules";
+        break;
+      case "corporate_mic_plot":
+        tableName = "corporate_mic_plots";
+        break;
+      case "theater_mic_plot": // Added case for theater_mic_plot
+        tableName = "theater_mic_plots";
+        break;
+      default:
+        console.error(`Unsupported resource type for update: ${resourceType}`);
+        throw new Error(`Unsupported resource type for update: ${resourceType}`);
+    }
 
     const { data, error } = await supabase
       .from(tableName)
