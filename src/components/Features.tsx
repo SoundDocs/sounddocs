@@ -10,6 +10,7 @@ import {
   CalendarClock, // For Production Schedule
   FileText, // Alternative for Patch Lists if ClipboardList is too generic
   Settings2, // For Audio-Specific Tools or Customization
+  Mic, // For Mic Plots
 } from "lucide-react";
 
 interface FeatureProps {
@@ -33,7 +34,7 @@ const FeatureCard: React.FC<FeatureProps> = ({ icon, title, description }) => {
 const Features: React.FC = () => {
   const features = [
     {
-      icon: <FileText className="h-6 w-6" />, // Changed from ClipboardList for more specificity
+      icon: <FileText className="h-6 w-6" />,
       title: "Patch Sheet Editor",
       description:
         "Design detailed input/output lists, map signal flows, specify equipment, and add critical technical notes for any audio setup.",
@@ -43,6 +44,12 @@ const Features: React.FC = () => {
       title: "Stage Plot Designer",
       description:
         "Visually construct stage layouts with a library of draggable elements for instruments, mics, monitors, and more.",
+    },
+     {
+      icon: <Mic className="h-6 w-6" />,
+      title: "Mic Plot Designer",
+      description:
+        "Craft detailed Corporate and Theater mic plots. Manage presenters, actors, wireless assignments, photos, and notes with ease.",
     },
     {
       icon: <ListChecks className="h-6 w-6" />,
@@ -66,19 +73,13 @@ const Features: React.FC = () => {
       icon: <Zap className="h-6 w-6" />,
       title: "Intuitive Interface",
       description:
-        "User-friendly design makes creating professional audio documentation quick, easy, and efficient for all users.",
+        "User-friendly design makes creating professional documentation quick, easy, and efficient for all users.",
     },
     {
       icon: <Headphones className="h-6 w-6" />,
-      title: "Audio-Focused Tools",
+      title: "Pro A/V Focused Tools",
       description:
-        "Features built specifically for the needs of live sound engineers, studio pros, and event production staff.",
-    },
-    {
-      icon: <Settings2 className="h-6 w-6" />, // Changed from Layers/PenTool
-      title: "Customizable & Detailed",
-      description:
-        "Tailor documents with custom labels, notes, and templates. Store all event info in one organized place.",
+        "Features built specifically for the needs of live sound engineers, A/V techs, and event production staff.",
     },
   ];
 
@@ -87,13 +88,13 @@ const Features: React.FC = () => {
       <div className="container mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Your All-in-One Solution for
+            Comprehensive Tools for
             <span className="text-indigo-400 block mt-1">
-              Audio & Event Production Documentation
+              Professional Event Production Documentation
             </span>
           </h2>
           <p className="text-gray-300 max-w-2xl mx-auto text-lg">
-            SoundDocs provides professionals with the tools to create patch lists, stage plots, run of shows, production schedules, and more—all in one place.
+            SoundDocs equips event professionals with a full suite of tools to create, manage, and share critical documentation—from patch lists and stage plots to mic plots, run of shows, and production schedules.
           </p>
         </div>
 
