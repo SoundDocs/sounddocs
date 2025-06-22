@@ -2,7 +2,7 @@
 
 **Professional Audio Documentation, Simplified.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18-blue.svg)](https://reactjs.org/)
 [![Vite](https://img.shields.io/badge/Vite-5.x-purple.svg)](https://vitejs.dev/)
@@ -114,7 +114,7 @@ Assuming you're on a Mac:
 
 ## 📄 License
 
-This project is distributed under the MIT License. See `LICENSE` file for more information.
+This project is distributed under the GNU AGPLv3 License. See `LICENSE` file for more information.
 
 ## 🙏 Acknowledgements
 
