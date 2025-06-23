@@ -9,20 +9,20 @@ import Footer from "../components/Footer";
 const Landing: React.FC = () => {
   // On page load or when changing themes, best practice for accessibility
   useEffect(() => {
-    document.title = "SoundDocs | Professional Patch Lists & Stage Plots for Audio Engineers";
+    document.title = "SoundDocs | Event Production Docs, Tools & Resources";
   }, []);
 
   return (
     <>
       <Helmet>
-        <title>SoundDocs | Professional Patch Lists & Stage Plots for Audio Engineers</title>
+        <title>SoundDocs | Event Production Docs, Tools & Resources</title>
         <meta
           name="description"
-          content="Create professional patch lists and stage plots for audio engineers, sound designers, and production teams. Free, easy-to-use tools for technical documentation."
+          content="SoundDocs: The ultimate web tool for event professionals to create, manage, and share production documents like Patch Lists, Stage Plots, Mic Plots (Corporate & Theater), Run of Shows, and Production Schedules. Enhance your workflow with our comprehensive resources."
         />
         <meta
           name="keywords"
-          content="patch list, stage plot, audio engineer, sound production, technical rider, input list"
+          content="event documentation, production management, audio engineer tools, stage plot software, patch list generator, mic plot creator, corporate event planning, theater production tools, run of show app, production schedule template, A/V/L documents, live sound resources"
         />
       </Helmet>
       <Header />

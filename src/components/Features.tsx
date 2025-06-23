@@ -4,12 +4,13 @@ import {
   Layout,
   Share2,
   Download,
-  PenTool,
   Zap,
   Headphones,
-  FileText,
-  Tag,
-  Layers,
+  ListChecks, // For Run of Show
+  CalendarClock, // For Production Schedule
+  FileText, // Alternative for Patch Lists if ClipboardList is too generic
+  Settings2, // For Audio-Specific Tools or Customization
+  Mic, // For Mic Plots
 } from "lucide-react";
 
 interface FeatureProps {
@@ -33,52 +34,52 @@ const FeatureCard: React.FC<FeatureProps> = ({ icon, title, description }) => {
 const Features: React.FC = () => {
   const features = [
     {
-      icon: <ClipboardList className="h-6 w-6" />,
-      title: "Patch Lists & Input Lists",
+      icon: <FileText className="h-6 w-6" />,
+      title: "Patch Sheet Editor",
       description:
-        "Create detailed input lists, routing documentation, and technical specifications for your audio setups and studio sessions.",
+        "Design detailed input/output lists, map signal flows, specify equipment, and add critical technical notes for any audio setup.",
     },
     {
       icon: <Layout className="h-6 w-6" />,
-      title: "Professional Stage Plots",
+      title: "Stage Plot Designer",
       description:
-        "Design comprehensive stage layouts with intuitive tools for positioning instruments, microphones, and equipment.",
+        "Visually construct stage layouts with a library of draggable elements for instruments, mics, monitors, and more.",
+    },
+     {
+      icon: <Mic className="h-6 w-6" />,
+      title: "Mic Plot Designer",
+      description:
+        "Craft detailed Corporate and Theater mic plots. Manage presenters, actors, wireless assignments, photos, and notes with ease.",
+    },
+    {
+      icon: <ListChecks className="h-6 w-6" />,
+      title: "Run of Show Creator",
+      description:
+        "Develop detailed event timelines and cue sheets. Utilize 'Show Mode' for real-time event tracking and execution.",
+    },
+    {
+      icon: <CalendarClock className="h-6 w-6" />,
+      title: "Production Schedule Manager",
+      description:
+        "Organize pre-production, setup, rehearsal, show, and strike activities. Keep your entire team aligned and on track.",
     },
     {
       icon: <Share2 className="h-6 w-6" />,
-      title: "Easy Sharing",
+      title: "Easy Sharing & Export",
       description:
-        "Generate high-quality exports that can be shared with venues, sound teams, crew members, and performers.",
-    },
-    {
-      icon: <Download className="h-6 w-6" />,
-      title: "High-Quality Export",
-      description:
-        "Download your audio documentation as professional images ready for printing and sharing with production teams.",
-    },
-    {
-      icon: <Tag className="h-6 w-6" />,
-      title: "Custom Labeling & Notation",
-      description:
-        "Add detailed labels and technical notes to your documentation for clear communication with your production team.",
+        "Generate professional PNGs. Share securely via links with venues, artists, and production teams.",
     },
     {
       icon: <Zap className="h-6 w-6" />,
       title: "Intuitive Interface",
       description:
-        "Our user-friendly design makes creating professional audio documentation quick and effortless for sound engineers.",
+        "User-friendly design makes creating professional documentation quick, easy, and efficient for all users.",
     },
     {
       icon: <Headphones className="h-6 w-6" />,
-      title: "Audio-Specific Tools",
+      title: "Pro A/V Focused Tools",
       description:
-        "Features designed specifically for the needs of live sound engineers, studio engineers, and production staff.",
-    },
-    {
-      icon: <Layers className="h-6 w-6" />,
-      title: "Comprehensive Details",
-      description:
-        "Store all important event information in one place, from equipment specifications to venue details for your audio events.",
+        "Features built specifically for the needs of live sound engineers, A/V techs, and event production staff.",
     },
   ];
 
@@ -87,15 +88,13 @@ const Features: React.FC = () => {
       <div className="container mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Everything You Need for
+            Comprehensive Tools for
             <span className="text-indigo-400 block mt-1">
-              Professional Audio Technical Documentation
+              Professional Event Production Documentation
             </span>
           </h2>
           <p className="text-gray-300 max-w-2xl mx-auto text-lg">
-            SoundDocs provides sound engineers and audio professionals with all the tools needed to
-            create complete, professional technical documentation for any live performance,
-            recording session, or studio setup.
+            SoundDocs equips event professionals with a full suite of tools to create, manage, and share critical documentation—from patch lists and stage plots to mic plots, run of shows, and production schedules.
           </p>
         </div>
 

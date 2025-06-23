@@ -393,15 +393,15 @@ const AllProductionSchedules: React.FC = () => {
       <main className="flex-grow container mx-auto px-4 py-12 mt-12">
         <div className="flex items-center justify-between mb-8">
           <button
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/production")}
             className="flex items-center text-gray-400 hover:text-white transition-colors"
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
-            Back to Dashboard
+            Back to Production
           </button>
 
           <button
-            onClick={() => navigate("/production-schedule/new")}
+            onClick={() => navigate("/production-schedule/new", { state: { from: "/all-production-schedules" } })}
             className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-md font-medium transition-all duration-200"
           >
             <PlusCircle className="h-5 w-5 mr-2" />
@@ -476,7 +476,7 @@ const AllProductionSchedules: React.FC = () => {
               </p>
               {!searchTerm && (
                 <button
-                  onClick={() => navigate("/production-schedule/new")}
+                  onClick={() => navigate("/production-schedule/new", { state: { from: "/all-production-schedules" } })}
                   className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-colors text-lg"
                 >
                   <PlusCircle className="h-6 w-6 mr-2" />
@@ -505,7 +505,7 @@ const AllProductionSchedules: React.FC = () => {
                           <FileText className="h-5 w-5 text-indigo-400 mr-3 flex-shrink-0" />
                           <span
                             className="text-white font-medium hover:text-indigo-400 cursor-pointer"
-                            onClick={() => navigate(`/production-schedule/${schedule.id}`)}
+                            onClick={() => navigate(`/production-schedule/${schedule.id}`, { state: { from: "/all-production-schedules" } })}
                           >
                             {schedule.name}
                           </span>
@@ -546,7 +546,7 @@ const AllProductionSchedules: React.FC = () => {
                             <Download className={`h-5 w-5 ${(isExporting && exportScheduleId === schedule.id) ? "animate-pulse" : ""}`} />
                           </button>
                           <button
-                            onClick={() => navigate(`/production-schedule/${schedule.id}`)}
+                            onClick={() => navigate(`/production-schedule/${schedule.id}`, { state: { from: "/all-production-schedules" } })}
                             className="p-2 text-gray-400 hover:text-indigo-400 rounded-md hover:bg-gray-700 transition-colors"
                             title="Edit"
                             disabled={isExporting || duplicatingId === schedule.id}

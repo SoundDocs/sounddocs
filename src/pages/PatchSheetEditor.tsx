@@ -3,13 +3,12 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-// PatchSheetInfo component is no longer used directly here
 import PatchSheetInputs from "../components/patch-sheet/PatchSheetInputs";
 import PatchSheetOutputs from "../components/patch-sheet/PatchSheetOutputs";
-import MobileScreenWarning from "../components/MobileScreenWarning";
-import { useScreenSize } from "../hooks/useScreenSize";
+// import MobileScreenWarning from "../components/MobileScreenWarning"; // Removed
+// import { useScreenSize } from "../hooks/useScreenSize"; // Removed
 import { Loader, ArrowLeft, Save, AlertCircle } from "lucide-react";
-import { getSharedResource, updateSharedResource } from "../lib/shareUtils";
+import { getSharedResource, updateSharedResource, getShareUrl } from "../lib/shareUtils";
 
 interface InputChannel {
   id: string;
@@ -28,8 +27,8 @@ interface InputChannel {
     consoleInputNumber?: string;
   };
   notes: string;
-  isStereo?: boolean; // Added for stereo linking
-  stereoChannelNumber?: string; // Added for stereo linking
+  isStereo?: boolean;
+  stereoChannelNumber?: string;
 }
 
 interface OutputChannel {
@@ -54,27 +53,26 @@ const PatchSheetEditor = () => {
   const { id, shareCode } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const screenSize = useScreenSize();
+  // const screenSize = useScreenSize(); // Removed
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [patchSheet, setPatchSheet] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState("inputs"); // Default to "inputs"
+  const [activeTab, setActiveTab] = useState("inputs");
   const [user, setUser] = useState<any>(null);
   const [inputs, setInputs] = useState<InputChannel[]>([]);
   const [outputs, setOutputs] = useState<OutputChannel[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [showMobileWarning, setShowMobileWarning] = useState(false);
+  // const [showMobileWarning, setShowMobileWarning] = useState(false); // Removed
   const [isSharedEdit, setIsSharedEdit] = useState(false);
   const [shareLink, setShareLink] = useState<any>(null);
 
   useEffect(() => {
-    if (screenSize === "mobile" || screenSize === "tablet") {
-      setShowMobileWarning(true);
-    }
-    const isSharedEditRoute = location.pathname.includes("/shared/edit/");
-    setIsSharedEdit(isSharedEditRoute);
-  }, [screenSize, location.pathname]);
+    // if (screenSize === "mobile" || screenSize === "tablet") { // Removed
+    //   setShowMobileWarning(true);
+    // }
+    setIsSharedEdit(location.pathname.includes("/shared/edit/"));
+  }, [location.pathname]); // screenSize dependency removed
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -84,16 +82,26 @@ const PatchSheetEditor = () => {
       }
     };
 
-    const fetchPatchSheet = async () => {
-      if (isSharedEdit && shareCode) {
+    const fetchPatchSheetData = async () => {
+      setLoading(true);
+      const currentPathIsSharedEdit = location.pathname.includes("/shared/edit/");
+      
+      console.log(`[PatchSheetEditor] Fetching. Path: ${location.pathname}, ID: ${id}, ShareCode: ${shareCode}, CalculatedIsShared: ${currentPathIsSharedEdit}`);
+
+      if (currentPathIsSharedEdit && shareCode) {
+        console.log("[PatchSheetEditor] Attempting to fetch SHARED resource with shareCode:", shareCode);
         try {
-          const { resource, shareLink } = await getSharedResource(shareCode);
-          if (shareLink.link_type !== "edit") {
-            window.location.href = `https://sounddocs.org/shared/${shareCode}`;
+          const { resource, shareLink: fetchedShareLink } = await getSharedResource(shareCode);
+          console.log("[PatchSheetEditor] Fetched SHARED resource:", resource, "Link:", fetchedShareLink);
+
+          if (fetchedShareLink.link_type !== "edit") {
+            console.log("[PatchSheetEditor] Link type is not 'edit', redirecting to view.");
+            window.location.href = getShareUrl(shareCode, fetchedShareLink.resource_type, 'view');
             return;
           }
+
           setPatchSheet(resource);
-          setShareLink(shareLink);
+          setShareLink(fetchedShareLink);
           setInputs(resource.inputs && Array.isArray(resource.inputs) ? resource.inputs : []);
           const updatedOutputs = (resource.outputs && Array.isArray(resource.outputs) ? resource.outputs : []).map((output: any) => ({
             ...output,
@@ -101,57 +109,71 @@ const PatchSheetEditor = () => {
           }));
           setOutputs(updatedOutputs);
           setLoading(false);
+          console.log("[PatchSheetEditor] SHARED resource loaded successfully.");
           return;
-        } catch (error) {
-          console.error("Error fetching shared patch sheet:", error);
-          window.location.href = "https://sounddocs.org/";
+        } catch (error: any) {
+          console.error("[PatchSheetEditor] Error fetching SHARED patch sheet:", error.message);
+          navigate("/");
+          setLoading(false);
           return;
         }
-      }
+      } else {
+        console.log(`[PatchSheetEditor] Proceeding with OWNED document logic. ID: ${id}, User:`, user);
+        if (id === "new") {
+          setPatchSheet({
+            name: "Untitled Patch Sheet",
+            created_at: new Date().toISOString(),
+            info: { /* ... default info object ... */ },
+            inputs: [], outputs: [],
+          });
+          setInputs([]);
+          setOutputs([]);
+          setLoading(false);
+          console.log("[PatchSheetEditor] New OWNED document initialized.");
+          return;
+        }
 
-      if (id === "new") {
-        setPatchSheet({
-          name: "Untitled Patch Sheet",
-          created_at: new Date().toISOString(),
-          // Info object is still created for data consistency, even if not editable in UI
-          info: {
-            event_name: "", venue: "", room: "", address: "", date: "", time: "",
-            load_in: "", sound_check: "", doors_open: "", event_start: "", event_end: "",
-            client: "", artist: "", genre: "", contact_name: "", contact_email: "", contact_phone: "",
-            foh_engineer: "", monitor_engineer: "", production_manager: "", av_company: "",
-            pa_system: "", console_foh: "", console_monitors: "", monitor_type: "",
-            event_type: "", estimated_attendance: "", hospitality_notes: "", notes: "",
-          },
-          inputs: [],
-          outputs: [],
-        });
-        setInputs([]);
-        setOutputs([]);
-        setLoading(false);
-        return;
-      }
+        if (!id) {
+          console.error("[PatchSheetEditor] OWNED logic: No ID, and not 'new'. Invalid state.");
+          navigate("/dashboard"); 
+          setLoading(false);
+          return;
+        }
 
-      try {
-        const { data, error } = await supabase.from("patch_sheets").select("*").eq("id", id).single();
-        if (error) throw error;
-        setPatchSheet(data);
-        setInputs(data.inputs && Array.isArray(data.inputs) ? data.inputs : []);
-        const updatedOutputs = (data.outputs && Array.isArray(data.outputs) ? data.outputs : []).map((output: any) => ({
-          ...output,
-          destinationGear: output.destinationGear || "",
-        }));
-        setOutputs(updatedOutputs);
-      } catch (error) {
-        console.error("Error fetching patch sheet:", error);
-        navigate("/dashboard");
-      } finally {
-        setLoading(false);
+        try {
+          console.log("[PatchSheetEditor] Fetching OWNED patch sheet with id:", id);
+          const { data, error } = await supabase.from("patch_sheets").select("*").eq("id", id).single();
+          
+          if (error) {
+            console.error("[PatchSheetEditor] Error fetching OWNED patch sheet from Supabase:", error);
+            throw error;
+          }
+          if (!data) {
+            console.error("[PatchSheetEditor] OWNED patch sheet not found or access denied for id:", id);
+            navigate("/dashboard");
+            setLoading(false);
+            return;
+          }
+          setPatchSheet(data);
+          setInputs(data.inputs && Array.isArray(data.inputs) ? data.inputs : []);
+          const updatedOutputs = (data.outputs && Array.isArray(data.outputs) ? data.outputs : []).map((output: any) => ({
+            ...output,
+            destinationGear: output.destinationGear || "",
+          }));
+          setOutputs(updatedOutputs);
+          setLoading(false);
+          console.log("[PatchSheetEditor] OWNED patch sheet loaded successfully.");
+        } catch (error) {
+          console.error("[PatchSheetEditor] Catch block for OWNED patch sheet fetch error:", error);
+          navigate("/dashboard");
+          setLoading(false);
+        }
       }
     };
 
     fetchUser();
-    fetchPatchSheet();
-  }, [id, navigate, isSharedEdit, shareCode, location.pathname]);
+    fetchPatchSheetData();
+  }, [id, shareCode, location.pathname, navigate]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -170,16 +192,16 @@ const PatchSheetEditor = () => {
 
     try {
       const patchSheetData = {
-        ...patchSheet, // This includes the existing patchSheet.info
+        ...patchSheet,
         inputs: updatedInputs,
         outputs: updatedOutputs,
         last_edited: new Date().toISOString(),
       };
-
+      
       if (isSharedEdit && shareCode) {
         const result = await updateSharedResource(shareCode, "patch_sheet", patchSheetData);
         if (result) {
-          setPatchSheet(patchSheetData); // Update local state
+          setPatchSheet(patchSheetData);
           setInputs(updatedInputs);
           setOutputs(updatedOutputs);
           setSaveSuccess(true);
@@ -192,16 +214,21 @@ const PatchSheetEditor = () => {
             .insert([{ ...patchSheetData, user_id: user.id }])
             .select();
           if (error) throw error;
-          if (data && data[0]) navigate(`/patch-sheet/${data[0].id}`);
+          if (data && data[0]) {
+            navigate(`/patch-sheet/${data[0].id}`, { state: { from: location.state?.from } });
+          }
         } else {
           const { error } = await supabase.from("patch_sheets").update(patchSheetData).eq("id", id);
           if (error) throw error;
-          setPatchSheet(patchSheetData); // Update local state
+          setPatchSheet(patchSheetData);
           setInputs(updatedInputs);
           setOutputs(updatedOutputs);
           setSaveSuccess(true);
           setTimeout(() => setSaveSuccess(false), 3000);
         }
+      } else {
+        console.warn("[PatchSheetEditor] Save attempt failed: Not a shared edit and user is not logged in.");
+        setSaveError("You must be logged in to save changes to your own documents, or this shared link may not support editing.");
       }
     } catch (error) {
       console.error("Error saving patch sheet:", error);
@@ -212,20 +239,30 @@ const PatchSheetEditor = () => {
     }
   };
 
-  // updatePatchSheetInfo is no longer needed as PatchSheetInfo component is removed
-  // const updatePatchSheetInfo = (info: any) => {
-  //   setPatchSheet({
-  //     ...patchSheet,
-  //     info,
-  //   });
-  // };
-
   const updateInputs = (newInputs: InputChannel[]) => {
     setInputs(newInputs);
   };
 
   const updateOutputs = (newOutputs: OutputChannel[]) => {
     setOutputs(newOutputs);
+  };
+
+  const handleBackNavigation = () => {
+    const fromPath = location.state?.from as string | undefined;
+
+    if (isSharedEdit && shareCode) {
+      // For shared edits, navigate to the view page of the shared resource
+      window.location.href = getShareUrl(shareCode, patchSheet?.resource_type || 'patch_sheet', 'view');
+    } else if (fromPath) {
+      navigate(fromPath);
+    } else {
+      // Fallback if 'from' state is somehow missing for non-shared documents
+      if (id === "new") {
+        navigate("/audio"); // Default for new if no 'from'
+      } else {
+        navigate("/all-patch-sheets"); // Default for existing if no 'from'
+      }
+    }
   };
 
   if (loading) {
@@ -238,14 +275,14 @@ const PatchSheetEditor = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      {showMobileWarning && (
+      {/* {showMobileWarning && ( // Removed
         <MobileScreenWarning
           title="Optimized for Larger Screens"
           description="This editor works best on larger screens. You can continue, but some features may be harder to use on mobile."
           continueAnyway={true}
           editorType="patch"
         />
-      )}
+      )} */}
 
       <Header dashboard={!isSharedEdit} />
 
@@ -253,11 +290,7 @@ const PatchSheetEditor = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
           <div className="flex items-center">
             <button
-              onClick={() =>
-                isSharedEdit
-                  ? (window.location.href = `https://sounddocs.org/shared/${shareCode}`)
-                  : navigate("/dashboard")
-              }
+              onClick={handleBackNavigation}
               className="mr-2 md:mr-4 flex items-center text-gray-400 hover:text-white transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -322,7 +355,6 @@ const PatchSheetEditor = () => {
 
           <div className="border-b border-gray-700">
             <nav className="flex overflow-x-auto">
-              {/* "Info" tab button removed */}
               <button
                 className={`px-3 md:px-6 py-3 text-sm md:text-base font-medium transition-colors whitespace-nowrap ${
                   activeTab === "inputs"
@@ -347,8 +379,7 @@ const PatchSheetEditor = () => {
           </div>
 
           <div className="p-4 md:p-6 overflow-x-auto">
-            <div className="min-w-[800px] md:min-w-0">
-              {/* Rendering of PatchSheetInfo removed */}
+            <div className="md:min-w-0"> {/* Changed: Removed min-w-[800px] */}
               {activeTab === "inputs" && (
                 <PatchSheetInputs inputs={inputs} updateInputs={updateInputs} />
               )}

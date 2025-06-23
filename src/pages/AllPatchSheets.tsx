@@ -155,7 +155,7 @@ const AllPatchSheets = () => {
   };
 
   const handleEditPatchSheet = (id: string) => {
-    navigate(`/patch-sheet/${id}`);
+    navigate(`/patch-sheet/${id}`, { state: { from: "/all-patch-sheets" } });
   };
 
   const handleSharePatchSheet = (patchSheet: PatchSheet) => {
@@ -210,7 +210,7 @@ const AllPatchSheets = () => {
         setFilteredPatchSheets([newPatchSheet[0], ...filteredPatchSheets]);
 
         // Navigate to the editor for the new patch sheet
-        navigate(`/patch-sheet/${newPatchSheet[0].id}`);
+        navigate(`/patch-sheet/${newPatchSheet[0].id}`, { state: { from: "/all-patch-sheets" } });
       }
     } catch (error) {
       console.error("Error duplicating patch sheet:", error);
@@ -317,7 +317,7 @@ const AllPatchSheets = () => {
         setTemplateName("");
 
         // Navigate to edit the new template
-        navigate(`/patch-sheet/${newTemplate[0].id}`);
+        navigate(`/patch-sheet/${newTemplate[0].id}`, { state: { from: "/all-patch-sheets" } });
       }
     } catch (error) {
       console.error("Error creating template:", error);
@@ -485,15 +485,15 @@ const AllPatchSheets = () => {
       <main className="flex-grow container mx-auto px-4 py-12 mt-12">
         <div className="flex items-center justify-between mb-8">
           <button
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/audio")}
             className="flex items-center text-gray-400 hover:text-white transition-colors"
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
-            Back to Dashboard
+            Back to Audio
           </button>
 
           <button
-            onClick={() => navigate("/patch-sheet/new")}
+            onClick={() => navigate("/patch-sheet/new", { state: { from: "/all-patch-sheets" } })}
             className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-md font-medium transition-all duration-200"
           >
             <PlusCircle className="h-5 w-5 mr-2" />

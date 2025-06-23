@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { PlusCircle, Trash2, GripVertical, CalendarDays, Copy, ChevronDown, Edit3, Check, X } from 'lucide-react';
+import { PlusCircle, Trash2, CalendarDays, Copy, ChevronDown, Edit3, Check, X, ArrowUp, ArrowDown } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { CrewKeyItem } from './ProductionScheduleCrewKey';
 
@@ -24,6 +24,10 @@ const DetailedScheduleItemRow: React.FC<{
   onUpdateItem: (updatedItem: DetailedScheduleItem) => void;
   onDeleteItem: () => void;
   onDuplicateItem: () => void;
+  onMoveItemUp: () => void;
+  onMoveItemDown: () => void;
+  isFirstItem: boolean;
+  isLastItem: boolean;
   index: number;
   crewKey: CrewKeyItem[];
 }> = ({
@@ -31,6 +35,10 @@ const DetailedScheduleItemRow: React.FC<{
   onUpdateItem,
   onDeleteItem,
   onDuplicateItem,
+  onMoveItemUp,
+  onMoveItemDown,
+  isFirstItem,
+  isLastItem,
   index,
   crewKey,
 }) => {
@@ -83,9 +91,24 @@ const DetailedScheduleItemRow: React.FC<{
 
   return (
     <div className="grid grid-cols-[auto_1fr_1fr_3fr_2fr_1.5fr_auto] gap-2 items-start py-2 px-1 border-b border-gray-700 hover:bg-gray-750/30 transition-colors">
-      <div className="text-gray-400 text-sm flex items-center cursor-grab pl-1 pt-2" title="Drag to reorder (not implemented)">
-        <GripVertical className="h-5 w-5 mr-1" />
-        {index + 1}
+      <div className="text-gray-400 text-sm flex flex-col items-center justify-center pt-1 space-y-0.5">
+        <button
+          onClick={onMoveItemUp}
+          disabled={isFirstItem}
+          className="p-0.5 text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          title="Move Up"
+        >
+          <ArrowUp size={16} />
+        </button>
+        <span className="font-mono text-xs select-none">{index + 1}</span>
+        <button
+          onClick={onMoveItemDown}
+          disabled={isLastItem}
+          className="p-0.5 text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          title="Move Down"
+        >
+          <ArrowDown size={16} />
+        </button>
       </div>
       <input
         type="time"
@@ -175,35 +198,19 @@ const ProductionScheduleDetail: React.FC<ProductionScheduleDetailProps> = ({ det
       groups[dateStr].push(item);
     });
 
-    for (const dateKey in groups) {
-      groups[dateKey].sort((a, b) => {
-        const aHasTime = a.start_time && a.start_time !== '';
-        const bHasTime = b.start_time && b.start_time !== '';
-
-        if (aHasTime && !bHasTime) {
-          return -1; // 'a' (with time) comes before 'b' (without time)
-        }
-        if (!aHasTime && bHasTime) {
-          return 1;  // 'a' (without time) comes after 'b' (with time)
-        }
-        
-        // If both have time or both don't have time, sort by time.
-        // Items without time (both !aHasTime and !bHasTime) will effectively keep their relative order
-        // or be sorted by "00:00" if that's preferred, though explicit time comparison is better.
-        if (aHasTime && bHasTime) {
-          return (a.start_time || "00:00").localeCompare(b.start_time || "00:00");
-        }
-        // If neither has a time, maintain original order (or treat as equal for sort stability)
-        return 0; 
-      });
-    }
+    // Items within each group (groups[dateKey]) will maintain their order from the `detailedItems` array.
+    // The explicit sort by start_time within each day group has been removed to allow manual reordering to persist.
 
     return Object.entries(groups).sort(([dateA], [dateB]) => {
       if (dateA === 'No Date Assigned') return 1;
       if (dateB === 'No Date Assigned') return -1;
       try {
-        return new Date(dateA).getTime() - new Date(dateB).getTime();
+        // Ensure dates are parsed correctly, especially if they are just YYYY-MM-DD
+        const timeA = new Date(dateA + 'T00:00:00Z').getTime();
+        const timeB = new Date(dateB + 'T00:00:00Z').getTime();
+        return timeA - timeB;
       } catch (e) {
+        console.error("Error parsing date for sorting groups:", e, dateA, dateB);
         return 0;
       }
     });
@@ -251,7 +258,7 @@ const ProductionScheduleDetail: React.FC<ProductionScheduleDetailProps> = ({ det
     let nextDateStr = 'No Date Assigned';
     if (dateKey !== 'No Date Assigned') {
       try {
-        const originalDate = new Date(dateKey + 'T00:00:00Z'); // Ensure parsing as specific date
+        const originalDate = new Date(dateKey + 'T00:00:00Z'); 
         originalDate.setUTCDate(originalDate.getUTCDate() + 1); 
         nextDateStr = originalDate.toISOString().split('T')[0];
       } catch (e) {
@@ -293,6 +300,33 @@ const ProductionScheduleDetail: React.FC<ProductionScheduleDetailProps> = ({ det
     onUpdateDetailedItems(
       detailedItems.map(item => (item.id === updatedItem.id ? updatedItem : item))
     );
+  };
+
+  const handleMoveItem = (itemToMoveId: string, direction: 'up' | 'down') => {
+    const allItemsCopy = [...detailedItems];
+    const itemIndexInFullList = allItemsCopy.findIndex(item => item.id === itemToMoveId);
+
+    if (itemIndexInFullList === -1) return;
+
+    const itemToMove = allItemsCopy[itemIndexInFullList];
+    const itemDateKey = itemToMove.date || 'No Date Assigned';
+
+    if (direction === 'up') {
+      if (itemIndexInFullList === 0) return; // Already at the very top
+      const itemAbove = allItemsCopy[itemIndexInFullList - 1];
+      // Check if itemAbove is in the same day group
+      if ((itemAbove.date || 'No Date Assigned') !== itemDateKey) return; 
+      
+      [allItemsCopy[itemIndexInFullList], allItemsCopy[itemIndexInFullList - 1]] = [allItemsCopy[itemIndexInFullList - 1], allItemsCopy[itemIndexInFullList]];
+    } else { // direction === 'down'
+      if (itemIndexInFullList === allItemsCopy.length - 1) return; // Already at the very bottom
+      const itemBelow = allItemsCopy[itemIndexInFullList + 1];
+      // Check if itemBelow is in the same day group
+      if ((itemBelow.date || 'No Date Assigned') !== itemDateKey) return;
+
+      [allItemsCopy[itemIndexInFullList], allItemsCopy[itemIndexInFullList + 1]] = [allItemsCopy[itemIndexInFullList + 1], allItemsCopy[itemIndexInFullList]];
+    }
+    onUpdateDetailedItems(allItemsCopy);
   };
   
   const formatDateHeader = (dateKey: string) => {
@@ -379,7 +413,7 @@ const ProductionScheduleDetail: React.FC<ProductionScheduleDetailProps> = ({ det
           
           <div className="px-2 pt-2">
             <div className="grid grid-cols-[auto_1fr_1fr_3fr_2fr_1.5fr_auto] gap-2 p-2 border-b border-gray-600 font-medium text-gray-400 text-xs sticky top-0 bg-gray-700 z-10">
-              <div className="pl-1">#</div>
+              <div className="pl-1 text-center">Order</div>
               <div>Start Time</div>
               <div>End Time</div>
               <div>Activity</div>
@@ -391,14 +425,18 @@ const ProductionScheduleDetail: React.FC<ProductionScheduleDetailProps> = ({ det
             {itemsInGroup.length === 0 ? (
               <p className="text-gray-500 text-center py-4">No items for this day.</p>
             ) : (
-              itemsInGroup.map((item, index) => (
+              itemsInGroup.map((item, indexInGroup) => (
                 <DetailedScheduleItemRow
                   key={item.id}
                   item={item}
                   onUpdateItem={handleUpdateItem}
                   onDeleteItem={() => handleDeleteItem(item.id)}
                   onDuplicateItem={() => handleDuplicateItem(item)}
-                  index={index}
+                  onMoveItemUp={() => handleMoveItem(item.id, 'up')}
+                  onMoveItemDown={() => handleMoveItem(item.id, 'down')}
+                  isFirstItem={indexInGroup === 0}
+                  isLastItem={indexInGroup === itemsInGroup.length - 1}
+                  index={indexInGroup}
                   crewKey={crewKey}
                 />
               ))

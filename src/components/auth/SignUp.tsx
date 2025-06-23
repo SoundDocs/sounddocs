@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
-import { Bookmark, AlertCircle } from "lucide-react";
+import { Bookmark, AlertCircle, CheckCircle } from "lucide-react";
 
 const SignUp = () => {
   const navigate = useNavigate();
@@ -15,21 +15,26 @@ const SignUp = () => {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    setSuccess(false);
 
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          // Note: Email confirmation is enabled by default in your Supabase project settings.
+          // This option is here for clarity but can be removed if you manage this from the Supabase dashboard.
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+        },
       });
 
       if (error) {
         setError(error.message);
       } else if (data.user) {
-        // Redirect to dashboard immediately instead of showing success message
-        navigate("/dashboard");
+        setSuccess(true);
       }
     } catch (err) {
-      setError("An unexpected error occurred");
+      setError("An unexpected error occurred. Please try again.");
       console.error(err);
     } finally {
       setLoading(false);
@@ -47,18 +52,22 @@ const SignUp = () => {
         </div>
 
         <div className="bg-gray-800 p-8 rounded-xl shadow-lg mb-4">
-          <h2 className="text-2xl font-bold text-white mb-6">Create an Account</h2>
+          <h2 className="text-2xl font-bold text-white mb-6 text-center">Create an Account</h2>
 
           {success ? (
-            <div className="bg-green-400/10 border border-green-400 rounded-lg p-4 mb-6">
-              <p className="text-green-400">
-                Registration successful! Please check your email to verify your account.
-              </p>
+            <div className="bg-green-400/10 border border-green-400 text-green-300 rounded-lg p-4 flex items-start space-x-3">
+              <CheckCircle className="h-6 w-6 text-green-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-semibold text-white">Registration Successful!</h3>
+                <p className="text-sm text-green-300 mt-1">
+                  Please check your email for a confirmation link to finish signing up.
+                </p>
+              </div>
             </div>
           ) : (
             <form onSubmit={handleSignUp} className="space-y-6">
               {error && (
-                <div className="bg-red-400/10 border border-red-400 rounded-lg p-4 mb-6 flex items-start">
+                <div className="bg-red-400/10 border border-red-400 rounded-lg p-4 flex items-start">
                   <AlertCircle className="h-5 w-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
                   <p className="text-red-400">{error}</p>
                 </div>
@@ -93,6 +102,7 @@ const SignUp = () => {
                   required
                   minLength={6}
                 />
+                 <p className="text-xs text-gray-500 mt-2">Minimum 6 characters required.</p>
               </div>
 
               <button

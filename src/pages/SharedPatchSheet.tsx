@@ -701,8 +701,8 @@ const SharedPatchSheet = () => {
             <span className="text-white font-bold">SoundDocs</span>
           </div>
           <div className="text-gray-400 text-sm text-center md:text-right">
-            <p>&copy; {new Date().getFullYear()} SoundDocs. All rights reserved.</p>
-            <p className="mt-1">Professional audio documentation made simple.</p>
+            <p>{new Date().getFullYear()} SoundDocs.</p>
+            <p className="mt-1">Professional audio and event documentation made simple.</p>
           </div>
         </div>
       </footer>

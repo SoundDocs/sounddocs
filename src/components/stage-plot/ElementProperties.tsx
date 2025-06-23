@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Image as ImageIcon, Trash2 } from "lucide-react";
-import { StageElementProps } from "./StageElement"; // Assuming StageElementProps is exported
+import { Image as ImageIcon, Trash2, Eye, EyeOff } from "lucide-react"; // Added Eye, EyeOff
+import { StageElementProps } from "./StageElement"; 
 
 interface ElementPropertiesPanelProps {
-  // Renamed from ElementPropertiesProps to avoid conflict
   selectedElement: StageElementProps | null;
   onPropertyChange: (id: string, property: string, value: any) => void;
 }
@@ -15,6 +14,7 @@ const ElementProperties: React.FC<ElementPropertiesPanelProps> = ({
   const [label, setLabel] = useState("");
   const [color, setColor] = useState("#4f46e5");
   const [rotation, setRotation] = useState(0);
+  const [labelVisible, setLabelVisible] = useState(true); // New state for label visibility
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -22,6 +22,7 @@ const ElementProperties: React.FC<ElementPropertiesPanelProps> = ({
       setLabel(selectedElement.label);
       setColor(selectedElement.color || "#4f46e5");
       setRotation(selectedElement.rotation);
+      setLabelVisible(selectedElement.labelVisible === undefined ? true : selectedElement.labelVisible); // Default to true if undefined
     }
   }, [selectedElement]);
 
@@ -66,7 +67,6 @@ const ElementProperties: React.FC<ElementPropertiesPanelProps> = ({
     if (!file || !selectedElement) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      // 2MB limit for data URL
       alert("Image size should be less than 2MB.");
       return;
     }
@@ -79,8 +79,6 @@ const ElementProperties: React.FC<ElementPropertiesPanelProps> = ({
     reader.onload = (event) => {
       if (event.target?.result) {
         onPropertyChange(selectedElement.id, "customImageUrl", event.target.result as string);
-        // Optionally, if you want to change the element type to 'custom-image' upon uploading an image:
-        // onPropertyChange(selectedElement.id, 'type', 'custom-image');
       }
     };
     reader.readAsDataURL(file);
@@ -89,11 +87,13 @@ const ElementProperties: React.FC<ElementPropertiesPanelProps> = ({
   const handleRemoveCustomImage = () => {
     if (selectedElement) {
       onPropertyChange(selectedElement.id, "customImageUrl", null);
-      // Optionally, revert type if it was changed to 'custom-image'
-      // if (selectedElement.type === 'custom-image') {
-      //   onPropertyChange(selectedElement.id, 'type', 'generic-instrument'); // or some default
-      // }
     }
+  };
+
+  const toggleLabelVisibility = () => {
+    const newVisibility = !labelVisible;
+    setLabelVisible(newVisibility);
+    onPropertyChange(selectedElement.id, "labelVisible", newVisibility);
   };
 
   const elementTypes: Record<string, string> = {
@@ -108,7 +108,7 @@ const ElementProperties: React.FC<ElementPropertiesPanelProps> = ({
     trumpet: "Trumpet/Brass",
     saxophone: "Saxophone",
     "generic-instrument": "Other Instrument",
-    "custom-image": "Custom Image", // Added
+    "custom-image": "Custom Image",
     microphone: "Microphone",
     "monitor-wedge": "Wedge Monitor",
     amplifier: "Amplifier",
@@ -133,15 +133,25 @@ const ElementProperties: React.FC<ElementPropertiesPanelProps> = ({
         </div>
 
         <div>
-          <label className="block text-gray-300 mb-2 text-sm" htmlFor="elementLabel">
-            Label
-          </label>
+          <div className="flex justify-between items-center mb-2">
+            <label className="block text-gray-300 text-sm" htmlFor="elementLabel">
+              Label
+            </label>
+            <button
+              onClick={toggleLabelVisibility}
+              className={`p-1 rounded-md ${labelVisible ? "text-indigo-400 hover:bg-gray-700" : "text-gray-500 hover:bg-gray-700"}`}
+              title={labelVisible ? "Hide Label" : "Show Label"}
+            >
+              {labelVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+            </button>
+          </div>
           <input
             id="elementLabel"
             type="text"
             value={label}
             onChange={handleLabelChange}
             className="w-full bg-gray-700 text-white border border-gray-600 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+            disabled={!labelVisible && selectedElement.type !== 'text'} // Text elements can always edit label, but visibility still applies
           />
         </div>
 

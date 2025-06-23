@@ -29,7 +29,8 @@ export interface StageElementProps {
   color?: string;
   width?: number;
   height?: number;
-  customImageUrl?: string | null; // New property for custom image
+  customImageUrl?: string | null;
+  labelVisible?: boolean; // New property
   selected?: boolean;
   disabled?: boolean;
   onClick?: (id: string) => void;
@@ -52,6 +53,7 @@ const StageElement: React.FC<StageElementProps> = ({
   width,
   height,
   customImageUrl,
+  labelVisible = true, // Default to true
   selected = false,
   disabled = false,
   onClick,
@@ -190,7 +192,7 @@ const StageElement: React.FC<StageElementProps> = ({
   const getIconForType = () => {
     if (customImageUrl) return null; // No icon if custom image is used
 
-    const iconSize = Math.max(12, Math.min(24, dimensions.width * 0.5));
+    const iconSize = Math.max(12, Math.min(24, Math.min(dimensions.width, dimensions.height) * 0.5));
     const iconProps = {
       style: { height: `${iconSize}px`, width: `${iconSize}px` },
       className: "text-white",
@@ -282,14 +284,14 @@ const StageElement: React.FC<StageElementProps> = ({
   };
 
   const handleLabelDoubleClick = (e: React.MouseEvent) => {
-    if (disabled) return;
+    if (disabled || !labelVisible) return; // Don't allow editing if label is hidden
     e.stopPropagation();
     setEditingLabel(true);
     setTempLabel(label);
   };
 
   const handleTextElementDoubleClick = (e: React.MouseEvent) => {
-    if (disabled || type !== "text") return;
+    if (disabled || type !== "text" || !labelVisible) return; // Don't allow editing if label is hidden
     e.stopPropagation();
     setEditingLabel(true);
     setTempLabel(label);
@@ -317,7 +319,7 @@ const StageElement: React.FC<StageElementProps> = ({
   };
 
   const mobileProps = isMobile && !disabled ? { onTouchEnd: handleTap } : {};
-  const isResizable = !disabled; // Allow all non-disabled elements to be resizable
+  const isResizable = !disabled; 
   const elementVisualStyles = type !== "text" ? getElementStyles() : null;
 
   const getFontSize = () => {
@@ -406,7 +408,7 @@ const StageElement: React.FC<StageElementProps> = ({
           {type === "text" ? (
             <div
               className="text-label flex items-center justify-center w-full h-full"
-              onDoubleClick={!disabled ? handleTextElementDoubleClick : undefined}
+              onDoubleClick={!disabled && labelVisible ? handleTextElementDoubleClick : undefined}
               style={{
                 border: selected
                   ? "2px solid rgba(255, 255, 255, 0.8)"
@@ -417,9 +419,10 @@ const StageElement: React.FC<StageElementProps> = ({
                 overflow: "hidden",
                 textAlign: "center",
                 color: "white",
+                visibility: labelVisible ? "visible" : "hidden",
               }}
             >
-              {editingLabel && !disabled ? (
+              {editingLabel && !disabled && labelVisible ? (
                 <textarea
                   value={tempLabel}
                   onChange={(e) => setTempLabel(e.target.value)}
@@ -436,12 +439,14 @@ const StageElement: React.FC<StageElementProps> = ({
                   style={{ fontSize: "inherit" }}
                 />
               ) : (
-                <span
-                  className="text-white font-medium p-1 whitespace-pre-wrap break-words w-full h-full flex items-center justify-center"
-                  style={{ fontSize: "inherit" }}
-                >
-                  {label}
-                </span>
+                labelVisible && (
+                  <span
+                    className="text-white font-medium p-1 whitespace-pre-wrap break-words w-full h-full flex items-center justify-center"
+                    style={{ fontSize: "inherit" }}
+                  >
+                    {label}
+                  </span>
+                )
               )}
             </div>
           ) : (
@@ -466,7 +471,7 @@ const StageElement: React.FC<StageElementProps> = ({
           )}
         </div>
 
-        {type !== "text" && (
+        {type !== "text" && labelVisible && (
           <div
             className="absolute left-1/2 transform -translate-x-1/2 mt-1 whitespace-nowrap flex justify-center"
             style={{
@@ -506,7 +511,7 @@ const StageElement: React.FC<StageElementProps> = ({
 
         {selected && isResizable && (
           <div
-            className="resize-handle absolute -right-2 -bottom-2 w-4 h-4 bg-white rounded-full border-2 border-indigo-500 cursor-nwse-resize z-30"
+            className="resize-handle absolute -right-2 -bottom-2 w-4 h-4 bg-white rounded-full border-2 border-indigo-500 cursor-nwse-resize z-30 touch-manipulation"
             onMouseDown={(e) => {
               if (disabled || !onResize) return;
               e.stopPropagation();
@@ -520,10 +525,9 @@ const StageElement: React.FC<StageElementProps> = ({
               const handleMouseMove = (moveEvent: MouseEvent) => {
                 const deltaX = moveEvent.clientX - startX;
                 const deltaY = moveEvent.clientY - startY;
-                const delta = Math.max(deltaX, deltaY);
-
-                const newWidth = Math.max(20, startWidth + delta);
-                const newHeight = Math.max(20, startHeight + delta);
+                
+                const newWidth = Math.max(20, startWidth + deltaX); // Min width 20
+                const newHeight = Math.max(20, startHeight + deltaY); // Min height 20
 
                 onResize(id, newWidth, newHeight);
               };
