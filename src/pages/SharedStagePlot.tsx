@@ -2,8 +2,6 @@ import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import {
-  ArrowLeft,
-  Download,
   Bookmark,
   Share2,
   ExternalLink,
@@ -13,13 +11,8 @@ import {
   Calendar,
   Clock,
 } from "lucide-react";
-import { getSharedResource, updateSharedResource } from "../lib/shareUtils";
-import { supabase } from "../lib/supabase";
+import { getSharedResource } from "../lib/shareUtils";
 import StageElementStatic from "../components/stage-plot/StageElementStatic";
-import StagePlotExport from "../components/StagePlotExport";
-import PrintStagePlotExport from "../components/PrintStagePlotExport";
-import ExportModal from "../components/ExportModal";
-import html2canvas from "html2canvas";
 
 // Empty Header component for shared views
 const SharedHeader = ({ docName }: { docName: string }) => (
@@ -45,12 +38,7 @@ const SharedStagePlot = () => {
   const [stagePlot, setStagePlot] = useState<any | null>(null);
   const [shareLink, setShareLink] = useState<any | null>(null);
   const [expiryDays, setExpiryDays] = useState<number | null>(null);
-  const [downloadingPlot, setDownloadingPlot] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
 
-  // Refs for the exportable components
-  const exportRef = useRef<HTMLDivElement>(null);
-  const printExportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -84,86 +72,6 @@ const SharedStagePlot = () => {
 
     loadSharedStagePlot();
   }, [shareCode]);
-
-  const handleExportClick = () => {
-    setShowExportModal(true);
-  };
-
-  const handleExportImage = async () => {
-    if (!stagePlot) return;
-
-    try {
-      setDownloadingPlot(true);
-      setShowExportModal(false);
-
-      // Wait for the component to render
-      setTimeout(async () => {
-        if (exportRef.current) {
-          const canvas = await html2canvas(exportRef.current, {
-            scale: 2, // Higher scale for better quality
-            backgroundColor: "#111827", // Match the background color
-            logging: false,
-            useCORS: true,
-            allowTaint: true,
-            windowHeight: document.documentElement.offsetHeight,
-            windowWidth: document.documentElement.offsetWidth,
-            height: exportRef.current.scrollHeight,
-            width: exportRef.current.offsetWidth,
-          });
-
-          // Convert canvas to a data URL and trigger download
-          const imageURL = canvas.toDataURL("image/png");
-          const link = document.createElement("a");
-          link.href = imageURL;
-          link.download = `${stagePlot.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot.png`;
-          link.click();
-        }
-      }, 100);
-    } catch (error) {
-      console.error("Error downloading stage plot:", error);
-      alert("Failed to download stage plot. Please try again.");
-    } finally {
-      setDownloadingPlot(false);
-    }
-  };
-
-  const handleExportPdf = async () => {
-    if (!stagePlot) return;
-
-    try {
-      setDownloadingPlot(true);
-      setShowExportModal(false);
-
-      // Wait for the component to render
-      setTimeout(async () => {
-        if (printExportRef.current) {
-          const canvas = await html2canvas(printExportRef.current, {
-            scale: 2, // Higher scale for better quality
-            backgroundColor: "#ffffff", // White background for print
-            logging: false,
-            useCORS: true,
-            allowTaint: true,
-            windowHeight: document.documentElement.offsetHeight,
-            windowWidth: document.documentElement.offsetWidth,
-            height: printExportRef.current.scrollHeight,
-            width: printExportRef.current.offsetWidth,
-          });
-
-          // Convert canvas to a data URL and trigger download
-          const imageURL = canvas.toDataURL("image/png");
-          const link = document.createElement("a");
-          link.href = imageURL;
-          link.download = `${stagePlot.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot-print.png`;
-          link.click();
-        }
-      }, 100);
-    } catch (error) {
-      console.error("Error exporting PDF:", error);
-      alert("Failed to export PDF. Please try again.");
-    } finally {
-      setDownloadingPlot(false);
-    }
-  };
 
   const handleEditRedirect = () => {
     // If this is an edit link, redirect to the editor
@@ -256,15 +164,6 @@ const SharedStagePlot = () => {
               </button>
             )}
             <button
-              onClick={handleExportClick}
-              disabled={downloadingPlot}
-              className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-3 sm:px-4 py-2 rounded-md font-medium transition-all duration-200 text-sm disabled:opacity-70"
-            >
-              <Download className="h-4 w-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Download</span>
-              <span className="sm:hidden">Save</span>
-            </button>
-            <button
               onClick={() => (window.location.href = "https://sounddocs.org/")}
               className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-3 sm:px-4 py-2 rounded-md font-medium transition-all duration-200 text-sm"
             >
@@ -345,71 +244,7 @@ const SharedStagePlot = () => {
             </div>
           </div>
         </div>
-
-        {/* REMOVED: Stage Plot Summary Section */}
-        {/* 
-        <div className="bg-gray-800 rounded-xl shadow-md p-6 mb-8">
-          <h3 className="text-lg font-semibold text-white mb-4">Stage Plot Summary</h3>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            // Stage details
-            <div>
-              <h4 className="text-md font-medium text-indigo-400 mb-2">Stage Information</h4>
-              <div className="bg-gray-750 rounded-lg p-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-gray-400 text-sm">Stage Size</p>
-                    <p className="text-white">
-                      {stageSize.split('-').map(word => 
-                        word.charAt(0).toUpperCase() + word.slice(1)
-                      ).join(' ')}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400 text-sm">Total Elements</p>
-                    <p className="text-white">{stagePlot.elements ? stagePlot.elements.length : 0}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            // Element summary
-            <div>
-              <h4 className="text-md font-medium text-indigo-400 mb-2">Element Breakdown</h4>
-              <div className="bg-gray-750 rounded-lg p-4">
-                {stagePlot.elements && stagePlot.elements.length > 0 ? (
-                  <div className="space-y-2">
-                    {summarizeElements(stagePlot.elements).map((item: any, index: number) => (
-                      <div key={index} className="flex justify-between">
-                        <span className="text-gray-300">{item.label}</span>
-                        <span className="bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-md text-xs">{item.count}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-400">No elements in this stage plot</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div> 
-        */}
       </main>
-
-      {/* Export Modal */}
-      <ExportModal
-        isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
-        onExportImage={handleExportImage}
-        onExportPdf={handleExportPdf}
-        title="Stage Plot"
-      />
-
-      {/* Hidden Export Components */}
-      <div className="hidden">
-        <StagePlotExport ref={exportRef} stagePlot={stagePlot} />
-        <PrintStagePlotExport ref={printExportRef} stagePlot={stagePlot} />
-      </div>
 
       {/* Sign up banner */}
       <div className="bg-indigo-600 py-6 px-4">
@@ -445,54 +280,6 @@ const SharedStagePlot = () => {
       </footer>
     </div>
   );
-};
-
-// Helper function to summarize elements by type (kept for potential future use, but not rendered)
-const summarizeElements = (elements: any[]) => {
-  const counts: Record<string, number> = {};
-  const elementLabels: Record<string, string> = {
-    microphone: "Microphones",
-    "power-strip": "Power Strips",
-    "electric-guitar": "Electric Guitars",
-    "acoustic-guitar": "Acoustic Guitars",
-    "bass-guitar": "Bass Guitars",
-    keyboard: "Keyboards",
-    drums: "Drum Kits",
-    percussion: "Percussion",
-    violin: "Violins",
-    cello: "Cellos",
-    trumpet: "Brass",
-    saxophone: "Wind Instruments",
-    amplifier: "Amplifiers",
-    "monitor-wedge": "Monitor Wedges",
-    speaker: "Speakers",
-    "di-box": "DI Boxes",
-    iem: "IEMs",
-    person: "People",
-    text: "Text Labels",
-    "generic-instrument": "Other Instruments",
-  };
-
-  // Count elements by type
-  elements.forEach((element) => {
-    if (element.type) {
-      if (counts[element.type]) {
-        counts[element.type]++;
-      } else {
-        counts[element.type] = 1;
-      }
-    }
-  });
-
-  // Convert to array for rendering
-  return Object.entries(counts)
-    .filter(([type]) => type) // Filter out any undefined types
-    .map(([type, count]) => ({
-      type,
-      label: elementLabels[type as keyof typeof elementLabels] || type,
-      count,
-    }))
-    .sort((a, b) => b.count - a.count);
 };
 
 // Helper function to get stage dimensions
