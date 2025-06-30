@@ -1,6 +1,7 @@
 import React from "react";
-import { Bookmark, Mail, Github, MessageSquare, Heart } from "lucide-react"; // Added Heart
+import { Bookmark, Mail, Github, MessageSquare, Heart } from "lucide-react";
 import { Link } from "react-router-dom";
+import WheresCJ from "./WheresCJ";
 
 const Footer: React.FC = () => {
   return (
@@ -12,13 +13,13 @@ const Footer: React.FC = () => {
             <span className="text-white text-xl font-bold">SoundDocs</span>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4 md:space-x-6">
             <a
               href="mailto:contact@sounddocs.org"
               className="flex items-center text-gray-300 hover:text-white transition-all duration-200"
             >
               <Mail className="h-5 w-5 mr-2" />
-              <span>Contact</span>
+              <span className="hidden sm:inline">Contact</span>
             </a>
             <a
               href="https://github.com/SoundDocs/sounddocs"
@@ -27,7 +28,7 @@ const Footer: React.FC = () => {
               className="flex items-center text-gray-300 hover:text-white transition-all duration-200"
             >
               <Github className="h-5 w-5 mr-2" />
-              <span>GitHub</span>
+              <span className="hidden sm:inline">GitHub</span>
             </a>
             <a
               href="https://discord.gg/NRcRtyxFQa"
@@ -36,9 +37,8 @@ const Footer: React.FC = () => {
               className="flex items-center text-gray-300 hover:text-white transition-all duration-200"
             >
               <MessageSquare className="h-5 w-5 mr-2" />
-              <span>Discord</span>
+              <span className="hidden sm:inline">Discord</span>
             </a>
-            {/* Added Donation Link */}
             <a
               href="https://buy.stripe.com/7sIaFxgFu7ulawEbIJ"
               target="_blank"
@@ -46,8 +46,12 @@ const Footer: React.FC = () => {
               className="flex items-center text-pink-400 hover:text-pink-300 transition-all duration-200"
             >
               <Heart className="h-5 w-5 mr-2" />
-              <span>Donate</span>
+              <span className="hidden sm:inline">Donate</span>
             </a>
+            
+            <div className="h-6 w-px bg-gray-700 hidden md:block"></div>
+            
+            <WheresCJ />
           </div>
         </div>
 

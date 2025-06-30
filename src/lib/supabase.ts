@@ -67,3 +67,34 @@ export const addUserCustomSuggestion = async (
     throw error;
   }
 };
+
+/**
+ * Fetches CJ's current location based on the current date.
+ * @returns An object with location details or null if no current location is found.
+ */
+export const fetchCurrentCJLocation = async (): Promise<{
+  location_name: string;
+  description: string | null;
+} | null> => {
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("cj_location")
+    .select("location_name, description")
+    .lte("start_date", now)
+    .gte("end_date", now)
+    .order("start_date", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error) {
+    // .single() throws an error if no row is found, which is an expected outcome.
+    if (error.code === 'PGRST116') {
+      return null;
+    }
+    console.error("Error fetching CJ's location:", error);
+    throw error;
+  }
+
+  return data;
+};

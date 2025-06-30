@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    @apply bg-gray-950 text-gray-100 antialiased;
+  }
+}
+
 .bg-grid-pattern {
   background-color: #1a202c;
   background-image:
@@ -109,7 +115,7 @@ input[type="range"]::-webkit-slider-runnable-track {
   height: 24px;
   display: flex;
   align-items: center;
-  justify-center: center;
+  justify-content: center;
   border-radius: 4px;
   transition: all 0.15s ease;
 }
@@ -128,61 +134,6 @@ input[type="range"]::-webkit-slider-runnable-track {
 /* Better touch handling for mobile */
 .touch-manipulation {
   touch-action: manipulation;
-}
-
-/* Media queries for responsive design */
-@media (max-width: 640px) {
-  .canvas-container {
-    padding: 10px;
-    max-height: 60vh !important;
-  }
-
-  .text-label {
-    min-width: 100px;
-    padding: 4px 8px;
-  }
-
-  /* Better scrolling for tables on mobile */
-  .overflow-x-auto {
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Prevent fixed positioned elements from jumping when keyboard appears */
-  .fixed {
-    position: fixed !important;
-  }
-
-  /* Ensure dropdowns don't go off-screen on mobile */
-  .z-[9999],
-  .z-[40] {
-    max-width: 90vw;
-    max-height: 50vh;
-  }
-}
-
-/* Adjust spacing for smaller screens */
-@media (max-width: 480px) {
-  .p-3 {
-    padding: 0.5rem;
-  }
-
-  .px-3 {
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
-  }
-
-  .py-3 {
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
-  }
-
-  .text-xl {
-    font-size: 1.2rem;
-  }
-
-  .max-w-[220px] {
-    max-width: 160px;
-  }
 }
 
 /* Image upload container styles */
@@ -237,4 +188,70 @@ input[type="range"]::-webkit-slider-runnable-track {
   top: -5px;
   left: -5px;
   cursor: nwse-resize;
+}
+
+/* Media queries for responsive design */
+@media (max-width: 640px) {
+  .canvas-container {
+    padding: 10px;
+    max-height: 60vh !important;
+  }
+
+  .text-label {
+    min-width: 100px;
+    padding: 4px 8px;
+  }
+
+  /* Better scrolling for tables on mobile */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent fixed positioned elements from jumping when keyboard appears */
+  .fixed {
+    position: fixed !important;
+  }
+
+  /* Ensure dropdowns don't go off-screen on mobile */
+  .z-\[9999\],
+  .z-\[40\] {
+    max-width: 90vw;
+    max-height: 50vh;
+  }
+
+  .max-w-\[220px\] {
+    max-width: 160px;
+  }
+}
+
+/* Adjust spacing for smaller screens */
+@media (max-width: 480px) {
+  .p-3 {
+    padding: 0.5rem;
+  }
+
+  .px-3 {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .py-3 {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .text-xl {
+    font-size: 1.2rem;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

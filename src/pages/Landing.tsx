@@ -18,7 +18,7 @@ const Landing: React.FC = () => {
         <title>SoundDocs | Event Production Docs, Tools & Resources</title>
         <meta
           name="description"
-          content="SoundDocs: The ultimate web tool for event professionals to create, manage, and share production documents like Patch Lists, Stage Plots, Mic Plots (Corporate & Theater), Run of Shows, and Production Schedules. Enhance your workflow with our comprehensive resources."
+          content="Streamline your event production with SoundDocs. Create, manage, and share patch lists, stage plots, schedules, and more. The essential tool for A/V/L pros. Free."
         />
         <meta
           name="keywords"

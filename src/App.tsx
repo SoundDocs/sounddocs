@@ -37,6 +37,7 @@ import React, { useEffect } from "react";
     import FrequencyBandsPage from "./pages/guides/FrequencyBandsPage";
     import DecibelChartPage from "./pages/guides/DecibelChartPage";
     import GlossariesPage from "./pages/guides/GlossariesPage";
+    import NotFoundPage from "./pages/NotFoundPage"; // Import the 404 page
 
     // New Category Pages
     import AudioPage from "./pages/AudioPage";
@@ -282,6 +283,8 @@ import React, { useEffect } from "react";
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                 <Route path="/terms-of-service" element={<TermsOfService />} />
 
+                {/* Catch-all 404 Route */}
+                <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Router>
           </AuthProvider>
