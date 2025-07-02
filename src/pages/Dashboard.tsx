@@ -133,6 +133,25 @@ const Dashboard = () => {
     },
   ];
 
+  const cardStyles = {
+    indigo: {
+      border: "border-indigo-500",
+      textHover: "group-hover:text-indigo-400",
+    },
+    rose: {
+      border: "border-rose-500",
+      textHover: "group-hover:text-rose-400",
+    },
+    amber: {
+      border: "border-amber-500",
+      textHover: "group-hover:text-amber-400",
+    },
+    emerald: {
+      border: "border-emerald-500",
+      textHover: "group-hover:text-emerald-400",
+    },
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
@@ -216,33 +235,25 @@ const Dashboard = () => {
 
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 md:gap-8 mb-12">
-          {featureCards.map((card) => (
-            <Link
-              to={card.link}
-              key={card.title}
-              className={`bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 ease-in-out group border-l-4 border-${card.color}-500`}
-            >
-              <div className="flex items-center justify-between mb-4">
-                {card.icon}
-                <ChevronRight className="h-7 w-7 text-gray-500 group-hover:text-${card.color}-400 transition-colors" />
-              </div>
-              <h2 className={`text-2xl font-semibold text-white mb-2 group-hover:text-${card.color}-400 transition-colors`}>{card.title}</h2>
-              <p className="text-gray-400 text-sm">{card.description}</p>
-            </Link>
-          ))}
+          {featureCards.map((card) => {
+            const styles = cardStyles[card.color as keyof typeof cardStyles];
+            return (
+              <Link
+                to={card.link}
+                key={card.title}
+                className={`bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 ease-in-out group border-l-4 ${styles.border}`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  {card.icon}
+                  <ChevronRight className={`h-7 w-7 text-gray-500 ${styles.textHover} transition-colors`} />
+                </div>
+                <h2 className={`text-2xl font-semibold text-white mb-2 ${styles.textHover} transition-colors`}>{card.title}</h2>
+                <p className="text-gray-400 text-sm">{card.description}</p>
+              </Link>
+            );
+          })}
         </div>
 
-        <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-xl border border-gray-700">
-          <h2 className="text-xl font-semibold text-white mb-4">Quick Tips</h2>
-          <ul className="list-disc list-inside space-y-2 text-gray-300">
-            <li>Click your name in the greeting above to change it.</li>
-            <li>Select a category above to start managing your documents.</li>
-            <li>Use the "Audio" section for patch lists and stage plots.</li>
-            <li>Plan events with "Production Schedules" and "Run of Shows" in the "Production" section.</li>
-            <li>"Video" and "Lighting" sections are coming soon with specialized tools!</li>
-            <li>Ensure your documents are up-to-date for smooth event execution.</li>
-          </ul>
-        </div>
       </main>
       <Footer />
     </div>
