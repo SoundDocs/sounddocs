@@ -18,8 +18,10 @@ import {
   Copy,
   Share2,
   AlertTriangle,
+  Loader,
 } from "lucide-react";
 import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import CorporateMicPlotExport from "../components/CorporateMicPlotExport";
 import PrintCorporateMicPlotExport from "../components/PrintCorporateMicPlotExport";
 import ShareModal from "../components/ShareModal";
@@ -45,16 +47,15 @@ const AllCorporateMicPlots = () => {
   const [sortField, setSortField] = useState<"name" | "created_at" | "last_edited">("last_edited");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   
-  const [downloadingId, setDownloadingId] = useState<string | null>(null); // ID of the plot being downloaded/exported
-  const [currentExportMicPlot, setCurrentExportMicPlot] = useState<CorporateMicPlot | null>(null); // Full data for export component
-  const [exportType, setExportType] = useState<'image' | 'print' | null>(null); // To control which export to run in useEffect
-
+  const [exportingId, setExportingId] = useState<string | null>(null);
+  const [currentExportMicPlot, setCurrentExportMicPlot] = useState<CorporateMicPlot | null>(null);
+  
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [selectedShareMicPlot, setSelectedShareMicPlot] = useState<CorporateMicPlot | null>(null);
   
   const [showExportModal, setShowExportModal] = useState(false);
-  const [exportMicPlotIdForModal, setExportMicPlotIdForModal] = useState<string | null>(null); // ID for modal context
+  const [exportMicPlotIdForModal, setExportMicPlotIdForModal] = useState<string | null>(null);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<{ id: string; name: string } | null>(null);
@@ -72,7 +73,7 @@ const AllCorporateMicPlots = () => {
         }
         const { data, error } = await supabase
           .from("corporate_mic_plots")
-          .select("*")
+          .select("id, name, created_at, last_edited, user_id") // Select only necessary fields for list view
           .eq("user_id", userData.user.id)
           .order(sortField, { ascending: sortDirection === "asc" });
         if (error) throw error;
@@ -100,67 +101,6 @@ const AllCorporateMicPlots = () => {
       setFilteredMicPlots(filtered);
     }
   }, [searchTerm, micPlots]);
-
-  // Effect for handling the actual export after states are set
-  useEffect(() => {
-    if (!currentExportMicPlot || !exportType || !downloadingId) {
-      return;
-    }
-
-    const performExportAsync = async () => {
-      const targetRef = exportType === 'image' ? exportRef : printExportRef;
-      const backgroundColor = exportType === 'image' ? '#111827' : '#ffffff';
-      const fileNameSuffix = exportType === 'image' ? 'corporate-mic-plot.png' : 'corporate-mic-plot-print.png';
-
-      if (targetRef.current) {
-        // Wait for the next browser paint to ensure the component is fully rendered and laid out
-        await new Promise(resolve => requestAnimationFrame(resolve));
-
-        if (targetRef.current.offsetWidth === 0 || targetRef.current.offsetHeight === 0) {
-          console.error("Export target element has no dimensions. Aborting export.", targetRef.current.offsetWidth, targetRef.current.offsetHeight);
-          alert("Failed to export: The export component could not be rendered correctly (zero dimensions).");
-        } else {
-          try {
-            const canvas = await html2canvas(targetRef.current, {
-              scale: 2,
-              backgroundColor: backgroundColor,
-              logging: false, // Set to true for debugging html2canvas
-              useCORS: true,
-              allowTaint: true,
-              width: targetRef.current.scrollWidth, // Capture full scrollable width
-              height: targetRef.current.scrollHeight, // Capture full scrollable height
-            });
-            const imageURL = canvas.toDataURL("image/png");
-            const link = document.createElement("a");
-            link.href = imageURL;
-            link.download = `${currentExportMicPlot.name.replace(/\s+/g, "-").toLowerCase()}-${fileNameSuffix}`;
-            document.body.appendChild(link); // Required for Firefox
-            link.click();
-            document.body.removeChild(link);
-          } catch (error) {
-            console.error(`Error during ${exportType} html2canvas export:`, error);
-            alert(`Failed to export ${exportType}. An error occurred during image generation.`);
-          }
-        }
-      } else {
-        console.error("Export target ref is not available.");
-        alert("Failed to export: The export component reference was not found.");
-      }
-
-      // Cleanup after export attempt (success or failure)
-      setCurrentExportMicPlot(null);
-      setDownloadingId(null);
-      setExportType(null);
-      setShowExportModal(false); // Close modal after attempt
-      // setExportMicPlotIdForModal(null); // Already cleared when modal closes or export starts
-    };
-
-    // Delay slightly to ensure React has rendered currentExportMicPlot and the off-screen component
-    const timerId = setTimeout(performExportAsync, 150); 
-    return () => clearTimeout(timerId);
-
-  }, [currentExportMicPlot, exportType, downloadingId]);
-
 
   const handleSort = (field: "name" | "created_at" | "last_edited") => {
     if (sortField === field) {
@@ -210,30 +150,31 @@ const AllCorporateMicPlots = () => {
     if (duplicatingId) return;
     try {
       setDuplicatingId(micPlot.id);
-      let fullMicPlot = micPlot;
-      if (!fullMicPlot.presenters) {
-        const { data, error } = await supabase.from("corporate_mic_plots").select("*").eq("id", micPlot.id).single();
-        if (error) throw error;
-        fullMicPlot = data;
-      }
+      const { data: fullMicPlot, error: fetchError } = await supabase.from("corporate_mic_plots").select("*").eq("id", micPlot.id).single();
+      if (fetchError) throw fetchError;
+      
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("User not authenticated");
+
+      const { presenters, name, user_id } = fullMicPlot;
+      const newPlotPayload = {
+        name: `Copy of ${name}`,
+        user_id: user_id,
+        presenters: presenters,
+        created_at: new Date().toISOString(),
+        last_edited: new Date().toISOString(),
+      };
+
       const { data: newMicPlotData, error: insertError } = await supabase
         .from("corporate_mic_plots")
-        .insert([{
-          name: `Copy of ${fullMicPlot.name}`,
-          user_id: userData.user.id,
-          presenters: fullMicPlot.presenters,
-          created_at: new Date().toISOString(),
-          last_edited: new Date().toISOString(),
-        }])
+        .insert([newPlotPayload])
         .select();
+
       if (insertError) throw insertError;
       if (newMicPlotData && newMicPlotData[0]) {
         const newPlot = newMicPlotData[0];
         const sortFn = (a: CorporateMicPlot, b: CorporateMicPlot) => new Date(b.last_edited || b.created_at).getTime() - new Date(a.last_edited || a.created_at).getTime();
         setMicPlots((prevPlots) => [newPlot, ...prevPlots].sort(sortFn));
-        setFilteredMicPlots((prevPlots) => [newPlot, ...prevPlots].sort(sortFn));
       }
     } catch (error) {
       console.error("Error duplicating corporate mic plot:", error);
@@ -244,59 +185,95 @@ const AllCorporateMicPlots = () => {
   };
 
   const handleExportMicPlotClick = (micPlot: CorporateMicPlot) => {
-    if (downloadingId) return; // Prevent opening modal if another export is in progress
-    setExportMicPlotIdForModal(micPlot.id); // Set ID for modal context
+    if (exportingId) return;
+    setExportMicPlotIdForModal(micPlot.id);
     setShowExportModal(true);
   };
 
-  // Triggered by ExportModal's "Image Export" button
-  const startImageExport = async (plotId: string) => {
-    if (downloadingId) return;
-    setDownloadingId(plotId); // Mark as downloading
-    // setShowExportModal(false); // Modal will be closed by useEffect on completion
+  const exportAsPdf = async (
+    targetRef: React.RefObject<HTMLDivElement>,
+    itemName: string,
+    fileNameSuffix: string,
+    backgroundColor: string,
+    font: string
+  ) => {
+    if (!targetRef.current) {
+      console.error("Export component ref not ready.");
+      alert("Export component not ready. Please try again.");
+      return;
+    }
+
+    if (document.fonts && typeof document.fonts.ready === 'function') {
+      try { await document.fonts.ready; } 
+      catch (fontError) { console.warn("Error waiting for document fonts to be ready:", fontError); }
+    } else {
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
+
     try {
-      let fullMicPlot = micPlots.find((p) => p.id === plotId) || filteredMicPlots.find((p) => p.id === plotId);
-      if (!fullMicPlot || !fullMicPlot.presenters) { // Fetch if not detailed enough
-        const { data, error } = await supabase.from("corporate_mic_plots").select("*").eq("id", plotId).single();
-        if (error) throw error;
-        fullMicPlot = data;
-      }
-      if (!fullMicPlot) throw new Error("Mic plot data not found for export.");
-      
-      setCurrentExportMicPlot(fullMicPlot); // Render the export component
-      setExportType('image'); // Trigger useEffect for actual export
+      const canvas = await html2canvas(targetRef.current, {
+        scale: 2,
+        backgroundColor,
+        useCORS: true,
+        allowTaint: true,
+        letterRendering: true,
+        onclone: (clonedDoc) => {
+          const styleGlobal = clonedDoc.createElement('style');
+          styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
+          clonedDoc.head.appendChild(styleGlobal);
+          clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
+          Array.from(clonedDoc.querySelectorAll('*')).forEach((el: any) => {
+            if (el.style) { el.style.fontFamily = `${font}, sans-serif`; el.style.verticalAlign = 'baseline';}
+          });
+        },
+        windowHeight: targetRef.current.scrollHeight,
+        windowWidth: targetRef.current.offsetWidth,
+        height: targetRef.current.scrollHeight,
+        width: targetRef.current.offsetWidth,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? "l" : "p",
+        unit: "px",
+        format: [canvas.width, canvas.height],
+        hotfixes: ["px_scaling"],
+      });
+
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+      pdf.save(`${itemName.replace(/\s+/g, "-").toLowerCase()}-${fileNameSuffix}.pdf`);
     } catch (error) {
-      console.error("Error preparing for image export:", error);
-      alert("Failed to prepare for image export. Please try again.");
-      setDownloadingId(null); // Reset if preparation fails
-      setShowExportModal(false);
+      console.error(`Error exporting ${fileNameSuffix}:`, error);
+      alert(`Failed to export ${fileNameSuffix}. See console for details.`);
     }
   };
 
-  // Triggered by ExportModal's "Print-friendly Image" button
-  const startPrintExport = async (plotId: string) => {
-    if (downloadingId) return;
-    setDownloadingId(plotId);
-    // setShowExportModal(false);
+  const prepareAndExecuteExport = async (plotId: string, format: 'color' | 'print') => {
+    setExportingId(plotId);
+    setShowExportModal(false);
+
     try {
-      let fullMicPlot = micPlots.find((p) => p.id === plotId) || filteredMicPlots.find((p) => p.id === plotId);
-      if (!fullMicPlot || !fullMicPlot.presenters) {
-        const { data, error } = await supabase.from("corporate_mic_plots").select("*").eq("id", plotId).single();
-        if (error) throw error;
-        fullMicPlot = data;
-      }
+      const { data: fullMicPlot, error } = await supabase.from("corporate_mic_plots").select("*").eq("id", plotId).single();
+      if (error) throw error;
       if (!fullMicPlot) throw new Error("Mic plot data not found for export.");
 
       setCurrentExportMicPlot(fullMicPlot);
-      setExportType('print');
+      await new Promise(resolve => setTimeout(resolve, 150)); // Wait for render
+
+      if (format === 'color') {
+        await exportAsPdf(exportRef, fullMicPlot.name, 'corporate-mic-plot-color', '#111827', 'Inter');
+      } else if (format === 'print') {
+        await exportAsPdf(printExportRef, fullMicPlot.name, 'corporate-mic-plot-print', '#ffffff', 'Arial');
+      }
     } catch (error) {
-      console.error("Error preparing for print export:", error);
-      alert("Failed to prepare for print export. Please try again.");
-      setDownloadingId(null);
-      setShowExportModal(false);
+      console.error("Error preparing for export:", error);
+      alert("Failed to prepare for export. Please try again.");
+    } finally {
+      setExportingId(null);
+      setCurrentExportMicPlot(null);
+      setExportMicPlotIdForModal(null);
     }
   };
-
 
   if (loading) {
     return <div className="min-h-screen bg-gray-900 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div></div>;
@@ -330,8 +307,8 @@ const AllCorporateMicPlots = () => {
                 <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-gray-700 text-white w-full pl-10 pr-3 py-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="Search by name..." />
               </div>
               <div className="flex space-x-2">
-                {['name', 'created_at', 'last_edited'].map((field) => (
-                  <button key={field} onClick={() => handleSort(field as "name" | "created_at" | "last_edited")}
+                {(['name', 'created_at', 'last_edited'] as const).map((field) => (
+                  <button key={field} onClick={() => handleSort(field)}
                     className={`flex items-center px-3 py-2 rounded-md transition-colors ${sortField === field ? "bg-indigo-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}>
                     {field.charAt(0).toUpperCase() + field.slice(1).replace('_', ' ')}
                     {sortField === field && (sortDirection === "asc" ? <SortAsc className="h-4 w-4 ml-1" /> : <SortDesc className="h-4 w-4 ml-1" />)}
@@ -361,7 +338,9 @@ const AllCorporateMicPlots = () => {
                         <div className="flex justify-end space-x-2">
                           <button className="p-2 text-gray-400 hover:text-indigo-400 transition-colors" title="Share" onClick={() => handleShareMicPlot(plot)}><Share2 className="h-5 w-5" /></button>
                           <button className="p-2 text-gray-400 hover:text-indigo-400 transition-colors" title="Duplicate" onClick={() => handleDuplicateMicPlot(plot)} disabled={duplicatingId === plot.id}><Copy className={`h-5 w-5 ${duplicatingId === plot.id ? "animate-pulse" : ""}`} /></button>
-                          <button className="p-2 text-gray-400 hover:text-indigo-400 transition-colors" title="Download" onClick={() => handleExportMicPlotClick(plot)} disabled={!!downloadingId}><Download className={`h-5 w-5 ${downloadingId === plot.id ? "animate-pulse" : ""}`} /></button>
+                          <button className="p-2 text-gray-400 hover:text-indigo-400 transition-colors" title="Download" onClick={() => handleExportMicPlotClick(plot)} disabled={!!exportingId}>
+                            {exportingId === plot.id ? <Loader className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
+                          </button>
                           <button className="p-2 text-gray-400 hover:text-indigo-400 transition-colors" title="Edit" onClick={() => handleEditMicPlot(plot.id)}><Edit className="h-5 w-5" /></button>
                           <button className="p-2 text-gray-400 hover:text-red-400 transition-colors" title="Delete" onClick={() => handleDeleteRequest(plot.id, plot.name)}><Trash2 className="h-5 w-5" /></button>
                         </div>
@@ -384,18 +363,18 @@ const AllCorporateMicPlots = () => {
 
       <ExportModal
         isOpen={showExportModal}
-        onClose={() => { if (!downloadingId) { setShowExportModal(false); setExportMicPlotIdForModal(null); }}}
-        onExportImage={() => exportMicPlotIdForModal && startImageExport(exportMicPlotIdForModal)}
-        onExportPdf={() => exportMicPlotIdForModal && startPrintExport(exportMicPlotIdForModal)}
+        onClose={() => { if (!exportingId) { setShowExportModal(false); setExportMicPlotIdForModal(null); }}}
+        onExportColor={() => exportMicPlotIdForModal && prepareAndExecuteExport(exportMicPlotIdForModal, 'color')}
+        onExportPrintFriendly={() => exportMicPlotIdForModal && prepareAndExecuteExport(exportMicPlotIdForModal, 'print')}
         title="Corporate Mic Plot"
-        isExporting={!!downloadingId}
+        isExporting={!!exportingId}
       />
 
       {/* Off-screen container for export components */}
-      {(currentExportMicPlot && exportType) && (
-        <div style={{ position: 'absolute', left: '-9999px', top: '0px', zIndex: -100, width: '1400px' /* Ensure it has a width */ }}>
-          {exportType === 'image' && <CorporateMicPlotExport ref={exportRef} micPlot={currentExportMicPlot} />}
-          {exportType === 'print' && <PrintCorporateMicPlotExport ref={printExportRef} micPlot={currentExportMicPlot} />}
+      {currentExportMicPlot && (
+        <div style={{ position: 'absolute', left: '-9999px', top: '0px', zIndex: -100, width: '1400px' }}>
+          <CorporateMicPlotExport ref={exportRef} micPlot={currentExportMicPlot} />
+          <PrintCorporateMicPlotExport ref={printExportRef} micPlot={currentExportMicPlot} />
         </div>
       )}
 

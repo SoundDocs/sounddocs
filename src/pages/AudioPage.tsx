@@ -21,6 +21,7 @@ import React, { useEffect, useState, useRef } from "react";
       Drama, 
     } from "lucide-react";
     import html2canvas from "html2canvas";
+    import jsPDF from "jspdf";
     import PatchSheetExport from "../components/PatchSheetExport";
     import StagePlotExport from "../components/StagePlotExport";
     import PrintPatchSheetExport from "../components/PrintPatchSheetExport";
@@ -295,7 +296,7 @@ import React, { useEffect, useState, useRef } from "react";
         }
       };
 
-      const exportImageWithCanvas = async (
+      const exportAsPdf = async (
         targetRef: React.RefObject<HTMLDivElement>,
         itemName: string,
         fileNameSuffix: string,
@@ -319,7 +320,11 @@ import React, { useEffect, useState, useRef } from "react";
 
         try {
           const canvas = await html2canvas(targetRef.current!, {
-            scale: 2, backgroundColor, useCORS: true, logging: process.env.NODE_ENV === 'development', letterRendering: true,
+            scale: 2,
+            backgroundColor,
+            useCORS: true,
+            allowTaint: true,
+            letterRendering: true,
             onclone: (clonedDoc) => {
               const styleGlobal = clonedDoc.createElement('style');
               styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
@@ -328,65 +333,129 @@ import React, { useEffect, useState, useRef } from "react";
               Array.from(clonedDoc.querySelectorAll('*')).forEach((el: any) => {
                 if (el.style) { el.style.fontFamily = `${font}, sans-serif`; el.style.verticalAlign = 'baseline';}
               });
-            }
+            },
+            windowHeight: targetRef.current.scrollHeight,
+            windowWidth: targetRef.current.offsetWidth,
+            height: targetRef.current.scrollHeight,
+            width: targetRef.current.offsetWidth,
           });
-          const image = canvas.toDataURL("image/png");
-          const link = document.createElement("a");
-          link.download = `${itemName.replace(/\s+/g, "-").toLowerCase()}-${fileNameSuffix}.png`;
-          link.href = image;
-          link.click();
+          
+          const imgData = canvas.toDataURL("image/png");
+          const pdf = new jsPDF({
+              orientation: canvas.width > canvas.height ? "l" : "p",
+              unit: "px",
+              format: [canvas.width, canvas.height],
+              hotfixes: ["px_scaling"],
+          });
+
+          pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+          pdf.save(`${itemName.replace(/\s+/g, "-").toLowerCase()}-${fileNameSuffix}.pdf`);
+
         } catch (error) {
           console.error(`Error exporting ${fileNameSuffix}:`, error);
           setSupabaseError(`Failed to export ${fileNameSuffix}. See console for details.`);
         }
       };
 
-      const prepareAndExecutePatchSheetExport = async (patchSheetId: string, type: 'image' | 'print') => {
+      const prepareAndExecutePatchSheetExport = async (patchSheetId: string, exportFormat: 'color' | 'print') => {
         setExportingItemId(patchSheetId);
         setShowPatchSheetExportModal(false);
         try {
-          const { data, error } = await supabase.from("patch_sheets").select("*").eq("id", patchSheetId).single();
-          if (error || !data) throw error || new Error("Patch sheet not found");
-          setCurrentExportPatchSheet(data);
-          await new Promise(resolve => setTimeout(resolve, 50));
+            const { data: fullPatchSheet, error } = await supabase.from("patch_sheets").select("*").eq("id", patchSheetId).single();
+            if (error || !fullPatchSheet) throw error || new Error("Patch sheet not found");
+            
+            setCurrentExportPatchSheet(fullPatchSheet);
+            await new Promise(resolve => setTimeout(resolve, 100));
 
-          if (type === 'image') {
-            await exportImageWithCanvas(patchSheetExportRef, data.name, "patch-sheet", "#111827", "Inter");
-          } else {
-            await exportImageWithCanvas(printPatchSheetExportRef, data.name, "patch-sheet-print", "#ffffff", "Arial");
-          }
+            const targetRef = exportFormat === 'color' ? patchSheetExportRef : printPatchSheetExportRef;
+            const backgroundColor = exportFormat === 'color' ? '#111827' : '#ffffff';
+            const fileNameSuffix = exportFormat === 'color' ? 'patch-sheet' : 'patch-sheet-print';
+
+            if (!targetRef.current) {
+                throw new Error("Export component ref is not available.");
+            }
+
+            const canvas = await html2canvas(targetRef.current, {
+                scale: 2,
+                backgroundColor,
+                useCORS: true,
+                allowTaint: true,
+                windowHeight: document.documentElement.offsetHeight,
+                windowWidth: document.documentElement.offsetWidth,
+                height: targetRef.current.scrollHeight,
+                width: targetRef.current.offsetWidth,
+            });
+
+            const imgData = canvas.toDataURL("image/png");
+            const pdf = new jsPDF({
+                orientation: canvas.width > canvas.height ? "l" : "p",
+                unit: "px",
+                format: [canvas.width, canvas.height],
+                hotfixes: ["px_scaling"],
+            });
+
+            pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+            pdf.save(`${fullPatchSheet.name.replace(/\s+/g, "-").toLowerCase()}-${fileNameSuffix}.pdf`);
+
         } catch (err) {
-          console.error("Error preparing patch sheet export:", err);
-          setSupabaseError("Failed to prepare patch sheet for export.");
+            console.error("Error preparing patch sheet export:", err);
+            setSupabaseError("Failed to prepare patch sheet for export.");
         } finally {
-          setCurrentExportPatchSheet(null);
-          setExportingItemId(null);
-          setExportPatchSheetId(null);
+            setCurrentExportPatchSheet(null);
+            setExportingItemId(null);
+            setExportPatchSheetId(null);
         }
       };
 
-      const prepareAndExecuteStagePlotExport = async (stagePlotId: string, type: 'image' | 'print') => {
+      const prepareAndExecuteStagePlotExport = async (stagePlotId: string, exportFormat: 'color' | 'print') => {
         setExportingItemId(stagePlotId);
         setShowStagePlotExportModal(false);
         try {
-          const { data, error } = await supabase.from("stage_plots").select("*").eq("id", stagePlotId).single();
-          if (error || !data) throw error || new Error("Stage plot not found");
-          const fullStagePlot = { ...data, stage_size: data.stage_size || "medium-wide", elements: data.elements || [] };
-          setCurrentExportStagePlot(fullStagePlot);
-          await new Promise(resolve => setTimeout(resolve, 50));
+            const { data, error } = await supabase.from("stage_plots").select("*").eq("id", stagePlotId).single();
+            if (error || !data) throw error || new Error("Stage plot not found");
+            
+            const fullStagePlot = { ...data, stage_size: data.stage_size || "medium-wide", elements: data.elements || [] };
+            setCurrentExportStagePlot(fullStagePlot);
+            
+            await new Promise(resolve => setTimeout(resolve, 100));
 
-          if (type === 'image') {
-            await exportImageWithCanvas(stagePlotExportRef, fullStagePlot.name, "stage-plot", "#111827", "Inter");
-          } else {
-            await exportImageWithCanvas(printStagePlotExportRef, fullStagePlot.name, "stage-plot-print", "#ffffff", "Arial");
-          }
+            const targetRef = exportFormat === 'color' ? stagePlotExportRef : printStagePlotExportRef;
+            const backgroundColor = exportFormat === 'color' ? '#111827' : '#ffffff';
+            const fileNameSuffix = exportFormat === 'color' ? 'stage-plot' : 'stage-plot-print';
+
+            if (!targetRef.current) {
+                throw new Error("Export component ref is not available.");
+            }
+
+            const canvas = await html2canvas(targetRef.current, {
+                scale: 2,
+                backgroundColor,
+                useCORS: true,
+                allowTaint: true,
+                windowHeight: document.documentElement.offsetHeight,
+                windowWidth: document.documentElement.offsetWidth,
+                height: targetRef.current.scrollHeight,
+                width: targetRef.current.offsetWidth,
+            });
+
+            const imgData = canvas.toDataURL("image/png");
+            const pdf = new jsPDF({
+                orientation: canvas.width > canvas.height ? "l" : "p",
+                unit: "px",
+                format: [canvas.width, canvas.height],
+                hotfixes: ["px_scaling"],
+            });
+
+            pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+            pdf.save(`${fullStagePlot.name.replace(/\s+/g, "-").toLowerCase()}-${fileNameSuffix}.pdf`);
+
         } catch (err) {
-          console.error("Error preparing stage plot export:", err);
-          setSupabaseError("Failed to prepare stage plot for export.");
+            console.error("Error preparing stage plot export:", err);
+            setSupabaseError("Failed to prepare stage plot for export.");
         } finally {
-          setCurrentExportStagePlot(null);
-          setExportingItemId(null);
-          setExportStagePlotId(null);
+            setCurrentExportStagePlot(null);
+            setExportingItemId(null);
+            setExportStagePlotId(null);
         }
       };
 
@@ -401,12 +470,12 @@ import React, { useEffect, useState, useRef } from "react";
             
             const corporatePlotData = data as CorporateMicPlotFullData;
             setCurrentExportingMicPlotData(corporatePlotData);
-            await new Promise(resolve => setTimeout(resolve, 50)); 
+            await new Promise(resolve => setTimeout(resolve, 150)); 
 
             if (exportFormat === 'image') {
-              await exportImageWithCanvas(corporateMicPlotExportRef, corporatePlotData.name, "corporate-mic-plot", "#111827", "Inter");
+              await exportAsPdf(corporateMicPlotExportRef, corporatePlotData.name, "corporate-mic-plot", "#111827", "Inter");
             } else { 
-              await exportImageWithCanvas(printCorporateMicPlotExportRef, corporatePlotData.name, "corporate-mic-plot-print", "#ffffff", "Arial");
+              await exportAsPdf(printCorporateMicPlotExportRef, corporatePlotData.name, "corporate-mic-plot-print", "#ffffff", "Arial");
             }
           } else if (actualPlotType === 'theater') {
             const { data, error } = await supabase.from("theater_mic_plots").select("*").eq("id", micPlotId).single();
@@ -414,12 +483,12 @@ import React, { useEffect, useState, useRef } from "react";
 
             const theaterPlotData = data as TheaterMicPlotFullData;
             setCurrentExportingMicPlotData(theaterPlotData);
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise(resolve => setTimeout(resolve, 150));
 
             if (exportFormat === 'image') {
-              await exportImageWithCanvas(theaterMicPlotExportRef, theaterPlotData.name, "theater-mic-plot", "#111827", "Inter");
+              await exportAsPdf(theaterMicPlotExportRef, theaterPlotData.name, "theater-mic-plot", "#111827", "Inter");
             } else {
-              await exportImageWithCanvas(printTheaterMicPlotExportRef, theaterPlotData.name, "theater-mic-plot-print", "#ffffff", "Arial");
+              await exportAsPdf(printTheaterMicPlotExportRef, theaterPlotData.name, "theater-mic-plot-print", "#ffffff", "Arial");
             }
           }
         } catch (err) {
@@ -720,17 +789,17 @@ import React, { useEffect, useState, useRef } from "react";
           <ExportModal
             isOpen={showPatchSheetExportModal}
             onClose={() => { if(!(exportingItemId && exportPatchSheetId)) setShowPatchSheetExportModal(false);}}
-            onExportImage={() => exportPatchSheetId && prepareAndExecutePatchSheetExport(exportPatchSheetId, 'image')}
-            onExportPdf={() => exportPatchSheetId && prepareAndExecutePatchSheetExport(exportPatchSheetId, 'print')}
+            onExportColor={() => exportPatchSheetId && prepareAndExecutePatchSheetExport(exportPatchSheetId, 'color')}
+            onExportPrintFriendly={() => exportPatchSheetId && prepareAndExecutePatchSheetExport(exportPatchSheetId, 'print')}
             title="Patch Sheet"
             isExporting={!!(exportingItemId && exportPatchSheetId)}
           />
 
           <ExportModal
             isOpen={showStagePlotExportModal}
-            onClose={() => {if(!(exportingItemId && exportStagePlotId)) setShowStagePlotExportModal(false);}}
-            onExportImage={() => exportStagePlotId && prepareAndExecuteStagePlotExport(exportStagePlotId, 'image')}
-            onExportPdf={() => exportStagePlotId && prepareAndExecuteStagePlotExport(exportStagePlotId, 'print')}
+            onClose={() => { if (!exportingItemId) setShowStagePlotExportModal(false); }}
+            onExportColor={() => exportStagePlotId && prepareAndExecuteStagePlotExport(exportStagePlotId, 'color')}
+            onExportPrintFriendly={() => exportStagePlotId && prepareAndExecuteStagePlotExport(exportStagePlotId, 'print')}
             title="Stage Plot"
             isExporting={!!(exportingItemId && exportStagePlotId)}
           />
@@ -738,8 +807,8 @@ import React, { useEffect, useState, useRef } from "react";
           <ExportModal
             isOpen={showMicPlotExportModal}
             onClose={() => { if (!exportingMicPlotItemId) { setShowMicPlotExportModal(false); setExportMicPlotId(null); setExportMicPlotActualType(null); }}}
-            onExportImage={() => exportMicPlotId && exportMicPlotActualType && prepareAndExecuteMicPlotExport(exportMicPlotId, exportMicPlotActualType, 'image')}
-            onExportPdf={() => exportMicPlotId && exportMicPlotActualType && prepareAndExecuteMicPlotExport(exportMicPlotId, exportMicPlotActualType, 'print')}
+            onExportColor={() => exportMicPlotId && exportMicPlotActualType && prepareAndExecuteMicPlotExport(exportMicPlotId, exportMicPlotActualType, 'image')}
+            onExportPrintFriendly={() => exportMicPlotId && exportMicPlotActualType && prepareAndExecuteMicPlotExport(exportMicPlotId, exportMicPlotActualType, 'print')}
             title="Mic Plot"
             isExporting={!!exportingMicPlotItemId}
           />

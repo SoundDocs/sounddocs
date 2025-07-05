@@ -18,8 +18,10 @@ import React, { useEffect, useState, useRef } from "react";
       Share2,
       AlertTriangle,
       Drama, // Icon for Theater
+      Loader,
     } from "lucide-react";
     import html2canvas from "html2canvas";
+    import jsPDF from "jspdf";
     import ShareModal from "../components/ShareModal";
     import ExportModal from "../components/ExportModal";
     import TheaterMicPlotExport from "../components/theater-mic-plot/TheaterMicPlotExport";
@@ -46,9 +48,8 @@ import React, { useEffect, useState, useRef } from "react";
       const [sortField, setSortField] = useState<"name" | "created_at" | "last_edited">("last_edited");
       const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
       
-      const [downloadingId, setDownloadingId] = useState<string | null>(null);
+      const [exportingId, setExportingId] = useState<string | null>(null);
       const [currentExportMicPlot, setCurrentExportMicPlot] = useState<TheaterMicPlot | null>(null);
-      const [exportType, setExportType] = useState<'image' | 'print' | null>(null);
       const [showExportModal, setShowExportModal] = useState(false);
       const [exportMicPlotIdForModal, setExportMicPlotIdForModal] = useState<string | null>(null);
       
@@ -77,7 +78,7 @@ import React, { useEffect, useState, useRef } from "react";
               .order(sortField, { ascending: sortDirection === "asc" });
             if (error) throw error;
             if (data) {
-              setMicPlots(data as TheaterMicPlot[]); // Cast to ensure actors type if present
+              setMicPlots(data as TheaterMicPlot[]);
               setFilteredMicPlots(data as TheaterMicPlot[]);
             }
           } catch (error) {
@@ -100,59 +101,6 @@ import React, { useEffect, useState, useRef } from "react";
           setFilteredMicPlots(filtered);
         }
       }, [searchTerm, micPlots]);
-
-      useEffect(() => {
-        if (!currentExportMicPlot || !exportType || !downloadingId) {
-          return;
-        }
-
-        const performExportAsync = async () => {
-          const targetRef = exportType === 'image' ? exportRef : printExportRef;
-          const backgroundColor = exportType === 'image' ? '#111827' : '#ffffff'; // Dark for image, white for print
-          const fileNameSuffix = exportType === 'image' ? 'theater-mic-plot.png' : 'theater-mic-plot-print.png';
-
-          if (targetRef.current) {
-            await new Promise(resolve => requestAnimationFrame(resolve));
-
-            if (targetRef.current.offsetWidth === 0 || targetRef.current.offsetHeight === 0) {
-              console.error("Export target element has no dimensions. Aborting export.");
-              alert("Failed to export: The export component could not be rendered correctly.");
-            } else {
-              try {
-                const canvas = await html2canvas(targetRef.current, {
-                  scale: 2,
-                  backgroundColor: backgroundColor,
-                  logging: false,
-                  useCORS: true,
-                  allowTaint: true,
-                  width: targetRef.current.scrollWidth,
-                  height: targetRef.current.scrollHeight,
-                });
-                const imageURL = canvas.toDataURL("image/png");
-                const link = document.createElement("a");
-                link.href = imageURL;
-                link.download = `${currentExportMicPlot.name.replace(/\s+/g, "-").toLowerCase()}-${fileNameSuffix}`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              } catch (error) {
-                console.error(`Error during ${exportType} html2canvas export:`, error);
-                alert(`Failed to export ${exportType}. An error occurred during image generation.`);
-              }
-            }
-          } else {
-            console.error("Export target ref is not available.");
-            alert("Failed to export: The export component reference was not found.");
-          }
-          setCurrentExportMicPlot(null);
-          setDownloadingId(null);
-          setExportType(null);
-          setShowExportModal(false);
-        };
-        const timerId = setTimeout(performExportAsync, 150); 
-        return () => clearTimeout(timerId);
-      }, [currentExportMicPlot, exportType, downloadingId]);
-
 
       const handleSort = (field: "name" | "created_at" | "last_edited") => {
         if (sortField === field) {
@@ -252,55 +200,95 @@ import React, { useEffect, useState, useRef } from "react";
       };
 
       const handleExportMicPlotClick = (plot: TheaterMicPlot) => {
-        if (downloadingId) return;
+        if (exportingId) return;
         setExportMicPlotIdForModal(plot.id);
         setShowExportModal(true);
       };
       
-      const startImageExport = async (plotId: string) => {
-        if (downloadingId) return;
-        setDownloadingId(plotId);
+      const exportAsPdf = async (
+        targetRef: React.RefObject<HTMLDivElement>,
+        itemName: string,
+        fileNameSuffix: string,
+        backgroundColor: string,
+        font: string
+      ) => {
+        if (!targetRef.current) {
+          console.error("Export component ref not ready.");
+          alert("Export component not ready. Please try again.");
+          return;
+        }
+    
+        if (document.fonts && typeof document.fonts.ready === 'function') {
+          try { await document.fonts.ready; } 
+          catch (fontError) { console.warn("Error waiting for document fonts to be ready:", fontError); }
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 400));
+        }
+    
         try {
-          let fullMicPlot = micPlots.find((p) => p.id === plotId) || filteredMicPlots.find((p) => p.id === plotId);
-          if (!fullMicPlot || !fullMicPlot.actors) { // Fetch if not detailed enough
-            const { data, error } = await supabase.from("theater_mic_plots").select("*").eq("id", plotId).single();
-            if (error) throw error;
-            fullMicPlot = data as TheaterMicPlot;
-          }
-          if (!fullMicPlot) throw new Error("Mic plot data not found for export.");
-          
-          setCurrentExportMicPlot(fullMicPlot);
-          setExportType('image');
+          const canvas = await html2canvas(targetRef.current, {
+            scale: 2,
+            backgroundColor,
+            useCORS: true,
+            allowTaint: true,
+            letterRendering: true,
+            onclone: (clonedDoc) => {
+              const styleGlobal = clonedDoc.createElement('style');
+              styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
+              clonedDoc.head.appendChild(styleGlobal);
+              clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
+              Array.from(clonedDoc.querySelectorAll('*')).forEach((el: any) => {
+                if (el.style) { el.style.fontFamily = `${font}, sans-serif`; el.style.verticalAlign = 'baseline';}
+              });
+            },
+            windowHeight: targetRef.current.scrollHeight,
+            windowWidth: targetRef.current.offsetWidth,
+            height: targetRef.current.scrollHeight,
+            width: targetRef.current.offsetWidth,
+          });
+    
+          const imgData = canvas.toDataURL("image/png");
+          const pdf = new jsPDF({
+            orientation: canvas.width > canvas.height ? "l" : "p",
+            unit: "px",
+            format: [canvas.width, canvas.height],
+            hotfixes: ["px_scaling"],
+          });
+    
+          pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+          pdf.save(`${itemName.replace(/\s+/g, "-").toLowerCase()}-${fileNameSuffix}.pdf`);
         } catch (error) {
-          console.error("Error preparing for image export:", error);
-          alert("Failed to prepare for image export. Please try again.");
-          setDownloadingId(null);
-          setShowExportModal(false);
+          console.error(`Error exporting ${fileNameSuffix}:`, error);
+          alert(`Failed to export ${fileNameSuffix}. See console for details.`);
         }
       };
 
-      const startPrintExport = async (plotId: string) => {
-        if (downloadingId) return;
-        setDownloadingId(plotId);
+      const prepareAndExecuteExport = async (plotId: string, format: 'color' | 'print') => {
+        setExportingId(plotId);
+        setShowExportModal(false);
+    
         try {
-          let fullMicPlot = micPlots.find((p) => p.id === plotId) || filteredMicPlots.find((p) => p.id === plotId);
-          if (!fullMicPlot || !fullMicPlot.actors) {
-            const { data, error } = await supabase.from("theater_mic_plots").select("*").eq("id", plotId).single();
-            if (error) throw error;
-            fullMicPlot = data as TheaterMicPlot;
-          }
+          const { data: fullMicPlot, error } = await supabase.from("theater_mic_plots").select("*").eq("id", plotId).single();
+          if (error) throw error;
           if (!fullMicPlot) throw new Error("Mic plot data not found for export.");
-
+    
           setCurrentExportMicPlot(fullMicPlot);
-          setExportType('print');
+          await new Promise(resolve => setTimeout(resolve, 150)); // Wait for render
+    
+          if (format === 'color') {
+            await exportAsPdf(exportRef, fullMicPlot.name, 'theater-mic-plot-color', '#111827', 'Inter');
+          } else if (format === 'print') {
+            await exportAsPdf(printExportRef, fullMicPlot.name, 'theater-mic-plot-print', '#ffffff', 'Arial');
+          }
         } catch (error) {
-          console.error("Error preparing for print export:", error);
-          alert("Failed to prepare for print export. Please try again.");
-          setDownloadingId(null);
-          setShowExportModal(false);
+          console.error("Error preparing for export:", error);
+          alert("Failed to prepare for export. Please try again.");
+        } finally {
+          setExportingId(null);
+          setCurrentExportMicPlot(null);
+          setExportMicPlotIdForModal(null);
         }
       };
-
 
       if (loading) {
         return <div className="min-h-screen bg-gray-900 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div></div>;
@@ -365,7 +353,9 @@ import React, { useEffect, useState, useRef } from "react";
                             <div className="flex justify-end space-x-2">
                               <button className="p-2 text-gray-400 hover:text-purple-400 transition-colors" title="Share" onClick={() => handleShareMicPlot(plot)}><Share2 className="h-5 w-5" /></button>
                               <button className="p-2 text-gray-400 hover:text-purple-400 transition-colors" title="Duplicate" onClick={() => handleDuplicateMicPlot(plot)} disabled={duplicatingId === plot.id}><Copy className={`h-5 w-5 ${duplicatingId === plot.id ? "animate-pulse" : ""}`} /></button>
-                              <button className="p-2 text-gray-400 hover:text-purple-400 transition-colors" title="Download" onClick={() => handleExportMicPlotClick(plot)} disabled={!!downloadingId}><Download className={`h-5 w-5 ${downloadingId === plot.id ? "animate-pulse" : ""}`} /></button>
+                              <button className="p-2 text-gray-400 hover:text-purple-400 transition-colors" title="Download" onClick={() => handleExportMicPlotClick(plot)} disabled={!!exportingId}>
+                                {exportingId === plot.id ? <Loader className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
+                              </button>
                               <button className="p-2 text-gray-400 hover:text-purple-400 transition-colors" title="Edit" onClick={() => handleEditMicPlot(plot.id)}><Edit className="h-5 w-5" /></button>
                               <button className="p-2 text-gray-400 hover:text-red-400 transition-colors" title="Delete" onClick={() => handleDeleteRequest(plot.id, plot.name)}><Trash2 className="h-5 w-5" /></button>
                             </div>
@@ -394,18 +384,18 @@ import React, { useEffect, useState, useRef } from "react";
 
           <ExportModal
             isOpen={showExportModal}
-            onClose={() => { if (!downloadingId) { setShowExportModal(false); setExportMicPlotIdForModal(null); }}}
-            onExportImage={() => exportMicPlotIdForModal && startImageExport(exportMicPlotIdForModal)}
-            onExportPdf={() => exportMicPlotIdForModal && startPrintExport(exportMicPlotIdForModal)}
+            onClose={() => { if (!exportingId) { setShowExportModal(false); setExportMicPlotIdForModal(null); }}}
+            onExportColor={() => exportMicPlotIdForModal && prepareAndExecuteExport(exportMicPlotIdForModal, 'color')}
+            onExportPrintFriendly={() => exportMicPlotIdForModal && prepareAndExecuteExport(exportMicPlotIdForModal, 'print')}
             title="Theater Mic Plot"
-            isExporting={!!downloadingId}
+            isExporting={!!exportingId}
           />
           
           {/* Off-screen container for export components */}
-          {(currentExportMicPlot && exportType) && (
+          {currentExportMicPlot && (
             <div style={{ position: 'absolute', left: '-9999px', top: '0px', zIndex: -100, width: '1400px' }}>
-              {exportType === 'image' && <TheaterMicPlotExport ref={exportRef} micPlot={currentExportMicPlot} />}
-              {exportType === 'print' && <PrintTheaterMicPlotExport ref={printExportRef} micPlot={currentExportMicPlot} />}
+              <TheaterMicPlotExport ref={exportRef} micPlot={currentExportMicPlot} />
+              <PrintTheaterMicPlotExport ref={printExportRef} micPlot={currentExportMicPlot} />
             </div>
           )}
           

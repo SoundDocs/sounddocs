@@ -6,8 +6,9 @@ import Footer from "../components/Footer";
 import RunOfShowExport from "../components/run-of-show/RunOfShowExport";
 import PrintRunOfShowExport from "../components/run-of-show/PrintRunOfShowExport";
 import ExportModal from "../components/ExportModal";
-import ShareModal from "../components/ShareModal"; // Import ShareModal
+import ShareModal from "../components/ShareModal";
 import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import { RunOfShowItem, CustomColumnDefinition } from "./RunOfShowEditor";
 import {
   PlusCircle,
@@ -23,7 +24,7 @@ import {
   FileText,
   Download,
   Copy,
-  Share2, // Added Share2 icon
+  Share2,
 } from "lucide-react";
 
 interface RunOfShowSummary {
@@ -41,7 +42,7 @@ export interface FullRunOfShowData {
   user_id: string;
   items: RunOfShowItem[];
   custom_column_definitions: CustomColumnDefinition[];
-  live_show_data?: any; // Added for consistency, though not directly used in this component's primary display
+  live_show_data?: any;
 }
 
 type SortField = "name" | "created_at" | "last_edited";
@@ -87,7 +88,7 @@ const AllRunOfShows: React.FC = () => {
       try {
         const { data, error: dbError } = await supabase
           .from("run_of_shows")
-          .select("id, name, created_at, last_edited") // live_show_data not needed for summary
+          .select("id, name, created_at, last_edited")
           .eq("user_id", userData.user.id);
         
         if (dbError) throw dbError;
@@ -179,7 +180,7 @@ const AllRunOfShows: React.FC = () => {
   const fetchFullRunOfShowDataForExport = async (runOfShowId: string): Promise<FullRunOfShowData | null> => {
     const { data, error } = await supabase
       .from("run_of_shows")
-      .select("*, live_show_data") // Fetch all columns including items, custom_column_definitions, and live_show_data
+      .select("*, live_show_data")
       .eq("id", runOfShowId)
       .single();
     if (error) {
@@ -215,7 +216,7 @@ const AllRunOfShows: React.FC = () => {
         user_id: user.id,
         created_at: new Date().toISOString(),
         last_edited: new Date().toISOString(),
-        live_show_data: null, // Reset live_show_data for duplicated item
+        live_show_data: null,
       };
 
       const { data: newRunOfShow, error: insertError } = await supabase
@@ -238,9 +239,9 @@ const AllRunOfShows: React.FC = () => {
     }
   };
 
-  const exportImageWithCanvas = async (
+  const exportAsPdf = async (
     targetRef: React.RefObject<HTMLDivElement>,
-    runOfShowData: FullRunOfShowData,
+    itemName: string,
     fileNameSuffix: string,
     backgroundColor: string,
     font: string
@@ -253,48 +254,45 @@ const AllRunOfShows: React.FC = () => {
     setIsExporting(true);
     setShowExportModal(false);
 
-    await new Promise(resolve => setTimeout(resolve, 100));
-
     if (document.fonts && typeof document.fonts.ready === 'function') {
-      try {
-        await document.fonts.ready;
-      } catch (fontError) {
-        console.warn("Error waiting for document fonts to be ready:", fontError);
-      }
+      try { await document.fonts.ready; } 
+      catch (fontError) { console.warn("Error waiting for document fonts to be ready:", fontError); }
     } else {
       await new Promise(resolve => setTimeout(resolve, 400));
     }
 
     try {
-      const canvas = await html2canvas(targetRef.current!, {
+      const canvas = await html2canvas(targetRef.current, {
         scale: 2,
-        backgroundColor: backgroundColor,
+        backgroundColor,
         useCORS: true,
-        logging: process.env.NODE_ENV === 'development',
+        allowTaint: true,
         letterRendering: true,
         onclone: (clonedDoc) => {
           const styleGlobal = clonedDoc.createElement('style');
-          styleGlobal.innerHTML = `
-            * {
-              font-family: ${font}, sans-serif !important;
-              vertical-align: baseline !important;
-            }
-          `;
+          styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
           clonedDoc.head.appendChild(styleGlobal);
           clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
           Array.from(clonedDoc.querySelectorAll('*')).forEach((el: any) => {
-            if (el.style) {
-              el.style.fontFamily = `${font}, sans-serif`;
-              el.style.verticalAlign = 'baseline';
-            }
+            if (el.style) { el.style.fontFamily = `${font}, sans-serif`; el.style.verticalAlign = 'baseline';}
           });
-        }
+        },
+        windowHeight: targetRef.current.scrollHeight,
+        windowWidth: targetRef.current.offsetWidth,
+        height: targetRef.current.scrollHeight,
+        width: targetRef.current.offsetWidth,
       });
-      const image = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.download = `${runOfShowData.name || "run-of-show"}-${fileNameSuffix}.png`;
-      link.href = image;
-      link.click();
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? "l" : "p",
+        unit: "px",
+        format: [canvas.width, canvas.height],
+        hotfixes: ["px_scaling"],
+      });
+
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+      pdf.save(`${itemName.replace(/\s+/g, "-").toLowerCase()}-${fileNameSuffix}.pdf`);
     } catch (error) {
       console.error(`Error exporting ${fileNameSuffix}:`, error);
       setError(`Failed to export ${fileNameSuffix}. See console for details.`);
@@ -307,7 +305,7 @@ const AllRunOfShows: React.FC = () => {
 
   const prepareAndExecuteExport = async (
     runOfShowIdToExport: string,
-    exportType: 'image' | 'print'
+    exportType: 'color' | 'print'
   ) => {
     if (!runOfShowIdToExport) return;
     setIsExporting(true);
@@ -318,10 +316,10 @@ const AllRunOfShows: React.FC = () => {
     }
     setCurrentExportRunOfShowData(fullData);
     await new Promise(resolve => setTimeout(resolve, 50));
-    if (exportType === 'image') {
-      exportImageWithCanvas(exportRef, fullData, "image", '#0f172a', 'Inter');
+    if (exportType === 'color') {
+      await exportAsPdf(exportRef, fullData.name, "run-of-show-color", '#0f172a', 'Inter');
     } else if (exportType === 'print') {
-      exportImageWithCanvas(printExportRef, fullData, "print-friendly", '#ffffff', 'Arial');
+      await exportAsPdf(printExportRef, fullData.name, "run-of-show-print", '#ffffff', 'Arial');
     }
   };
 
@@ -570,10 +568,10 @@ const AllRunOfShows: React.FC = () => {
                 setExportRunOfShowId(null); 
             }
         }}
-        onExportImage={() => exportRunOfShowId && prepareAndExecuteExport(exportRunOfShowId, 'image')}
-        onExportPdf={() => exportRunOfShowId && prepareAndExecuteExport(exportRunOfShowId, 'print')}
+        onExportColor={() => exportRunOfShowId && prepareAndExecuteExport(exportRunOfShowId, 'color')}
+        onExportPrintFriendly={() => exportRunOfShowId && prepareAndExecuteExport(exportRunOfShowId, 'print')}
         title="Run of Show"
-        isExporting={isExporting && !!exportRunOfShowId} 
+        isExporting={isExporting} 
       />
 
       <ShareModal

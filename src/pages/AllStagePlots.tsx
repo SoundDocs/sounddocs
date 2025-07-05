@@ -21,6 +21,7 @@ import {
   Loader,
 } from "lucide-react";
 import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import StagePlotExport from "../components/StagePlotExport";
 import PrintStagePlotExport from "../components/PrintStagePlotExport";
 import ShareModal from "../components/ShareModal";
@@ -222,14 +223,11 @@ const AllStagePlots = () => {
     setShowExportModal(true);
   };
 
-  const handleExportStagePlotImage = async (stagePlotId: string) => {
+  const handleExportColorPdf = async (stagePlotId: string) => {
     try {
       setDownloadingId(stagePlotId);
-
-      // Close the export modal
       setShowExportModal(false);
 
-      // Fetch complete stage plot data if needed
       let fullStagePlot = stagePlots.find((p) => p.id === stagePlotId);
       if (!fullStagePlot || !fullStagePlot.elements) {
         const { data, error } = await supabase
@@ -237,27 +235,23 @@ const AllStagePlots = () => {
           .select("*")
           .eq("id", stagePlotId)
           .single();
-
         if (error) throw error;
         fullStagePlot = data;
       }
-      
+
       const stagePlotForExport = {
         ...fullStagePlot,
         stage_size: fullStagePlot.stage_size || "medium-wide",
         elements: fullStagePlot.elements || [],
       };
 
-
-      // Set the current stage plot to be exported
       setCurrentExportStagePlot(stagePlotForExport);
 
-      // Wait for the component to render
       setTimeout(async () => {
         if (exportRef.current) {
           const canvas = await html2canvas(exportRef.current, {
-            scale: 2, // Higher scale for better quality
-            backgroundColor: "#111827", // Match the background color
+            scale: 2,
+            backgroundColor: "#111827",
             logging: false,
             useCORS: true,
             allowTaint: true,
@@ -267,35 +261,37 @@ const AllStagePlots = () => {
             width: exportRef.current.offsetWidth,
           });
 
-          // Convert canvas to a data URL and trigger download
-          const imageURL = canvas.toDataURL("image/png");
-          const link = document.createElement("a");
-          link.href = imageURL;
-          link.download = `${stagePlotForExport!.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot.png`;
-          link.click();
+          const imgData = canvas.toDataURL("image/png");
+          const pdf = new jsPDF({
+            orientation: canvas.width > canvas.height ? "l" : "p",
+            unit: "px",
+            format: [canvas.width, canvas.height],
+            hotfixes: ["px_scaling"],
+          });
 
-          // Clean up
+          pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+          pdf.save(
+            `${stagePlotForExport!.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot.pdf`,
+          );
+
           setCurrentExportStagePlot(null);
           setDownloadingId(null);
           setExportStagePlotId(null);
         }
       }, 100);
     } catch (error) {
-      console.error("Error downloading stage plot:", error);
-      alert("Failed to download stage plot. Please try again.");
+      console.error("Error exporting color PDF:", error);
+      alert("Failed to export PDF. Please try again.");
       setDownloadingId(null);
       setExportStagePlotId(null);
     }
   };
 
-  const handlePrintStagePlot = async (stagePlotId: string) => {
+  const handleExportPrintFriendlyPdf = async (stagePlotId: string) => {
     try {
       setDownloadingId(stagePlotId);
-
-      // Close the export modal
       setShowExportModal(false);
 
-      // Fetch complete stage plot data if needed
       let fullStagePlot = stagePlots.find((p) => p.id === stagePlotId);
       if (!fullStagePlot || !fullStagePlot.elements) {
         const { data, error } = await supabase
@@ -303,7 +299,6 @@ const AllStagePlots = () => {
           .select("*")
           .eq("id", stagePlotId)
           .single();
-
         if (error) throw error;
         fullStagePlot = data;
       }
@@ -314,15 +309,13 @@ const AllStagePlots = () => {
         elements: fullStagePlot.elements || [],
       };
 
-      // Set the current stage plot to be exported
       setCurrentExportStagePlot(stagePlotForExport);
 
-      // Wait for the component to render
       setTimeout(async () => {
         if (printExportRef.current) {
           const canvas = await html2canvas(printExportRef.current, {
-            scale: 2, // Higher scale for better quality
-            backgroundColor: "#ffffff", // White background
+            scale: 2,
+            backgroundColor: "#ffffff",
             logging: false,
             useCORS: true,
             allowTaint: true,
@@ -332,32 +325,33 @@ const AllStagePlots = () => {
             width: printExportRef.current.offsetWidth,
           });
 
-          // Convert canvas to a data URL and trigger download
-          const imageURL = canvas.toDataURL("image/png");
-          const link = document.createElement("a");
-          link.href = imageURL;
-          link.download = `${stagePlotForExport!.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot-print.png`;
-          link.click();
+          const imgData = canvas.toDataURL("image/png");
+          const pdf = new jsPDF({
+            orientation: canvas.width > canvas.height ? "l" : "p",
+            unit: "px",
+            format: [canvas.width, canvas.height],
+            hotfixes: ["px_scaling"],
+          });
 
-          // Clean up
+          pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+          pdf.save(
+            `${stagePlotForExport!.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot-print.pdf`,
+          );
+
           setCurrentExportStagePlot(null);
           setDownloadingId(null);
           setExportStagePlotId(null);
         }
       }, 100);
     } catch (error) {
-      console.error("Error exporting print-friendly stage plot:", error);
-      alert("Failed to export stage plot. Please try again.");
+      console.error("Error exporting print-friendly PDF:", error);
+      alert("Failed to export PDF. Please try again.");
       setDownloadingId(null);
       setExportStagePlotId(null);
     }
   };
 
   const handleCreateNewStagePlot = () => {
-    // This navigation will result in StagePlotEditor defaulting back to /audio
-    // if `from` state is not picked up from DashboardPage's modal logic.
-    // For now, this is acceptable as per "do not make any other changes".
-    // A more robust solution would involve DashboardPage passing state.
     navigate("/stage-plot/new", { state: { from: "/all-stage-plots" } });
   };
 
@@ -369,7 +363,6 @@ const AllStagePlots = () => {
     );
   }
 
-  // Show warning on mobile screens
   if (screenSize === "mobile" || screenSize === "tablet") {
     return (
       <MobileScreenWarning
@@ -410,7 +403,6 @@ const AllStagePlots = () => {
 
           <div className="p-6 border-b border-gray-700">
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-              {/* Search */}
               <div className="relative flex-grow">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Search className="h-5 w-5 text-gray-400" />
@@ -424,7 +416,6 @@ const AllStagePlots = () => {
                 />
               </div>
 
-              {/* Sort Controls */}
               <div className="flex space-x-2">
                 <button
                   onClick={() => handleSort("name")}
@@ -576,7 +567,6 @@ const AllStagePlots = () => {
         </div>
       </main>
 
-      {/* Share Modal */}
       {showShareModal && selectedShareStagePlot && (
         <ShareModal
           isOpen={showShareModal}
@@ -590,16 +580,17 @@ const AllStagePlots = () => {
         />
       )}
 
-      {/* Export Modal */}
       <ExportModal
         isOpen={showExportModal}
         onClose={() => setShowExportModal(false)}
-        onExportImage={() => exportStagePlotId && handleExportStagePlotImage(exportStagePlotId)}
-        onExportPdf={() => exportStagePlotId && handlePrintStagePlot(exportStagePlotId)}
+        onExportColor={() => exportStagePlotId && handleExportColorPdf(exportStagePlotId)}
+        onExportPrintFriendly={() =>
+          exportStagePlotId && handleExportPrintFriendlyPdf(exportStagePlotId)
+        }
         title="Stage Plot"
+        isExporting={!!downloadingId}
       />
 
-      {/* Hidden Export Components */}
       {currentExportStagePlot && (
         <>
           <StagePlotExport ref={exportRef} stagePlot={currentExportStagePlot} />
@@ -607,7 +598,6 @@ const AllStagePlots = () => {
         </>
       )}
 
-      {/* Delete Confirmation Modal */}
       {showDeleteConfirm && documentToDelete && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl">
