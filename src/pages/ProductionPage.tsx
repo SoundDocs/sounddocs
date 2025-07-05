@@ -17,6 +17,7 @@ import {
   ArrowLeftCircle,
 } from "lucide-react";
 import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import ExportModal from "../components/ExportModal";
 import ProductionScheduleExport from "../components/production-schedule/ProductionScheduleExport";
 import PrintProductionScheduleExport from "../components/production-schedule/PrintProductionScheduleExport";
@@ -264,7 +265,7 @@ const ProductionPage = () => {
     }
   };
 
-  const exportImageWithCanvas = async (
+  const exportAsPdf = async (
     targetRef: React.RefObject<HTMLDivElement>,
     itemName: string,
     fileNameSuffix: string,
@@ -276,8 +277,6 @@ const ProductionPage = () => {
       setSupabaseError("Export component not ready. Please try again.");
       return;
     }
-    
-    await new Promise(resolve => setTimeout(resolve, 100));
 
     if (document.fonts && typeof document.fonts.ready === 'function') {
       try { await document.fonts.ready; } 
@@ -287,8 +286,12 @@ const ProductionPage = () => {
     }
 
     try {
-      const canvas = await html2canvas(targetRef.current!, {
-        scale: 2, backgroundColor, useCORS: true, logging: process.env.NODE_ENV === 'development', letterRendering: true,
+      const canvas = await html2canvas(targetRef.current, {
+        scale: 2,
+        backgroundColor,
+        useCORS: true,
+        allowTaint: true,
+        letterRendering: true,
         onclone: (clonedDoc) => {
           const styleGlobal = clonedDoc.createElement('style');
           styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
@@ -297,20 +300,30 @@ const ProductionPage = () => {
           Array.from(clonedDoc.querySelectorAll('*')).forEach((el: any) => {
             if (el.style) { el.style.fontFamily = `${font}, sans-serif`; el.style.verticalAlign = 'baseline';}
           });
-        }
+        },
+        windowHeight: targetRef.current.scrollHeight,
+        windowWidth: targetRef.current.offsetWidth,
+        height: targetRef.current.scrollHeight,
+        width: targetRef.current.offsetWidth,
       });
-      const image = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.download = `${itemName.replace(/\s+/g, "-").toLowerCase()}-${fileNameSuffix}.png`;
-      link.href = image;
-      link.click();
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? "l" : "p",
+        unit: "px",
+        format: [canvas.width, canvas.height],
+        hotfixes: ["px_scaling"],
+      });
+
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+      pdf.save(`${itemName.replace(/\s+/g, "-").toLowerCase()}-${fileNameSuffix}.pdf`);
     } catch (error) {
       console.error(`Error exporting ${fileNameSuffix}:`, error);
       setSupabaseError(`Failed to export ${fileNameSuffix}. See console for details.`);
     }
   };
 
-  const prepareAndExecuteProductionScheduleExport = async (scheduleId: string, type: 'image' | 'print') => {
+  const prepareAndExecuteProductionScheduleExport = async (scheduleId: string, type: 'color' | 'print') => {
     setExportingItemId(scheduleId);
     setShowProductionScheduleExportModal(false);
     try {
@@ -321,10 +334,10 @@ const ProductionPage = () => {
       setCurrentExportProductionSchedule(transformedData);
       await new Promise(resolve => setTimeout(resolve, 50));
 
-      if (type === 'image') {
-        await exportImageWithCanvas(productionScheduleExportRef, transformedData.name, "production-schedule", "#0f172a", "Inter");
+      if (type === 'color') {
+        await exportAsPdf(productionScheduleExportRef, transformedData.name, "production-schedule-color", "#0f172a", "Inter");
       } else {
-        await exportImageWithCanvas(printProductionScheduleExportRef, transformedData.name, "production-schedule-print", "#ffffff", "Arial");
+        await exportAsPdf(printProductionScheduleExportRef, transformedData.name, "production-schedule-print", "#ffffff", "Arial");
       }
     } catch (err) {
       console.error("Error preparing production schedule export:", err);
@@ -336,7 +349,7 @@ const ProductionPage = () => {
     }
   };
 
-  const prepareAndExecuteRunOfShowExport = async (runOfShowId: string, type: 'image' | 'print') => {
+  const prepareAndExecuteRunOfShowExport = async (runOfShowId: string, type: 'color' | 'print') => {
     setExportingItemId(runOfShowId);
     setShowRunOfShowExportModal(false);
     try {
@@ -352,10 +365,10 @@ const ProductionPage = () => {
       setCurrentExportRunOfShow(fullData);
       await new Promise(resolve => setTimeout(resolve, 50));
 
-      if (type === 'image') {
-        await exportImageWithCanvas(runOfShowExportRef, fullData.name, "run-of-show", "#0f172a", "Inter");
+      if (type === 'color') {
+        await exportAsPdf(runOfShowExportRef, fullData.name, "run-of-show-color", "#0f172a", "Inter");
       } else {
-        await exportImageWithCanvas(printRunOfShowExportRef, fullData.name, "run-of-show-print", "#ffffff", "Arial");
+        await exportAsPdf(printRunOfShowExportRef, fullData.name, "run-of-show-print", "#ffffff", "Arial");
       }
     } catch (err) {
       console.error("Error preparing Run of Show export:", err);
@@ -569,20 +582,20 @@ const ProductionPage = () => {
 
       <ExportModal
         isOpen={showProductionScheduleExportModal}
-        onClose={() => {if(!(exportingItemId && exportProductionScheduleId)) setShowProductionScheduleExportModal(false);}}
-        onExportImage={() => exportProductionScheduleId && prepareAndExecuteProductionScheduleExport(exportProductionScheduleId, 'image')}
-        onExportPdf={() => exportProductionScheduleId && prepareAndExecuteProductionScheduleExport(exportProductionScheduleId, 'print')}
+        onClose={() => {if(!exportingItemId) setShowProductionScheduleExportModal(false);}}
+        onExportColor={() => exportProductionScheduleId && prepareAndExecuteProductionScheduleExport(exportProductionScheduleId, 'color')}
+        onExportPrintFriendly={() => exportProductionScheduleId && prepareAndExecuteProductionScheduleExport(exportProductionScheduleId, 'print')}
         title="Production Schedule"
-        isExporting={!!(exportingItemId && exportProductionScheduleId)}
+        isExporting={!!exportingItemId && !!exportProductionScheduleId}
       />
 
       <ExportModal
         isOpen={showRunOfShowExportModal}
-        onClose={() => { if(!(exportingItemId && exportRunOfShowId)) setShowRunOfShowExportModal(false);}}
-        onExportImage={() => exportRunOfShowId && prepareAndExecuteRunOfShowExport(exportRunOfShowId, 'image')}
-        onExportPdf={() => exportRunOfShowId && prepareAndExecuteRunOfShowExport(exportRunOfShowId, 'print')}
+        onClose={() => { if(!exportingItemId) setShowRunOfShowExportModal(false);}}
+        onExportColor={() => exportRunOfShowId && prepareAndExecuteRunOfShowExport(exportRunOfShowId, 'color')}
+        onExportPrintFriendly={() => exportRunOfShowId && prepareAndExecuteRunOfShowExport(exportRunOfShowId, 'print')}
         title="Run of Show"
-        isExporting={!!(exportingItemId && exportRunOfShowId)}
+        isExporting={!!exportingItemId && !!exportRunOfShowId}
       />
 
       {currentExportProductionSchedule && (

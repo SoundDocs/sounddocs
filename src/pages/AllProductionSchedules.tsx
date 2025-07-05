@@ -8,6 +8,7 @@ import PrintProductionScheduleExport from "../components/production-schedule/Pri
 import ExportModal from "../components/ExportModal";
 import ShareModal from "../components/ShareModal";
 import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import { ScheduleForExport, DetailedScheduleItem } from "./ProductionScheduleEditor"; 
 import { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor"; 
 import { v4 as uuidv4 } from 'uuid';
@@ -281,80 +282,58 @@ const AllProductionSchedules: React.FC = () => {
     }
   };
 
-  const exportImageWithCanvas = async (
+  const exportScheduleAsPdf = async (
     targetRef: React.RefObject<HTMLDivElement>,
     scheduleData: ScheduleForExport,
     fileNameSuffix: string,
-    backgroundColor: string,
-    font: string
+    backgroundColor: string
   ) => {
     if (!targetRef.current) {
       console.error("Export component ref not ready.");
       setError("Export component not ready. Please try again.");
       return;
     }
-    setIsExporting(true);
-    setShowExportModal(false); 
-
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    if (document.fonts && typeof document.fonts.ready === 'function') {
-      try {
-        await document.fonts.ready;
-      } catch (fontError) {
-        console.warn("Error waiting for document fonts to be ready:", fontError);
-      }
-    } else {
-      await new Promise(resolve => setTimeout(resolve, 400));
-    }
 
     try {
-      const canvas = await html2canvas(targetRef.current!, {
+      const canvas = await html2canvas(targetRef.current, {
         scale: 2,
-        backgroundColor: backgroundColor,
+        backgroundColor,
         useCORS: true,
-        logging: process.env.NODE_ENV === 'development',
-        letterRendering: true,
-        onclone: (clonedDoc) => {
-          const styleGlobal = clonedDoc.createElement('style');
-          styleGlobal.innerHTML = `
-            * {
-              font-family: ${font}, sans-serif !important;
-              vertical-align: baseline !important;
-            }
-          `;
-          clonedDoc.head.appendChild(styleGlobal);
-          clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
-          Array.from(clonedDoc.querySelectorAll('*')).forEach((el: any) => {
-            if (el.style) {
-              el.style.fontFamily = `${font}, sans-serif`;
-              el.style.verticalAlign = 'baseline';
-            }
-          });
-        }
+        allowTaint: true,
+        windowHeight: document.documentElement.offsetHeight,
+        windowWidth: document.documentElement.offsetWidth,
+        height: targetRef.current.scrollHeight,
+        width: targetRef.current.offsetWidth,
       });
-      const image = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.download = `${scheduleData.name || "production-schedule"}-${fileNameSuffix}.png`;
-      link.href = image;
-      link.click();
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? "l" : "p",
+        unit: "px",
+        format: [canvas.width, canvas.height],
+        hotfixes: ["px_scaling"],
+      });
+
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+      pdf.save(`${scheduleData.name || "production-schedule"}-${fileNameSuffix}.pdf`);
     } catch (error) {
       console.error(`Error exporting ${fileNameSuffix}:`, error);
       setError(`Failed to export ${fileNameSuffix}. See console for details.`);
     } finally {
       setIsExporting(false);
-      setCurrentExportScheduleData(null); 
-      setExportScheduleId(null); 
+      setCurrentExportScheduleData(null);
+      setExportScheduleId(null);
     }
   };
 
   const prepareAndExecuteExport = async (
     scheduleIdToExport: string,
-    exportType: 'image' | 'print'
+    exportType: 'color' | 'print'
   ) => {
     if (!scheduleIdToExport) return;
 
-    setIsExporting(true); 
+    setIsExporting(true);
+    setShowExportModal(false);
     
     const rawScheduleData = await fetchFullScheduleDataForExport(scheduleIdToExport);
     if (!rawScheduleData) {
@@ -364,12 +343,12 @@ const AllProductionSchedules: React.FC = () => {
     const transformedData = transformToScheduleForExport(rawScheduleData);
     setCurrentExportScheduleData(transformedData); 
 
-    await new Promise(resolve => setTimeout(resolve, 50)); 
+    await new Promise(resolve => setTimeout(resolve, 100)); 
 
-    if (exportType === 'image') {
-      exportImageWithCanvas(exportRef, transformedData, "image", '#0f172a', 'Inter');
+    if (exportType === 'color') {
+      await exportScheduleAsPdf(exportRef, transformedData, "color", '#111827');
     } else if (exportType === 'print') {
-      exportImageWithCanvas(printExportRef, transformedData, "print-friendly", '#ffffff', 'Arial');
+      await exportScheduleAsPdf(printExportRef, transformedData, "print-friendly", '#ffffff');
     }
   };
 
@@ -624,8 +603,8 @@ const AllProductionSchedules: React.FC = () => {
                 setExportScheduleId(null); 
             }
         }}
-        onExportImage={() => exportScheduleId && prepareAndExecuteExport(exportScheduleId, 'image')}
-        onExportPdf={() => exportScheduleId && prepareAndExecuteExport(exportScheduleId, 'print')}
+        onExportColor={() => exportScheduleId && prepareAndExecuteExport(exportScheduleId, 'color')}
+        onExportPrintFriendly={() => exportScheduleId && prepareAndExecuteExport(exportScheduleId, 'print')}
         title="Production Schedule"
         isExporting={isExporting && !!exportScheduleId} 
       />

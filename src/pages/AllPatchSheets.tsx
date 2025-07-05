@@ -15,13 +15,13 @@ import {
   Search,
   SortAsc,
   SortDesc,
-  Filter,
   Copy,
   LayoutTemplate,
   Share2,
   AlertTriangle,
 } from "lucide-react";
 import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import PatchSheetExport from "../components/PatchSheetExport";
 import PrintPatchSheetExport from "../components/PrintPatchSheetExport";
 import ShareModal from "../components/ShareModal";
@@ -332,11 +332,9 @@ const AllPatchSheets = () => {
     setShowExportModal(true);
   };
 
-  const handleExportDownload = async (patchSheetId: string) => {
+  const handlePdfExport = async (patchSheetId: string, exportFormat: 'color' | 'print') => {
     try {
       setDownloadingId(patchSheetId);
-
-      // Close the export modal
       setShowExportModal(false);
 
       // Fetch complete patch sheet data if needed
@@ -357,104 +355,53 @@ const AllPatchSheets = () => {
         fullPatchSheet = data;
       }
 
-      // Set the current patch sheet to be exported
-      setCurrentExportPatchSheet(fullPatchSheet);
-
-      // Wait for the component to render
-      setTimeout(async () => {
-        if (exportRef.current) {
-          const canvas = await html2canvas(exportRef.current, {
-            scale: 2, // Higher scale for better quality
-            backgroundColor: "#111827", // Match the background color
-            logging: false,
-            useCORS: true,
-            allowTaint: true,
-            windowHeight: document.documentElement.offsetHeight,
-            windowWidth: document.documentElement.offsetWidth,
-            height: exportRef.current.scrollHeight,
-            width: exportRef.current.offsetWidth,
-          });
-
-          // Convert canvas to a data URL and trigger download
-          const imageURL = canvas.toDataURL("image/png");
-          const link = document.createElement("a");
-          link.href = imageURL;
-          link.download = `${fullPatchSheet.name.replace(/\s+/g, "-").toLowerCase()}-patch-sheet.png`;
-          link.click();
-
-          // Clean up
-          setCurrentExportPatchSheet(null);
-          setDownloadingId(null);
-          setExportPatchSheetId(null);
-        }
-      }, 100);
-    } catch (error) {
-      console.error("Error downloading patch sheet:", error);
-      alert("Failed to download patch sheet. Please try again.");
-      setDownloadingId(null);
-      setExportPatchSheetId(null);
-    }
-  };
-
-  const handlePrintExport = async (patchSheetId: string) => {
-    try {
-      setDownloadingId(patchSheetId);
-
-      // Close the export modal
-      setShowExportModal(false);
-
-      // Fetch complete patch sheet data if needed
-      let fullPatchSheet = patchSheets.find((p) => p.id === patchSheetId);
-      if (
-        !fullPatchSheet ||
-        !fullPatchSheet.inputs ||
-        !fullPatchSheet.outputs ||
-        !fullPatchSheet.info
-      ) {
-        const { data, error } = await supabase
-          .from("patch_sheets")
-          .select("*")
-          .eq("id", patchSheetId)
-          .single();
-
-        if (error) throw error;
-        fullPatchSheet = data;
+      if (!fullPatchSheet) {
+        throw new Error("Patch sheet not found");
       }
 
       // Set the current patch sheet to be exported
       setCurrentExportPatchSheet(fullPatchSheet);
 
       // Wait for the component to render
-      setTimeout(async () => {
-        if (printExportRef.current) {
-          const canvas = await html2canvas(printExportRef.current, {
-            scale: 2, // Higher scale for better quality
-            backgroundColor: "#ffffff", // White background
-            logging: false,
-            useCORS: true,
-            allowTaint: true,
-            windowHeight: document.documentElement.offsetHeight,
-            windowWidth: document.documentElement.offsetWidth,
-            height: printExportRef.current.scrollHeight,
-            width: printExportRef.current.offsetWidth,
-          });
+      await new Promise(resolve => setTimeout(resolve, 100));
 
-          // Convert canvas to a data URL and trigger download
-          const imageURL = canvas.toDataURL("image/png");
-          const link = document.createElement("a");
-          link.href = imageURL;
-          link.download = `${fullPatchSheet.name.replace(/\s+/g, "-").toLowerCase()}-patch-sheet-print.png`;
-          link.click();
+      const targetRef = exportFormat === 'color' ? exportRef : printExportRef;
+      const backgroundColor = exportFormat === 'color' ? '#111827' : '#ffffff';
+      const fileNameSuffix = exportFormat === 'color' ? 'patch-sheet' : 'patch-sheet-print';
 
-          // Clean up
-          setCurrentExportPatchSheet(null);
-          setDownloadingId(null);
-          setExportPatchSheetId(null);
-        }
-      }, 100);
+      if (targetRef.current) {
+        const canvas = await html2canvas(targetRef.current, {
+          scale: 2,
+          backgroundColor,
+          logging: false,
+          useCORS: true,
+          allowTaint: true,
+          windowHeight: document.documentElement.offsetHeight,
+          windowWidth: document.documentElement.offsetWidth,
+          height: targetRef.current.scrollHeight,
+          width: targetRef.current.offsetWidth,
+        });
+
+        const imgData = canvas.toDataURL("image/png");
+        const pdf = new jsPDF({
+          orientation: canvas.width > canvas.height ? "l" : "p",
+          unit: "px",
+          format: [canvas.width, canvas.height],
+          hotfixes: ["px_scaling"],
+        });
+
+        pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+        pdf.save(`${fullPatchSheet.name.replace(/\s+/g, "-").toLowerCase()}-${fileNameSuffix}.pdf`);
+
+      } else {
+        throw new Error("Export component is not ready.");
+      }
     } catch (error) {
-      console.error("Error exporting print-friendly patch sheet:", error);
-      alert("Failed to export patch sheet. Please try again.");
+      console.error(`Error exporting ${exportFormat} PDF:`, error);
+      alert("Failed to export PDF. Please try again.");
+    } finally {
+      // Clean up
+      setCurrentExportPatchSheet(null);
       setDownloadingId(null);
       setExportPatchSheetId(null);
     }
@@ -748,9 +695,10 @@ const AllPatchSheets = () => {
       <ExportModal
         isOpen={showExportModal}
         onClose={() => setShowExportModal(false)}
-        onExportImage={() => exportPatchSheetId && handleExportDownload(exportPatchSheetId)}
-        onExportPdf={() => exportPatchSheetId && handlePrintExport(exportPatchSheetId)}
+        onExportColor={() => exportPatchSheetId && handlePdfExport(exportPatchSheetId, 'color')}
+        onExportPrintFriendly={() => exportPatchSheetId && handlePdfExport(exportPatchSheetId, 'print')}
         title="Patch Sheet"
+        isExporting={!!downloadingId}
       />
 
       {/* Hidden Export Components */}
