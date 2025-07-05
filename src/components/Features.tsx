@@ -67,7 +67,7 @@ const Features: React.FC = () => {
       icon: <Share2 className="h-6 w-6" />,
       title: "Easy Sharing & Export",
       description:
-        "Generate professional PNGs. Share securely via links with venues, artists, and production teams.",
+        "Generate professional PDFs. Share securely via links with venues, artists, and production teams.",
     },
     {
       icon: <Zap className="h-6 w-6" />,
