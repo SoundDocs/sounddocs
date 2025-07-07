@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import CorporateMicPlotExport from "../components/CorporateMicPlotExport";
 import PrintCorporateMicPlotExport from "../components/PrintCorporateMicPlotExport";
 import ShareModal from "../components/ShareModal";
@@ -257,13 +258,145 @@ const AllCorporateMicPlots = () => {
       if (error) throw error;
       if (!fullMicPlot) throw new Error("Mic plot data not found for export.");
 
-      setCurrentExportMicPlot(fullMicPlot);
-      await new Promise(resolve => setTimeout(resolve, 150)); // Wait for render
-
       if (format === 'color') {
+        setCurrentExportMicPlot(fullMicPlot);
+        await new Promise(resolve => setTimeout(resolve, 150)); // Wait for render
         await exportAsPdf(exportRef, fullMicPlot.name, 'corporate-mic-plot-color', '#111827', 'Inter');
       } else if (format === 'print') {
-        await exportAsPdf(printExportRef, fullMicPlot.name, 'corporate-mic-plot-print', '#ffffff', 'Arial');
+        const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
+        const brandColor = [45, 55, 72]; // A dark slate for headers
+
+        const formatTime = (timeString?: string) => {
+          if (!timeString) return "-";
+          if (/^\d{2}:\d{2}$/.test(timeString)) return timeString;
+          try {
+            const date = new Date(timeString);
+            if (isNaN(date.getTime())) return timeString;
+            return date.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit', hour12: false });
+          } catch (e) {
+            return timeString;
+          }
+        };
+
+        const pageHeader = () => {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(16);
+          doc.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
+          doc.text("SoundDocs", 14, 15);
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(12);
+          doc.text(fullMicPlot.name, doc.internal.pageSize.getWidth() - 14, 15, { align: "right" });
+          doc.setDrawColor(200);
+          doc.line(14, 20, doc.internal.pageSize.getWidth() - 14, 20);
+        };
+
+        const pageFooter = (data: any) => {
+          const pageCount = doc.internal.pages.length;
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const pageHeight = doc.internal.pageSize.getHeight();
+
+          doc.setDrawColor(221, 221, 221);
+          doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
+
+          doc.setFontSize(8);
+          doc.setTextColor(128, 128, 128);
+
+          doc.setFont('helvetica', 'bold');
+          doc.text('SoundDocs', 14, pageHeight - 9);
+          doc.setFont('helvetica', 'normal');
+          doc.text('| Professional Audio Documentation', 32, pageHeight - 9);
+
+          if (pageCount > 2) {
+            doc.text(
+              `Page ${data.pageNumber} of ${pageCount - 1}`,
+              pageWidth / 2,
+              pageHeight - 9,
+              { align: 'center' }
+            );
+          }
+
+          const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
+          doc.text(dateStr, pageWidth - 14, pageHeight - 9, { align: 'right' });
+        };
+
+        const head = [["Photo", "Presenter", "Session", "Mic Type", "Channel", "TX Pack Loc.", "Backup", "Sound Check", "Pres. Type", "Remote", "Notes"]];
+        
+        const body = (fullMicPlot.presenters || []).map((p: any) => [
+          '', // Placeholder for photo. Will be drawn in `didDrawCell`.
+          p.presenter_name || "-",
+          p.session_segment || "-",
+          p.mic_type || "-",
+          p.element_channel_number || "-",
+          p.tx_pack_location || "-",
+          p.backup_element || "-",
+          formatTime(p.sound_check_time),
+          p.presentation_type || "-",
+          p.remote_participation ? "Yes" : "No",
+          p.notes || "-",
+        ]);
+
+        const presenterTitle = [[{ content: 'Presenters', colSpan: 11, styles: { halign: 'left', fontStyle: 'bold', fontSize: 12, fillColor: [255, 255, 255], textColor: brandColor, cellPadding: { top: 4, bottom: 2 } } }]];
+
+        autoTable(doc, {
+          head: presenterTitle.concat(head),
+          body: body,
+          startY: 25,
+          didDrawPage: (data) => { pageHeader(); pageFooter(data); },
+          margin: { top: 22, bottom: 20 },
+          styles: { 
+            cellPadding: 1.5, 
+            fontSize: 7, 
+            overflow: 'linebreak',
+            valign: 'middle',
+            minCellHeight: 18,
+          },
+          headStyles: { 
+            fillColor: brandColor, 
+            textColor: 255, 
+            fontStyle: "bold", 
+            halign: 'center',
+            valign: 'middle',
+          },
+          columnStyles: {
+            0: { cellWidth: 18, halign: 'center' }, // Photo
+            1: { cellWidth: 30 }, // Presenter
+            2: { cellWidth: 30 }, // Session
+            3: { cellWidth: 20 }, // Mic Type
+            4: { cellWidth: 15 }, // Channel
+            5: { cellWidth: 25 }, // TX Pack Loc.
+            6: { cellWidth: 25 }, // Backup
+            7: { cellWidth: 20, halign: 'center' }, // Sound Check
+            8: { cellWidth: 25 }, // Pres. Type
+            9: { cellWidth: 15, halign: 'center' }, // Remote
+            // 10: Notes (auto)
+          },
+          didDrawCell: (data) => {
+            if (data.section === 'body' && data.column.index === 0) {
+              const presenter = (fullMicPlot.presenters || [])[data.row.index];
+              if (presenter && presenter.photo_url && presenter.photo_url.startsWith('data:image/')) {
+                const imgData = presenter.photo_url;
+                const formatMatch = imgData.match(/data:image\/(.*?);/);
+                const format = formatMatch ? formatMatch[1].toUpperCase() : 'PNG';
+
+                // Erase the raw text content that autotable might have drawn
+                doc.setFillColor(255, 255, 255);
+                doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                
+                const imgDim = 16; // Image dimensions in mm
+                const x = data.cell.x + (data.cell.width - imgDim) / 2;
+                const y = data.cell.y + (data.cell.height - imgDim) / 2;
+                try {
+                  doc.addImage(imgData, format, x, y, imgDim, imgDim);
+                } catch (e) {
+                  console.error(`Failed to add image to PDF cell. Format: ${format}`, e);
+                }
+              }
+            }
+          }
+        });
+
+        doc.save(`${fullMicPlot.name.replace(/\s+/g, "-").toLowerCase()}-corporate-mic-plot-print.pdf`);
       }
     } catch (error) {
       console.error("Error preparing for export:", error);

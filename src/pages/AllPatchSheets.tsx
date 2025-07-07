@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import PatchSheetExport from "../components/PatchSheetExport";
 import PrintPatchSheetExport from "../components/PrintPatchSheetExport";
 import ShareModal from "../components/ShareModal";
@@ -333,74 +334,186 @@ const AllPatchSheets = () => {
   };
 
   const handlePdfExport = async (patchSheetId: string, exportFormat: 'color' | 'print') => {
-    try {
-      setDownloadingId(patchSheetId);
-      setShowExportModal(false);
+    setDownloadingId(patchSheetId);
+    setShowExportModal(false);
 
-      // Fetch complete patch sheet data if needed
+    try {
+      // Fetch complete patch sheet data for both export types
       let fullPatchSheet = patchSheets.find((p) => p.id === patchSheetId);
-      if (
-        !fullPatchSheet ||
-        !fullPatchSheet.inputs ||
-        !fullPatchSheet.outputs ||
-        !fullPatchSheet.info
-      ) {
+      if (!fullPatchSheet || !fullPatchSheet.inputs || !fullPatchSheet.outputs || !fullPatchSheet.info) {
         const { data, error } = await supabase
           .from("patch_sheets")
           .select("*")
           .eq("id", patchSheetId)
           .single();
-
         if (error) throw error;
         fullPatchSheet = data;
       }
 
-      if (!fullPatchSheet) {
-        throw new Error("Patch sheet not found");
-      }
+      if (!fullPatchSheet) throw new Error("Patch sheet not found");
 
-      // Set the current patch sheet to be exported
-      setCurrentExportPatchSheet(fullPatchSheet);
+      // --- PRINT-FRIENDLY EXPORT (jspdf-autotable) ---
+      if (exportFormat === 'print') {
+        const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
+        const brandColor = [45, 55, 72]; // A dark slate for headers
 
-      // Wait for the component to render
-      await new Promise(resolve => setTimeout(resolve, 100));
+        // Helper to format connection details for inputs
+        const formatInputDetails = (input: any) => {
+          const details = [];
+          if (["Analog Snake", "Digital Snake"].includes(input.connection)) {
+            details.push(`Snake: ${input.connectionDetails?.snakeType || "-"} #${input.connectionDetails?.inputNumber || "-"}`);
+          }
+          if (["Analog Snake", "Console Direct"].includes(input.connection)) {
+            details.push(`Console: ${input.connectionDetails?.consoleType || "-"} #${input.connectionDetails?.consoleInputNumber || "-"}`);
+          }
+          if (["Digital Snake", "Digital Network"].includes(input.connection)) {
+            details.push(`Network: ${input.connectionDetails?.networkType || "-"} Patch #${input.connectionDetails?.networkPatch || "-"}`);
+          }
+          return details.join("\n");
+        };
 
-      const targetRef = exportFormat === 'color' ? exportRef : printExportRef;
-      const backgroundColor = exportFormat === 'color' ? '#111827' : '#ffffff';
-      const fileNameSuffix = exportFormat === 'color' ? 'patch-sheet' : 'patch-sheet-print';
+        // Helper to format source details for outputs
+        const formatOutputDetails = (output: any) => {
+          const details = [];
+          if (["Analog Snake", "Digital Snake"].includes(output.sourceType)) {
+            details.push(`Snake: ${output.sourceDetails?.snakeType || "-"} #${output.sourceDetails?.outputNumber || "-"}`);
+          }
+          if (["Console Output", "Analog Snake"].includes(output.sourceType)) {
+            details.push(`Console: ${output.sourceDetails?.consoleType || "-"} #${output.sourceDetails?.consoleOutputNumber || "-"}`);
+          }
+          if (["Digital Snake", "Digital Network"].includes(output.sourceType)) {
+            details.push(`Network: ${output.sourceDetails?.networkType || "-"} Patch #${output.sourceDetails?.networkPatch || "-"}`);
+          }
+          return details.join("\n");
+        };
 
-      if (targetRef.current) {
-        const canvas = await html2canvas(targetRef.current, {
-          scale: 2,
-          backgroundColor,
-          logging: false,
-          useCORS: true,
-          allowTaint: true,
-          windowHeight: document.documentElement.offsetHeight,
-          windowWidth: document.documentElement.offsetWidth,
-          height: targetRef.current.scrollHeight,
-          width: targetRef.current.offsetWidth,
+        const pageHeader = () => {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(16);
+          doc.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
+          doc.text("SoundDocs", 14, 15);
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(12);
+          doc.text(fullPatchSheet.name, doc.internal.pageSize.getWidth() - 14, 15, { align: "right" });
+          doc.setDrawColor(200);
+          doc.line(14, 20, doc.internal.pageSize.getWidth() - 14, 20);
+        };
+
+        const pageFooter = (data: any) => {
+          const pageCount = doc.internal.pages.length;
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const pageHeight = doc.internal.pageSize.getHeight();
+
+          // Footer line
+          doc.setDrawColor(221, 221, 221); // #ddd
+          doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
+
+          doc.setFontSize(8);
+          doc.setTextColor(128, 128, 128); // #808080
+
+          // Left side: Branding
+          doc.setFont('helvetica', 'bold');
+          doc.text('SoundDocs', 14, pageHeight - 9);
+          doc.setFont('helvetica', 'normal');
+          doc.text('| Professional Audio Documentation', 32, pageHeight - 9);
+
+          // Center: Page number
+          if (pageCount > 2) { // jspdf-autotable adds a blank page at the end
+              doc.text(
+                  `Page ${data.pageNumber} of ${pageCount - 1}`,
+                  pageWidth / 2,
+                  pageHeight - 9,
+                  { align: 'center' }
+              );
+          }
+
+          // Right side: Date
+          const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
+          doc.text(dateStr, pageWidth - 14, pageHeight - 9, { align: 'right' });
+        };
+
+        // --- Input Table ---
+        const inputTitle = [[{ content: 'Inputs', colSpan: 8, styles: { halign: 'left', fontStyle: 'bold', fontSize: 12, fillColor: [255, 255, 255], textColor: brandColor, cellPadding: { top: 4, bottom: 2 } } }]];
+        const inputHead = [["Ch", "Name", "Type", "Device", "Connection", "Details", "48V", "Notes"]];
+        const inputBody = (fullPatchSheet.inputs || []).map((input: any) => [
+          input.channelNumber,
+          input.name || "",
+          input.type || "",
+          input.device || "",
+          input.connection || "",
+          formatInputDetails(input),
+          input.phantom ? "Yes" : "No",
+          input.notes || "",
+        ]);
+
+        autoTable(doc, {
+          head: inputTitle.concat(inputHead),
+          body: inputBody,
+          startY: 25,
+          didDrawPage: (data) => { pageHeader(); pageFooter(data); },
+          margin: { top: 22, bottom: 20 },
+          styles: { cellPadding: 1.5, fontSize: 7, overflow: 'linebreak' },
+          headStyles: { fillColor: brandColor, textColor: 255, fontStyle: "bold", halign: 'center' },
+          columnStyles: { 0: { cellWidth: 8 }, 6: { cellWidth: 8, halign: 'center' } },
         });
 
-        const imgData = canvas.toDataURL("image/png");
-        const pdf = new jsPDF({
-          orientation: canvas.width > canvas.height ? "l" : "p",
-          unit: "px",
-          format: [canvas.width, canvas.height],
-          hotfixes: ["px_scaling"],
+        // --- Output Table ---
+        const outputTitle = [[{ content: 'Outputs', colSpan: 6, styles: { halign: 'left', fontStyle: 'bold', fontSize: 12, fillColor: [255, 255, 255], textColor: brandColor, cellPadding: { top: 4, bottom: 2 } } }]];
+        const outputHead = [["Ch", "Name", "Source", "Destination", "Details", "Notes"]];
+        const outputBody = (fullPatchSheet.outputs || []).map((output: any) => [
+          output.channelNumber,
+          output.name || "",
+          output.sourceType || "",
+          `${output.destinationType || ""}\n${output.destinationGear || ""}`,
+          formatOutputDetails(output),
+          output.notes || "",
+        ]);
+
+        autoTable(doc, {
+          head: outputTitle.concat(outputHead),
+          body: outputBody,
+          didDrawPage: (data) => { pageHeader(); pageFooter(data); },
+          margin: { top: 22, bottom: 20 },
+          styles: { cellPadding: 1.5, fontSize: 7, overflow: 'linebreak' },
+          headStyles: { fillColor: brandColor, textColor: 255, fontStyle: "bold", halign: 'center' },
+          columnStyles: { 0: { cellWidth: 8 } },
         });
 
-        pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
-        pdf.save(`${fullPatchSheet.name.replace(/\s+/g, "-").toLowerCase()}-${fileNameSuffix}.pdf`);
+        doc.save(`${fullPatchSheet.name.replace(/\s+/g, "-").toLowerCase()}-patch-sheet-print.pdf`);
 
+      // --- COLOR EXPORT (html2canvas) ---
       } else {
-        throw new Error("Export component is not ready.");
+        setCurrentExportPatchSheet(fullPatchSheet);
+        await new Promise(resolve => setTimeout(resolve, 100)); // Wait for render
+
+        const targetRef = exportRef;
+        if (targetRef.current) {
+          const canvas = await html2canvas(targetRef.current, {
+            scale: 2,
+            backgroundColor: '#111827',
+            useCORS: true,
+            allowTaint: true,
+          });
+
+          const imgData = canvas.toDataURL("image/png");
+          const pdf = new jsPDF({
+            orientation: canvas.width > canvas.height ? "l" : "p",
+            unit: "px",
+            format: [canvas.width, canvas.height],
+            hotfixes: ["px_scaling"],
+          });
+
+          pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+          pdf.save(`${fullPatchSheet.name.replace(/\s+/g, "-").toLowerCase()}-patch-sheet.pdf`);
+        } else {
+          throw new Error("Export component is not ready.");
+        }
       }
     } catch (error) {
-      console.error(`Error exporting ${exportFormat} PDF:`, error);
+      console.error(`Error exporting PDF:`, error);
       alert("Failed to export PDF. Please try again.");
     } finally {
-      // Clean up
       setCurrentExportPatchSheet(null);
       setDownloadingId(null);
       setExportPatchSheetId(null);
@@ -701,7 +814,7 @@ const AllPatchSheets = () => {
         isExporting={!!downloadingId}
       />
 
-      {/* Hidden Export Components */}
+      {/* Hidden Export Components for Color PDF */}
       {currentExportPatchSheet && (
         <>
           <PatchSheetExport ref={exportRef} patchSheet={currentExportPatchSheet} />

@@ -22,6 +22,7 @@ import React, { useEffect, useState, useRef } from "react";
     } from "lucide-react";
     import html2canvas from "html2canvas";
     import jsPDF from "jspdf";
+    import autoTable from "jspdf-autotable";
     import PatchSheetExport from "../components/PatchSheetExport";
     import StagePlotExport from "../components/StagePlotExport";
     import PrintPatchSheetExport from "../components/PrintPatchSheetExport";
@@ -364,39 +365,113 @@ import React, { useEffect, useState, useRef } from "react";
             const { data: fullPatchSheet, error } = await supabase.from("patch_sheets").select("*").eq("id", patchSheetId).single();
             if (error || !fullPatchSheet) throw error || new Error("Patch sheet not found");
             
-            setCurrentExportPatchSheet(fullPatchSheet);
-            await new Promise(resolve => setTimeout(resolve, 100));
+            if (exportFormat === 'print') {
+              const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
+              const brandColor = [45, 55, 72]; // A dark slate for headers
+      
+              const formatInputDetails = (input: any) => {
+                const details = [];
+                if (["Analog Snake", "Digital Snake"].includes(input.connection)) {
+                  details.push(`Snake: ${input.connectionDetails?.snakeType || "-"} #${input.connectionDetails?.inputNumber || "-"}`);
+                }
+                if (["Analog Snake", "Console Direct"].includes(input.connection)) {
+                  details.push(`Console: ${input.connectionDetails?.consoleType || "-"} #${input.connectionDetails?.consoleInputNumber || "-"}`);
+                }
+                if (["Digital Snake", "Digital Network"].includes(input.connection)) {
+                  details.push(`Network: ${input.connectionDetails?.networkType || "-"} Patch #${input.connectionDetails?.networkPatch || "-"}`);
+                }
+                return details.join("\n");
+              };
+      
+              const formatOutputDetails = (output: any) => {
+                const details = [];
+                if (["Analog Snake", "Digital Snake"].includes(output.sourceType)) {
+                  details.push(`Snake: ${output.sourceDetails?.snakeType || "-"} #${output.sourceDetails?.outputNumber || "-"}`);
+                }
+                if (["Console Output", "Analog Snake"].includes(output.sourceType)) {
+                  details.push(`Console: ${output.sourceDetails?.consoleType || "-"} #${output.sourceDetails?.consoleOutputNumber || "-"}`);
+                }
+                if (["Digital Snake", "Digital Network"].includes(output.sourceType)) {
+                  details.push(`Network: ${output.sourceDetails?.networkType || "-"} Patch #${output.sourceDetails?.networkPatch || "-"}`);
+                }
+                return details.join("\n");
+              };
+      
+              const pageHeader = () => {
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(16);
+                doc.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
+                doc.text("SoundDocs", 14, 15);
+      
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(12);
+                doc.text(fullPatchSheet.name, doc.internal.pageSize.getWidth() - 14, 15, { align: "right" });
+                doc.setDrawColor(200);
+                doc.line(14, 20, doc.internal.pageSize.getWidth() - 14, 20);
+              };
+      
+              const pageFooter = (data: any) => {
+                const pageCount = doc.internal.pages.length;
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+      
+                doc.setDrawColor(221, 221, 221);
+                doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
+      
+                doc.setFontSize(8);
+                doc.setTextColor(128, 128, 128);
+      
+                doc.setFont('helvetica', 'bold');
+                doc.text('SoundDocs', 14, pageHeight - 9);
+                doc.setFont('helvetica', 'normal');
+                doc.text('| Professional Audio Documentation', 32, pageHeight - 9);
+      
+                if (pageCount > 2) {
+                    doc.text(`Page ${data.pageNumber} of ${pageCount - 1}`, pageWidth / 2, pageHeight - 9, { align: 'center' });
+                }
+      
+                const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
+                doc.text(dateStr, pageWidth - 14, pageHeight - 9, { align: 'right' });
+              };
+      
+              const inputTitle = [[{ content: 'Inputs', colSpan: 8, styles: { halign: 'left', fontStyle: 'bold', fontSize: 12, fillColor: [255, 255, 255], textColor: brandColor, cellPadding: { top: 4, bottom: 2 } } }]];
+              const inputHead = [["Ch", "Name", "Type", "Device", "Connection", "Details", "48V", "Notes"]];
+              const inputBody = (fullPatchSheet.inputs || []).map((input: any) => [
+                input.channelNumber, input.name || "", input.type || "", input.device || "", input.connection || "",
+                formatInputDetails(input), input.phantom ? "Yes" : "No", input.notes || "",
+              ]);
+      
+              autoTable(doc, {
+                head: inputTitle.concat(inputHead), body: inputBody, startY: 25,
+                didDrawPage: (data) => { pageHeader(); pageFooter(data); },
+                margin: { top: 22, bottom: 20 }, styles: { cellPadding: 1.5, fontSize: 7, overflow: 'linebreak' },
+                headStyles: { fillColor: brandColor, textColor: 255, fontStyle: "bold", halign: 'center' },
+                columnStyles: { 0: { cellWidth: 8 }, 6: { cellWidth: 8, halign: 'center' } },
+              });
+      
+              const outputTitle = [[{ content: 'Outputs', colSpan: 6, styles: { halign: 'left', fontStyle: 'bold', fontSize: 12, fillColor: [255, 255, 255], textColor: brandColor, cellPadding: { top: 4, bottom: 2 } } }]];
+              const outputHead = [["Ch", "Name", "Source", "Destination", "Details", "Notes"]];
+              const outputBody = (fullPatchSheet.outputs || []).map((output: any) => [
+                output.channelNumber, output.name || "", output.sourceType || "",
+                `${output.destinationType || ""}\n${output.destinationGear || ""}`,
+                formatOutputDetails(output), output.notes || "",
+              ]);
+      
+              autoTable(doc, {
+                head: outputTitle.concat(outputHead), body: outputBody,
+                didDrawPage: (data) => { pageHeader(); pageFooter(data); },
+                margin: { top: 22, bottom: 20 }, styles: { cellPadding: 1.5, fontSize: 7, overflow: 'linebreak' },
+                headStyles: { fillColor: brandColor, textColor: 255, fontStyle: "bold", halign: 'center' },
+                columnStyles: { 0: { cellWidth: 8 } },
+              });
+      
+              doc.save(`${fullPatchSheet.name.replace(/\s+/g, "-").toLowerCase()}-patch-sheet-print.pdf`);
 
-            const targetRef = exportFormat === 'color' ? patchSheetExportRef : printPatchSheetExportRef;
-            const backgroundColor = exportFormat === 'color' ? '#111827' : '#ffffff';
-            const fileNameSuffix = exportFormat === 'color' ? 'patch-sheet' : 'patch-sheet-print';
-
-            if (!targetRef.current) {
-                throw new Error("Export component ref is not available.");
+            } else { // 'color' export
+              setCurrentExportPatchSheet(fullPatchSheet);
+              await new Promise(resolve => setTimeout(resolve, 100));
+              await exportAsPdf(patchSheetExportRef, fullPatchSheet.name, "patch-sheet", "#111827", "Inter");
             }
-
-            const canvas = await html2canvas(targetRef.current, {
-                scale: 2,
-                backgroundColor,
-                useCORS: true,
-                allowTaint: true,
-                windowHeight: document.documentElement.offsetHeight,
-                windowWidth: document.documentElement.offsetWidth,
-                height: targetRef.current.scrollHeight,
-                width: targetRef.current.offsetWidth,
-            });
-
-            const imgData = canvas.toDataURL("image/png");
-            const pdf = new jsPDF({
-                orientation: canvas.width > canvas.height ? "l" : "p",
-                unit: "px",
-                format: [canvas.width, canvas.height],
-                hotfixes: ["px_scaling"],
-            });
-
-            pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
-            pdf.save(`${fullPatchSheet.name.replace(/\s+/g, "-").toLowerCase()}-${fileNameSuffix}.pdf`);
-
         } catch (err) {
             console.error("Error preparing patch sheet export:", err);
             setSupabaseError("Failed to prepare patch sheet for export.");
@@ -422,32 +497,9 @@ import React, { useEffect, useState, useRef } from "react";
             const targetRef = exportFormat === 'color' ? stagePlotExportRef : printStagePlotExportRef;
             const backgroundColor = exportFormat === 'color' ? '#111827' : '#ffffff';
             const fileNameSuffix = exportFormat === 'color' ? 'stage-plot' : 'stage-plot-print';
+            const font = exportFormat === 'color' ? 'Inter' : 'Arial';
 
-            if (!targetRef.current) {
-                throw new Error("Export component ref is not available.");
-            }
-
-            const canvas = await html2canvas(targetRef.current, {
-                scale: 2,
-                backgroundColor,
-                useCORS: true,
-                allowTaint: true,
-                windowHeight: document.documentElement.offsetHeight,
-                windowWidth: document.documentElement.offsetWidth,
-                height: targetRef.current.scrollHeight,
-                width: targetRef.current.offsetWidth,
-            });
-
-            const imgData = canvas.toDataURL("image/png");
-            const pdf = new jsPDF({
-                orientation: canvas.width > canvas.height ? "l" : "p",
-                unit: "px",
-                format: [canvas.width, canvas.height],
-                hotfixes: ["px_scaling"],
-            });
-
-            pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
-            pdf.save(`${fullStagePlot.name.replace(/\s+/g, "-").toLowerCase()}-${fileNameSuffix}.pdf`);
+            await exportAsPdf(targetRef, fullStagePlot.name, fileNameSuffix, backgroundColor, font);
 
         } catch (err) {
             console.error("Error preparing stage plot export:", err);
@@ -465,30 +517,122 @@ import React, { useEffect, useState, useRef } from "react";
 
         try {
           if (actualPlotType === 'corporate') {
-            const { data, error } = await supabase.from("corporate_mic_plots").select("*").eq("id", micPlotId).single();
-            if (error || !data) throw error || new Error("Corporate mic plot not found");
+            const { data: fullMicPlot, error } = await supabase.from("corporate_mic_plots").select("*").eq("id", micPlotId).single();
+            if (error || !fullMicPlot) throw error || new Error("Corporate mic plot not found");
             
-            const corporatePlotData = data as CorporateMicPlotFullData;
-            setCurrentExportingMicPlotData(corporatePlotData);
-            await new Promise(resolve => setTimeout(resolve, 150)); 
-
             if (exportFormat === 'image') {
-              await exportAsPdf(corporateMicPlotExportRef, corporatePlotData.name, "corporate-mic-plot", "#111827", "Inter");
-            } else { 
-              await exportAsPdf(printCorporateMicPlotExportRef, corporatePlotData.name, "corporate-mic-plot-print", "#ffffff", "Arial");
+              setCurrentExportingMicPlotData(fullMicPlot as CorporateMicPlotFullData);
+              await new Promise(resolve => setTimeout(resolve, 150)); 
+              await exportAsPdf(corporateMicPlotExportRef, fullMicPlot.name, "corporate-mic-plot", "#111827", "Inter");
+            } else { // print
+              const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
+              const brandColor = [45, 55, 72];
+              const formatTime = (timeString?: string) => {
+                if (!timeString) return "-";
+                if (/^\d{2}:\d{2}$/.test(timeString)) return timeString;
+                try {
+                  const date = new Date(timeString);
+                  if (isNaN(date.getTime())) return timeString;
+                  return date.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit', hour12: false });
+                } catch (e) { return timeString; }
+              };
+              const pageHeader = () => {
+                doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
+                doc.text("SoundDocs", 14, 15);
+                doc.setFont("helvetica", "normal"); doc.setFontSize(12);
+                doc.text(fullMicPlot.name, doc.internal.pageSize.getWidth() - 14, 15, { align: "right" });
+                doc.setDrawColor(200); doc.line(14, 20, doc.internal.pageSize.getWidth() - 14, 20);
+              };
+              const pageFooter = (data: any) => {
+                const pageCount = doc.internal.pages.length; const pageWidth = doc.internal.pageSize.getWidth(); const pageHeight = doc.internal.pageSize.getHeight();
+                doc.setDrawColor(221, 221, 221); doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
+                doc.setFontSize(8); doc.setTextColor(128, 128, 128);
+                doc.setFont('helvetica', 'bold'); doc.text('SoundDocs', 14, pageHeight - 9);
+                doc.setFont('helvetica', 'normal'); doc.text('| Professional Audio Documentation', 32, pageHeight - 9);
+                if (pageCount > 2) { doc.text(`Page ${data.pageNumber} of ${pageCount - 1}`, pageWidth / 2, pageHeight - 9, { align: 'center' }); }
+                const dateStr = `Generated on: ${new Date().toLocaleDateString()}`; doc.text(dateStr, pageWidth - 14, pageHeight - 9, { align: 'right' });
+              };
+              const head = [["Photo", "Presenter", "Session", "Mic Type", "Channel", "TX Pack Loc.", "Backup", "Sound Check", "Pres. Type", "Remote", "Notes"]];
+              const body = (fullMicPlot.presenters || []).map((p: any) => [
+                '', p.presenter_name || "-", p.session_segment || "-", p.mic_type || "-", p.element_channel_number || "-",
+                p.tx_pack_location || "-", p.backup_element || "-", formatTime(p.sound_check_time), p.presentation_type || "-",
+                p.remote_participation ? "Yes" : "No", p.notes || "-",
+              ]);
+              const presenterTitle = [[{ content: 'Presenters', colSpan: 11, styles: { halign: 'left', fontStyle: 'bold', fontSize: 12, fillColor: [255, 255, 255], textColor: brandColor, cellPadding: { top: 4, bottom: 2 } } }]];
+              autoTable(doc, {
+                head: presenterTitle.concat(head), body: body, startY: 25,
+                didDrawPage: (data) => { pageHeader(); pageFooter(data); },
+                margin: { top: 22, bottom: 20 }, styles: { cellPadding: 1.5, fontSize: 7, overflow: 'linebreak', valign: 'middle', minCellHeight: 18 },
+                headStyles: { fillColor: brandColor, textColor: 255, fontStyle: "bold", halign: 'center', valign: 'middle' },
+                columnStyles: { 0: { cellWidth: 18, halign: 'center' }, 1: { cellWidth: 30 }, 2: { cellWidth: 30 }, 3: { cellWidth: 20 }, 4: { cellWidth: 15 }, 5: { cellWidth: 25 }, 6: { cellWidth: 25 }, 7: { cellWidth: 20, halign: 'center' }, 8: { cellWidth: 25 }, 9: { cellWidth: 15, halign: 'center' } },
+                didDrawCell: (data) => {
+                  if (data.section === 'body' && data.column.index === 0) {
+                    const presenter = (fullMicPlot.presenters || [])[data.row.index];
+                    if (presenter && presenter.photo_url && presenter.photo_url.startsWith('data:image/')) {
+                      const imgData = presenter.photo_url; const formatMatch = imgData.match(/data:image\/(.*?);/); const format = formatMatch ? formatMatch[1].toUpperCase() : 'PNG';
+                      doc.setFillColor(255, 255, 255); doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                      const imgDim = 16; const x = data.cell.x + (data.cell.width - imgDim) / 2; const y = data.cell.y + (data.cell.height - imgDim) / 2;
+                      try { doc.addImage(imgData, format, x, y, imgDim, imgDim); } catch (e) { console.error(`Failed to add image to PDF cell. Format: ${format}`, e); }
+                    }
+                  }
+                }
+              });
+              doc.save(`${fullMicPlot.name.replace(/\s+/g, "-").toLowerCase()}-corporate-mic-plot-print.pdf`);
             }
           } else if (actualPlotType === 'theater') {
-            const { data, error } = await supabase.from("theater_mic_plots").select("*").eq("id", micPlotId).single();
-            if (error || !data) throw error || new Error("Theater mic plot not found");
-
-            const theaterPlotData = data as TheaterMicPlotFullData;
-            setCurrentExportingMicPlotData(theaterPlotData);
-            await new Promise(resolve => setTimeout(resolve, 150));
+            const { data: fullMicPlot, error } = await supabase.from("theater_mic_plots").select("*").eq("id", micPlotId).single();
+            if (error || !fullMicPlot) throw error || new Error("Theater mic plot not found");
 
             if (exportFormat === 'image') {
-              await exportAsPdf(theaterMicPlotExportRef, theaterPlotData.name, "theater-mic-plot", "#111827", "Inter");
-            } else {
-              await exportAsPdf(printTheaterMicPlotExportRef, theaterPlotData.name, "theater-mic-plot-print", "#ffffff", "Arial");
+              setCurrentExportingMicPlotData(fullMicPlot as TheaterMicPlotFullData);
+              await new Promise(resolve => setTimeout(resolve, 150));
+              await exportAsPdf(theaterMicPlotExportRef, fullMicPlot.name, "theater-mic-plot", "#111827", "Inter");
+            } else { // print
+              const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
+              const brandColor = [45, 55, 72];
+              const pageHeader = () => {
+                doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
+                doc.text("SoundDocs", 14, 15);
+                doc.setFont("helvetica", "normal"); doc.setFontSize(12);
+                doc.text(fullMicPlot.name, doc.internal.pageSize.getWidth() - 14, 15, { align: "right" });
+                doc.setDrawColor(200); doc.line(14, 20, doc.internal.pageSize.getWidth() - 14, 20);
+              };
+              const pageFooter = (data: any) => {
+                const pageCount = doc.internal.pages.length; const pageWidth = doc.internal.pageSize.getWidth(); const pageHeight = doc.internal.pageSize.getHeight();
+                doc.setDrawColor(221, 221, 221); doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
+                doc.setFontSize(8); doc.setTextColor(128, 128, 128);
+                doc.setFont('helvetica', 'bold'); doc.text('SoundDocs', 14, pageHeight - 9);
+                doc.setFont('helvetica', 'normal'); doc.text('| Professional Audio Documentation', 32, pageHeight - 9);
+                if (pageCount > 2) { doc.text(`Page ${data.pageNumber} of ${pageCount - 1}`, pageWidth / 2, pageHeight - 9, { align: 'center' }); }
+                const dateStr = `Generated on: ${new Date().toLocaleDateString()}`; doc.text(dateStr, pageWidth - 14, pageHeight - 9, { align: 'right' });
+              };
+              const head = [["Photo", "Actor", "Character(s)", "Channel", "Mic Location", "TX Location", "Backup Mic", "Scenes", "Notes"]];
+              const body = (fullMicPlot.actors || []).map((actor: ActorEntry) => {
+                const notes = [actor.costume_notes, actor.wig_hair_notes].filter(Boolean).join(' | ');
+                return ['', actor.actor_name || "-", actor.character_names || "-", actor.element_channel_number || "-", actor.element_location || "-",
+                  actor.transmitter_location || "-", actor.backup_element || "-", actor.scene_numbers || "-", notes || "-",
+                ];
+              });
+              const actorsTitle = [[{ content: 'Actors & Mics', colSpan: 9, styles: { halign: 'left', fontStyle: 'bold', fontSize: 12, fillColor: [255, 255, 255], textColor: brandColor, cellPadding: { top: 4, bottom: 2 } } }]];
+              autoTable(doc, {
+                head: actorsTitle.concat(head), body: body, startY: 25,
+                didDrawPage: (data) => { pageHeader(); pageFooter(data); },
+                margin: { top: 22, bottom: 20 }, styles: { cellPadding: 1.5, fontSize: 8, overflow: 'linebreak', valign: 'middle', minCellHeight: 18 },
+                headStyles: { fillColor: brandColor, textColor: 255, fontStyle: "bold", halign: 'center', valign: 'middle' },
+                columnStyles: { 0: { cellWidth: 18, halign: 'center' }, 1: { cellWidth: 35 }, 2: { cellWidth: 35 }, 3: { cellWidth: 15, halign: 'center' }, 4: { cellWidth: 30 }, 5: { cellWidth: 30 }, 6: { cellWidth: 30 }, 7: { cellWidth: 20 } },
+                didDrawCell: (data) => {
+                  if (data.section === 'body' && data.column.index === 0) {
+                    const actor = (fullMicPlot.actors || [])[data.row.index];
+                    if (actor && actor.photo_url && actor.photo_url.startsWith('data:image/')) {
+                      const imgData = actor.photo_url; const formatMatch = imgData.match(/data:image\/(.*?);/); const format = formatMatch ? formatMatch[1].toUpperCase() : 'PNG';
+                      doc.setFillColor(255, 255, 255); doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                      const imgDim = 16; const x = data.cell.x + (data.cell.width - imgDim) / 2; const y = data.cell.y + (data.cell.height - imgDim) / 2;
+                      try { doc.addImage(imgData, format, x, y, imgDim, imgDim); } catch (e) { console.error(`Failed to add image to PDF cell. Format: ${format}`, e); }
+                    }
+                  }
+                }
+              });
+              doc.save(`${fullMicPlot.name.replace(/\s+/g, "-").toLowerCase()}-theater-mic-plot-print.pdf`);
             }
           }
         } catch (err) {
