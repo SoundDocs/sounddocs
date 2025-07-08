@@ -22,6 +22,7 @@ import React, { useEffect, useState, useRef } from "react";
     } from "lucide-react";
     import html2canvas from "html2canvas";
     import jsPDF from "jspdf";
+    import autoTable from "jspdf-autotable";
     import ShareModal from "../components/ShareModal";
     import ExportModal from "../components/ExportModal";
     import TheaterMicPlotExport from "../components/theater-mic-plot/TheaterMicPlotExport";
@@ -272,13 +273,131 @@ import React, { useEffect, useState, useRef } from "react";
           if (error) throw error;
           if (!fullMicPlot) throw new Error("Mic plot data not found for export.");
     
-          setCurrentExportMicPlot(fullMicPlot);
-          await new Promise(resolve => setTimeout(resolve, 150)); // Wait for render
-    
           if (format === 'color') {
+            setCurrentExportMicPlot(fullMicPlot);
+            await new Promise(resolve => setTimeout(resolve, 150)); // Wait for render
             await exportAsPdf(exportRef, fullMicPlot.name, 'theater-mic-plot-color', '#111827', 'Inter');
           } else if (format === 'print') {
-            await exportAsPdf(printExportRef, fullMicPlot.name, 'theater-mic-plot-print', '#ffffff', 'Arial');
+            const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
+            const brandColor = [45, 55, 72]; // A dark slate for headers
+
+            const pageHeader = () => {
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(16);
+              doc.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
+              doc.text("SoundDocs", 14, 15);
+
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(12);
+              doc.text(fullMicPlot.name, doc.internal.pageSize.getWidth() - 14, 15, { align: "right" });
+              doc.setDrawColor(200);
+              doc.line(14, 20, doc.internal.pageSize.getWidth() - 14, 20);
+            };
+
+            const pageFooter = (data: any) => {
+              const pageCount = doc.internal.pages.length;
+              const pageWidth = doc.internal.pageSize.getWidth();
+              const pageHeight = doc.internal.pageSize.getHeight();
+
+              doc.setDrawColor(221, 221, 221);
+              doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
+
+              doc.setFontSize(8);
+              doc.setTextColor(128, 128, 128);
+
+              doc.setFont('helvetica', 'bold');
+              doc.text('SoundDocs', 14, pageHeight - 9);
+              doc.setFont('helvetica', 'normal');
+              doc.text('| Professional Audio Documentation', 32, pageHeight - 9);
+
+              if (pageCount > 2) {
+                doc.text(
+                  `Page ${data.pageNumber} of ${pageCount - 1}`,
+                  pageWidth / 2,
+                  pageHeight - 9,
+                  { align: 'center' }
+                );
+              }
+
+              const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
+              doc.text(dateStr, pageWidth - 14, pageHeight - 9, { align: 'right' });
+            };
+
+            const head = [["Photo", "Actor", "Character(s)", "Channel", "Mic Location", "TX Location", "Backup Mic", "Scenes", "Notes"]];
+            
+            const body = (fullMicPlot.actors || []).map((actor: ActorEntry) => {
+              const notes = [actor.costume_notes, actor.wig_hair_notes].filter(Boolean).join(' | ');
+              return [
+                '', // Placeholder for photo. Will be drawn in `didDrawCell`.
+                actor.actor_name || "-",
+                actor.character_names || "-",
+                actor.element_channel_number || "-",
+                actor.element_location || "-",
+                actor.transmitter_location || "-",
+                actor.backup_element || "-",
+                actor.scene_numbers || "-",
+                notes || "-",
+              ];
+            });
+
+            const actorsTitle = [[{ content: 'Actors & Mics', colSpan: 9, styles: { halign: 'left', fontStyle: 'bold', fontSize: 12, fillColor: [255, 255, 255], textColor: brandColor, cellPadding: { top: 4, bottom: 2 } } }]];
+
+            autoTable(doc, {
+              head: actorsTitle.concat(head),
+              body: body,
+              startY: 25,
+              didDrawPage: (data) => { pageHeader(); pageFooter(data); },
+              margin: { top: 22, bottom: 20 },
+              styles: { 
+                cellPadding: 1.5, 
+                fontSize: 8, 
+                overflow: 'linebreak',
+                valign: 'middle',
+                minCellHeight: 18,
+              },
+              headStyles: { 
+                fillColor: brandColor, 
+                textColor: 255, 
+                fontStyle: "bold", 
+                halign: 'center',
+                valign: 'middle',
+              },
+              columnStyles: {
+                0: { cellWidth: 18, halign: 'center' }, // Photo
+                1: { cellWidth: 35 }, // Actor
+                2: { cellWidth: 35 }, // Character(s)
+                3: { cellWidth: 15, halign: 'center' }, // Channel
+                4: { cellWidth: 30 }, // Mic Location
+                5: { cellWidth: 30 }, // TX Location
+                6: { cellWidth: 30 }, // Backup Mic
+                7: { cellWidth: 20 }, // Scenes
+                // 8: Notes (auto)
+              },
+              didDrawCell: (data) => {
+                if (data.section === 'body' && data.column.index === 0) {
+                  const actor = (fullMicPlot.actors || [])[data.row.index];
+                  if (actor && actor.photo_url && actor.photo_url.startsWith('data:image/')) {
+                    const imgData = actor.photo_url;
+                    const formatMatch = imgData.match(/data:image\/(.*?);/);
+                    const format = formatMatch ? formatMatch[1].toUpperCase() : 'PNG';
+
+                    doc.setFillColor(255, 255, 255);
+                    doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                    
+                    const imgDim = 16;
+                    const x = data.cell.x + (data.cell.width - imgDim) / 2;
+                    const y = data.cell.y + (data.cell.height - imgDim) / 2;
+                    try {
+                      doc.addImage(imgData, format, x, y, imgDim, imgDim);
+                    } catch (e) {
+                      console.error(`Failed to add image to PDF cell. Format: ${format}`, e);
+                    }
+                  }
+                }
+              }
+            });
+
+            doc.save(`${fullMicPlot.name.replace(/\s+/g, "-").toLowerCase()}-theater-mic-plot-print.pdf`);
           }
         } catch (error) {
           console.error("Error preparing for export:", error);
