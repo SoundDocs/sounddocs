@@ -9,6 +9,7 @@ import ExportModal from "../components/ExportModal";
 import ShareModal from "../components/ShareModal";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import "jspdf-autotable";
 import { RunOfShowItem, CustomColumnDefinition } from "./RunOfShowEditor";
 import {
   PlusCircle,
@@ -47,6 +48,20 @@ export interface FullRunOfShowData {
 
 type SortField = "name" | "created_at" | "last_edited";
 type SortDirection = "asc" | "desc";
+
+const isColorLight = (hexColor?: string): boolean => {
+  if (!hexColor) return true;
+  try {
+    const color = hexColor.startsWith("#") ? hexColor.substring(1) : hexColor;
+    const r = parseInt(color.substring(0, 2), 16);
+    const g = parseInt(color.substring(2, 4), 16);
+    const b = parseInt(color.substring(4, 6), 16);
+    const hsp = Math.sqrt(0.299 * (r * r) + 0.587 * (g * g) + 0.114 * (b * b));
+    return hsp > 127.5;
+  } catch (e) {
+    return true;
+  }
+};
 
 const AllRunOfShows: React.FC = () => {
   const navigate = useNavigate();
@@ -309,17 +324,118 @@ const AllRunOfShows: React.FC = () => {
   ) => {
     if (!runOfShowIdToExport) return;
     setIsExporting(true);
+    setShowExportModal(false);
+
     const fullData = await fetchFullRunOfShowDataForExport(runOfShowIdToExport);
     if (!fullData) {
       setIsExporting(false);
       return;
     }
-    setCurrentExportRunOfShowData(fullData);
-    await new Promise(resolve => setTimeout(resolve, 50));
+    
     if (exportType === 'color') {
+      setCurrentExportRunOfShowData(fullData);
+      await new Promise(resolve => setTimeout(resolve, 50));
       await exportAsPdf(exportRef, fullData.name, "run-of-show-color", '#0f172a', 'Inter');
     } else if (exportType === 'print') {
-      await exportAsPdf(printExportRef, fullData.name, "run-of-show-print", '#ffffff', 'Arial');
+      try {
+        const pdf = new jsPDF("l", "pt", "letter"); // Landscape orientation
+
+        const addPageHeader = (doc: jsPDF, title: string) => {
+            doc.setFontSize(24);
+            doc.setFont("helvetica", "bold");
+            doc.text("SoundDocs", 40, 50);
+            doc.setFontSize(16);
+            doc.setFont("helvetica", "normal");
+            doc.text(title, 40, 75);
+            doc.setDrawColor(221, 221, 221); // #ddd
+            doc.line(40, 85, doc.internal.pageSize.width - 40, 85);
+        };
+
+        const addPageFooter = (doc: jsPDF) => {
+            const pageCount = doc.getNumberOfPages();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setDrawColor(221, 221, 221);
+                doc.line(40, pageHeight - 35, pageWidth - 40, pageHeight - 35);
+                doc.setFontSize(8);
+                doc.setTextColor(128, 128, 128);
+                doc.setFont('helvetica', 'bold');
+                doc.text('SoundDocs', 40, pageHeight - 20);
+                doc.setFont('helvetica', 'normal');
+                doc.text('| Professional Audio Documentation', 95, pageHeight - 20);
+                const pageNumText = `Page ${i} of ${pageCount}`;
+                doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: 'center' });
+                const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
+                doc.text(dateStr, pageWidth - 40, pageHeight - 20, { align: 'right' });
+            }
+        };
+
+        addPageHeader(pdf, fullData.name);
+
+        const defaultCols = [
+          { key: "itemNumber", label: "Item #" },
+          { key: "startTime", label: "Start" },
+          { key: "preset", label: "Preset / Scene" },
+          { key: "duration", label: "Duration" },
+          { key: "productionNotes", label: "Production Notes" },
+          { key: "audio", label: "Audio" },
+          { key: "video", label: "Video" },
+          { key: "lights", label: "Lights" },
+        ];
+
+        const customCols = fullData.custom_column_definitions || [];
+        const head = [defaultCols.map(c => c.label).concat(customCols.map(c => c.name))];
+        
+        const body: any[] = [];
+
+        fullData.items.forEach((item) => {
+          if (item.type === 'header') {
+            body.push([{
+              content: `${item.headerTitle || 'Header'} (Start: ${item.startTime || 'N/A'})`,
+              colSpan: head[0].length,
+              styles: { fontStyle: 'bold', fillColor: [230, 230, 230], textColor: 0, halign: 'left' }
+            }]);
+          } else {
+            const rowData = defaultCols.map(col => item[col.key as keyof RunOfShowItem] || '');
+            const customData = customCols.map(cc => item[cc.name] || '');
+            body.push([...rowData, ...customData]);
+          }
+        });
+
+        (pdf as any).autoTable({
+          head: head,
+          body: body,
+          startY: 95,
+          theme: 'grid',
+          headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: 'bold' },
+          styles: { font: 'helvetica', fontSize: 8, cellPadding: 5, lineColor: [221, 221, 221], lineWidth: 0.5 },
+          alternateRowStyles: { fillColor: [248, 249, 250] },
+          margin: { left: 40, right: 40 },
+          didParseCell: (data: any) => {
+            if (data.section === 'body') {
+                const item = fullData.items[data.row.index];
+                if (item && item.type !== 'header' && item.highlightColor) {
+                    data.cell.styles.fillColor = item.highlightColor;
+                    data.cell.styles.textColor = isColorLight(item.highlightColor) ? '#111' : '#FFF';
+                }
+            }
+          }
+        });
+
+        addPageFooter(pdf);
+        pdf.save(`${fullData.name.replace(/\s+/g, "-").toLowerCase()}-run-of-show-print.pdf`);
+
+      } catch (error) {
+        console.error("Error exporting print-friendly PDF:", error);
+        setError("Failed to export print-friendly PDF. See console for details.");
+      } finally {
+        setIsExporting(false);
+        setCurrentExportRunOfShowData(null);
+        setExportRunOfShowId(null);
+      }
     }
   };
 

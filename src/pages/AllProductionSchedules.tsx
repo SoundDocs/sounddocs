@@ -4,11 +4,11 @@ import { supabase } from "../lib/supabase";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import ProductionScheduleExport from "../components/production-schedule/ProductionScheduleExport";
-import PrintProductionScheduleExport from "../components/production-schedule/PrintProductionScheduleExport";
 import ExportModal from "../components/ExportModal";
 import ShareModal from "../components/ShareModal";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import "jspdf-autotable";
 import { ScheduleForExport, DetailedScheduleItem } from "./ProductionScheduleEditor"; 
 import { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor"; 
 import { v4 as uuidv4 } from 'uuid';
@@ -132,7 +132,6 @@ const AllProductionSchedules: React.FC = () => {
   const [selectedShareSchedule, setSelectedShareSchedule] = useState<ProductionScheduleSummary | null>(null); 
 
   const exportRef = useRef<HTMLDivElement>(null);
-  const printExportRef = useRef<HTMLDivElement>(null);
 
 
   useEffect(() => {
@@ -341,14 +340,183 @@ const AllProductionSchedules: React.FC = () => {
       return;
     }
     const transformedData = transformToScheduleForExport(rawScheduleData);
-    setCurrentExportScheduleData(transformedData); 
-
-    await new Promise(resolve => setTimeout(resolve, 100)); 
-
+    
     if (exportType === 'color') {
+      setCurrentExportScheduleData(transformedData); 
+      await new Promise(resolve => setTimeout(resolve, 100)); 
       await exportScheduleAsPdf(exportRef, transformedData, "color", '#111827');
     } else if (exportType === 'print') {
-      await exportScheduleAsPdf(printExportRef, transformedData, "print-friendly", '#ffffff');
+      try {
+        const pdf = new jsPDF("p", "pt", "letter");
+        const scheduleData = transformedData;
+        const info = scheduleData.info;
+
+        const addPageHeader = (doc: jsPDF, title: string) => {
+            doc.setFontSize(24);
+            doc.setFont("helvetica", "bold");
+            doc.text("SoundDocs", 40, 50);
+            doc.setFontSize(16);
+            doc.setFont("helvetica", "normal");
+            doc.text(title, 40, 75);
+            doc.setDrawColor(221, 221, 221); // #ddd
+            doc.line(40, 85, doc.internal.pageSize.width - 40, 85);
+        };
+
+        const addPageFooter = (doc: jsPDF) => {
+            const pageCount = doc.getNumberOfPages();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+
+                // Footer line
+                doc.setDrawColor(221, 221, 221); // #ddd
+                doc.line(40, pageHeight - 35, pageWidth - 40, pageHeight - 35);
+
+                doc.setFontSize(8);
+                doc.setTextColor(128, 128, 128); // gray
+
+                // Left side: Branding
+                doc.setFont('helvetica', 'bold');
+                doc.text('SoundDocs', 40, pageHeight - 20);
+                
+                doc.setFont('helvetica', 'normal');
+                doc.text('| Professional Audio Documentation', 95, pageHeight - 20);
+
+                // Center: Page number
+                const pageNumText = `Page ${i} of ${pageCount}`;
+                doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: 'center' });
+
+                // Right side: Date
+                const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
+                doc.text(dateStr, pageWidth - 40, pageHeight - 20, { align: 'right' });
+            }
+        };
+
+        addPageHeader(pdf, scheduleData.name);
+
+        let lastY = 105;
+
+        const createInfoBlock = (title: string, data: [string, string][]) => {
+            if (!data.some(row => row[1] && row[1] !== 'N/A')) return;
+            
+            pdf.setFontSize(11);
+            pdf.setFont("helvetica", "bold");
+            pdf.text(title, 40, lastY);
+            
+            (pdf as any).autoTable({
+                body: data,
+                startY: lastY + 5,
+                theme: 'plain',
+                styles: { font: 'helvetica', fontSize: 9, cellPadding: { top: 2, right: 5, bottom: 2, left: 0 } },
+                columnStyles: {
+                    0: { fontStyle: 'bold', cellWidth: 120 },
+                },
+                margin: { left: 40 },
+            });
+            lastY = (pdf as any).lastAutoTable.finalY + 15;
+        };
+
+        const eventDetails: [string, string][] = [
+            ['Event Name:', info.event_name || 'N/A'],
+            ['Job Number:', info.job_number || 'N/A'],
+            ['Venue:', info.venue || 'N/A'],
+        ];
+        createInfoBlock("Event Details", eventDetails);
+
+        const personnelDetails: [string, string][] = [
+            ['Project Manager:', info.project_manager || 'N/A'],
+            ['Production Manager:', info.production_manager || 'N/A'],
+            ['Account Manager:', info.account_manager || 'N/A'],
+        ];
+        createInfoBlock("Key Personnel", personnelDetails);
+        
+        const timeDetails: [string, string][] = [
+            ['Date:', info.date ? new Date(info.date + 'T00:00:00Z').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }) : 'N/A'],
+            ['Load In:', info.load_in || 'N/A'],
+            ['Strike:', parseDateTime(info.strike_datetime).time || 'N/A'],
+        ];
+        createInfoBlock("Key Times", timeDetails);
+
+        lastY += 15;
+
+        // --- Detailed Schedule Table ---
+        if (scheduleData.detailed_schedule_items && scheduleData.detailed_schedule_items.length > 0) {
+            pdf.setFontSize(14);
+            pdf.setFont("helvetica", "bold");
+            pdf.text("Detailed Production Schedule", 40, lastY);
+            lastY += 20;
+
+            const detailedScheduleHead = [['Date', 'Start', 'End', 'Activity', 'Notes', 'Crew']];
+            const detailedScheduleBody = scheduleData.detailed_schedule_items.map(item => {
+                const crewNames = item.assigned_crew_ids
+                    .map(id => scheduleData.crew_key.find(c => c.id === id)?.name)
+                    .filter(Boolean)
+                    .join(', ');
+                return [
+                    item.date ? new Date(item.date + 'T00:00:00Z').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', timeZone: 'UTC' }) : 'N/A',
+                    item.start_time || 'N/A',
+                    item.end_time || 'N/A',
+                    item.activity || '',
+                    item.notes || '',
+                    crewNames || 'N/A'
+                ];
+            });
+
+            (pdf as any).autoTable({
+                head: detailedScheduleHead,
+                body: detailedScheduleBody,
+                startY: lastY,
+                theme: 'grid',
+                headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: 'bold' },
+                styles: { font: 'helvetica', fontSize: 9, cellPadding: 5, lineColor: [221, 221, 221], lineWidth: 0.5 },
+                alternateRowStyles: { fillColor: [248, 249, 250] },
+                margin: { left: 40, right: 40 },
+            });
+            lastY = (pdf as any).lastAutoTable.finalY + 30;
+        }
+
+        // --- Labor Schedule Table ---
+        if (scheduleData.labor_schedule_items && scheduleData.labor_schedule_items.length > 0) {
+            pdf.setFontSize(14);
+            pdf.setFont("helvetica", "bold");
+            pdf.text("Labor Schedule", 40, lastY);
+            lastY += 20;
+
+            const laborScheduleHead = [['Name', 'Position', 'Date', 'Time In', 'Time Out', 'Notes']];
+            const laborScheduleBody = scheduleData.labor_schedule_items.map(item => [
+                item.name || '',
+                item.position || '',
+                item.date ? new Date(item.date + 'T00:00:00Z').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', timeZone: 'UTC' }) : 'N/A',
+                item.time_in || 'N/A',
+                item.time_out || 'N/A',
+                item.notes || ''
+            ]);
+
+            (pdf as any).autoTable({
+                head: laborScheduleHead,
+                body: laborScheduleBody,
+                startY: lastY,
+                theme: 'grid',
+                headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: 'bold' },
+                styles: { font: 'helvetica', fontSize: 9, cellPadding: 5, lineColor: [221, 221, 221], lineWidth: 0.5 },
+                alternateRowStyles: { fillColor: [248, 249, 250] },
+                margin: { left: 40, right: 40 },
+            });
+        }
+
+        addPageFooter(pdf);
+        pdf.save(`${scheduleData.name || "production-schedule"}-print-friendly.pdf`);
+
+      } catch (error) {
+          console.error("Error exporting print-friendly PDF:", error);
+          setError("Failed to export print-friendly PDF. See console for details.");
+      } finally {
+          setIsExporting(false);
+          setCurrentExportScheduleData(null);
+          setExportScheduleId(null);
+      }
     }
   };
 
@@ -614,11 +782,6 @@ const AllProductionSchedules: React.FC = () => {
           <ProductionScheduleExport 
             key={`export-${currentExportScheduleData.id}-${currentExportScheduleData.last_edited || currentExportScheduleData.created_at}`}
             ref={exportRef} 
-            schedule={currentExportScheduleData} 
-          />
-          <PrintProductionScheduleExport 
-            key={`print-export-${currentExportScheduleData.id}-${currentExportScheduleData.last_edited || currentExportScheduleData.created_at}`}
-            ref={printExportRef} 
             schedule={currentExportScheduleData} 
           />
         </>
