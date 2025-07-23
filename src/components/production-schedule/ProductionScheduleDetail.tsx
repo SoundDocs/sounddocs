@@ -306,27 +306,43 @@ const ProductionScheduleDetail: React.FC<ProductionScheduleDetailProps> = ({ det
     const allItemsCopy = [...detailedItems];
     const itemIndexInFullList = allItemsCopy.findIndex(item => item.id === itemToMoveId);
 
-    if (itemIndexInFullList === -1) return;
+    if (itemIndexInFullList === -1) {
+      return;
+    }
 
     const itemToMove = allItemsCopy[itemIndexInFullList];
     const itemDateKey = itemToMove.date || 'No Date Assigned';
 
-    if (direction === 'up') {
-      if (itemIndexInFullList === 0) return; // Already at the very top
-      const itemAbove = allItemsCopy[itemIndexInFullList - 1];
-      // Check if itemAbove is in the same day group
-      if ((itemAbove.date || 'No Date Assigned') !== itemDateKey) return; 
-      
-      [allItemsCopy[itemIndexInFullList], allItemsCopy[itemIndexInFullList - 1]] = [allItemsCopy[itemIndexInFullList - 1], allItemsCopy[itemIndexInFullList]];
-    } else { // direction === 'down'
-      if (itemIndexInFullList === allItemsCopy.length - 1) return; // Already at the very bottom
-      const itemBelow = allItemsCopy[itemIndexInFullList + 1];
-      // Check if itemBelow is in the same day group
-      if ((itemBelow.date || 'No Date Assigned') !== itemDateKey) return;
+    let swapIndex = -1;
 
-      [allItemsCopy[itemIndexInFullList], allItemsCopy[itemIndexInFullList + 1]] = [allItemsCopy[itemIndexInFullList + 1], allItemsCopy[itemIndexInFullList]];
+    if (direction === 'up') {
+      // Find the index of the item visually above it.
+      // This is the last item before `itemIndexInFullList` that has the same date.
+      for (let i = itemIndexInFullList - 1; i >= 0; i--) {
+        if ((allItemsCopy[i].date || 'No Date Assigned') === itemDateKey) {
+          swapIndex = i;
+          break;
+        }
+      }
+    } else { // direction === 'down'
+      // Find the index of the item visually below it.
+      // This is the first item after `itemIndexInFullList` that has the same date.
+      for (let i = itemIndexInFullList + 1; i < allItemsCopy.length; i++) {
+        if ((allItemsCopy[i].date || 'No Date Assigned') === itemDateKey) {
+          swapIndex = i;
+          break;
+        }
+      }
     }
-    onUpdateDetailedItems(allItemsCopy);
+
+    if (swapIndex !== -1) {
+      // We found the item to swap with. Swap them in the main array.
+      [allItemsCopy[itemIndexInFullList], allItemsCopy[swapIndex]] = [
+        allItemsCopy[swapIndex],
+        allItemsCopy[itemIndexInFullList],
+      ];
+      onUpdateDetailedItems(allItemsCopy);
+    }
   };
   
   const formatDateHeader = (dateKey: string) => {
