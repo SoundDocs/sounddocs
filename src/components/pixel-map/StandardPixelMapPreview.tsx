@@ -59,6 +59,9 @@ const StandardPixelMapPreview: React.FC<PixelMapData> = ({
         
         <rect width={width} height={height} fill="url(#gridPattern)" />
 
+        {/* White border */}
+        <rect x="0" y="0" width={width} height={height} fill="none" stroke="white" strokeWidth="4" />
+
         {/* Guides and Markers */}
         <line x1={width / 2} y1="0" x2={width / 2} y2={height} stroke="#A3A3A3" strokeWidth="2" strokeDasharray="10 10" />
         <line x1="0" y1={height / 2} x2={width} y2={height / 2} stroke="#A3A3A3" strokeWidth="2" strokeDasharray="10 10" />
