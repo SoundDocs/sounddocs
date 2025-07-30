@@ -98,3 +98,38 @@ export const fetchCurrentCJLocation = async (): Promise<{
 
   return data;
 };
+
+export interface PixelMapPayload {
+  userId: string;
+  mapType: 'led' | 'standard';
+  projectName: string;
+  screenName: string;
+  aspectRatioW: number;
+  aspectRatioH: number;
+  resolutionW: number;
+  resolutionH: number;
+  settings: object;
+}
+
+/**
+ * Saves a pixel map configuration to the database.
+ * @param payload The data for the pixel map.
+ */
+export const savePixelMap = async (payload: PixelMapPayload) => {
+  const { error } = await supabase.from('pixel_maps').insert({
+    user_id: payload.userId,
+    map_type: payload.mapType,
+    project_name: payload.projectName,
+    screen_name: payload.screenName,
+    aspect_ratio_w: payload.aspectRatioW,
+    aspect_ratio_h: payload.aspectRatioH,
+    resolution_w: payload.resolutionW,
+    resolution_h: payload.resolutionH,
+    settings: payload.settings,
+  });
+
+  if (error) {
+    console.error('Error saving pixel map:', error);
+    throw error;
+  }
+};

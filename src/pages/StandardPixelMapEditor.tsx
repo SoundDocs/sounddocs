@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -21,6 +21,7 @@ export interface PixelMapData {
 const StandardPixelMapEditor = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -37,6 +38,8 @@ const StandardPixelMapEditor = () => {
     resolution_w: 1920,
     resolution_h: 1080,
   });
+
+  const backPath = location.state?.from || '/video';
 
   useEffect(() => {
     const fetchUserAndData = async () => {
@@ -109,7 +112,7 @@ const StandardPixelMapEditor = () => {
           .single();
         if (error) throw error;
         setSaveSuccess(true);
-        navigate(`/pixel-map/standard/${data.id}`, { replace: true });
+        navigate(`/pixel-map/standard/${data.id}`, { replace: true, state: { from: backPath } });
       } else {
         const { error } = await supabase
           .from('pixel_maps')
@@ -199,7 +202,7 @@ const StandardPixelMapEditor = () => {
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate('/pixel-map/new')}
+              onClick={() => navigate(backPath)}
               className="flex items-center text-textSecondary hover:text-text transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />

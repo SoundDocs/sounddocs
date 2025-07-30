@@ -20,6 +20,7 @@ interface PixelMap {
   name: string;
   created_at: string;
   last_edited?: string;
+  map_type: 'standard' | 'led';
 }
 
 const VideoPage = () => {
@@ -64,7 +65,7 @@ const VideoPage = () => {
     try {
       const { data, error } = await supabase
         .from("pixel_maps")
-        .select("id, project_name, created_at, last_edited")
+        .select("id, project_name, created_at, last_edited, map_type")
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -73,7 +74,7 @@ const VideoPage = () => {
           ...item,
           name: item.project_name,
         }));
-        setPixelMaps(formattedData);
+        setPixelMaps(formattedData as PixelMap[]);
       }
     } catch (error) {
       console.error("Error fetching pixel maps:", error);
@@ -91,11 +92,19 @@ const VideoPage = () => {
   };
 
   const handleCreatePixelMap = () => {
-    navigate("/pixel-map/new");
+    navigate("/pixel-map/new", { state: { from: "/video" } });
   };
 
   const handleEditPixelMap = (id: string) => {
-    navigate(`/pixel-map/standard/${id}`);
+    const map = pixelMaps.find((m) => m.id === id);
+    if (map) {
+      const from = { state: { from: "/video" } };
+      if (map.map_type === 'led') {
+        navigate(`/pixel-map/led/${id}`, from);
+      } else {
+        navigate(`/pixel-map/standard/${id}`, from);
+      }
+    }
   };
 
   const handleDeleteRequest = (id: string, name: string) => {

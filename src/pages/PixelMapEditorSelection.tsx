@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { Monitor, Grid, ArrowLeftCircle } from 'lucide-react';
@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 
 const PixelMapEditorSelection = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSignOut = async () => {
     try {
@@ -17,9 +18,12 @@ const PixelMapEditorSelection = () => {
     }
   };
 
-  const handleSelection = (type: 'standard') => {
+  const handleSelection = (type: 'standard' | 'led') => {
+    const from = location.state?.from || '/video';
     if (type === 'standard') {
-      navigate('/pixel-map/standard/new');
+      navigate('/pixel-map/standard/new', { state: { from } });
+    } else if (type === 'led') {
+      navigate('/pixel-map/led/new', { state: { from } });
     }
   };
 
@@ -55,18 +59,16 @@ const PixelMapEditorSelection = () => {
               </p>
             </div>
 
-            {/* Option 2: LED Wall - Disabled */}
+            {/* Option 2: LED Wall */}
             <div
-              className="relative bg-gray-800 p-8 rounded-xl shadow-lg border-2 border-transparent flex flex-col items-center text-center opacity-60 cursor-not-allowed"
+              onClick={() => handleSelection('led')}
+              className="bg-gray-800 p-8 rounded-xl shadow-lg border-2 border-transparent hover:border-indigo-500 transition-all duration-300 cursor-pointer flex flex-col items-center text-center group"
             >
-              <div className="absolute top-4 right-4 bg-sky-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
-                COMING SOON
-              </div>
-              <Grid className="h-16 w-16 text-gray-500 mb-6" />
-              <h2 className="text-2xl font-semibold text-gray-400 mb-3">
+              <Grid className="h-16 w-16 text-indigo-400 mb-6 transition-transform duration-300 group-hover:scale-110" />
+              <h2 className="text-2xl font-semibold text-white mb-3">
                 LED Video Wall
               </h2>
-              <p className="text-gray-500">
+              <p className="text-gray-400">
                 For custom-sized video walls built from individual LED tiles. Define your canvas by the number of tiles and their pixel pitch.
               </p>
             </div>

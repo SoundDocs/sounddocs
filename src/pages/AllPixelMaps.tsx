@@ -23,6 +23,7 @@ interface PixelMap {
   name: string;
   created_at: string;
   last_edited?: string;
+  map_type: 'standard' | 'led';
 }
 
 const AllPixelMaps = () => {
@@ -51,14 +52,14 @@ const AllPixelMaps = () => {
 
         const { data, error } = await supabase
           .from("pixel_maps")
-          .select("id, project_name, created_at, last_edited")
+          .select("id, project_name, created_at, last_edited, map_type")
           .eq("user_id", userData.user.id)
           .order(sortField === 'name' ? 'project_name' : sortField, { ascending: sortDirection === "asc" });
 
         if (error) throw error;
 
         if (data) {
-          const formattedData = data.map(item => ({ ...item, name: item.project_name }));
+          const formattedData = data.map(item => ({ ...item, name: item.project_name })) as PixelMap[];
           setPixelMaps(formattedData);
           setFilteredPixelMaps(formattedData);
         }
@@ -124,7 +125,15 @@ const AllPixelMaps = () => {
   };
 
   const handleEditPixelMap = (id: string) => {
-    navigate(`/pixel-map/standard/${id}`, { state: { from: "/all-pixel-maps" } });
+    const map = pixelMaps.find((m) => m.id === id);
+    if (map) {
+      const from = { state: { from: "/all-pixel-maps" } };
+      if (map.map_type === 'led') {
+        navigate(`/pixel-map/led/${id}`, from);
+      } else {
+        navigate(`/pixel-map/standard/${id}`, from);
+      }
+    }
   };
 
   if (loading) {

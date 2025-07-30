@@ -53,6 +53,7 @@ import React, { useEffect } from "react";
     import SharedTheaterMicPlot from "./pages/SharedTheaterMicPlot"; // New Shared Theater Mic Plot Page
     import PixelMapEditorSelection from "./pages/PixelMapEditorSelection";
     import StandardPixelMapEditor from "./pages/StandardPixelMapEditor";
+    import LedPixelMapEditor from "./pages/LedPixelMapEditor"; // Import the new editor
     import AllPixelMaps from "./pages/AllPixelMaps";
 
 
@@ -124,6 +125,14 @@ import React, { useEffect } from "react";
                   element={
                     <ProtectedRoute>
                       <StandardPixelMapEditor />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/pixel-map/led/:id"
+                  element={
+                    <ProtectedRoute>
+                      <LedPixelMapEditor />
                     </ProtectedRoute>
                   }
                 />
