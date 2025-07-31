@@ -1,11 +1,20 @@
 import React from 'react';
 import { PixelMapData } from '../../pages/StandardPixelMapEditor';
 
-const StandardPixelMapPreview: React.FC<PixelMapData> = ({
+interface StandardPixelMapPreviewProps extends PixelMapData {
+  showColorSwatches: boolean;
+  showGrid: boolean;
+  gridColor: string;
+}
+
+const StandardPixelMapPreview: React.FC<StandardPixelMapPreviewProps> = ({
   project_name,
   screen_name,
   resolution_w,
   resolution_h,
+  showColorSwatches,
+  showGrid,
+  gridColor,
 }) => {
   const width = resolution_w || 1920;
   const height = resolution_h || 1080;
@@ -55,9 +64,13 @@ const StandardPixelMapPreview: React.FC<PixelMapData> = ({
             <rect y="50" width="50" height="50" fill="#242830" />
             <rect x="50" y="50" width="50" height="50" fill="#222226" />
           </pattern>
+          <pattern id="gridLines" width="50" height="50" patternUnits="userSpaceOnUse">
+            <path d="M 50 0 V 50 H 0" fill="none" stroke={gridColor} strokeWidth="1" />
+          </pattern>
         </defs>
         
         <rect width={width} height={height} fill="url(#gridPattern)" />
+        {showGrid && <rect width={width} height={height} fill="url(#gridLines)" />}
 
         {/* White border */}
         <rect x="0" y="0" width={width} height={height} fill="none" stroke="white" strokeWidth="4" />
@@ -70,20 +83,22 @@ const StandardPixelMapPreview: React.FC<PixelMapData> = ({
         <circle cx={width / 2} cy={height / 2} r={Math.min(width, height) * 0.25} fill="none" stroke="#A3A3A3" strokeWidth="2" strokeDasharray="10 10" />
         <circle cx={width / 2} cy={height / 2} r={Math.min(width, height) * 0.375} fill="none" stroke="#A3A3A3" strokeWidth="2" strokeDasharray="10 10" />
 
-        {/* Color & Grayscale Patches */}
-        <g transform={`translate(${barXPos}, ${barYPos})`}>
-          {colorPatches.map((patch, index) => {
-            const patchX = index * (patchSize + patchSpacing);
-            return (
-              <g key={patch.label}>
-                <rect x={patchX} y={0} width={patchSize} height={patchSize} fill={patch.color} stroke="#A3A3A3" strokeWidth="2" rx="4" />
-                <text x={patchX + patchSize / 2} y={patchSize + labelFontSize + 10} fontFamily="Inter" fontSize={labelFontSize} fill="#A3A3A3" textAnchor="middle">
-                  {patch.label.toUpperCase()}
-                </text>
-              </g>
-            );
-          })}
-        </g>
+        {/* Color &amp; Grayscale Patches */}
+        {showColorSwatches && (
+          <g transform={`translate(${barXPos}, ${barYPos})`}>
+            {colorPatches.map((patch, index) => {
+              const patchX = index * (patchSize + patchSpacing);
+              return (
+                <g key={patch.label}>
+                  <rect x={patchX} y={0} width={patchSize} height={patchSize} fill={patch.color} stroke="#A3A3A3" strokeWidth="2" rx="4" />
+                  <text x={patchX + patchSize / 2} y={patchSize + labelFontSize + 10} fontFamily="Inter" fontSize={labelFontSize} fill="#A3A3A3" textAnchor="middle">
+                    {patch.label.toUpperCase()}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
+        )}
 
         {/* Center Info Box */}
         <rect x={boxX} y={boxY} width={boxWidth} height={boxHeight} rx={20 * scale} fill="rgba(23, 23, 23, 0.9)" stroke="#9E7FFF" strokeWidth={3 * scale} />
