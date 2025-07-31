@@ -38,6 +38,9 @@ const StandardPixelMapEditor = () => {
     resolution_w: 1920,
     resolution_h: 1080,
   });
+  const [showColorSwatches, setShowColorSwatches] = useState(true);
+  const [showGrid, setShowGrid] = useState(false);
+  const [gridColor, setGridColor] = useState('#FFFFFF');
 
   const backPath = location.state?.from || '/video';
 
@@ -151,6 +154,9 @@ const StandardPixelMapEditor = () => {
           screen_name: mapData.screen_name,
           resolution_w: mapData.resolution_w,
           resolution_h: mapData.resolution_h,
+          showColorSwatches: showColorSwatches,
+          showGrid: showGrid,
+          gridColor: gridColor,
         }),
       });
 
@@ -158,12 +164,10 @@ const StandardPixelMapEditor = () => {
         const errorBody = await response.text();
         let serverError = errorBody;
         try {
-          // Try to parse a structured error from the server
           const errorJson = JSON.parse(errorBody);
           serverError = errorJson.error || errorBody;
         } catch (e) {
           // Not a JSON response, use the raw text.
-          // This can happen with gateway errors, etc.
         }
         throw new Error(`Server returned status ${response.status}: ${serverError}`);
       }
@@ -247,12 +251,26 @@ const StandardPixelMapEditor = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1">
-            <PixelMapControls mapData={mapData} setMapData={setMapData} />
+            <PixelMapControls 
+              mapData={mapData} 
+              setMapData={setMapData}
+              showColorSwatches={showColorSwatches}
+              setShowColorSwatches={setShowColorSwatches}
+              showGrid={showGrid}
+              setShowGrid={setShowGrid}
+              gridColor={gridColor}
+              setGridColor={setGridColor}
+            />
           </div>
           <div className="lg:col-span-2">
             <div className="bg-surface p-4 rounded-xl sticky top-24">
               <div>
-                <StandardPixelMapPreview {...mapData} />
+                <StandardPixelMapPreview 
+                  {...mapData} 
+                  showColorSwatches={showColorSwatches} 
+                  showGrid={showGrid}
+                  gridColor={gridColor}
+                />
               </div>
             </div>
           </div>

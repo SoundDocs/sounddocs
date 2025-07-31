@@ -1,61 +1,39 @@
-export function createPixelMapSvg({ project_name, screen_name, resolution_w, resolution_h }) {
+export function createPixelMapSvg({ 
+  project_name, 
+  screen_name, 
+  resolution_w, 
+  resolution_h,
+  showColorSwatches = true,
+  showGrid = false,
+  gridColor = '#FFFFFF'
+}) {
   const width = resolution_w; // Values are now guaranteed by the caller
   const height = resolution_h;
   const barYPos = Math.max(30, height * 0.05);
   const patchSize = Math.min(width * 0.08, height * 0.08);
   const labelFontSize = Math.max(12, patchSize * 0.15);
   const patchSpacing = patchSize * 0.25;
+
   const colorPatches = [
     // Grayscale Ramp
-    {
-      color: '#FFFFFF',
-      label: 'White'
-    },
-    {
-      color: '#C0C0C0',
-      label: '75%'
-    },
-    {
-      color: '#808080',
-      label: '50%'
-    },
-    {
-      color: '#404040',
-      label: '25%'
-    },
-    {
-      color: '#000000',
-      label: 'Black'
-    },
+    { color: '#FFFFFF', label: 'White' },
+    { color: '#C0C0C0', label: '75%' },
+    { color: '#808080', label: '50%' },
+    { color: '#404040', label: '25%' },
+    { color: '#000000', label: 'Black' },
     // Primary Colors (Additive)
-    {
-      color: '#FF0000',
-      label: 'Red'
-    },
-    {
-      color: '#00FF00',
-      label: 'Green'
-    },
-    {
-      color: '#0000FF',
-      label: 'Blue'
-    },
+    { color: '#FF0000', label: 'Red' },
+    { color: '#00FF00', label: 'Green' },
+    { color: '#0000FF', label: 'Blue' },
     // Secondary Colors (Subtractive)
-    {
-      color: '#FFFF00',
-      label: 'Yellow'
-    },
-    {
-      color: '#00FFFF',
-      label: 'Cyan'
-    },
-    {
-      color: '#FF00FF',
-      label: 'Magenta'
-    }
+    { color: '#FFFF00', label: 'Yellow' },
+    { color: '#00FFFF', label: 'Cyan' },
+    { color: '#FF00FF', label: 'Magenta' },
   ];
+
   const totalPatchesWidth = colorPatches.length * patchSize + (colorPatches.length - 1) * patchSpacing;
   const barXPos = (width - totalPatchesWidth) / 2;
+
   const patchesSvg = colorPatches.map((patch, index)=>{
     const patchX = index * (patchSize + patchSpacing);
     return `
@@ -67,6 +45,7 @@ export function createPixelMapSvg({ project_name, screen_name, resolution_w, res
       </g>
     `;
   }).join('');
+
   const scale = Math.min(width, height) / 1080;
   const boxWidth = 400 * scale;
   const boxHeight = 200 * scale;
@@ -76,6 +55,7 @@ export function createPixelMapSvg({ project_name, screen_name, resolution_w, res
   const logoStrokeWidth = 1.5 / 2.5;
   const titleFontSize = 32 * scale;
   const resolutionFontSize = 24 * scale;
+
   return `
     <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -85,9 +65,15 @@ export function createPixelMapSvg({ project_name, screen_name, resolution_w, res
           <rect y="50" width="50" height="50" fill="#242830" />
           <rect x="50" y="50" width="50" height="50" fill="#222226" />
         </pattern>
+        ${showGrid ? `
+        <pattern id="gridLines" width="50" height="50" patternUnits="userSpaceOnUse">
+          <path d="M 50 0 V 50 H 0" fill="none" stroke="${gridColor}" stroke-width="1" />
+        </pattern>
+        ` : ''}
       </defs>
       
       <rect width="${width}" height="${height}" fill="url(#gridPattern)" />
+      ${showGrid ? `<rect width="${width}" height="${height}" fill="url(#gridLines)" />` : ''}
 
       <!-- White border -->
       <rect x="0" y="0" width="${width}" height="${height}" fill="none" stroke="white" stroke-width="4" />
@@ -100,7 +86,7 @@ export function createPixelMapSvg({ project_name, screen_name, resolution_w, res
       <circle cx="${width / 2}" cy="${height / 2}" r="${Math.min(width, height) * 0.25}" fill="none" stroke="#A3A3A3" stroke-width="2" stroke-dasharray="10 10" />
       <circle cx="${width / 2}" cy="${height / 2}" r="${Math.min(width, height) * 0.375}" fill="none" stroke="#A3A3A3" stroke-width="2" stroke-dasharray="10 10" />
 
-      <g transform="translate(${barXPos}, ${barYPos})">${patchesSvg}</g>
+      ${showColorSwatches ? `<g transform="translate(${barXPos}, ${barYPos})">${patchesSvg}</g>` : ''}
 
       <rect x="${boxX}" y="${boxY}" width="${boxWidth}" height="${boxHeight}" rx="${20 * scale}" fill="rgba(23, 23, 23, 0.9)" stroke="#9E7FFF" stroke-width="${3 * scale}" />
 

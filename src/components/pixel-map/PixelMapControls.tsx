@@ -5,9 +5,31 @@ import { ASPECT_RATIOS, RESOLUTIONS } from '../../lib/constants';
 interface PixelMapControlsProps {
   mapData: PixelMapData;
   setMapData: React.Dispatch<React.SetStateAction<PixelMapData>>;
+  showColorSwatches: boolean;
+  setShowColorSwatches: React.Dispatch<React.SetStateAction<boolean>>;
+  showGrid: boolean;
+  setShowGrid: React.Dispatch<React.SetStateAction<boolean>>;
+  gridColor: string;
+  setGridColor: React.Dispatch<React.SetStateAction<string>>;
 }
 
-const PixelMapControls: React.FC<PixelMapControlsProps> = ({ mapData, setMapData }) => {
+const GRID_COLORS = [
+  { value: '#FFFFFF', label: 'White' },
+  { value: '#ef4444', label: 'Red' },
+  { value: '#3b82f6', label: 'Blue' },
+  { value: '#10b981', label: 'Green' },
+];
+
+const PixelMapControls: React.FC<PixelMapControlsProps> = ({ 
+  mapData, 
+  setMapData, 
+  showColorSwatches, 
+  setShowColorSwatches,
+  showGrid,
+  setShowGrid,
+  gridColor,
+  setGridColor
+}) => {
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -139,6 +161,84 @@ const PixelMapControls: React.FC<PixelMapControlsProps> = ({ mapData, setMapData
             <input type="number" name="resolution_h" value={mapData.resolution_h} onChange={handleNumericInputChange} className={customInputClasses} />
           </div>
         )}
+      </div>
+
+      <div className="border-t border-border pt-6 space-y-4">
+        <h3 className="text-lg font-semibold text-text">Display Options</h3>
+        <div>
+          <div className="flex items-center justify-between">
+            <label htmlFor="showColorSwatchesToggle" className="font-medium text-text">
+              Color Swatches
+            </label>
+            <button
+              type="button"
+              id="showColorSwatchesToggle"
+              onClick={() => setShowColorSwatches(!showColorSwatches)}
+              className={`${
+                showColorSwatches ? 'bg-primary' : 'bg-neutral-600'
+              } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-white/50 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface`}
+              role="switch"
+              aria-checked={showColorSwatches}
+            >
+              <span className="sr-only">Use setting</span>
+              <span
+                aria-hidden="true"
+                className={`${
+                  showColorSwatches ? 'translate-x-5' : 'translate-x-0'
+                } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+              />
+            </button>
+          </div>
+          <p className="text-sm text-textSecondary mt-2">Toggle the visibility of the color and grayscale test patches.</p>
+        </div>
+
+        <div className="border-t border-border pt-4">
+          <div className="flex items-center justify-between">
+            <label htmlFor="showGridToggle" className="font-medium text-text">
+              Grid Overlay
+            </label>
+            <button
+              type="button"
+              id="showGridToggle"
+              onClick={() => setShowGrid(!showGrid)}
+              className={`${
+                showGrid ? 'bg-primary' : 'bg-neutral-600'
+              } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-white/50 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface`}
+              role="switch"
+              aria-checked={showGrid}
+            >
+              <span className="sr-only">Use setting</span>
+              <span
+                aria-hidden="true"
+                className={`${
+                  showGrid ? 'translate-x-5' : 'translate-x-0'
+                } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+              />
+            </button>
+          </div>
+          <p className="text-sm text-textSecondary mt-2">Show a 1px grid overlay on the checkerboard pattern.</p>
+          {showGrid && (
+            <div className="pt-4 space-y-2">
+              <label className="block text-sm font-medium text-textSecondary">Grid Color</label>
+              <div className="grid grid-cols-4 gap-2">
+                {GRID_COLORS.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setGridColor(value)}
+                    className={`px-3 py-2 text-sm rounded-md transition-colors text-center ${
+                      gridColor === value
+                        ? 'bg-primary text-white font-semibold'
+                        : 'bg-neutral-700/50 hover:bg-neutral-700 text-text'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
