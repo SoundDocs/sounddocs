@@ -146,6 +146,9 @@ const LedPixelMapPreview: React.FC<LedPixelMapPreviewProps> = ({
   }, [mapWidth, mapHeight, displayMode]);
 
   const getPanelColor = (colIndex: number, rowIndex: number): string => {
+    if (displayMode === 'white') {
+      return '#FFFFFF';
+    }
     if (displayMode === 'tetris') {
       return tetrisGrid[rowIndex]?.[colIndex] ?? '#BFBFBF';
     }
@@ -171,6 +174,8 @@ const LedPixelMapPreview: React.FC<LedPixelMapPreviewProps> = ({
     // Default to 'grid'
     return (rowIndex + colIndex) % 2 === 0 ? '#2F2F2F' : '#262626';
   };
+
+  const panelStrokeColor = displayMode === 'white' ? 'black' : 'white';
 
   const panels = Array.from({ length: mapHeight }, (_, rowIndex) =>
     Array.from({ length: mapWidth }, (_, colIndex) => ({
@@ -207,7 +212,7 @@ const LedPixelMapPreview: React.FC<LedPixelMapPreviewProps> = ({
               width={panelViewWidth}
               height={panelViewHeight}
               fill={panel.color}
-              stroke="white"
+              stroke={panelStrokeColor}
               strokeWidth="1"
             />
             <text

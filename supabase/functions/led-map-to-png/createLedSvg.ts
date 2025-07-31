@@ -85,6 +85,7 @@ export function createLedPixelMapSvg(props: LedMapSvgProps): string {
   const tetrisGrid = displayMode === 'tetris' ? generateTetrisGrid(mapWidth, mapHeight) : [];
 
   const getPanelColor = (colIndex: number, rowIndex: number): string => {
+    if (displayMode === 'white') return '#FFFFFF';
     if (displayMode === 'tetris') return tetrisGrid[rowIndex]?.[colIndex] ?? '#BFBFBF';
     const progress = mapWidth > 1 ? colIndex / (mapWidth - 1) : 0;
     if (displayMode === 'gradient') return `hsl(${progress * 360}, 100%, 50%)`;
@@ -93,6 +94,8 @@ export function createLedPixelMapSvg(props: LedMapSvgProps): string {
     if (displayMode === 'gradient-ocean') return `hsl(${180 + progress * 60}, 85%, 60%)`;
     return (rowIndex + colIndex) % 2 === 0 ? '#2F2F2F' : '#262626';
   };
+
+  const panelStrokeColor = displayMode === 'white' ? 'black' : 'white';
 
   const panels = Array.from({ length: mapHeight }, (_, rowIndex) =>
     Array.from({ length: mapWidth }, (_, colIndex) => ({
@@ -108,7 +111,7 @@ export function createLedPixelMapSvg(props: LedMapSvgProps): string {
       <rect
         x="${panel.x}" y="${panel.y}"
         width="${panelViewWidth}" height="${panelViewHeight}"
-        fill="${panel.color}" stroke="white" stroke-width="1"
+        fill="${panel.color}" stroke="${panelStrokeColor}" stroke-width="1"
       />
       <text
         x="${panel.x + panelViewWidth / 2}" y="${panel.y + panelViewHeight / 2}"

@@ -113,6 +113,7 @@ const LedPixelMapControls: React.FC<LedPixelMapControlsProps> = ({ mapData, setM
             <label htmlFor="displayMode" className="block text-sm font-medium text-textSecondary mb-1">Display Mode</label>
             <select name="displayMode" id="displayMode" value={previewOptions.displayMode} onChange={handlePreviewOptionsChange} className={inputClasses}>
               <option value="grid">Panel Grid</option>
+              <option value="white">White</option>
               <option value="tetris">Tetris</option>
               <option value="gradient">Vibrant Gradient</option>
               <option value="gradient-pastel">Pastel Gradient</option>
