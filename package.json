@@ -2,6 +2,7 @@
   "name": "sounddocs",
   "private": true,
   "version": "1.0.0",
+  "version": "1.3.0",
   "type": "module",
   "scripts": {
     "dev": "bash ./bin/injecting-supabase-env vite",

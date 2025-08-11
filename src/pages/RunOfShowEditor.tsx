@@ -3,37 +3,49 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { Loader, ArrowLeft, Save, Plus, Trash2, Edit3, Check, X, FileText, MonitorPlay, Palette, AlertTriangle } from "lucide-react";
+import {
+  Loader,
+  ArrowLeft,
+  Save,
+  Plus,
+  Trash2,
+  Edit3,
+  Check,
+  X,
+  FileText,
+  MonitorPlay,
+  Palette,
+  AlertTriangle,
+} from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 // import MobileScreenWarning from "../components/MobileScreenWarning"; // Removed
 // import { useScreenSize } from "../hooks/useScreenSize"; // Removed
-import { verifyShareLink, SharedLink, ResourceType } from "../lib/shareUtils";
-
+import { verifyShareLink, SharedLink } from "../lib/shareUtils";
 
 // Interfaces
 export interface RunOfShowItem {
   id: string;
-  type: 'item' | 'header'; 
-  itemNumber: string; 
-  startTime: string; 
+  type: "item" | "header";
+  itemNumber: string;
+  startTime: string;
   highlightColor?: string;
-  
+
   headerTitle?: string;
 
   preset?: string;
-  duration?: string; 
+  duration?: string;
   privateNotes?: string;
   productionNotes?: string;
   audio?: string;
   video?: string;
   lights?: string;
-  [customKey: string]: any; 
+  [customKey: string]: any;
 }
 
 export interface CustomColumnDefinition {
-  id:string;
+  id: string;
   name: string;
-  type: "text" | "number" | "time"; 
+  type: "text" | "number" | "time";
 }
 
 interface RunOfShowData {
@@ -47,12 +59,67 @@ interface RunOfShowData {
   live_show_data?: any | null; // Added for consistency with shared data
 }
 
+// Time calculation utilities
+const parseTimeToSeconds = (timeStr: string): number | null => {
+  if (!timeStr || timeStr.trim() === "") return null;
+  const parts = timeStr.split(":");
+  if (parts.length === 3) {
+    // HH:MM:SS format
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+    const seconds = parseInt(parts[2], 10);
+    if (!isNaN(hours) && !isNaN(minutes) && !isNaN(seconds)) {
+      return hours * 3600 + minutes * 60 + seconds;
+    }
+  } else if (parts.length === 2) {
+    // MM:SS format
+    const minutes = parseInt(parts[0], 10);
+    const seconds = parseInt(parts[1], 10);
+    if (!isNaN(minutes) && !isNaN(seconds)) {
+      return minutes * 60 + seconds;
+    }
+  }
+  return null;
+};
+
+const parseDurationToSeconds = (durationStr: string): number | null => {
+  if (!durationStr || durationStr.trim() === "") return null;
+  const parts = durationStr.split(":");
+  if (parts.length === 2) {
+    // MM:SS format
+    const minutes = parseInt(parts[0], 10);
+    const seconds = parseInt(parts[1], 10);
+    if (!isNaN(minutes) && !isNaN(seconds)) {
+      return minutes * 60 + seconds;
+    }
+  } else if (parts.length === 1) {
+    // Just seconds
+    const seconds = parseInt(parts[0], 10);
+    if (!isNaN(seconds)) {
+      return seconds;
+    }
+  }
+  return null;
+};
+
+const formatSecondsToTime = (totalSeconds: number): string => {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  } else {
+    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  }
+};
+
 const PREDEFINED_HIGHLIGHT_COLORS: { name: string; value?: string; tailwindClass?: string }[] = [
   { name: "Default", value: undefined, tailwindClass: "bg-transparent" },
-  { name: "Blue", value: "#2563EB", tailwindClass: "bg-blue-600" }, 
-  { name: "Green", value: "#059669", tailwindClass: "bg-green-600" }, 
-  { name: "Yellow", value: "#CA8A04", tailwindClass: "bg-yellow-600" }, 
-  { name: "Red", value: "#DC2626", tailwindClass: "bg-red-600" }, 
+  { name: "Blue", value: "#2563EB", tailwindClass: "bg-blue-600" },
+  { name: "Green", value: "#059669", tailwindClass: "bg-green-600" },
+  { name: "Yellow", value: "#CA8A04", tailwindClass: "bg-yellow-600" },
+  { name: "Red", value: "#DC2626", tailwindClass: "bg-red-600" },
   { name: "Purple", value: "#7C3AED", tailwindClass: "bg-violet-600" },
   { name: "Orange", value: "#EA580C", tailwindClass: "bg-orange-600" },
   { name: "Pink", value: "#DB2777", tailwindClass: "bg-pink-600" },
@@ -62,10 +129,9 @@ const PREDEFINED_HIGHLIGHT_COLORS: { name: string; value?: string; tailwindClass
   { name: "Lime", value: "#65A30D", tailwindClass: "bg-lime-600" },
 ];
 
-
 const RunOfShowEditor: React.FC = () => {
   const { id, shareCode } = useParams<{ id?: string; shareCode?: string }>();
-  console.log('[RoSEditor] Top Level Params:', { id, shareCode });
+  console.log("[RoSEditor] Top Level Params:", { id, shareCode });
   const navigate = useNavigate();
   const location = useLocation();
   // const screenSize = useScreenSize(); // Removed
@@ -80,14 +146,15 @@ const RunOfShowEditor: React.FC = () => {
 
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [newColumnName, setNewColumnName] = useState<string>("");
-  const [newColumnType, setNewColumnType] = useState<'text' | 'number' | 'time'>("text");
-  
-  const [colorPickerModalTargetItemId, setColorPickerModalTargetItemId] = useState<string | null>(null);
+  const [newColumnType, setNewColumnType] = useState<"text" | "number" | "time">("text");
+
+  const [colorPickerModalTargetItemId, setColorPickerModalTargetItemId] = useState<string | null>(
+    null,
+  );
   const colorPickerModalRef = useRef<HTMLDivElement>(null);
 
   const [currentIsSharedEdit, setCurrentIsSharedEdit] = useState(false);
   const [sharedLinkData, setSharedLinkData] = useState<SharedLink | null>(null);
-
 
   // useEffect(() => { // Removed useEffect for showMobileWarning
   //   if (screenSize === "mobile" || screenSize === "tablet") {
@@ -97,117 +164,143 @@ const RunOfShowEditor: React.FC = () => {
 
   // Effect 1: Determine and set currentIsSharedEdit
   useEffect(() => {
-    const pathIsSharedEdit = location.pathname.includes('/shared/run-of-show/edit/');
+    const pathIsSharedEdit = location.pathname.includes("/shared/run-of-show/edit/");
     const derivedIsSharedEdit = pathIsSharedEdit && !!shareCode;
-    console.log('[RoSEditor] Effect 1 - Setting currentIsSharedEdit:', { 
+    console.log("[RoSEditor] Effect 1 - Setting currentIsSharedEdit:", {
       pathname: location.pathname,
       shareCodeParam: shareCode,
       pathIsSharedEdit,
-      derivedIsSharedEdit 
+      derivedIsSharedEdit,
     });
     setCurrentIsSharedEdit(derivedIsSharedEdit);
   }, [location.pathname, shareCode]);
 
+  const fetchAndSetRunOfShow = useCallback(
+    async (userIdToFetch?: string, resourceIdToFetch?: string) => {
+      setLoading(true);
+      setSaveError(null);
+      console.log(
+        "[RoSEditor] fetchAndSetRunOfShow called. currentIsSharedEdit (state):",
+        currentIsSharedEdit,
+        "Params:",
+        { userIdToFetch, resourceIdToFetch },
+      );
 
-  const fetchAndSetRunOfShow = useCallback(async (userIdToFetch?: string, resourceIdToFetch?: string) => {
-    setLoading(true); 
-    setSaveError(null);
-    console.log('[RoSEditor] fetchAndSetRunOfShow called. currentIsSharedEdit (state):', currentIsSharedEdit, 'Params:', { userIdToFetch, resourceIdToFetch });
-  
-    try {
-      let data: RunOfShowData | null = null;
-      let error: any = null;
-  
-      if (currentIsSharedEdit && shareCode && resourceIdToFetch) { 
-        console.log(`[RoSEditor] Fetching shared RoS by resource_id: ${resourceIdToFetch} via shareCode: ${shareCode}`);
-        const response = await supabase
-          .from("run_of_shows")
-          .select("*")
-          .eq("id", resourceIdToFetch)
-          .single();
-        data = response.data;
-        error = response.error;
-      } else if (id === "new") {
-        console.log("[RoSEditor] Creating new RoS");
-        setRunOfShow({
-          name: "Untitled Run of Show",
-          items: [],
-          custom_column_definitions: [],
-          live_show_data: null,
-        });
-        setLoading(false);
-        return;
-      } else if (id && userIdToFetch) { 
-        console.log(`[RoSEditor] Fetching owned RoS by id: ${id} for user: ${userIdToFetch}`);
-        const response = await supabase
-          .from("run_of_shows")
-          .select("*")
-          .eq("id", id)
-          .eq("user_id", userIdToFetch)
-          .single();
-        data = response.data;
-        error = response.error;
-      } else {
-        console.warn("[RoSEditor] fetchAndSetRunOfShow: Invalid parameters or state for fetching.");
-        throw new Error("Invalid parameters for fetching Run of Show.");
-      }
-  
-      if (error) throw error; 
-  
-      if (data) {
-        const migratedItems = (data.items || []).map((item: any) => ({
-          ...item,
-          type: item.type || 'item',
-          highlightColor: item.highlightColor || undefined, 
-        }));
-        setRunOfShow({
-          ...data,
-          items: migratedItems,
-          custom_column_definitions: (data.custom_column_definitions || []).map((col: any) => ({ ...col, type: col.type || 'text' })),
-        });
-      } else { 
-        setSaveError("Run of Show not found or access denied.");
-        if (!currentIsSharedEdit) { 
-          console.log('[RoSEditor] fetchAndSetRunOfShow: Data null, !currentIsSharedEdit -> navigating to dashboard.');
+      try {
+        let data: RunOfShowData | null = null;
+        let error: any = null;
+
+        if (currentIsSharedEdit && shareCode && resourceIdToFetch) {
+          console.log(
+            `[RoSEditor] Fetching shared RoS by resource_id: ${resourceIdToFetch} via shareCode: ${shareCode}`,
+          );
+          const response = await supabase
+            .from("run_of_shows")
+            .select("*")
+            .eq("id", resourceIdToFetch)
+            .single();
+          data = response.data;
+          error = response.error;
+        } else if (id === "new") {
+          console.log("[RoSEditor] Creating new RoS");
+          setRunOfShow({
+            name: "Untitled Run of Show",
+            items: [],
+            custom_column_definitions: [],
+            live_show_data: null,
+          });
+          setLoading(false);
+          return;
+        } else if (id && userIdToFetch) {
+          console.log(`[RoSEditor] Fetching owned RoS by id: ${id} for user: ${userIdToFetch}`);
+          const response = await supabase
+            .from("run_of_shows")
+            .select("*")
+            .eq("id", id)
+            .eq("user_id", userIdToFetch)
+            .single();
+          data = response.data;
+          error = response.error;
+        } else {
+          console.warn(
+            "[RoSEditor] fetchAndSetRunOfShow: Invalid parameters or state for fetching.",
+          );
+          throw new Error("Invalid parameters for fetching Run of Show.");
+        }
+
+        if (error) throw error;
+
+        if (data) {
+          const migratedItems = (data.items || []).map((item: any) => ({
+            ...item,
+            type: item.type || "item",
+            highlightColor: item.highlightColor || undefined,
+          }));
+          setRunOfShow({
+            ...data,
+            items: migratedItems,
+            custom_column_definitions: (data.custom_column_definitions || []).map((col: any) => ({
+              ...col,
+              type: col.type || "text",
+            })),
+          });
+        } else {
+          setSaveError("Run of Show not found or access denied.");
+          if (!currentIsSharedEdit) {
+            console.log(
+              "[RoSEditor] fetchAndSetRunOfShow: Data null, !currentIsSharedEdit -> navigating to dashboard.",
+            );
+            navigate("/dashboard");
+          }
+        }
+      } catch (err: any) {
+        console.error("Error fetching run of show:", err);
+        setSaveError(`Failed to load run of show data: ${err.message}`);
+        if (!currentIsSharedEdit) {
+          console.log(
+            "[RoSEditor] fetchAndSetRunOfShow: Caught error, !currentIsSharedEdit -> navigating to dashboard.",
+          );
           navigate("/dashboard");
         }
+      } finally {
+        setLoading(false);
       }
-    } catch (err: any) {
-      console.error("Error fetching run of show:", err);
-      setSaveError(`Failed to load run of show data: ${err.message}`);
-      if (!currentIsSharedEdit) { 
-        console.log('[RoSEditor] fetchAndSetRunOfShow: Caught error, !currentIsSharedEdit -> navigating to dashboard.');
-        navigate("/dashboard");
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [id, shareCode, currentIsSharedEdit, navigate]); 
-
+    },
+    [id, shareCode, currentIsSharedEdit, navigate],
+  );
 
   // Effect 2: Initialize and fetch data, depends on currentIsSharedEdit being correctly set
   useEffect(() => {
-    console.log('[RoSEditor] Effect 2 - Init effect. currentIsSharedEdit:', currentIsSharedEdit, 'id:', id, 'shareCode:', shareCode);
-  
+    console.log(
+      "[RoSEditor] Effect 2 - Init effect. currentIsSharedEdit:",
+      currentIsSharedEdit,
+      "id:",
+      id,
+      "shareCode:",
+      shareCode,
+    );
+
     const init = async () => {
       // setLoading(true); // Moved to fetchAndSetRunOfShow and start of this effect if needed
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError || !authData.user) {
-        if (!currentIsSharedEdit) { 
+        if (!currentIsSharedEdit) {
           console.error("User not authenticated for non-shared path:", authError);
           navigate("/login");
           return;
         }
-        setUser(null); 
+        setUser(null);
       } else {
         setUser(authData.user);
       }
-  
-      if (currentIsSharedEdit && shareCode) { 
+
+      if (currentIsSharedEdit && shareCode) {
         try {
-          console.log(`[RoSEditor] Verifying shareCode for shared edit: ${shareCode}. currentIsSharedEdit is true.`);
+          console.log(
+            `[RoSEditor] Verifying shareCode for shared edit: ${shareCode}. currentIsSharedEdit is true.`,
+          );
           const verifiedLink = await verifyShareLink(shareCode);
-          if (verifiedLink.resource_type === 'run_of_show' && verifiedLink.link_type === 'edit') {
+          if (verifiedLink.resource_type === "run_of_show" && verifiedLink.link_type === "edit") {
             setSharedLinkData(verifiedLink);
             await fetchAndSetRunOfShow(undefined, verifiedLink.resource_id);
           } else {
@@ -215,45 +308,58 @@ const RunOfShowEditor: React.FC = () => {
           }
         } catch (err: any) {
           console.error("Error verifying share link for RoS edit:", err);
-          setSaveError(`Error: ${err.message}. You may not have permission to edit this document or the link is invalid.`);
+          setSaveError(
+            `Error: ${err.message}. You may not have permission to edit this document or the link is invalid.`,
+          );
           setLoading(false);
         }
-      } else if (id) { 
-        console.log(`[RoSEditor] Path for owned/new document. id: ${id}. currentIsSharedEdit is false.`);
+      } else if (id) {
+        console.log(
+          `[RoSEditor] Path for owned/new document. id: ${id}. currentIsSharedEdit is false.`,
+        );
         await fetchAndSetRunOfShow(authData.user?.id);
       } else if (!id && !shareCode) {
         // This case handles scenarios where neither id nor shareCode is present,
         // which might indicate an invalid route or parameters for this editor.
         // Example: Navigating to /run-of-show/ or /shared/run-of-show/edit/ without params.
-        console.log('[RoSEditor] Invalid route state: no id, no shareCode.');
+        console.log("[RoSEditor] Invalid route state: no id, no shareCode.");
         setSaveError("Invalid route: Document ID or Share Code is missing.");
         setLoading(false);
       } else {
         // This is a fallback for any other unhandled combination.
         // For instance, if currentIsSharedEdit is false but shareCode is present (shouldn't happen with Effect 1)
         // Or if currentIsSharedEdit is true but shareCode is missing.
-        console.log('[RoSEditor] Unhandled route state or parameters missing. currentIsSharedEdit:', currentIsSharedEdit, 'id:', id, 'shareCode:', shareCode);
-        setSaveError("Could not determine how to load the document due to inconsistent parameters.");
+        console.log(
+          "[RoSEditor] Unhandled route state or parameters missing. currentIsSharedEdit:",
+          currentIsSharedEdit,
+          "id:",
+          id,
+          "shareCode:",
+          shareCode,
+        );
+        setSaveError(
+          "Could not determine how to load the document due to inconsistent parameters.",
+        );
         setLoading(false);
       }
     };
-  
+
     // Determine if we have enough information to proceed with init
     const canInitialize = (currentIsSharedEdit && !!shareCode) || (!currentIsSharedEdit && !!id);
-    
+
     if (canInitialize) {
       setLoading(true); // Set loading true before starting init
       init();
     } else {
       // If not enough info, and the path suggests it *should* be one of these types, set an error.
       // This handles cases like /run-of-show/ (no id) or /shared/run-of-show/edit/ (no shareCode).
-      if (location.pathname.startsWith('/run-of-show/') && !id) {
+      if (location.pathname.startsWith("/run-of-show/") && !id) {
         setSaveError("Document ID missing from URL.");
         setLoading(false);
-      } else if (location.pathname.startsWith('/shared/run-of-show/edit/') && !shareCode) {
+      } else if (location.pathname.startsWith("/shared/run-of-show/edit/") && !shareCode) {
         setSaveError("Share code missing from URL for shared document.");
         setLoading(false);
-      } else if (!location.pathname.startsWith('/run-of-show/new') && !id && !shareCode) {
+      } else if (!location.pathname.startsWith("/run-of-show/new") && !id && !shareCode) {
         // Generic case if path doesn't match expected patterns and no params
         // For /run-of-show/new, id will be "new", so that's handled by canInitialize.
         setSaveError("Invalid page URL or parameters.");
@@ -261,13 +367,14 @@ const RunOfShowEditor: React.FC = () => {
       }
       // If it's /run-of-show/new, `id` will be "new", so `canInitialize` will be true.
     }
-  
   }, [id, shareCode, currentIsSharedEdit, navigate, fetchAndSetRunOfShow, location.pathname]);
-
 
   useEffect(() => {
     const handleClickOutsideModal = (event: MouseEvent) => {
-      if (colorPickerModalRef.current && !colorPickerModalRef.current.contains(event.target as Node)) {
+      if (
+        colorPickerModalRef.current &&
+        !colorPickerModalRef.current.contains(event.target as Node)
+      ) {
         setColorPickerModalTargetItemId(null);
       }
     };
@@ -279,32 +386,34 @@ const RunOfShowEditor: React.FC = () => {
     };
   }, [colorPickerModalTargetItemId]);
 
-
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (runOfShow) {
       setRunOfShow({ ...runOfShow, name: e.target.value });
     }
   };
 
-  const handleAddItem = (type: 'item' | 'header' = 'item') => {
+  const handleAddItem = (type: "item" | "header" = "item") => {
     if (runOfShow) {
       const newItem: RunOfShowItem = {
         id: uuidv4(),
         type: type,
-        itemNumber: type === 'item' ? (runOfShow.items.filter(i => i.type === 'item').length + 1).toString() : "",
+        itemNumber:
+          type === "item"
+            ? (runOfShow.items.filter((i) => i.type === "item").length + 1).toString()
+            : "",
         startTime: "",
-        highlightColor: undefined, 
-        headerTitle: type === 'header' ? "New Section Header" : undefined,
-        preset: type === 'item' ? "" : undefined,
-        duration: type === 'item' ? "" : undefined,
-        privateNotes: type === 'item' ? "" : undefined,
-        productionNotes: type === 'item' ? "" : undefined,
-        audio: type === 'item' ? "" : undefined,
-        video: type === 'item' ? "" : undefined,
-        lights: type === 'item' ? "" : undefined,
+        highlightColor: undefined,
+        headerTitle: type === "header" ? "New Section Header" : undefined,
+        preset: type === "item" ? "" : undefined,
+        duration: type === "item" ? "" : undefined,
+        privateNotes: type === "item" ? "" : undefined,
+        productionNotes: type === "item" ? "" : undefined,
+        audio: type === "item" ? "" : undefined,
+        video: type === "item" ? "" : undefined,
+        lights: type === "item" ? "" : undefined,
       };
-      if (type === 'item') {
-        runOfShow.custom_column_definitions.forEach(col => {
+      if (type === "item") {
+        runOfShow.custom_column_definitions.forEach((col) => {
           newItem[col.name] = "";
         });
       }
@@ -312,13 +421,53 @@ const RunOfShowEditor: React.FC = () => {
     }
   };
 
+  const calculateNextCueTime = (currentItemId: string, updatedItems: RunOfShowItem[]) => {
+    const currentIndex = updatedItems.findIndex((item) => item.id === currentItemId);
+    if (currentIndex === -1) return updatedItems;
+
+    const currentItem = updatedItems[currentIndex];
+    if (currentItem.type !== "item") return updatedItems;
+
+    // Find the next playable item (type === 'item')
+    const nextIndex = updatedItems.findIndex(
+      (item, index) => index > currentIndex && item.type === "item",
+    );
+
+    if (nextIndex === -1) return updatedItems;
+
+    const currentStartTime = parseTimeToSeconds(currentItem.startTime || "");
+    const currentDuration = parseDurationToSeconds(currentItem.duration || "");
+
+    // Only calculate if both start time and duration are valid
+    if (currentStartTime !== null && currentDuration !== null) {
+      const nextStartTimeSeconds = currentStartTime + currentDuration;
+      const nextStartTime = formatSecondsToTime(nextStartTimeSeconds);
+
+      // Update the next item's start time
+      updatedItems[nextIndex] = {
+        ...updatedItems[nextIndex],
+        startTime: nextStartTime,
+      };
+    }
+
+    return updatedItems;
+  };
+
   const handleItemChange = (itemId: string, field: keyof RunOfShowItem | string, value: any) => {
     if (runOfShow) {
+      const updatedItems = runOfShow.items.map((item) =>
+        item.id === itemId ? { ...item, [field]: value } : item,
+      );
+
+      // Auto-calculate next cue time if startTime or duration changed
+      let finalItems = updatedItems;
+      if (field === "startTime" || field === "duration") {
+        finalItems = calculateNextCueTime(itemId, updatedItems);
+      }
+
       setRunOfShow({
         ...runOfShow,
-        items: runOfShow.items.map((item) =>
-          item.id === itemId ? { ...item, [field]: value } : item
-        ),
+        items: finalItems,
       });
     }
   };
@@ -337,11 +486,11 @@ const RunOfShowEditor: React.FC = () => {
       const newColumn: CustomColumnDefinition = {
         id: uuidv4(),
         name: newColumnName.trim(),
-        type: newColumnType, 
+        type: newColumnType,
       };
       const updatedDefinitions = [...runOfShow.custom_column_definitions, newColumn];
-      const updatedItems = runOfShow.items.map(item => 
-        item.type === 'item' ? { ...item, [newColumn.name]: "" } : item
+      const updatedItems: RunOfShowItem[] = runOfShow.items.map((item) =>
+        item.type === "item" ? ({ ...item, [newColumn.name]: "" } as RunOfShowItem) : item,
       );
 
       setRunOfShow({
@@ -349,26 +498,26 @@ const RunOfShowEditor: React.FC = () => {
         custom_column_definitions: updatedDefinitions,
         items: updatedItems,
       });
-      setNewColumnName(""); 
+      setNewColumnName("");
       setNewColumnType("text");
-      setEditingColumnId(null); 
+      setEditingColumnId(null);
     }
   };
-  
+
   const handleRenameCustomColumn = (columnId: string, newName: string) => {
     if (runOfShow && newName.trim() !== "") {
-      const oldColumn = runOfShow.custom_column_definitions.find(col => col.id === columnId);
+      const oldColumn = runOfShow.custom_column_definitions.find((col) => col.id === columnId);
       if (!oldColumn) return;
 
       const oldName = oldColumn.name;
-      const updatedDefinitions = runOfShow.custom_column_definitions.map(col =>
-        col.id === columnId ? { ...col, name: newName.trim(), type: newColumnType } : col
+      const updatedDefinitions = runOfShow.custom_column_definitions.map((col) =>
+        col.id === columnId ? { ...col, name: newName.trim(), type: newColumnType } : col,
       );
-      const updatedItems = runOfShow.items.map(item => {
-        if (item.type === 'header') return item;
+      const updatedItems: RunOfShowItem[] = runOfShow.items.map((item) => {
+        if (item.type === "header") return item;
         if (oldName !== newName.trim() && item.hasOwnProperty(oldName)) {
-            const { [oldName]: value, ...rest } = item;
-            return { ...rest, [newName.trim()]: value };
+          const { [oldName]: value, ...rest } = item;
+          return { ...rest, [newName.trim()]: value } as RunOfShowItem;
         }
         return item;
       });
@@ -385,16 +534,16 @@ const RunOfShowEditor: React.FC = () => {
 
   const handleDeleteCustomColumn = (columnId: string) => {
     if (runOfShow) {
-      const columnToDelete = runOfShow.custom_column_definitions.find(col => col.id === columnId);
+      const columnToDelete = runOfShow.custom_column_definitions.find((col) => col.id === columnId);
       if (!columnToDelete) return;
 
       const updatedDefinitions = runOfShow.custom_column_definitions.filter(
-        (col) => col.id !== columnId
+        (col) => col.id !== columnId,
       );
-      const updatedItems = runOfShow.items.map((item) => {
-        if (item.type === 'header') return item;
-        const { [columnToDelete.name]: _, ...rest } = item; 
-        return rest;
+      const updatedItems: RunOfShowItem[] = runOfShow.items.map((item) => {
+        if (item.type === "header") return item;
+        const { [columnToDelete.name]: _, ...rest } = item;
+        return rest as RunOfShowItem;
       });
       setRunOfShow({
         ...runOfShow,
@@ -406,15 +555,17 @@ const RunOfShowEditor: React.FC = () => {
 
   const handleSave = async () => {
     if (!runOfShow) return;
-    
+
     if (!user && currentIsSharedEdit) {
-        setSaveError("You must be logged in to save changes, even to a shared document. Please log in or sign up, then try claiming this share link again.");
-        setTimeout(() => setSaveError(null), 7000);
-        return;
+      setSaveError(
+        "You must be logged in to save changes, even to a shared document. Please log in or sign up, then try claiming this share link again.",
+      );
+      setTimeout(() => setSaveError(null), 7000);
+      return;
     }
-     if (!user && !currentIsSharedEdit && id !== "new") { 
-        navigate("/login");
-        return;
+    if (!user && !currentIsSharedEdit && id !== "new") {
+      navigate("/login");
+      return;
     }
 
     setSaving(true);
@@ -425,29 +576,32 @@ const RunOfShowEditor: React.FC = () => {
 
     const dataToSave: Partial<RunOfShowData> & { last_edited: string } = {
       name: runOfShow.name,
-      items: runOfShow.items.map(item => ({ 
+      items: runOfShow.items.map((item) => ({
         ...item,
-        type: item.type || 'item',
+        type: item.type || "item",
         highlightColor: item.highlightColor || undefined,
       })),
-      custom_column_definitions: runOfShow.custom_column_definitions.map(col => ({...col, type: col.type || 'text'})),
+      custom_column_definitions: runOfShow.custom_column_definitions.map((col) => ({
+        ...col,
+        type: col.type || "text",
+      })),
       last_edited: new Date().toISOString(),
       live_show_data: liveShowDataToSave,
     };
 
     try {
       let savedData;
-      if (currentIsSharedEdit && runOfShow.id && sharedLinkData) { // Ensure sharedLinkData and runOfShow.id (resource_id) are present
+      if (currentIsSharedEdit && runOfShow.id && sharedLinkData) {
+        // Ensure sharedLinkData and runOfShow.id (resource_id) are present
         console.log(`[RoSEditor] Saving shared RoS ID: ${runOfShow.id}`);
         const { data, error } = await supabase
           .from("run_of_shows")
-          .update(dataToSave) 
-          .eq("id", runOfShow.id) 
+          .update(dataToSave)
+          .eq("id", runOfShow.id)
           .select()
           .single();
         if (error) throw error;
         savedData = data;
-
       } else if (id === "new" && user) {
         console.log("[RoSEditor] Saving new RoS for user:", user.id);
         const { data, error } = await supabase
@@ -458,14 +612,13 @@ const RunOfShowEditor: React.FC = () => {
         if (error) throw error;
         savedData = data;
         if (data) navigate(`/run-of-show/${data.id}`, { state: { from: location.state?.from } }); // Preserve 'from' state on new save
-
-      } else if (runOfShow.id && user) { 
+      } else if (runOfShow.id && user) {
         console.log(`[RoSEditor] Saving owned RoS ID: ${runOfShow.id} for user: ${user.id}`);
         const { data, error } = await supabase
           .from("run_of_shows")
-          .update({ ...dataToSave, user_id: user.id }) 
+          .update({ ...dataToSave, user_id: user.id })
           .eq("id", runOfShow.id)
-          .eq("user_id", user.id) 
+          .eq("user_id", user.id)
           .select()
           .single();
         if (error) throw error;
@@ -473,17 +626,19 @@ const RunOfShowEditor: React.FC = () => {
       } else {
         throw new Error("Cannot save: Invalid state or missing user/ID/sharedLink information.");
       }
-      
+
       if (savedData) {
         const migratedItems = (savedData.items || []).map((item: any) => ({
-            ...item,
-            type: item.type || 'item',
-            highlightColor: item.highlightColor || undefined,
+          ...item,
+          type: item.type || "item",
+          highlightColor: item.highlightColor || undefined,
         }));
         setRunOfShow({
-            ...(savedData as RunOfShowData), // Cast to ensure type compatibility
-            items: migratedItems,
-            custom_column_definitions: (savedData.custom_column_definitions || []).map((col: any) => ({ ...col, type: col.type || 'text' })),
+          ...(savedData as RunOfShowData), // Cast to ensure type compatibility
+          items: migratedItems,
+          custom_column_definitions: (savedData.custom_column_definitions || []).map(
+            (col: any) => ({ ...col, type: col.type || "text" }),
+          ),
         });
       }
 
@@ -514,7 +669,7 @@ const RunOfShowEditor: React.FC = () => {
 
   const handleSelectColor = (colorValue?: string) => {
     if (colorPickerModalTargetItemId) {
-      handleItemChange(colorPickerModalTargetItemId, 'highlightColor', colorValue);
+      handleItemChange(colorPickerModalTargetItemId, "highlightColor", colorValue);
     }
     setColorPickerModalTargetItemId(null);
   };
@@ -536,7 +691,6 @@ const RunOfShowEditor: React.FC = () => {
     }
   };
 
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -544,57 +698,61 @@ const RunOfShowEditor: React.FC = () => {
       </div>
     );
   }
-  
-  if (saveError && !runOfShow) { 
-    return (
-        <div className="min-h-screen bg-gray-900 flex flex-col">
-            <Header dashboard={true} />
-            <main className="flex-grow container mx-auto px-4 py-12 flex flex-col items-center justify-center text-center">
-                <AlertTriangle className="h-16 w-16 text-red-400 mb-4" />
-                <h1 className="text-2xl font-bold text-red-400 mb-2">Error Loading Run of Show</h1>
-                <p className="text-gray-300 mb-6">{saveError}</p>
-                <button
-                    onClick={() => navigate(currentIsSharedEdit ? "/shared-with-me" : "/dashboard")}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-md font-medium"
-                >
-                    {currentIsSharedEdit ? "Back to Shared With Me" : "Back to Dashboard"}
-                </button>
-            </main>
-            <Footer />
-        </div>
-    );
-  }
 
-
-  if (!runOfShow) { 
+  if (saveError && !runOfShow) {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col">
         <Header dashboard={true} />
-         <main className="flex-grow container mx-auto px-4 py-12 flex flex-col items-center justify-center text-center">
-            <AlertTriangle className="h-16 w-16 text-yellow-400 mb-4" />
-            <h1 className="text-2xl font-bold text-yellow-400 mb-2">Run of Show Not Loaded</h1>
-            <p className="text-gray-300 mb-6">
-              The Run of Show data could not be loaded. This might be due to an invalid link or insufficient permissions.
-              Please check the URL or try returning to your dashboard.
-            </p>
-            <button
-                onClick={() => navigate(currentIsSharedEdit ? "/shared-with-me" : "/dashboard")}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-md font-medium"
-            >
-                {currentIsSharedEdit ? "Back to Shared With Me" : "Back to Dashboard"}
-            </button>
+        <main className="flex-grow container mx-auto px-4 py-12 flex flex-col items-center justify-center text-center">
+          <AlertTriangle className="h-16 w-16 text-red-400 mb-4" />
+          <h1 className="text-2xl font-bold text-red-400 mb-2">Error Loading Run of Show</h1>
+          <p className="text-gray-300 mb-6">{saveError}</p>
+          <button
+            onClick={() => navigate(currentIsSharedEdit ? "/shared-with-me" : "/dashboard")}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-md font-medium"
+          >
+            {currentIsSharedEdit ? "Back to Shared With Me" : "Back to Dashboard"}
+          </button>
         </main>
         <Footer />
       </div>
     );
   }
 
+  if (!runOfShow) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex flex-col">
+        <Header dashboard={true} />
+        <main className="flex-grow container mx-auto px-4 py-12 flex flex-col items-center justify-center text-center">
+          <AlertTriangle className="h-16 w-16 text-yellow-400 mb-4" />
+          <h1 className="text-2xl font-bold text-yellow-400 mb-2">Run of Show Not Loaded</h1>
+          <p className="text-gray-300 mb-6">
+            The Run of Show data could not be loaded. This might be due to an invalid link or
+            insufficient permissions. Please check the URL or try returning to your dashboard.
+          </p>
+          <button
+            onClick={() => navigate(currentIsSharedEdit ? "/shared-with-me" : "/dashboard")}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-md font-medium"
+          >
+            {currentIsSharedEdit ? "Back to Shared With Me" : "Back to Dashboard"}
+          </button>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
-  const defaultColumns: { key: keyof RunOfShowItem | string; label: string; type?: string }[] = [
-    { key: "itemNumber", label: "Item #" }, 
+  const defaultColumns: {
+    key: keyof RunOfShowItem | string;
+    label: string;
+    type?: string;
+    id?: string;
+    isCustom?: boolean;
+  }[] = [
+    { key: "itemNumber", label: "Item #" },
     { key: "startTime", label: "Start", type: "time" },
-    { key: "preset", label: "Preset / Scene" }, 
-    { key: "duration", label: "Duration", type: "text" }, 
+    { key: "preset", label: "Preset / Scene" },
+    { key: "duration", label: "Duration", type: "text" },
     { key: "privateNotes", label: "Private Notes" },
     { key: "productionNotes", label: "Production Notes" },
     { key: "audio", label: "Audio" },
@@ -604,9 +762,15 @@ const RunOfShowEditor: React.FC = () => {
 
   const allDisplayColumns = [
     ...defaultColumns,
-    ...runOfShow.custom_column_definitions.map(col => ({ key: col.name, label: col.name, id: col.id, isCustom: true, type: col.type || "text" }))
+    ...runOfShow.custom_column_definitions.map((col) => ({
+      key: col.name,
+      label: col.name,
+      id: col.id,
+      isCustom: true,
+      type: col.type || "text",
+    })),
   ];
-  
+
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       {/* Removed MobileScreenWarning component and its conditional rendering */}
@@ -629,10 +793,11 @@ const RunOfShowEditor: React.FC = () => {
                 placeholder="Enter Run of Show Name"
               />
               <p className="text-xs sm:text-sm text-gray-400 truncate">
-                {currentIsSharedEdit && sharedLinkData ? `Editing shared document (Owner ID: ${sharedLinkData.user_id || 'Unknown'})` : 
-                  (runOfShow.last_edited
-                  ? `Last edited: ${new Date(runOfShow.last_edited).toLocaleString()}`
-                  : `Created: ${new Date(runOfShow.created_at || Date.now()).toLocaleString()}`)}
+                {currentIsSharedEdit && sharedLinkData
+                  ? `Editing shared document (Owner ID: ${sharedLinkData.user_id || "Unknown"})`
+                  : runOfShow.last_edited
+                    ? `Last edited: ${new Date(runOfShow.last_edited).toLocaleString()}`
+                    : `Created: ${new Date(runOfShow.created_at || Date.now()).toLocaleString()}`}
               </p>
             </div>
           </div>
@@ -650,19 +815,29 @@ const RunOfShowEditor: React.FC = () => {
               className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg md:shadow-none"
             >
               {saving ? (
-                <><Loader className="h-4 w-4 mr-2 animate-spin" />Saving...</>
+                <>
+                  <Loader className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
               ) : (
-                <><Save className="h-4 w-4 mr-2" />Save</>
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save
+                </>
               )}
             </button>
           </div>
         </div>
 
         {saveError && (
-          <div className="bg-red-400/10 border border-red-400 rounded-lg p-3 mb-4 text-sm text-red-300">{saveError}</div>
+          <div className="bg-red-400/10 border border-red-400 rounded-lg p-3 mb-4 text-sm text-red-300">
+            {saveError}
+          </div>
         )}
         {saveSuccess && (
-          <div className="bg-green-400/10 border border-green-400 rounded-lg p-3 mb-4 text-sm text-green-300">Run of Show saved successfully!</div>
+          <div className="bg-green-400/10 border border-green-400 rounded-lg p-3 mb-4 text-sm text-green-300">
+            Run of Show saved successfully!
+          </div>
         )}
 
         <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden">
@@ -670,14 +845,14 @@ const RunOfShowEditor: React.FC = () => {
             <h2 className="text-lg font-medium text-white">Show Content</h2>
             <div className="flex gap-2">
               <button
-                onClick={() => handleAddItem('header')}
+                onClick={() => handleAddItem("header")}
                 className="inline-flex items-center bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
               >
-                <FileText className="h-4 w-4 mr-1.5" /> 
+                <FileText className="h-4 w-4 mr-1.5" />
                 Add Header
               </button>
               <button
-                onClick={() => handleAddItem('item')}
+                onClick={() => handleAddItem("item")}
                 className="inline-flex items-center bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
               >
                 <Plus className="h-4 w-4 mr-1.5" />
@@ -686,16 +861,23 @@ const RunOfShowEditor: React.FC = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto pb-4">
-            <table className="min-w-full divide-y divide-gray-700">
-              <thead className="bg-gray-700/50 sticky top-0 z-10">
+          <div className="overflow-x-auto pb-4 max-h-[calc(100vh-300px)]">
+            <table className="min-w-full">
+              <thead className="bg-gray-700 sticky top-0 z-20">
                 <tr>
                   {allDisplayColumns.map((col, index) => (
                     <th
                       key={col.key || col.id}
                       scope="col"
-                      className={`py-3 px-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap ${index === 0 ? 'pl-4 md:pl-6' : ''} ${index === allDisplayColumns.length -1 ? 'pr-4 md:pr-6' : ''}`}
-                      style={{ minWidth: col.key === 'itemNumber' ? '200px' : col.key === 'privateNotes' || col.key === 'productionNotes' ? '250px' : '150px' }}
+                      className={`py-3 px-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap ${index === 0 ? "pl-4 md:pl-6" : ""} ${index === allDisplayColumns.length - 1 ? "pr-4 md:pr-6" : ""}`}
+                      style={{
+                        minWidth:
+                          col.key === "itemNumber"
+                            ? "200px"
+                            : col.key === "privateNotes" || col.key === "productionNotes"
+                              ? "250px"
+                              : "150px",
+                      }}
                     >
                       <div className="flex items-center">
                         {editingColumnId === col.id ? (
@@ -707,29 +889,66 @@ const RunOfShowEditor: React.FC = () => {
                               className="bg-gray-900 text-white text-xs p-1 rounded border border-indigo-500 focus:ring-indigo-500 focus:border-indigo-500"
                               autoFocus
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleRenameCustomColumn(col.id!, newColumnName);
-                                if (e.key === 'Escape') { setEditingColumnId(null); setNewColumnName(""); setNewColumnType("text");}
+                                if (e.key === "Enter")
+                                  handleRenameCustomColumn(col.id!, newColumnName);
+                                if (e.key === "Escape") {
+                                  setEditingColumnId(null);
+                                  setNewColumnName("");
+                                  setNewColumnType("text");
+                                }
                               }}
                             />
-                            <select 
-                                value={newColumnType} 
-                                onChange={(e) => setNewColumnType(e.target.value as 'text'|'number'|'time')}
-                                className="bg-gray-900 text-white text-xs p-1 rounded border border-indigo-500 focus:ring-indigo-500 focus:border-indigo-500"
+                            <select
+                              value={newColumnType}
+                              onChange={(e) =>
+                                setNewColumnType(e.target.value as "text" | "number" | "time")
+                              }
+                              className="bg-gray-900 text-white text-xs p-1 rounded border border-indigo-500 focus:ring-indigo-500 focus:border-indigo-500"
                             >
-                                <option value="text">Text</option>
-                                <option value="number">Number</option>
-                                <option value="time">Time</option>
+                              <option value="text">Text</option>
+                              <option value="number">Number</option>
+                              <option value="time">Time</option>
                             </select>
-                            <button onClick={() => handleRenameCustomColumn(col.id!, newColumnName)} className="text-green-400 hover:text-green-300 p-0.5"><Check size={14}/></button>
-                            <button onClick={() => { setEditingColumnId(null); setNewColumnName(""); setNewColumnType("text");}} className="text-red-400 hover:text-red-300 p-0.5"><X size={14}/></button>
+                            <button
+                              onClick={() => handleRenameCustomColumn(col.id!, newColumnName)}
+                              className="text-green-400 hover:text-green-300 p-0.5"
+                            >
+                              <Check size={14} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingColumnId(null);
+                                setNewColumnName("");
+                                setNewColumnType("text");
+                              }}
+                              className="text-red-400 hover:text-red-300 p-0.5"
+                            >
+                              <X size={14} />
+                            </button>
                           </div>
                         ) : (
                           <>
                             {col.label}
                             {col.isCustom && (
                               <>
-                                <button onClick={() => { setEditingColumnId(col.id!); setNewColumnName(col.label); setNewColumnType(col.type || "text"); }} className="ml-1.5 text-gray-400 hover:text-indigo-400 p-0.5"><Edit3 size={12}/></button>
-                                <button onClick={() => handleDeleteCustomColumn(col.id!)} className="text-gray-400 hover:text-red-400 p-0.5"><Trash2 size={12}/></button>
+                                <button
+                                  onClick={() => {
+                                    setEditingColumnId(col.id!);
+                                    setNewColumnName(col.label);
+                                    setNewColumnType(
+                                      (col.type as "text" | "number" | "time") || "text",
+                                    );
+                                  }}
+                                  className="ml-1.5 text-gray-400 hover:text-indigo-400 p-0.5"
+                                >
+                                  <Edit3 size={12} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteCustomColumn(col.id!)}
+                                  className="text-gray-400 hover:text-red-400 p-0.5"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
                               </>
                             )}
                           </>
@@ -737,8 +956,11 @@ const RunOfShowEditor: React.FC = () => {
                       </div>
                     </th>
                   ))}
-                  <th scope="col" className="py-3 px-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap pr-4 md:pr-6">
-                    {editingColumnId === 'new' ? (
+                  <th
+                    scope="col"
+                    className="py-3 px-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap pr-4 md:pr-6"
+                  >
+                    {editingColumnId === "new" ? (
                       <div className="flex items-center gap-1">
                         <input
                           type="text"
@@ -748,47 +970,83 @@ const RunOfShowEditor: React.FC = () => {
                           className="bg-gray-900 text-white text-xs p-1 rounded border border-indigo-500 focus:ring-indigo-500 focus:border-indigo-500"
                           autoFocus
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleAddCustomColumn();
-                            if (e.key === 'Escape') { setEditingColumnId(null); setNewColumnName(""); setNewColumnType("text");}
+                            if (e.key === "Enter") handleAddCustomColumn();
+                            if (e.key === "Escape") {
+                              setEditingColumnId(null);
+                              setNewColumnName("");
+                              setNewColumnType("text");
+                            }
                           }}
                         />
-                        <select 
-                            value={newColumnType} 
-                            onChange={(e) => setNewColumnType(e.target.value as 'text'|'number'|'time')}
-                            className="bg-gray-900 text-white text-xs p-1 rounded border border-indigo-500 focus:ring-indigo-500 focus:border-indigo-500"
+                        <select
+                          value={newColumnType}
+                          onChange={(e) =>
+                            setNewColumnType(e.target.value as "text" | "number" | "time")
+                          }
+                          className="bg-gray-900 text-white text-xs p-1 rounded border border-indigo-500 focus:ring-indigo-500 focus:border-indigo-500"
                         >
-                            <option value="text">Text</option>
-                            <option value="number">Number</option>
-                            <option value="time">Time</option>
+                          <option value="text">Text</option>
+                          <option value="number">Number</option>
+                          <option value="time">Time</option>
                         </select>
-                        <button onClick={handleAddCustomColumn} className="text-green-400 hover:text-green-300 p-0.5"><Check size={14}/></button>
-                        <button onClick={() => { setEditingColumnId(null); setNewColumnName(""); setNewColumnType("text");}} className="text-red-400 hover:text-red-300 p-0.5"><X size={14}/></button>
+                        <button
+                          onClick={handleAddCustomColumn}
+                          className="text-green-400 hover:text-green-300 p-0.5"
+                        >
+                          <Check size={14} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingColumnId(null);
+                            setNewColumnName("");
+                            setNewColumnType("text");
+                          }}
+                          className="text-red-400 hover:text-red-300 p-0.5"
+                        >
+                          <X size={14} />
+                        </button>
                       </div>
                     ) : (
                       <button
-                        onClick={() => { setEditingColumnId('new'); setNewColumnName(""); setNewColumnType("text"); }}
+                        onClick={() => {
+                          setEditingColumnId("new");
+                          setNewColumnName("");
+                          setNewColumnType("text");
+                        }}
                         className="flex items-center text-indigo-400 hover:text-indigo-300 text-xs font-medium"
                       >
                         <Plus size={14} className="mr-1" /> Add Column
                       </button>
                     )}
                   </th>
-                  <th scope="col" className="relative py-3 px-3 pr-4 md:pr-6" style={{ minWidth: '100px' }}>
+                  <th
+                    scope="col"
+                    className="relative py-3 px-3 pr-4 md:pr-6"
+                    style={{ minWidth: "100px" }}
+                  >
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-gray-800 divide-y divide-gray-700">
+              <tbody className="bg-gray-800">
                 {runOfShow.items.map((item) => {
-                  const rowStyle = item.type === 'item' && item.highlightColor ? { backgroundColor: item.highlightColor } : {};
-                  if (item.type === 'header') {
+                  const rowStyle =
+                    item.type === "item" && item.highlightColor
+                      ? { backgroundColor: item.highlightColor }
+                      : {};
+                  if (item.type === "header") {
                     return (
-                      <tr key={item.id} className="bg-gray-700/70 hover:bg-gray-600/70 transition-colors">
+                      <tr
+                        key={item.id}
+                        className="bg-gray-700 hover:bg-gray-600 transition-colors sticky top-[49px] z-10 border-t-0"
+                      >
                         <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-100 pl-4 md:pl-6">
                           <input
                             type="text"
                             value={item.headerTitle || ""}
-                            onChange={(e) => handleItemChange(item.id, "headerTitle", e.target.value)}
+                            onChange={(e) =>
+                              handleItemChange(item.id, "headerTitle", e.target.value)
+                            }
                             className="bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-400 text-lg font-bold"
                             placeholder="Section Header Title"
                           />
@@ -802,12 +1060,15 @@ const RunOfShowEditor: React.FC = () => {
                             className="bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-500 font-semibold"
                           />
                         </td>
-                        {allDisplayColumns.slice(2).map(colConfig => (
-                          <td key={`header-empty-${colConfig.key || colConfig.id}`} className="px-3 py-2 text-xs text-gray-500 italic">
+                        {allDisplayColumns.slice(2).map((colConfig) => (
+                          <td
+                            key={`header-empty-${colConfig.key || colConfig.id}`}
+                            className="px-3 py-2 text-xs text-gray-500 italic"
+                          >
                             N/A
                           </td>
                         ))}
-                        <td className="px-3 py-2"></td> 
+                        <td className="px-3 py-2"></td>
                         <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6">
                           <button
                             onClick={() => handleDeleteItem(item.id)}
@@ -821,20 +1082,43 @@ const RunOfShowEditor: React.FC = () => {
                     );
                   }
                   return (
-                    <tr key={item.id} className="hover:bg-gray-700/50 transition-colors" style={rowStyle}>
+                    <tr
+                      key={item.id}
+                      className="hover:bg-gray-700/50 transition-colors border-t border-gray-700"
+                      style={rowStyle}
+                    >
                       {allDisplayColumns.map((col, colIndex) => (
-                        <td key={col.key || col.id} className={`px-3 py-2 whitespace-nowrap text-sm text-gray-200 ${colIndex === 0 ? 'pl-4 md:pl-6' : ''}`}>
+                        <td
+                          key={col.key || col.id}
+                          className={`px-3 py-2 whitespace-nowrap text-sm text-gray-200 ${colIndex === 0 ? "pl-4 md:pl-6" : ""}`}
+                        >
                           <input
-                            type={col.type || "text"} 
+                            type={col.type || "text"}
                             value={item[col.key as keyof RunOfShowItem] || ""}
-                            onChange={(e) => handleItemChange(item.id, col.key as keyof RunOfShowItem, e.target.value)}
-                            className={`bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-500 ${col.key === 'itemNumber' ? 'font-semibold' : ''}`}
-                            placeholder={col.key === 'itemNumber' ? 'Item Name/No.' : col.key === 'preset' ? 'Preset/Scene' : col.key === 'duration' ? 'mm:ss' : col.label}
-                            step={col.type === 'time' ? '1' : col.type === 'number' ? 'any' : undefined}
+                            onChange={(e) =>
+                              handleItemChange(
+                                item.id,
+                                col.key as keyof RunOfShowItem,
+                                e.target.value,
+                              )
+                            }
+                            className={`bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-500 ${col.key === "itemNumber" ? "font-semibold" : ""}`}
+                            placeholder={
+                              col.key === "itemNumber"
+                                ? "Item Name/No."
+                                : col.key === "preset"
+                                  ? "Preset/Scene"
+                                  : col.key === "duration"
+                                    ? "mm:ss"
+                                    : col.label
+                            }
+                            step={
+                              col.type === "time" ? "1" : col.type === "number" ? "any" : undefined
+                            }
                           />
                         </td>
                       ))}
-                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-200"></td> 
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-200"></td>
                       <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6 relative">
                         <div className="flex items-center justify-end gap-1">
                           <button
@@ -857,11 +1141,14 @@ const RunOfShowEditor: React.FC = () => {
                   );
                 })}
                 {runOfShow.items.length === 0 && (
-                    <tr>
-                        <td colSpan={allDisplayColumns.length + 2} className="text-center py-8 text-gray-400">
-                            No content yet. Click "Add Item" or "Add Header" to get started.
-                        </td>
-                    </tr>
+                  <tr>
+                    <td
+                      colSpan={allDisplayColumns.length + 2}
+                      className="text-center py-8 text-gray-400"
+                    >
+                      No content yet. Click "Add Item" or "Add Header" to get started.
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
@@ -875,9 +1162,15 @@ const RunOfShowEditor: React.FC = () => {
             className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg"
           >
             {saving ? (
-              <><Loader className="h-5 w-5 mr-2 animate-spin" />Saving...</>
+              <>
+                <Loader className="h-5 w-5 mr-2 animate-spin" />
+                Saving...
+              </>
             ) : (
-              <><Save className="h-5 w-5 mr-2" />Save Run of Show</>
+              <>
+                <Save className="h-5 w-5 mr-2" />
+                Save Run of Show
+              </>
             )}
           </button>
           <button
@@ -888,29 +1181,28 @@ const RunOfShowEditor: React.FC = () => {
             Show Mode
           </button>
         </div>
-
       </main>
       <Footer />
 
       {/* Color Picker Modal */}
       {colorPickerModalTargetItemId && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-          <div 
-            ref={colorPickerModalRef} 
+          <div
+            ref={colorPickerModalRef}
             className="bg-gray-800 p-4 rounded-lg shadow-2xl w-full max-w-xs sm:max-w-sm transform transition-all"
-            onClick={(e) => e.stopPropagation()} 
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-white">Highlight Color</h3>
-              <button 
-                onClick={() => setColorPickerModalTargetItemId(null)} 
+              <button
+                onClick={() => setColorPickerModalTargetItemId(null)}
                 className="text-gray-400 hover:text-white transition-colors"
                 aria-label="Close color picker"
               >
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="grid grid-cols-4 gap-2">
               {PREDEFINED_HIGHLIGHT_COLORS.map((color) => (
                 <button
@@ -918,22 +1210,25 @@ const RunOfShowEditor: React.FC = () => {
                   title={color.name}
                   onClick={() => handleSelectColor(color.value)}
                   className="w-full h-12 sm:h-14 rounded-md transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-indigo-400"
-                  style={{ 
-                    backgroundColor: color.value || '#374151', 
-                    border: `2px solid ${color.value ? 'transparent' : '#4B5563'}`, 
+                  style={{
+                    backgroundColor: color.value || "#374151",
+                    border: `2px solid ${color.value ? "transparent" : "#4B5563"}`,
                   }}
                 >
-                  {runOfShow?.items.find(item => item.id === colorPickerModalTargetItemId)?.highlightColor === color.value && (
-                     <Check size={20} className="mx-auto text-white mix-blend-difference" />
+                  {runOfShow?.items.find((item) => item.id === colorPickerModalTargetItemId)
+                    ?.highlightColor === color.value && (
+                    <Check size={20} className="mx-auto text-white mix-blend-difference" />
                   )}
-                   {color.value === undefined && runOfShow?.items.find(item => item.id === colorPickerModalTargetItemId)?.highlightColor === undefined && (
-                     <Check size={20} className="mx-auto text-white mix-blend-difference" />
-                  )}
+                  {color.value === undefined &&
+                    runOfShow?.items.find((item) => item.id === colorPickerModalTargetItemId)
+                      ?.highlightColor === undefined && (
+                      <Check size={20} className="mx-auto text-white mix-blend-difference" />
+                    )}
                 </button>
               ))}
             </div>
             <button
-              onClick={() => handleSelectColor(undefined)} 
+              onClick={() => handleSelectColor(undefined)}
               className="mt-4 w-full bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-md font-medium transition-colors text-sm"
             >
               Clear Highlight
