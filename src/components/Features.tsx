@@ -11,6 +11,7 @@ import {
   FileText, // Alternative for Patch Lists if ClipboardList is too generic
   Settings2, // For Audio-Specific Tools or Customization
   Mic, // For Mic Plots
+  Grid, // For Pixel Maps
 } from "lucide-react";
 
 interface FeatureProps {
@@ -52,6 +53,12 @@ const Features: React.FC = () => {
         "Craft detailed Corporate and Theater mic plots. Manage presenters, actors, wireless assignments, photos, and notes with ease.",
     },
     {
+      icon: <Grid className="h-6 w-6" />,
+      title: "Pixel Map Designer",
+      description:
+        "Design and visualize LED video wall layouts, then export clear, detailed plans for your video team.",
+    },
+    {
       icon: <ListChecks className="h-6 w-6" />,
       title: "Run of Show Creator",
       description:
@@ -68,12 +75,6 @@ const Features: React.FC = () => {
       title: "Easy Sharing & Export",
       description:
         "Generate professional PDFs. Share securely via links with venues, artists, and production teams.",
-    },
-    {
-      icon: <Zap className="h-6 w-6" />,
-      title: "Intuitive Interface",
-      description:
-        "User-friendly design makes creating professional documentation quick, easy, and efficient for all users.",
     },
     {
       icon: <Headphones className="h-6 w-6" />,
@@ -94,7 +95,7 @@ const Features: React.FC = () => {
             </span>
           </h2>
           <p className="text-gray-300 max-w-2xl mx-auto text-lg">
-            SoundDocs equips event professionals with a full suite of tools to create, manage, and share critical documentation—from patch lists and stage plots to mic plots, run of shows, and production schedules.
+            SoundDocs equips event professionals with a full suite of tools to create, manage, and share critical documentation—from pixel maps and patch lists to stage plots, mic plots, run of shows, and production schedules.
           </p>
         </div>
 

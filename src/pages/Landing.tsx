@@ -9,20 +9,20 @@ import Footer from "../components/Footer";
 const Landing: React.FC = () => {
   // On page load or when changing themes, best practice for accessibility
   useEffect(() => {
-    document.title = "SoundDocs | Event Production Docs, Tools & Resources";
+    document.title = "SoundDocs | Professional Event Production Documentation & Resources";
   }, []);
 
   return (
     <>
       <Helmet>
-        <title>SoundDocs | Event Production Docs, Tools & Resources</title>
+        <title>SoundDocs | Professional Event Production Documentation & Resources</title>
         <meta
           name="description"
-          content="Streamline your event production with SoundDocs. Create, manage, and share patch lists, stage plots, schedules, and more. The essential tool for A/V/L pros. Free."
+          content="Streamline your event production with SoundDocs. Create, manage, and share pixel maps, patch lists, stage plots, schedules, and more. The essential tool for A/V/L pros. Free."
         />
         <meta
           name="keywords"
-          content="event documentation, production management, audio engineer tools, stage plot software, patch list generator, mic plot creator, corporate event planning, theater production tools, run of show app, production schedule template, A/V/L documents, live sound resources"
+          content="pixel map, LED wall designer, event documentation, production management, audio engineer tools, stage plot software, patch list generator, mic plot creator, corporate event planning, theater production tools, run of show app, production schedule template, A/V/L documents, live sound resources"
         />
       </Helmet>
       <Header />

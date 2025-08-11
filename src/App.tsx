@@ -51,6 +51,10 @@ import React, { useEffect } from "react";
     import AllTheaterMicPlots from "./pages/AllTheaterMicPlots"; 
     import SharedCorporateMicPlot from "./pages/SharedCorporateMicPlot"; 
     import SharedTheaterMicPlot from "./pages/SharedTheaterMicPlot"; // New Shared Theater Mic Plot Page
+    import PixelMapEditorSelection from "./pages/PixelMapEditorSelection";
+    import StandardPixelMapEditor from "./pages/StandardPixelMapEditor";
+    import LedPixelMapEditor from "./pages/LedPixelMapEditor"; // Import the new editor
+    import AllPixelMaps from "./pages/AllPixelMaps";
 
 
     function App() {
@@ -105,6 +109,38 @@ import React, { useEffect } from "react";
                   element={
                     <ProtectedRoute>
                       <VideoPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/pixel-map/new"
+                  element={
+                    <ProtectedRoute>
+                      <PixelMapEditorSelection />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/pixel-map/standard/:id"
+                  element={
+                    <ProtectedRoute>
+                      <StandardPixelMapEditor />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/pixel-map/led/:id"
+                  element={
+                    <ProtectedRoute>
+                      <LedPixelMapEditor />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/all-pixel-maps"
+                  element={
+                    <ProtectedRoute>
+                      <AllPixelMaps />
                     </ProtectedRoute>
                   }
                 />
