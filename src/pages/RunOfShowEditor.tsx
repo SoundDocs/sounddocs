@@ -46,6 +46,7 @@ export interface CustomColumnDefinition {
   id: string;
   name: string;
   type: "text" | "number" | "time";
+  highlightColor?: string;
 }
 
 interface RunOfShowData {
@@ -54,6 +55,7 @@ interface RunOfShowData {
   name: string;
   items: RunOfShowItem[];
   custom_column_definitions: CustomColumnDefinition[];
+  default_column_colors?: Record<string, string>; // Store colors for default columns
   created_at?: string;
   last_edited?: string;
   live_show_data?: any | null; // Added for consistency with shared data
@@ -116,17 +118,17 @@ const formatSecondsToTime = (totalSeconds: number): string => {
 
 const PREDEFINED_HIGHLIGHT_COLORS: { name: string; value?: string; tailwindClass?: string }[] = [
   { name: "Default", value: undefined, tailwindClass: "bg-transparent" },
-  { name: "Blue", value: "#2563EB", tailwindClass: "bg-blue-600" },
-  { name: "Green", value: "#059669", tailwindClass: "bg-green-600" },
-  { name: "Yellow", value: "#CA8A04", tailwindClass: "bg-yellow-600" },
-  { name: "Red", value: "#DC2626", tailwindClass: "bg-red-600" },
-  { name: "Purple", value: "#7C3AED", tailwindClass: "bg-violet-600" },
-  { name: "Orange", value: "#EA580C", tailwindClass: "bg-orange-600" },
-  { name: "Pink", value: "#DB2777", tailwindClass: "bg-pink-600" },
-  { name: "Gray", value: "#4B5563", tailwindClass: "bg-gray-600" },
-  { name: "Teal", value: "#0D9488", tailwindClass: "bg-teal-600" },
-  { name: "Indigo", value: "#4F46E5", tailwindClass: "bg-indigo-600" },
-  { name: "Lime", value: "#65A30D", tailwindClass: "bg-lime-600" },
+  { name: "Electric Blue", value: "#0066FF", tailwindClass: "bg-blue-600" },
+  { name: "Forest Green", value: "#00AA44", tailwindClass: "bg-green-600" },
+  { name: "Golden Yellow", value: "#FFB300", tailwindClass: "bg-yellow-600" },
+  { name: "Crimson Red", value: "#E53E3E", tailwindClass: "bg-red-600" },
+  { name: "Deep Purple", value: "#9F00FF", tailwindClass: "bg-violet-600" },
+  { name: "Bright Orange", value: "#FF6600", tailwindClass: "bg-orange-600" },
+  { name: "Hot Pink", value: "#FF1493", tailwindClass: "bg-pink-600" },
+  { name: "Cool Gray", value: "#6B7280", tailwindClass: "bg-gray-600" },
+  { name: "Cyan", value: "#00CCCC", tailwindClass: "bg-teal-600" },
+  { name: "Royal Purple", value: "#6A00FF", tailwindClass: "bg-indigo-600" },
+  { name: "Lime Green", value: "#AAFF00", tailwindClass: "bg-lime-600" },
 ];
 
 const RunOfShowEditor: React.FC = () => {
@@ -151,6 +153,9 @@ const RunOfShowEditor: React.FC = () => {
   const [colorPickerModalTargetItemId, setColorPickerModalTargetItemId] = useState<string | null>(
     null,
   );
+  const [colorPickerModalTargetColumnId, setColorPickerModalTargetColumnId] = useState<
+    string | null
+  >(null);
   const colorPickerModalRef = useRef<HTMLDivElement>(null);
 
   const [currentIsSharedEdit, setCurrentIsSharedEdit] = useState(false);
@@ -207,6 +212,7 @@ const RunOfShowEditor: React.FC = () => {
             name: "Untitled Run of Show",
             items: [],
             custom_column_definitions: [],
+            default_column_colors: {},
             live_show_data: null,
           });
           setLoading(false);
@@ -243,6 +249,7 @@ const RunOfShowEditor: React.FC = () => {
               ...col,
               type: col.type || "text",
             })),
+            default_column_colors: data.default_column_colors || {},
           });
         } else {
           setSaveError("Run of Show not found or access denied.");
@@ -376,15 +383,16 @@ const RunOfShowEditor: React.FC = () => {
         !colorPickerModalRef.current.contains(event.target as Node)
       ) {
         setColorPickerModalTargetItemId(null);
+        setColorPickerModalTargetColumnId(null);
       }
     };
-    if (colorPickerModalTargetItemId) {
+    if (colorPickerModalTargetItemId || colorPickerModalTargetColumnId) {
       document.addEventListener("mousedown", handleClickOutsideModal);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutsideModal);
     };
-  }, [colorPickerModalTargetItemId]);
+  }, [colorPickerModalTargetItemId, colorPickerModalTargetColumnId]);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (runOfShow) {
@@ -428,13 +436,6 @@ const RunOfShowEditor: React.FC = () => {
     const currentItem = updatedItems[currentIndex];
     if (currentItem.type !== "item") return updatedItems;
 
-    // Find the next playable item (type === 'item')
-    const nextIndex = updatedItems.findIndex(
-      (item, index) => index > currentIndex && item.type === "item",
-    );
-
-    if (nextIndex === -1) return updatedItems;
-
     const currentStartTime = parseTimeToSeconds(currentItem.startTime || "");
     const currentDuration = parseDurationToSeconds(currentItem.duration || "");
 
@@ -443,11 +444,25 @@ const RunOfShowEditor: React.FC = () => {
       const nextStartTimeSeconds = currentStartTime + currentDuration;
       const nextStartTime = formatSecondsToTime(nextStartTimeSeconds);
 
-      // Update the next item's start time
-      updatedItems[nextIndex] = {
-        ...updatedItems[nextIndex],
-        startTime: nextStartTime,
-      };
+      // Find and update all immediately following items (both headers and regular items)
+      for (let i = currentIndex + 1; i < updatedItems.length; i++) {
+        const nextItem = updatedItems[i];
+
+        if (nextItem.type === "header") {
+          // Update section header start time
+          updatedItems[i] = {
+            ...updatedItems[i],
+            startTime: nextStartTime,
+          };
+        } else if (nextItem.type === "item") {
+          // Update next regular item start time and stop (only update the first regular item)
+          updatedItems[i] = {
+            ...updatedItems[i],
+            startTime: nextStartTime,
+          };
+          break; // Stop after the first regular item
+        }
+      }
     }
 
     return updatedItems;
@@ -585,6 +600,7 @@ const RunOfShowEditor: React.FC = () => {
         ...col,
         type: col.type || "text",
       })),
+      default_column_colors: runOfShow.default_column_colors || {},
       last_edited: new Date().toISOString(),
       live_show_data: liveShowDataToSave,
     };
@@ -671,7 +687,45 @@ const RunOfShowEditor: React.FC = () => {
     if (colorPickerModalTargetItemId) {
       handleItemChange(colorPickerModalTargetItemId, "highlightColor", colorValue);
     }
+    if (colorPickerModalTargetColumnId) {
+      handleColumnColorChange(colorPickerModalTargetColumnId, colorValue);
+    }
     setColorPickerModalTargetItemId(null);
+    setColorPickerModalTargetColumnId(null);
+  };
+
+  const handleOpenColumnColorPickerModal = (columnId: string) => {
+    setColorPickerModalTargetColumnId(columnId);
+  };
+
+  const handleColumnColorChange = (columnId: string, colorValue?: string) => {
+    if (runOfShow) {
+      // Check if it's a custom column (has ID)
+      const isCustomColumn = runOfShow.custom_column_definitions.some((col) => col.id === columnId);
+
+      if (isCustomColumn) {
+        // Handle custom column
+        const updatedDefinitions = runOfShow.custom_column_definitions.map((col) =>
+          col.id === columnId ? { ...col, highlightColor: colorValue } : col,
+        );
+        setRunOfShow({
+          ...runOfShow,
+          custom_column_definitions: updatedDefinitions,
+        });
+      } else {
+        // Handle default column (columnId is the key)
+        const updatedDefaultColors = { ...runOfShow.default_column_colors };
+        if (colorValue) {
+          updatedDefaultColors[columnId] = colorValue;
+        } else {
+          delete updatedDefaultColors[columnId];
+        }
+        setRunOfShow({
+          ...runOfShow,
+          default_column_colors: updatedDefaultColors,
+        });
+      }
+    }
   };
 
   const handleBackNavigation = () => {
@@ -748,6 +802,7 @@ const RunOfShowEditor: React.FC = () => {
     type?: string;
     id?: string;
     isCustom?: boolean;
+    highlightColor?: string;
   }[] = [
     { key: "itemNumber", label: "Item #" },
     { key: "startTime", label: "Start", type: "time" },
@@ -761,13 +816,17 @@ const RunOfShowEditor: React.FC = () => {
   ];
 
   const allDisplayColumns = [
-    ...defaultColumns,
+    ...defaultColumns.map((col) => ({
+      ...col,
+      highlightColor: runOfShow.default_column_colors?.[col.key] || col.highlightColor,
+    })),
     ...runOfShow.custom_column_definitions.map((col) => ({
       key: col.name,
       label: col.name,
       id: col.id,
       isCustom: true,
       type: col.type || "text",
+      highlightColor: col.highlightColor,
     })),
   ];
 
@@ -929,6 +988,17 @@ const RunOfShowEditor: React.FC = () => {
                         ) : (
                           <>
                             {col.label}
+                            {/* Color picker for all columns */}
+                            <button
+                              onClick={() =>
+                                handleOpenColumnColorPickerModal(col.id || String(col.key))
+                              }
+                              className="ml-1.5 text-gray-400 hover:text-purple-400 p-0.5"
+                              title="Column Color"
+                            >
+                              <Palette size={12} />
+                            </button>
+                            {/* Edit/Delete buttons only for custom columns */}
                             {col.isCustom && (
                               <>
                                 <button
@@ -939,13 +1009,15 @@ const RunOfShowEditor: React.FC = () => {
                                       (col.type as "text" | "number" | "time") || "text",
                                     );
                                   }}
-                                  className="ml-1.5 text-gray-400 hover:text-indigo-400 p-0.5"
+                                  className="text-gray-400 hover:text-indigo-400 p-0.5"
+                                  title="Edit Column"
                                 >
                                   <Edit3 size={12} />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteCustomColumn(col.id!)}
                                   className="text-gray-400 hover:text-red-400 p-0.5"
+                                  title="Delete Column"
                                 >
                                   <Trash2 size={12} />
                                 </button>
@@ -1060,14 +1132,20 @@ const RunOfShowEditor: React.FC = () => {
                             className="bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-500 font-semibold"
                           />
                         </td>
-                        {allDisplayColumns.slice(2).map((colConfig) => (
-                          <td
-                            key={`header-empty-${colConfig.key || colConfig.id}`}
-                            className="px-3 py-2 text-xs text-gray-500 italic"
-                          >
-                            N/A
-                          </td>
-                        ))}
+                        {allDisplayColumns.slice(2).map((colConfig) => {
+                          const columnColor = colConfig.highlightColor;
+                          const cellStyle = columnColor ? { backgroundColor: columnColor } : {};
+
+                          return (
+                            <td
+                              key={`header-empty-${colConfig.key || colConfig.id}`}
+                              className="px-3 py-2 text-xs text-gray-500 italic"
+                              style={cellStyle}
+                            >
+                              N/A
+                            </td>
+                          );
+                        })}
                         <td className="px-3 py-2"></td>
                         <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6">
                           <button
@@ -1087,37 +1165,51 @@ const RunOfShowEditor: React.FC = () => {
                       className="hover:bg-gray-700/50 transition-colors border-t border-gray-700"
                       style={rowStyle}
                     >
-                      {allDisplayColumns.map((col, colIndex) => (
-                        <td
-                          key={col.key || col.id}
-                          className={`px-3 py-2 whitespace-nowrap text-sm text-gray-200 ${colIndex === 0 ? "pl-4 md:pl-6" : ""}`}
-                        >
-                          <input
-                            type={col.type || "text"}
-                            value={item[col.key as keyof RunOfShowItem] || ""}
-                            onChange={(e) =>
-                              handleItemChange(
-                                item.id,
-                                col.key as keyof RunOfShowItem,
-                                e.target.value,
-                              )
-                            }
-                            className={`bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-500 ${col.key === "itemNumber" ? "font-semibold" : ""}`}
-                            placeholder={
-                              col.key === "itemNumber"
-                                ? "Item Name/No."
-                                : col.key === "preset"
-                                  ? "Preset/Scene"
-                                  : col.key === "duration"
-                                    ? "mm:ss"
-                                    : col.label
-                            }
-                            step={
-                              col.type === "time" ? "1" : col.type === "number" ? "any" : undefined
-                            }
-                          />
-                        </td>
-                      ))}
+                      {allDisplayColumns.map((col, colIndex) => {
+                        const columnColor = col.highlightColor;
+                        // Don't apply column color if row has highlight color (row colors take priority)
+                        const cellStyle =
+                          columnColor && !item.highlightColor
+                            ? { backgroundColor: columnColor }
+                            : {};
+
+                        return (
+                          <td
+                            key={col.key || col.id}
+                            className={`px-3 py-2 whitespace-nowrap text-sm text-gray-200 ${colIndex === 0 ? "pl-4 md:pl-6" : ""}`}
+                            style={cellStyle}
+                          >
+                            <input
+                              type={col.type || "text"}
+                              value={item[col.key as keyof RunOfShowItem] || ""}
+                              onChange={(e) =>
+                                handleItemChange(
+                                  item.id,
+                                  col.key as keyof RunOfShowItem,
+                                  e.target.value,
+                                )
+                              }
+                              className={`bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-500 ${col.key === "itemNumber" ? "font-semibold" : ""}`}
+                              placeholder={
+                                col.key === "itemNumber"
+                                  ? "Item Name/No."
+                                  : col.key === "preset"
+                                    ? "Preset/Scene"
+                                    : col.key === "duration"
+                                      ? "mm:ss"
+                                      : col.label
+                              }
+                              step={
+                                col.type === "time"
+                                  ? "1"
+                                  : col.type === "number"
+                                    ? "any"
+                                    : undefined
+                              }
+                            />
+                          </td>
+                        );
+                      })}
                       <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-200"></td>
                       <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6 relative">
                         <div className="flex items-center justify-end gap-1">
@@ -1185,7 +1277,7 @@ const RunOfShowEditor: React.FC = () => {
       <Footer />
 
       {/* Color Picker Modal */}
-      {colorPickerModalTargetItemId && (
+      {(colorPickerModalTargetItemId || colorPickerModalTargetColumnId) && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div
             ref={colorPickerModalRef}
@@ -1193,9 +1285,14 @@ const RunOfShowEditor: React.FC = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-white">Highlight Color</h3>
+              <h3 className="text-lg font-semibold text-white">
+                {colorPickerModalTargetColumnId ? "Column Color" : "Highlight Color"}
+              </h3>
               <button
-                onClick={() => setColorPickerModalTargetItemId(null)}
+                onClick={() => {
+                  setColorPickerModalTargetItemId(null);
+                  setColorPickerModalTargetColumnId(null);
+                }}
                 className="text-gray-400 hover:text-white transition-colors"
                 aria-label="Close color picker"
               >
@@ -1215,15 +1312,33 @@ const RunOfShowEditor: React.FC = () => {
                     border: `2px solid ${color.value ? "transparent" : "#4B5563"}`,
                   }}
                 >
-                  {runOfShow?.items.find((item) => item.id === colorPickerModalTargetItemId)
-                    ?.highlightColor === color.value && (
-                    <Check size={20} className="mx-auto text-white mix-blend-difference" />
-                  )}
-                  {color.value === undefined &&
-                    runOfShow?.items.find((item) => item.id === colorPickerModalTargetItemId)
-                      ?.highlightColor === undefined && (
-                      <Check size={20} className="mx-auto text-white mix-blend-difference" />
-                    )}
+                  {(() => {
+                    let currentColor: string | undefined;
+
+                    if (colorPickerModalTargetItemId) {
+                      currentColor = runOfShow?.items.find(
+                        (item) => item.id === colorPickerModalTargetItemId,
+                      )?.highlightColor;
+                    } else if (colorPickerModalTargetColumnId) {
+                      // Check if it's a custom column first
+                      const customColumn = runOfShow?.custom_column_definitions.find(
+                        (col) => col.id === colorPickerModalTargetColumnId,
+                      );
+                      if (customColumn) {
+                        currentColor = customColumn.highlightColor;
+                      } else {
+                        // It's a default column, check default_column_colors
+                        currentColor =
+                          runOfShow?.default_column_colors?.[colorPickerModalTargetColumnId];
+                      }
+                    }
+
+                    return (
+                      currentColor === color.value && (
+                        <Check size={20} className="mx-auto text-white mix-blend-difference" />
+                      )
+                    );
+                  })()}
                 </button>
               ))}
             </div>
@@ -1231,7 +1346,7 @@ const RunOfShowEditor: React.FC = () => {
               onClick={() => handleSelectColor(undefined)}
               className="mt-4 w-full bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-md font-medium transition-colors text-sm"
             >
-              Clear Highlight
+              {colorPickerModalTargetColumnId ? "Clear Column Color" : "Clear Highlight"}
             </button>
           </div>
         </div>

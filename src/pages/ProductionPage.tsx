@@ -24,10 +24,11 @@ import ProductionScheduleExport from "../components/production-schedule/Producti
 import PrintProductionScheduleExport from "../components/production-schedule/PrintProductionScheduleExport";
 import RunOfShowExport from "../components/run-of-show/RunOfShowExport";
 import PrintRunOfShowExport from "../components/run-of-show/PrintRunOfShowExport";
-import { ScheduleForExport, DetailedScheduleItem } from "./ProductionScheduleEditor";
+import { ScheduleForExport } from "./ProductionScheduleEditor";
+import { DetailedScheduleItem } from "../components/production-schedule/ProductionScheduleDetail";
 import { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor";
 import { RunOfShowItem, CustomColumnDefinition } from "./RunOfShowEditor";
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 
 interface ProductionScheduleSummary {
   id: string;
@@ -70,6 +71,7 @@ export interface FullRunOfShowData {
   user_id: string;
   items: RunOfShowItem[];
   custom_column_definitions: CustomColumnDefinition[];
+  default_column_colors?: Record<string, string>; // Store colors for default columns
 }
 
 const isColorLight = (hexColor?: string): boolean => {
@@ -92,8 +94,8 @@ const parseDateTime = (dateTimeStr: string | null | undefined) => {
     const d = new Date(dateTimeStr);
     if (isNaN(d.getTime())) return { date: dateTimeStr, time: undefined, full: dateTimeStr };
     return {
-      date: d.toISOString().split('T')[0],
-      time: d.toTimeString().split(' ')[0].substring(0, 5),
+      date: d.toISOString().split("T")[0],
+      time: d.toTimeString().split(" ")[0].substring(0, 5),
       full: dateTimeStr,
     };
   } catch (e) {
@@ -101,7 +103,9 @@ const parseDateTime = (dateTimeStr: string | null | undefined) => {
   }
 };
 
-const transformToScheduleForExport = (fullSchedule: FullProductionScheduleData): ScheduleForExport => {
+const transformToScheduleForExport = (
+  fullSchedule: FullProductionScheduleData,
+): ScheduleForExport => {
   const setDateTimeParts = parseDateTime(fullSchedule.set_datetime);
   const strikeDateTimeParts = parseDateTime(fullSchedule.strike_datetime);
 
@@ -123,29 +127,33 @@ const transformToScheduleForExport = (fullSchedule: FullProductionScheduleData):
       event_end: strikeDateTimeParts.time,
       strike_datetime: fullSchedule.strike_datetime,
     },
-    crew_key: fullSchedule.crew_key?.map(ck => ({ ...ck })) || [],
-    detailed_schedule_items: fullSchedule.detailed_schedule_items?.map(item => ({
-      ...item,
-      assigned_crew_ids: item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : [])
-    })) || [],
-    labor_schedule_items: fullSchedule.labor_schedule_items?.map(item => ({ ...item })) || [],
+    crew_key: fullSchedule.crew_key?.map((ck) => ({ ...ck })) || [],
+    detailed_schedule_items:
+      fullSchedule.detailed_schedule_items?.map((item) => ({
+        ...item,
+        assigned_crew_ids: item.assigned_crew_ids || [],
+      })) || [],
+    labor_schedule_items: fullSchedule.labor_schedule_items?.map((item) => ({ ...item })) || [],
   };
 };
 
 const ProductionPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [_user, setUser] = useState<any>(null);
   const [productionSchedules, setProductionSchedules] = useState<ProductionScheduleSummary[]>([]);
   const [runOfShows, setRunOfShows] = useState<RunOfShowSummary[]>([]);
 
   const [exportingItemId, setExportingItemId] = useState<string | null>(null);
 
-  const [currentExportProductionSchedule, setCurrentExportProductionSchedule] = useState<ScheduleForExport | null>(null);
+  const [currentExportProductionSchedule, setCurrentExportProductionSchedule] =
+    useState<ScheduleForExport | null>(null);
   const [showProductionScheduleExportModal, setShowProductionScheduleExportModal] = useState(false);
   const [exportProductionScheduleId, setExportProductionScheduleId] = useState<string | null>(null);
 
-  const [currentExportRunOfShow, setCurrentExportRunOfShow] = useState<FullRunOfShowData | null>(null);
+  const [currentExportRunOfShow, setCurrentExportRunOfShow] = useState<FullRunOfShowData | null>(
+    null,
+  );
   const [showRunOfShowExportModal, setShowRunOfShowExportModal] = useState(false);
   const [exportRunOfShowId, setExportRunOfShowId] = useState<string | null>(null);
 
@@ -188,7 +196,7 @@ const ProductionPage = () => {
 
     checkUser();
   }, [navigate]);
-  
+
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -228,8 +236,10 @@ const ProductionPage = () => {
     }
   };
 
-  const handleCreateProductionSchedule = () => navigate("/production-schedule/new", { state: { from: "/production" } });
-  const handleCreateRunOfShow = () => navigate("/run-of-show/new", { state: { from: "/production" } });
+  const handleCreateProductionSchedule = () =>
+    navigate("/production-schedule/new", { state: { from: "/production" } });
+  const handleCreateRunOfShow = () =>
+    navigate("/run-of-show/new", { state: { from: "/production" } });
 
   const handleDeleteRequest = (id: string, type: "schedule" | "runofshow", name: string) => {
     setDocumentToDelete({ id, type, name });
@@ -248,7 +258,9 @@ const ProductionPage = () => {
         if (error) throw error;
 
         if (documentToDelete.type === "schedule") {
-          setProductionSchedules(productionSchedules.filter((item) => item.id !== documentToDelete.id));
+          setProductionSchedules(
+            productionSchedules.filter((item) => item.id !== documentToDelete.id),
+          );
         } else if (documentToDelete.type === "runofshow") {
           setRunOfShows(runOfShows.filter((item) => item.id !== documentToDelete.id));
         }
@@ -267,14 +279,16 @@ const ProductionPage = () => {
     setDocumentToDelete(null);
   };
 
-  const handleEditProductionSchedule = (id: string) => navigate(`/production-schedule/${id}`, { state: { from: "/production" } });
-  const handleEditRunOfShow = (id: string) => navigate(`/run-of-show/${id}`, { state: { from: "/production" } });
+  const handleEditProductionSchedule = (id: string) =>
+    navigate(`/production-schedule/${id}`, { state: { from: "/production" } });
+  const handleEditRunOfShow = (id: string) =>
+    navigate(`/run-of-show/${id}`, { state: { from: "/production" } });
 
-  const handleExportClick = (id: string, type: 'schedule' | 'runofshow') => {
-    if (type === 'schedule') {
+  const handleExportClick = (id: string, type: "schedule" | "runofshow") => {
+    if (type === "schedule") {
       setExportProductionScheduleId(id);
       setShowProductionScheduleExportModal(true);
-    } else if (type === 'runofshow') {
+    } else if (type === "runofshow") {
       setExportRunOfShowId(id);
       setShowRunOfShowExportModal(true);
     }
@@ -285,7 +299,7 @@ const ProductionPage = () => {
     itemName: string,
     fileNameSuffix: string,
     backgroundColor: string,
-    font: string
+    font: string,
   ) => {
     if (!targetRef.current) {
       console.error("Export component ref not ready.");
@@ -293,11 +307,14 @@ const ProductionPage = () => {
       return;
     }
 
-    if (document.fonts && typeof document.fonts.ready === 'function') {
-      try { await document.fonts.ready; } 
-      catch (fontError) { console.warn("Error waiting for document fonts to be ready:", fontError); }
+    if (document.fonts && typeof document.fonts.ready === "function") {
+      try {
+        await document.fonts.ready;
+      } catch (fontError) {
+        console.warn("Error waiting for document fonts to be ready:", fontError);
+      }
     } else {
-      await new Promise(resolve => setTimeout(resolve, 400));
+      await new Promise((resolve) => setTimeout(resolve, 400));
     }
 
     try {
@@ -306,14 +323,16 @@ const ProductionPage = () => {
         backgroundColor,
         useCORS: true,
         allowTaint: true,
-        letterRendering: true,
         onclone: (clonedDoc) => {
-          const styleGlobal = clonedDoc.createElement('style');
+          const styleGlobal = clonedDoc.createElement("style");
           styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
           clonedDoc.head.appendChild(styleGlobal);
           clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
-          Array.from(clonedDoc.querySelectorAll('*')).forEach((el: any) => {
-            if (el.style) { el.style.fontFamily = `${font}, sans-serif`; el.style.verticalAlign = 'baseline';}
+          Array.from(clonedDoc.querySelectorAll("*")).forEach((el: any) => {
+            if (el.style) {
+              el.style.fontFamily = `${font}, sans-serif`;
+              el.style.verticalAlign = "baseline";
+            }
           });
         },
         windowHeight: targetRef.current.scrollHeight,
@@ -338,174 +357,229 @@ const ProductionPage = () => {
     }
   };
 
-  const prepareAndExecuteProductionScheduleExport = async (scheduleId: string, type: 'color' | 'print') => {
+  const prepareAndExecuteProductionScheduleExport = async (
+    scheduleId: string,
+    type: "color" | "print",
+  ) => {
     setExportingItemId(scheduleId);
     setShowProductionScheduleExportModal(false);
     try {
-      const { data: rawData, error } = await supabase.from("production_schedules").select("*").eq("id", scheduleId).single();
+      const { data: rawData, error } = await supabase
+        .from("production_schedules")
+        .select("*")
+        .eq("id", scheduleId)
+        .single();
       if (error || !rawData) throw error || new Error("Production schedule not found");
-      
+
       const transformedData = transformToScheduleForExport(rawData as FullProductionScheduleData);
-      
-      if (type === 'color') {
+
+      if (type === "color") {
         setCurrentExportProductionSchedule(transformedData);
-        await new Promise(resolve => setTimeout(resolve, 50));
-        await exportAsPdf(productionScheduleExportRef, transformedData.name, "production-schedule-color", "#0f172a", "Inter");
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        await exportAsPdf(
+          productionScheduleExportRef,
+          transformedData.name,
+          "production-schedule-color",
+          "#0f172a",
+          "Inter",
+        );
       } else {
         try {
-            const pdf = new jsPDF("p", "pt", "letter");
-            const scheduleData = transformedData;
-            const info = scheduleData.info;
+          const pdf = new jsPDF("p", "pt", "letter");
+          const scheduleData = transformedData;
+          const info = scheduleData.info;
 
-            const addPageHeader = (doc: jsPDF, title: string) => {
-                doc.setFontSize(24);
-                doc.setFont("helvetica", "bold");
-                doc.text("SoundDocs", 40, 50);
-                doc.setFontSize(16);
-                doc.setFont("helvetica", "normal");
-                doc.text(title, 40, 75);
-                doc.setDrawColor(221, 221, 221); // #ddd
-                doc.line(40, 85, doc.internal.pageSize.width - 40, 85);
-            };
+          const addPageHeader = (doc: jsPDF, title: string) => {
+            doc.setFontSize(24);
+            doc.setFont("helvetica", "bold");
+            doc.text("SoundDocs", 40, 50);
+            doc.setFontSize(16);
+            doc.setFont("helvetica", "normal");
+            doc.text(title, 40, 75);
+            doc.setDrawColor(221, 221, 221); // #ddd
+            doc.line(40, 85, doc.internal.pageSize.width - 40, 85);
+          };
 
-            const addPageFooter = (doc: jsPDF) => {
-                const pageCount = doc.getNumberOfPages();
-                const pageWidth = doc.internal.pageSize.getWidth();
-                const pageHeight = doc.internal.pageSize.getHeight();
+          const addPageFooter = (doc: jsPDF) => {
+            const pageCount = doc.getNumberOfPages();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
 
-                for (let i = 1; i <= pageCount; i++) {
-                    doc.setPage(i);
-                    doc.setDrawColor(221, 221, 221);
-                    doc.line(40, pageHeight - 35, pageWidth - 40, pageHeight - 35);
-                    doc.setFontSize(8);
-                    doc.setTextColor(128, 128, 128);
-                    doc.setFont('helvetica', 'bold');
-                    doc.text('SoundDocs', 40, pageHeight - 20);
-                    doc.setFont('helvetica', 'normal');
-                    doc.text('| Professional Audio Documentation', 95, pageHeight - 20);
-                    const pageNumText = `Page ${i} of ${pageCount}`;
-                    doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: 'center' });
-                    const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
-                    doc.text(dateStr, pageWidth - 40, pageHeight - 20, { align: 'right' });
-                }
-            };
-
-            addPageHeader(pdf, scheduleData.name);
-
-            let lastY = 105;
-
-            const createInfoBlock = (title: string, data: [string, string][]) => {
-                if (!data.some(row => row[1] && row[1] !== 'N/A')) return;
-                
-                pdf.setFontSize(11);
-                pdf.setFont("helvetica", "bold");
-                pdf.text(title, 40, lastY);
-                
-                (pdf as any).autoTable({
-                    body: data,
-                    startY: lastY + 5,
-                    theme: 'plain',
-                    styles: { font: 'helvetica', fontSize: 9, cellPadding: { top: 2, right: 5, bottom: 2, left: 0 } },
-                    columnStyles: {
-                        0: { fontStyle: 'bold', cellWidth: 120 },
-                    },
-                    margin: { left: 40 },
-                });
-                lastY = (pdf as any).lastAutoTable.finalY + 15;
-            };
-
-            const eventDetails: [string, string][] = [
-                ['Event Name:', info.event_name || 'N/A'],
-                ['Job Number:', info.job_number || 'N/A'],
-                ['Venue:', info.venue || 'N/A'],
-            ];
-            createInfoBlock("Event Details", eventDetails);
-
-            const personnelDetails: [string, string][] = [
-                ['Project Manager:', info.project_manager || 'N/A'],
-                ['Production Manager:', info.production_manager || 'N/A'],
-                ['Account Manager:', info.account_manager || 'N/A'],
-            ];
-            createInfoBlock("Key Personnel", personnelDetails);
-            
-            const timeDetails: [string, string][] = [
-                ['Date:', info.date ? new Date(info.date + 'T00:00:00Z').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }) : 'N/A'],
-                ['Load In:', info.load_in || 'N/A'],
-                ['Strike:', parseDateTime(info.strike_datetime).time || 'N/A'],
-            ];
-            createInfoBlock("Key Times", timeDetails);
-
-            lastY += 15;
-
-            if (scheduleData.detailed_schedule_items && scheduleData.detailed_schedule_items.length > 0) {
-                pdf.setFontSize(14);
-                pdf.setFont("helvetica", "bold");
-                pdf.text("Detailed Production Schedule", 40, lastY);
-                lastY += 20;
-
-                const detailedScheduleHead = [['Date', 'Start', 'End', 'Activity', 'Notes', 'Crew']];
-                const detailedScheduleBody = scheduleData.detailed_schedule_items.map(item => {
-                    const crewNames = item.assigned_crew_ids
-                        .map(id => scheduleData.crew_key.find(c => c.id === id)?.name)
-                        .filter(Boolean)
-                        .join(', ');
-                    return [
-                        item.date ? new Date(item.date + 'T00:00:00Z').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', timeZone: 'UTC' }) : 'N/A',
-                        item.start_time || 'N/A',
-                        item.end_time || 'N/A',
-                        item.activity || '',
-                        item.notes || '',
-                        crewNames || 'N/A'
-                    ];
-                });
-
-                (pdf as any).autoTable({
-                    head: detailedScheduleHead,
-                    body: detailedScheduleBody,
-                    startY: lastY,
-                    theme: 'grid',
-                    headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: 'bold' },
-                    styles: { font: 'helvetica', fontSize: 9, cellPadding: 5, lineColor: [221, 221, 221], lineWidth: 0.5 },
-                    alternateRowStyles: { fillColor: [248, 249, 250] },
-                    margin: { left: 40, right: 40 },
-                });
-                lastY = (pdf as any).lastAutoTable.finalY + 30;
+            for (let i = 1; i <= pageCount; i++) {
+              doc.setPage(i);
+              doc.setDrawColor(221, 221, 221);
+              doc.line(40, pageHeight - 35, pageWidth - 40, pageHeight - 35);
+              doc.setFontSize(8);
+              doc.setTextColor(128, 128, 128);
+              doc.setFont("helvetica", "bold");
+              doc.text("SoundDocs", 40, pageHeight - 20);
+              doc.setFont("helvetica", "normal");
+              doc.text("| Professional Audio Documentation", 95, pageHeight - 20);
+              const pageNumText = `Page ${i} of ${pageCount}`;
+              doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: "center" });
+              const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
+              doc.text(dateStr, pageWidth - 40, pageHeight - 20, { align: "right" });
             }
+          };
 
-            if (scheduleData.labor_schedule_items && scheduleData.labor_schedule_items.length > 0) {
-                pdf.setFontSize(14);
-                pdf.setFont("helvetica", "bold");
-                pdf.text("Labor Schedule", 40, lastY);
-                lastY += 20;
+          addPageHeader(pdf, scheduleData.name);
 
-                const laborScheduleHead = [['Name', 'Position', 'Date', 'Time In', 'Time Out', 'Notes']];
-                const laborScheduleBody = scheduleData.labor_schedule_items.map(item => [
-                    item.name || '',
-                    item.position || '',
-                    item.date ? new Date(item.date + 'T00:00:00Z').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', timeZone: 'UTC' }) : 'N/A',
-                    item.time_in || 'N/A',
-                    item.time_out || 'N/A',
-                    item.notes || ''
-                ]);
+          let lastY = 105;
 
-                (pdf as any).autoTable({
-                    head: laborScheduleHead,
-                    body: laborScheduleBody,
-                    startY: lastY,
-                    theme: 'grid',
-                    headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: 'bold' },
-                    styles: { font: 'helvetica', fontSize: 9, cellPadding: 5, lineColor: [221, 221, 221], lineWidth: 0.5 },
-                    alternateRowStyles: { fillColor: [248, 249, 250] },
-                    margin: { left: 40, right: 40 },
-                });
-            }
+          const createInfoBlock = (title: string, data: [string, string][]) => {
+            if (!data.some((row) => row[1] && row[1] !== "N/A")) return;
 
-            addPageFooter(pdf);
-            pdf.save(`${scheduleData.name || "production-schedule"}-print-friendly.pdf`);
+            pdf.setFontSize(11);
+            pdf.setFont("helvetica", "bold");
+            pdf.text(title, 40, lastY);
 
+            (pdf as any).autoTable({
+              body: data,
+              startY: lastY + 5,
+              theme: "plain",
+              styles: {
+                font: "helvetica",
+                fontSize: 9,
+                cellPadding: { top: 2, right: 5, bottom: 2, left: 0 },
+              },
+              columnStyles: {
+                0: { fontStyle: "bold", cellWidth: 120 },
+              },
+              margin: { left: 40 },
+            });
+            lastY = (pdf as any).lastAutoTable.finalY + 15;
+          };
+
+          const eventDetails: [string, string][] = [
+            ["Event Name:", info.event_name || "N/A"],
+            ["Job Number:", info.job_number || "N/A"],
+            ["Venue:", info.venue || "N/A"],
+          ];
+          createInfoBlock("Event Details", eventDetails);
+
+          const personnelDetails: [string, string][] = [
+            ["Project Manager:", info.project_manager || "N/A"],
+            ["Production Manager:", info.production_manager || "N/A"],
+            ["Account Manager:", info.account_manager || "N/A"],
+          ];
+          createInfoBlock("Key Personnel", personnelDetails);
+
+          const timeDetails: [string, string][] = [
+            [
+              "Date:",
+              info.date
+                ? new Date(info.date + "T00:00:00Z").toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    timeZone: "UTC",
+                  })
+                : "N/A",
+            ],
+            ["Load In:", info.load_in || "N/A"],
+            ["Strike:", parseDateTime(info.strike_datetime).time || "N/A"],
+          ];
+          createInfoBlock("Key Times", timeDetails);
+
+          lastY += 15;
+
+          if (
+            scheduleData.detailed_schedule_items &&
+            scheduleData.detailed_schedule_items.length > 0
+          ) {
+            pdf.setFontSize(14);
+            pdf.setFont("helvetica", "bold");
+            pdf.text("Detailed Production Schedule", 40, lastY);
+            lastY += 20;
+
+            const detailedScheduleHead = [["Date", "Start", "End", "Activity", "Notes", "Crew"]];
+            const detailedScheduleBody = scheduleData.detailed_schedule_items.map((item) => {
+              const crewNames = item.assigned_crew_ids
+                .map((id) => scheduleData.crew_key.find((c) => c.id === id)?.name)
+                .filter(Boolean)
+                .join(", ");
+              return [
+                item.date
+                  ? new Date(item.date + "T00:00:00Z").toLocaleDateString("en-US", {
+                      month: "2-digit",
+                      day: "2-digit",
+                      timeZone: "UTC",
+                    })
+                  : "N/A",
+                item.start_time || "N/A",
+                item.end_time || "N/A",
+                item.activity || "",
+                item.notes || "",
+                crewNames || "N/A",
+              ];
+            });
+
+            (pdf as any).autoTable({
+              head: detailedScheduleHead,
+              body: detailedScheduleBody,
+              startY: lastY,
+              theme: "grid",
+              headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: "bold" },
+              styles: {
+                font: "helvetica",
+                fontSize: 9,
+                cellPadding: 5,
+                lineColor: [221, 221, 221],
+                lineWidth: 0.5,
+              },
+              alternateRowStyles: { fillColor: [248, 249, 250] },
+              margin: { left: 40, right: 40 },
+            });
+            lastY = (pdf as any).lastAutoTable.finalY + 30;
+          }
+
+          if (scheduleData.labor_schedule_items && scheduleData.labor_schedule_items.length > 0) {
+            pdf.setFontSize(14);
+            pdf.setFont("helvetica", "bold");
+            pdf.text("Labor Schedule", 40, lastY);
+            lastY += 20;
+
+            const laborScheduleHead = [
+              ["Name", "Position", "Date", "Time In", "Time Out", "Notes"],
+            ];
+            const laborScheduleBody = scheduleData.labor_schedule_items.map((item) => [
+              item.name || "",
+              item.position || "",
+              item.date
+                ? new Date(item.date + "T00:00:00Z").toLocaleDateString("en-US", {
+                    month: "2-digit",
+                    day: "2-digit",
+                    timeZone: "UTC",
+                  })
+                : "N/A",
+              item.time_in || "N/A",
+              item.time_out || "N/A",
+              item.notes || "",
+            ]);
+
+            (pdf as any).autoTable({
+              head: laborScheduleHead,
+              body: laborScheduleBody,
+              startY: lastY,
+              theme: "grid",
+              headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: "bold" },
+              styles: {
+                font: "helvetica",
+                fontSize: 9,
+                cellPadding: 5,
+                lineColor: [221, 221, 221],
+                lineWidth: 0.5,
+              },
+              alternateRowStyles: { fillColor: [248, 249, 250] },
+              margin: { left: 40, right: 40 },
+            });
+          }
+
+          addPageFooter(pdf);
+          pdf.save(`${scheduleData.name || "production-schedule"}-print-friendly.pdf`);
         } catch (error) {
-            console.error("Error exporting print-friendly PDF:", error);
-            setSupabaseError("Failed to export print-friendly PDF. See console for details.");
+          console.error("Error exporting print-friendly PDF:", error);
+          setSupabaseError("Failed to export print-friendly PDF. See console for details.");
         }
       }
     } catch (err) {
@@ -518,118 +592,141 @@ const ProductionPage = () => {
     }
   };
 
-  const prepareAndExecuteRunOfShowExport = async (runOfShowId: string, type: 'color' | 'print') => {
+  const prepareAndExecuteRunOfShowExport = async (runOfShowId: string, type: "color" | "print") => {
     setExportingItemId(runOfShowId);
     setShowRunOfShowExportModal(false);
     try {
-      const { data, error } = await supabase.from("run_of_shows").select("*").eq("id", runOfShowId).single();
+      const { data, error } = await supabase
+        .from("run_of_shows")
+        .select("*")
+        .eq("id", runOfShowId)
+        .single();
       if (error || !data) throw error || new Error("Run of Show not found");
-      
+
       const fullData = {
         ...data,
         items: data.items || [],
         custom_column_definitions: data.custom_column_definitions || [],
+        default_column_colors: data.default_column_colors || {},
       } as FullRunOfShowData;
 
-      if (type === 'color') {
+      if (type === "color") {
         setCurrentExportRunOfShow(fullData);
-        await new Promise(resolve => setTimeout(resolve, 50));
-        await exportAsPdf(runOfShowExportRef, fullData.name, "run-of-show-color", "#0f172a", "Inter");
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        await exportAsPdf(
+          runOfShowExportRef,
+          fullData.name,
+          "run-of-show-color",
+          "#0f172a",
+          "Inter",
+        );
       } else {
         try {
-            const pdf = new jsPDF("l", "pt", "letter"); // Landscape orientation
+          const pdf = new jsPDF("l", "pt", "letter"); // Landscape orientation
 
-            const addPageHeader = (doc: jsPDF, title: string) => {
-                doc.setFontSize(24);
-                doc.setFont("helvetica", "bold");
-                doc.text("SoundDocs", 40, 50);
-                doc.setFontSize(16);
-                doc.setFont("helvetica", "normal");
-                doc.text(title, 40, 75);
-                doc.setDrawColor(221, 221, 221); // #ddd
-                doc.line(40, 85, doc.internal.pageSize.width - 40, 85);
-            };
+          const addPageHeader = (doc: jsPDF, title: string) => {
+            doc.setFontSize(24);
+            doc.setFont("helvetica", "bold");
+            doc.text("SoundDocs", 40, 50);
+            doc.setFontSize(16);
+            doc.setFont("helvetica", "normal");
+            doc.text(title, 40, 75);
+            doc.setDrawColor(221, 221, 221); // #ddd
+            doc.line(40, 85, doc.internal.pageSize.width - 40, 85);
+          };
 
-            const addPageFooter = (doc: jsPDF) => {
-                const pageCount = doc.getNumberOfPages();
-                const pageWidth = doc.internal.pageSize.getWidth();
-                const pageHeight = doc.internal.pageSize.getHeight();
+          const addPageFooter = (doc: jsPDF) => {
+            const pageCount = doc.getNumberOfPages();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
 
-                for (let i = 1; i <= pageCount; i++) {
-                    doc.setPage(i);
-                    doc.setDrawColor(221, 221, 221);
-                    doc.line(40, pageHeight - 35, pageWidth - 40, pageHeight - 35);
-                    doc.setFontSize(8);
-                    doc.setTextColor(128, 128, 128);
-                    doc.setFont('helvetica', 'bold');
-                    doc.text('SoundDocs', 40, pageHeight - 20);
-                    doc.setFont('helvetica', 'normal');
-                    doc.text('| Professional Audio Documentation', 95, pageHeight - 20);
-                    const pageNumText = `Page ${i} of ${pageCount}`;
-                    doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: 'center' });
-                    const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
-                    doc.text(dateStr, pageWidth - 40, pageHeight - 20, { align: 'right' });
-                }
-            };
+            for (let i = 1; i <= pageCount; i++) {
+              doc.setPage(i);
+              doc.setDrawColor(221, 221, 221);
+              doc.line(40, pageHeight - 35, pageWidth - 40, pageHeight - 35);
+              doc.setFontSize(8);
+              doc.setTextColor(128, 128, 128);
+              doc.setFont("helvetica", "bold");
+              doc.text("SoundDocs", 40, pageHeight - 20);
+              doc.setFont("helvetica", "normal");
+              doc.text("| Professional Audio Documentation", 95, pageHeight - 20);
+              const pageNumText = `Page ${i} of ${pageCount}`;
+              doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: "center" });
+              const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
+              doc.text(dateStr, pageWidth - 40, pageHeight - 20, { align: "right" });
+            }
+          };
 
-            addPageHeader(pdf, fullData.name);
+          addPageHeader(pdf, fullData.name);
 
-            const defaultCols = [
-              { key: "itemNumber", label: "Item #" },
-              { key: "startTime", label: "Start" },
-              { key: "preset", label: "Preset / Scene" },
-              { key: "duration", label: "Duration" },
-              { key: "productionNotes", label: "Production Notes" },
-              { key: "audio", label: "Audio" },
-              { key: "video", label: "Video" },
-              { key: "lights", label: "Lights" },
-            ];
+          const defaultCols = [
+            { key: "itemNumber", label: "Item #" },
+            { key: "startTime", label: "Start" },
+            { key: "preset", label: "Preset / Scene" },
+            { key: "duration", label: "Duration" },
+            { key: "productionNotes", label: "Production Notes" },
+            { key: "audio", label: "Audio" },
+            { key: "video", label: "Video" },
+            { key: "lights", label: "Lights" },
+          ];
 
-            const customCols = fullData.custom_column_definitions || [];
-            const head = [defaultCols.map(c => c.label).concat(customCols.map(c => c.name))];
-            
-            const body: any[] = [];
+          const customCols = fullData.custom_column_definitions || [];
+          const head = [defaultCols.map((c) => c.label).concat(customCols.map((c) => c.name))];
 
-            fullData.items.forEach((item) => {
-              if (item.type === 'header') {
-                body.push([{
-                  content: `${item.headerTitle || 'Header'} (Start: ${item.startTime || 'N/A'})`,
+          const body: any[] = [];
+
+          fullData.items.forEach((item) => {
+            if (item.type === "header") {
+              body.push([
+                {
+                  content: `${item.headerTitle || "Header"} (Start: ${item.startTime || "N/A"})`,
                   colSpan: head[0].length,
-                  styles: { fontStyle: 'bold', fillColor: [230, 230, 230], textColor: 0, halign: 'left' }
-                }]);
-              } else {
-                const rowData = defaultCols.map(col => item[col.key as keyof RunOfShowItem] || '');
-                const customData = customCols.map(cc => item[cc.name] || '');
-                body.push([...rowData, ...customData]);
-              }
-            });
+                  styles: {
+                    fontStyle: "bold",
+                    fillColor: [230, 230, 230],
+                    textColor: 0,
+                    halign: "left",
+                  },
+                },
+              ]);
+            } else {
+              const rowData = defaultCols.map((col) => item[col.key as keyof RunOfShowItem] || "");
+              const customData = customCols.map((cc) => item[cc.name] || "");
+              body.push([...rowData, ...customData]);
+            }
+          });
 
-            (pdf as any).autoTable({
-              head: head,
-              body: body,
-              startY: 95,
-              theme: 'grid',
-              headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: 'bold' },
-              styles: { font: 'helvetica', fontSize: 8, cellPadding: 5, lineColor: [221, 221, 221], lineWidth: 0.5 },
-              alternateRowStyles: { fillColor: [248, 249, 250] },
-              margin: { left: 40, right: 40 },
-              didParseCell: (data: any) => {
-                if (data.section === 'body') {
-                    const item = fullData.items[data.row.index];
-                    if (item && item.type !== 'header' && item.highlightColor) {
-                        data.cell.styles.fillColor = item.highlightColor;
-                        data.cell.styles.textColor = isColorLight(item.highlightColor) ? '#111' : '#FFF';
-                    }
+          (pdf as any).autoTable({
+            head: head,
+            body: body,
+            startY: 95,
+            theme: "grid",
+            headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: "bold" },
+            styles: {
+              font: "helvetica",
+              fontSize: 8,
+              cellPadding: 5,
+              lineColor: [221, 221, 221],
+              lineWidth: 0.5,
+            },
+            alternateRowStyles: { fillColor: [248, 249, 250] },
+            margin: { left: 40, right: 40 },
+            didParseCell: (data: any) => {
+              if (data.section === "body") {
+                const item = fullData.items[data.row.index];
+                if (item && item.type !== "header" && item.highlightColor) {
+                  data.cell.styles.fillColor = item.highlightColor;
+                  data.cell.styles.textColor = isColorLight(item.highlightColor) ? "#111" : "#FFF";
                 }
               }
-            });
+            },
+          });
 
-            addPageFooter(pdf);
-            pdf.save(`${fullData.name.replace(/\s+/g, "-").toLowerCase()}-run-of-show-print.pdf`);
-
+          addPageFooter(pdf);
+          pdf.save(`${fullData.name.replace(/\s+/g, "-").toLowerCase()}-run-of-show-print.pdf`);
         } catch (error) {
-            console.error("Error exporting print-friendly PDF:", error);
-            setSupabaseError("Failed to export print-friendly PDF. See console for details.");
+          console.error("Error exporting print-friendly PDF:", error);
+          setSupabaseError("Failed to export print-friendly PDF. See console for details.");
         }
       }
     } catch (err) {
@@ -676,7 +773,9 @@ const ProductionPage = () => {
             Back to Dashboard
           </Link>
           <h1 className="text-4xl font-bold text-white mb-4">Production Documents</h1>
-          <p className="text-lg text-gray-300">Manage your production schedules and run of shows.</p>
+          <p className="text-lg text-gray-300">
+            Manage your production schedules and run of shows.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
@@ -709,10 +808,17 @@ const ProductionPage = () => {
                         <button
                           className="p-2 text-gray-400 hover:text-indigo-400"
                           title="Download"
-                          onClick={(e) => { e.stopPropagation(); handleExportClick(schedule.id, "schedule"); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleExportClick(schedule.id, "schedule");
+                          }}
                           disabled={exportingItemId === schedule.id}
                         >
-                          {exportingItemId === schedule.id ? <Loader className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
+                          {exportingItemId === schedule.id ? (
+                            <Loader className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Download className="h-5 w-5" />
+                          )}
                         </button>
                         <button
                           className="p-2 text-gray-400 hover:text-indigo-400"
@@ -724,7 +830,9 @@ const ProductionPage = () => {
                         <button
                           className="p-2 text-gray-400 hover:text-red-400"
                           title="Delete"
-                          onClick={() => handleDeleteRequest(schedule.id, "schedule", schedule.name)}
+                          onClick={() =>
+                            handleDeleteRequest(schedule.id, "schedule", schedule.name)
+                          }
                         >
                           <Trash2 className="h-5 w-5" />
                         </button>
@@ -734,7 +842,9 @@ const ProductionPage = () => {
                 </div>
               ) : (
                 <div className="p-4 bg-gray-700 rounded-lg text-center">
-                  <p className="text-gray-300 mb-4">You haven't created any production schedules yet</p>
+                  <p className="text-gray-300 mb-4">
+                    You haven't created any production schedules yet
+                  </p>
                 </div>
               )}
               <div className="pt-3 text-center">
@@ -789,10 +899,17 @@ const ProductionPage = () => {
                         <button
                           className="p-2 text-gray-400 hover:text-indigo-400"
                           title="Download"
-                          onClick={(e) => { e.stopPropagation(); handleExportClick(ros.id, "runofshow"); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleExportClick(ros.id, "runofshow");
+                          }}
                           disabled={exportingItemId === ros.id}
                         >
-                          {exportingItemId === ros.id ? <Loader className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
+                          {exportingItemId === ros.id ? (
+                            <Loader className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Download className="h-5 w-5" />
+                          )}
                         </button>
                         <button
                           className="p-2 text-gray-400 hover:text-indigo-400"
@@ -844,18 +961,32 @@ const ProductionPage = () => {
 
       <ExportModal
         isOpen={showProductionScheduleExportModal}
-        onClose={() => {if(!exportingItemId) setShowProductionScheduleExportModal(false);}}
-        onExportColor={() => exportProductionScheduleId && prepareAndExecuteProductionScheduleExport(exportProductionScheduleId, 'color')}
-        onExportPrintFriendly={() => exportProductionScheduleId && prepareAndExecuteProductionScheduleExport(exportProductionScheduleId, 'print')}
+        onClose={() => {
+          if (!exportingItemId) setShowProductionScheduleExportModal(false);
+        }}
+        onExportColor={() =>
+          exportProductionScheduleId &&
+          prepareAndExecuteProductionScheduleExport(exportProductionScheduleId, "color")
+        }
+        onExportPrintFriendly={() =>
+          exportProductionScheduleId &&
+          prepareAndExecuteProductionScheduleExport(exportProductionScheduleId, "print")
+        }
         title="Production Schedule"
         isExporting={!!exportingItemId && !!exportProductionScheduleId}
       />
 
       <ExportModal
         isOpen={showRunOfShowExportModal}
-        onClose={() => { if(!exportingItemId) setShowRunOfShowExportModal(false);}}
-        onExportColor={() => exportRunOfShowId && prepareAndExecuteRunOfShowExport(exportRunOfShowId, 'color')}
-        onExportPrintFriendly={() => exportRunOfShowId && prepareAndExecuteRunOfShowExport(exportRunOfShowId, 'print')}
+        onClose={() => {
+          if (!exportingItemId) setShowRunOfShowExportModal(false);
+        }}
+        onExportColor={() =>
+          exportRunOfShowId && prepareAndExecuteRunOfShowExport(exportRunOfShowId, "color")
+        }
+        onExportPrintFriendly={() =>
+          exportRunOfShowId && prepareAndExecuteRunOfShowExport(exportRunOfShowId, "print")
+        }
         title="Run of Show"
         isExporting={!!exportingItemId && !!exportRunOfShowId}
       />
@@ -899,11 +1030,13 @@ const ProductionPage = () => {
               </div>
               <div className="ml-4 text-left">
                 <h3 className="text-lg font-medium text-white" id="modal-title">
-                  Delete {documentToDelete.type === "schedule" ? "Production Schedule" : "Run of Show"}
+                  Delete{" "}
+                  {documentToDelete.type === "schedule" ? "Production Schedule" : "Run of Show"}
                 </h3>
                 <div className="mt-2">
                   <p className="text-sm text-gray-300">
-                    Are you sure you want to delete "{documentToDelete.name}"? This action cannot be undone.
+                    Are you sure you want to delete "{documentToDelete.name}"? This action cannot be
+                    undone.
                   </p>
                 </div>
               </div>

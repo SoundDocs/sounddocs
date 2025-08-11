@@ -43,6 +43,7 @@ export interface FullRunOfShowData {
   user_id: string;
   items: RunOfShowItem[];
   custom_column_definitions: CustomColumnDefinition[];
+  default_column_colors?: Record<string, string>; // Store colors for default columns
   live_show_data?: any;
 }
 
@@ -78,13 +79,13 @@ const AllRunOfShows: React.FC = () => {
 
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportRunOfShowId, setExportRunOfShowId] = useState<string | null>(null);
-  const [currentExportRunOfShowData, setCurrentExportRunOfShowData] = useState<FullRunOfShowData | null>(null);
+  const [currentExportRunOfShowData, setCurrentExportRunOfShowData] =
+    useState<FullRunOfShowData | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const [showShareModal, setShowShareModal] = useState(false);
   const [sharingRunOfShow, setSharingRunOfShow] = useState<RunOfShowSummary | null>(null);
-
 
   const exportRef = useRef<HTMLDivElement>(null);
   const printExportRef = useRef<HTMLDivElement>(null);
@@ -105,7 +106,7 @@ const AllRunOfShows: React.FC = () => {
           .from("run_of_shows")
           .select("id, name, created_at, last_edited")
           .eq("user_id", userData.user.id);
-        
+
         if (dbError) throw dbError;
         setRunOfShows(data || []);
       } catch (err: any) {
@@ -191,8 +192,9 @@ const AllRunOfShows: React.FC = () => {
     setSharingRunOfShow(null);
   };
 
-
-  const fetchFullRunOfShowDataForExport = async (runOfShowId: string): Promise<FullRunOfShowData | null> => {
+  const fetchFullRunOfShowDataForExport = async (
+    runOfShowId: string,
+  ): Promise<FullRunOfShowData | null> => {
     const { data, error } = await supabase
       .from("run_of_shows")
       .select("*, live_show_data")
@@ -207,6 +209,7 @@ const AllRunOfShows: React.FC = () => {
       ...data,
       items: data.items || [],
       custom_column_definitions: data.custom_column_definitions || [],
+      default_column_colors: data.default_column_colors || {},
       live_show_data: data.live_show_data || null,
     } as FullRunOfShowData;
   };
@@ -223,8 +226,9 @@ const AllRunOfShows: React.FC = () => {
       }
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id, created_at, last_edited, user_id, live_show_data, ...restOfRunOfShow } = fullRunOfShow;
-      
+      const { id, created_at, last_edited, user_id, live_show_data, ...restOfRunOfShow } =
+        fullRunOfShow;
+
       const newRunOfShowData = {
         ...restOfRunOfShow,
         name: `Copy of ${fullRunOfShow.name}`,
@@ -243,9 +247,8 @@ const AllRunOfShows: React.FC = () => {
       if (insertError) throw insertError;
 
       if (newRunOfShow) {
-        setRunOfShows(prevRunOfShows => [newRunOfShow, ...prevRunOfShows]);
+        setRunOfShows((prevRunOfShows) => [newRunOfShow, ...prevRunOfShows]);
       }
-
     } catch (err: any) {
       setError(err.message || "Failed to duplicate run of show.");
       console.error("Error duplicating run of show:", err);
@@ -259,7 +262,7 @@ const AllRunOfShows: React.FC = () => {
     itemName: string,
     fileNameSuffix: string,
     backgroundColor: string,
-    font: string
+    font: string,
   ) => {
     if (!targetRef.current) {
       console.error("Export component ref not ready.");
@@ -269,11 +272,14 @@ const AllRunOfShows: React.FC = () => {
     setIsExporting(true);
     setShowExportModal(false);
 
-    if (document.fonts && typeof document.fonts.ready === 'function') {
-      try { await document.fonts.ready; } 
-      catch (fontError) { console.warn("Error waiting for document fonts to be ready:", fontError); }
+    if (document.fonts && typeof document.fonts.ready === "function") {
+      try {
+        await document.fonts.ready;
+      } catch (fontError) {
+        console.warn("Error waiting for document fonts to be ready:", fontError);
+      }
     } else {
-      await new Promise(resolve => setTimeout(resolve, 400));
+      await new Promise((resolve) => setTimeout(resolve, 400));
     }
 
     try {
@@ -284,12 +290,15 @@ const AllRunOfShows: React.FC = () => {
         allowTaint: true,
         letterRendering: true,
         onclone: (clonedDoc) => {
-          const styleGlobal = clonedDoc.createElement('style');
+          const styleGlobal = clonedDoc.createElement("style");
           styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
           clonedDoc.head.appendChild(styleGlobal);
           clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
-          Array.from(clonedDoc.querySelectorAll('*')).forEach((el: any) => {
-            if (el.style) { el.style.fontFamily = `${font}, sans-serif`; el.style.verticalAlign = 'baseline';}
+          Array.from(clonedDoc.querySelectorAll("*")).forEach((el: any) => {
+            if (el.style) {
+              el.style.fontFamily = `${font}, sans-serif`;
+              el.style.verticalAlign = "baseline";
+            }
           });
         },
         windowHeight: targetRef.current.scrollHeight,
@@ -320,7 +329,7 @@ const AllRunOfShows: React.FC = () => {
 
   const prepareAndExecuteExport = async (
     runOfShowIdToExport: string,
-    exportType: 'color' | 'print'
+    exportType: "color" | "print",
   ) => {
     if (!runOfShowIdToExport) return;
     setIsExporting(true);
@@ -331,46 +340,46 @@ const AllRunOfShows: React.FC = () => {
       setIsExporting(false);
       return;
     }
-    
-    if (exportType === 'color') {
+
+    if (exportType === "color") {
       setCurrentExportRunOfShowData(fullData);
-      await new Promise(resolve => setTimeout(resolve, 50));
-      await exportAsPdf(exportRef, fullData.name, "run-of-show-color", '#0f172a', 'Inter');
-    } else if (exportType === 'print') {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await exportAsPdf(exportRef, fullData.name, "run-of-show-color", "#0f172a", "Inter");
+    } else if (exportType === "print") {
       try {
         const pdf = new jsPDF("l", "pt", "letter"); // Landscape orientation
 
         const addPageHeader = (doc: jsPDF, title: string) => {
-            doc.setFontSize(24);
-            doc.setFont("helvetica", "bold");
-            doc.text("SoundDocs", 40, 50);
-            doc.setFontSize(16);
-            doc.setFont("helvetica", "normal");
-            doc.text(title, 40, 75);
-            doc.setDrawColor(221, 221, 221); // #ddd
-            doc.line(40, 85, doc.internal.pageSize.width - 40, 85);
+          doc.setFontSize(24);
+          doc.setFont("helvetica", "bold");
+          doc.text("SoundDocs", 40, 50);
+          doc.setFontSize(16);
+          doc.setFont("helvetica", "normal");
+          doc.text(title, 40, 75);
+          doc.setDrawColor(221, 221, 221); // #ddd
+          doc.line(40, 85, doc.internal.pageSize.width - 40, 85);
         };
 
         const addPageFooter = (doc: jsPDF) => {
-            const pageCount = doc.getNumberOfPages();
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeight = doc.internal.pageSize.getHeight();
+          const pageCount = doc.getNumberOfPages();
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const pageHeight = doc.internal.pageSize.getHeight();
 
-            for (let i = 1; i <= pageCount; i++) {
-                doc.setPage(i);
-                doc.setDrawColor(221, 221, 221);
-                doc.line(40, pageHeight - 35, pageWidth - 40, pageHeight - 35);
-                doc.setFontSize(8);
-                doc.setTextColor(128, 128, 128);
-                doc.setFont('helvetica', 'bold');
-                doc.text('SoundDocs', 40, pageHeight - 20);
-                doc.setFont('helvetica', 'normal');
-                doc.text('| Professional Audio Documentation', 95, pageHeight - 20);
-                const pageNumText = `Page ${i} of ${pageCount}`;
-                doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: 'center' });
-                const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
-                doc.text(dateStr, pageWidth - 40, pageHeight - 20, { align: 'right' });
-            }
+          for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setDrawColor(221, 221, 221);
+            doc.line(40, pageHeight - 35, pageWidth - 40, pageHeight - 35);
+            doc.setFontSize(8);
+            doc.setTextColor(128, 128, 128);
+            doc.setFont("helvetica", "bold");
+            doc.text("SoundDocs", 40, pageHeight - 20);
+            doc.setFont("helvetica", "normal");
+            doc.text("| Professional Audio Documentation", 95, pageHeight - 20);
+            const pageNumText = `Page ${i} of ${pageCount}`;
+            doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: "center" });
+            const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
+            doc.text(dateStr, pageWidth - 40, pageHeight - 20, { align: "right" });
+          }
         };
 
         addPageHeader(pdf, fullData.name);
@@ -387,20 +396,27 @@ const AllRunOfShows: React.FC = () => {
         ];
 
         const customCols = fullData.custom_column_definitions || [];
-        const head = [defaultCols.map(c => c.label).concat(customCols.map(c => c.name))];
-        
+        const head = [defaultCols.map((c) => c.label).concat(customCols.map((c) => c.name))];
+
         const body: any[] = [];
 
         fullData.items.forEach((item) => {
-          if (item.type === 'header') {
-            body.push([{
-              content: `${item.headerTitle || 'Header'} (Start: ${item.startTime || 'N/A'})`,
-              colSpan: head[0].length,
-              styles: { fontStyle: 'bold', fillColor: [230, 230, 230], textColor: 0, halign: 'left' }
-            }]);
+          if (item.type === "header") {
+            body.push([
+              {
+                content: `${item.headerTitle || "Header"} (Start: ${item.startTime || "N/A"})`,
+                colSpan: head[0].length,
+                styles: {
+                  fontStyle: "bold",
+                  fillColor: [230, 230, 230],
+                  textColor: 0,
+                  halign: "left",
+                },
+              },
+            ]);
           } else {
-            const rowData = defaultCols.map(col => item[col.key as keyof RunOfShowItem] || '');
-            const customData = customCols.map(cc => item[cc.name] || '');
+            const rowData = defaultCols.map((col) => item[col.key as keyof RunOfShowItem] || "");
+            const customData = customCols.map((cc) => item[cc.name] || "");
             body.push([...rowData, ...customData]);
           }
         });
@@ -409,25 +425,30 @@ const AllRunOfShows: React.FC = () => {
           head: head,
           body: body,
           startY: 95,
-          theme: 'grid',
-          headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: 'bold' },
-          styles: { font: 'helvetica', fontSize: 8, cellPadding: 5, lineColor: [221, 221, 221], lineWidth: 0.5 },
+          theme: "grid",
+          headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: "bold" },
+          styles: {
+            font: "helvetica",
+            fontSize: 8,
+            cellPadding: 5,
+            lineColor: [221, 221, 221],
+            lineWidth: 0.5,
+          },
           alternateRowStyles: { fillColor: [248, 249, 250] },
           margin: { left: 40, right: 40 },
           didParseCell: (data: any) => {
-            if (data.section === 'body') {
-                const item = fullData.items[data.row.index];
-                if (item && item.type !== 'header' && item.highlightColor) {
-                    data.cell.styles.fillColor = item.highlightColor;
-                    data.cell.styles.textColor = isColorLight(item.highlightColor) ? '#111' : '#FFF';
-                }
+            if (data.section === "body") {
+              const item = fullData.items[data.row.index];
+              if (item && item.type !== "header" && item.highlightColor) {
+                data.cell.styles.fillColor = item.highlightColor;
+                data.cell.styles.textColor = isColorLight(item.highlightColor) ? "#111" : "#FFF";
+              }
             }
-          }
+          },
         });
 
         addPageFooter(pdf);
         pdf.save(`${fullData.name.replace(/\s+/g, "-").toLowerCase()}-run-of-show-print.pdf`);
-
       } catch (error) {
         console.error("Error exporting print-friendly PDF:", error);
         setError("Failed to export print-friendly PDF. See console for details.");
@@ -490,29 +511,29 @@ const AllRunOfShows: React.FC = () => {
                 />
               </div>
               <div className="flex space-x-2">
-                { (["name", "created_at", "last_edited"] as SortField[]).map(field => (
-                    <button
-                        key={field}
-                        onClick={() => handleSort(field)}
-                        className={`flex items-center px-3 py-2 rounded-md transition-colors ${
-                            sortField === field
-                            ? "bg-indigo-600 text-white"
-                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        }`}
-                    >
-                        {field.replace("_", " ").replace(/\b\w/g, l => l.toUpperCase())}
-                        {sortField === field &&
-                            (sortDirection === "asc" ? (
-                            <SortAsc className="h-4 w-4 ml-1" />
-                            ) : (
-                            <SortDesc className="h-4 w-4 ml-1" />
-                            ))}
-                    </button>
+                {(["name", "created_at", "last_edited"] as SortField[]).map((field) => (
+                  <button
+                    key={field}
+                    onClick={() => handleSort(field)}
+                    className={`flex items-center px-3 py-2 rounded-md transition-colors ${
+                      sortField === field
+                        ? "bg-indigo-600 text-white"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                  >
+                    {field.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                    {sortField === field &&
+                      (sortDirection === "asc" ? (
+                        <SortAsc className="h-4 w-4 ml-1" />
+                      ) : (
+                        <SortDesc className="h-4 w-4 ml-1" />
+                      ))}
+                  </button>
                 ))}
               </div>
             </div>
           </div>
-          
+
           {error && (
             <div className="m-6 bg-red-500/20 text-red-300 p-4 rounded-lg">
               <p>Error: {error}</p>
@@ -520,9 +541,9 @@ const AllRunOfShows: React.FC = () => {
           )}
 
           {loading && user && runOfShows.length === 0 && (
-             <div className="py-12 text-center text-gray-400">
-                <Loader className="h-8 w-8 text-indigo-500 animate-spin mx-auto" />
-             </div>
+            <div className="py-12 text-center text-gray-400">
+              <Loader className="h-8 w-8 text-indigo-500 animate-spin mx-auto" />
+            </div>
           )}
 
           {!loading && filteredAndSortedRunOfShows.length === 0 && (
@@ -532,11 +553,15 @@ const AllRunOfShows: React.FC = () => {
                 {searchTerm ? "No run of shows match your search." : "No run of shows found."}
               </p>
               <p className="text-gray-400 mb-6">
-                {searchTerm ? "Try a different search term or clear the search." : "Get started by creating a new one."}
+                {searchTerm
+                  ? "Try a different search term or clear the search."
+                  : "Get started by creating a new one."}
               </p>
               {!searchTerm && (
                 <button
-                  onClick={() => navigate("/run-of-show/new", { state: { from: "/all-run-of-shows" } })}
+                  onClick={() =>
+                    navigate("/run-of-show/new", { state: { from: "/all-run-of-shows" } })
+                  }
                   className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-colors text-lg"
                 >
                   <PlusCircle className="h-6 w-6 mr-2" />
@@ -565,7 +590,11 @@ const AllRunOfShows: React.FC = () => {
                           <FileText className="h-5 w-5 text-indigo-400 mr-3 flex-shrink-0" />
                           <span
                             className="text-white font-medium hover:text-indigo-400 cursor-pointer"
-                            onClick={() => navigate(`/run-of-show/${ros.id}`, { state: { from: "/all-run-of-shows" } })}
+                            onClick={() =>
+                              navigate(`/run-of-show/${ros.id}`, {
+                                state: { from: "/all-run-of-shows" },
+                              })
+                            }
                           >
                             {ros.name}
                           </span>
@@ -581,7 +610,7 @@ const AllRunOfShows: React.FC = () => {
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex justify-end space-x-2">
-                           <button
+                          <button
                             onClick={() => handleOpenShareModal(ros)}
                             className="p-2 text-gray-400 hover:text-teal-400 rounded-md hover:bg-gray-700 transition-colors"
                             title="Share Run of Show (View-Only)"
@@ -589,24 +618,35 @@ const AllRunOfShows: React.FC = () => {
                           >
                             <Share2 className="h-5 w-5" />
                           </button>
-                           <button
+                          <button
                             onClick={() => handleDuplicateRunOfShow(ros)}
                             className="p-2 text-gray-400 hover:text-indigo-400 rounded-md hover:bg-gray-700 transition-colors"
                             title="Duplicate Run of Show"
                             disabled={duplicatingId === ros.id || isExporting}
                           >
-                            <Copy className={`h-5 w-5 ${duplicatingId === ros.id ? "animate-pulse" : ""}`} />
+                            <Copy
+                              className={`h-5 w-5 ${duplicatingId === ros.id ? "animate-pulse" : ""}`}
+                            />
                           </button>
-                           <button
+                          <button
                             onClick={() => openExportModalForItem(ros.id)}
                             className="p-2 text-gray-400 hover:text-indigo-400 rounded-md hover:bg-gray-700 transition-colors"
                             title="Export Run of Show"
-                            disabled={isExporting && exportRunOfShowId === ros.id || duplicatingId === ros.id}
+                            disabled={
+                              (isExporting && exportRunOfShowId === ros.id) ||
+                              duplicatingId === ros.id
+                            }
                           >
-                            <Download className={`h-5 w-5 ${(isExporting && exportRunOfShowId === ros.id) ? "animate-pulse" : ""}`} />
+                            <Download
+                              className={`h-5 w-5 ${isExporting && exportRunOfShowId === ros.id ? "animate-pulse" : ""}`}
+                            />
                           </button>
                           <button
-                            onClick={() => navigate(`/run-of-show/${ros.id}`, { state: { from: "/all-run-of-shows" } })}
+                            onClick={() =>
+                              navigate(`/run-of-show/${ros.id}`, {
+                                state: { from: "/all-run-of-shows" },
+                              })
+                            }
                             className="p-2 text-gray-400 hover:text-indigo-400 rounded-md hover:bg-gray-700 transition-colors"
                             title="Edit"
                             disabled={isExporting || duplicatingId === ros.id}
@@ -629,7 +669,7 @@ const AllRunOfShows: React.FC = () => {
               </table>
             </div>
           )}
-          
+
           {filteredAndSortedRunOfShows.length > 0 && (
             <div className="p-4 border-t border-gray-700 text-gray-400 text-sm">
               Showing {filteredAndSortedRunOfShows.length} of {runOfShows.length} run of shows
@@ -651,7 +691,8 @@ const AllRunOfShows: React.FC = () => {
                 </h3>
                 <div className="mt-2">
                   <p className="text-sm text-gray-300">
-                    Are you sure you want to delete "{itemToDelete.name}"? This action cannot be undone.
+                    Are you sure you want to delete "{itemToDelete.name}"? This action cannot be
+                    undone.
                   </p>
                 </div>
               </div>
@@ -679,15 +720,19 @@ const AllRunOfShows: React.FC = () => {
       <ExportModal
         isOpen={showExportModal}
         onClose={() => {
-            if (!isExporting) {
-                setShowExportModal(false);
-                setExportRunOfShowId(null); 
-            }
+          if (!isExporting) {
+            setShowExportModal(false);
+            setExportRunOfShowId(null);
+          }
         }}
-        onExportColor={() => exportRunOfShowId && prepareAndExecuteExport(exportRunOfShowId, 'color')}
-        onExportPrintFriendly={() => exportRunOfShowId && prepareAndExecuteExport(exportRunOfShowId, 'print')}
+        onExportColor={() =>
+          exportRunOfShowId && prepareAndExecuteExport(exportRunOfShowId, "color")
+        }
+        onExportPrintFriendly={() =>
+          exportRunOfShowId && prepareAndExecuteExport(exportRunOfShowId, "print")
+        }
         title="Run of Show"
-        isExporting={isExporting} 
+        isExporting={isExporting}
       />
 
       <ShareModal
@@ -700,15 +745,15 @@ const AllRunOfShows: React.FC = () => {
 
       {currentExportRunOfShowData && (
         <>
-          <RunOfShowExport 
+          <RunOfShowExport
             key={`export-${currentExportRunOfShowData.id}-${currentExportRunOfShowData.last_edited || currentExportRunOfShowData.created_at}`}
-            ref={exportRef} 
-            schedule={currentExportRunOfShowData} 
+            ref={exportRef}
+            schedule={currentExportRunOfShowData}
           />
-          <PrintRunOfShowExport 
+          <PrintRunOfShowExport
             key={`print-export-${currentExportRunOfShowData.id}-${currentExportRunOfShowData.last_edited || currentExportRunOfShowData.created_at}`}
-            ref={printExportRef} 
-            schedule={currentExportRunOfShowData} 
+            ref={printExportRef}
+            schedule={currentExportRunOfShowData}
           />
         </>
       )}

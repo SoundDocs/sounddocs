@@ -2,7 +2,13 @@ import { supabase } from "./supabase";
 import { nanoid } from "nanoid";
 
 // Updated ResourceType to include 'corporate_mic_plot' and 'theater_mic_plot'
-export type ResourceType = "patch_sheet" | "stage_plot" | "production_schedule" | "run_of_show" | "corporate_mic_plot" | "theater_mic_plot";
+export type ResourceType =
+  | "patch_sheet"
+  | "stage_plot"
+  | "production_schedule"
+  | "run_of_show"
+  | "corporate_mic_plot"
+  | "theater_mic_plot";
 
 export interface SharedLink {
   id: string; // This is shared_links.id
@@ -23,6 +29,7 @@ export interface SharedRunOfShowData {
   name: string;
   items: any[]; // Sanitized items
   custom_column_definitions: any[];
+  default_column_colors?: Record<string, string>; // Store colors for default columns
   created_at: string;
   last_edited: string | null;
   live_show_data: any | null; // To store { currentItemIndex, isTimerActive, timeRemaining }
@@ -42,7 +49,6 @@ export interface ClaimedDocumentInfo {
   share_code: string;
   original_owner_id: string | null;
 }
-
 
 // Generate a share link with a custom expiration
 export const createShareLink = async (
@@ -166,7 +172,7 @@ export const verifyShareLink = async (shareCode: string): Promise<SharedLink> =>
 
     if (error) throw new Error(`Share link verification failed: ${error.message}`);
     if (!data || data.length === 0) throw new Error("Share link not found or invalid.");
-    
+
     const shareLink = data[0] as SharedLink;
 
     if (shareLink.expires_at && new Date(shareLink.expires_at) < new Date()) {
@@ -177,38 +183,46 @@ export const verifyShareLink = async (shareCode: string): Promise<SharedLink> =>
     console.error("Error verifying share link:", error);
     // Make error messages more user-friendly
     if (error instanceof Error) {
-        if (error.message.includes("SHARE_LINK_NOT_FOUND")) {
-            throw new Error("Invalid or expired share code.");
-        }
-        if (error.message.includes("SHARE_LINK_EXPIRED")) {
-            throw new Error("This share link has expired.");
-        }
+      if (error.message.includes("SHARE_LINK_NOT_FOUND")) {
+        throw new Error("Invalid or expired share code.");
+      }
+      if (error.message.includes("SHARE_LINK_EXPIRED")) {
+        throw new Error("This share link has expired.");
+      }
     }
     throw error;
   }
 };
 
-export const getSharedResource = async (shareCode: string): Promise<{ resource: any; shareLink: SharedLink }> => {
+export const getSharedResource = async (
+  shareCode: string,
+): Promise<{ resource: any; shareLink: SharedLink }> => {
   try {
     if (!shareCode) throw new Error("Share code is required");
 
-    const { data: linkRpcData, error: linkRpcError } = await supabase.rpc("get_shared_link_by_code", {
-      p_share_code: shareCode,
-    });
+    const { data: linkRpcData, error: linkRpcError } = await supabase.rpc(
+      "get_shared_link_by_code",
+      {
+        p_share_code: shareCode,
+      },
+    );
 
     if (linkRpcError) {
       console.error("Error calling RPC get_shared_link_by_code:", linkRpcError);
-      if (linkRpcError.message.includes("SHARE_LINK_NOT_FOUND")) throw new Error("Share link not found.");
-      if (linkRpcError.message.includes("SHARE_LINK_EXPIRED")) throw new Error("This share link has expired.");
-      if (linkRpcError.message.includes("LINK_NOT_FOR_VIEWING")) throw new Error("Failed to fetch shared resource: LINK_NOT_FOR_VIEWING");
+      if (linkRpcError.message.includes("SHARE_LINK_NOT_FOUND"))
+        throw new Error("Share link not found.");
+      if (linkRpcError.message.includes("SHARE_LINK_EXPIRED"))
+        throw new Error("This share link has expired.");
+      if (linkRpcError.message.includes("LINK_NOT_FOR_VIEWING"))
+        throw new Error("Failed to fetch shared resource: LINK_NOT_FOR_VIEWING");
       throw new Error(`Share link verification failed: ${linkRpcError.message}`);
     }
 
     if (!linkRpcData || linkRpcData.length === 0) {
       throw new Error("Share link not found.");
     }
-    
-    const verifiedLink = linkRpcData[0] as SharedLink; 
+
+    const verifiedLink = linkRpcData[0] as SharedLink;
 
     if (verifiedLink.expires_at && new Date(verifiedLink.expires_at) < new Date()) {
       throw new Error("This share link has expired.");
@@ -217,13 +231,17 @@ export const getSharedResource = async (shareCode: string): Promise<{ resource: 
     let resourceData;
 
     if (verifiedLink.resource_type === "run_of_show") {
-      const { data: rosData, error: rosError } = await supabase.rpc("get_public_run_of_show_by_share_code", {
-        p_share_code: shareCode,
-      });
+      const { data: rosData, error: rosError } = await supabase.rpc(
+        "get_public_run_of_show_by_share_code",
+        {
+          p_share_code: shareCode,
+        },
+      );
 
       if (rosError) {
         console.error("Error calling RPC get_public_run_of_show_by_share_code:", rosError);
-        if (rosError.message.includes("RUN_OF_SHOW_NOT_FOUND")) throw new Error("The linked Run of Show could not be found.");
+        if (rosError.message.includes("RUN_OF_SHOW_NOT_FOUND"))
+          throw new Error("The linked Run of Show could not be found.");
         throw new Error(`Failed to fetch shared Run of Show: ${rosError.message}`);
       }
       if (!rosData || rosData.length === 0) {
@@ -274,7 +292,7 @@ export const getSharedResource = async (shareCode: string): Promise<{ resource: 
           last_accessed: new Date().toISOString(),
           access_count: (verifiedLink.access_count || 0) + 1,
         })
-        .eq("id", verifiedLink.id) 
+        .eq("id", verifiedLink.id)
         .then(({ error: updateError }) => {
           if (updateError) console.error("Error updating access count/last accessed:", updateError);
         });
@@ -282,9 +300,8 @@ export const getSharedResource = async (shareCode: string): Promise<{ resource: 
 
     return {
       resource: resourceData,
-      shareLink: verifiedLink, 
+      shareLink: verifiedLink,
     };
-
   } catch (error) {
     console.error("Error getting shared resource:", error);
     throw error;
@@ -296,7 +313,7 @@ export const getShareUrl = (
   resourceType?: ResourceType,
   linkType?: "view" | "edit",
 ): string => {
-  const baseUrl = window.location.origin; 
+  const baseUrl = window.location.origin;
 
   if (resourceType === "run_of_show") {
     if (linkType === "edit") {
@@ -310,9 +327,9 @@ export const getShareUrl = (
     return `${baseUrl}/shared/stage-plot/${shareCode}`;
   } else if (resourceType === "patch_sheet") {
     if (linkType === "edit") {
-      return `${baseUrl}/shared/edit/${shareCode}`; 
+      return `${baseUrl}/shared/edit/${shareCode}`;
     }
-    return `${baseUrl}/shared/${shareCode}`; 
+    return `${baseUrl}/shared/${shareCode}`;
   } else if (resourceType === "production_schedule") {
     if (linkType === "edit") {
       return `${baseUrl}/shared/production-schedule/edit/${shareCode}`;
@@ -323,16 +340,18 @@ export const getShareUrl = (
       return `${baseUrl}/shared/corporate-mic-plot/edit/${shareCode}`;
     }
     return `${baseUrl}/shared/corporate-mic-plot/${shareCode}`;
-  } else if (resourceType === "theater_mic_plot") { // Added case for theater_mic_plot
+  } else if (resourceType === "theater_mic_plot") {
+    // Added case for theater_mic_plot
     if (linkType === "edit") {
       return `${baseUrl}/shared/theater-mic-plot/edit/${shareCode}`;
     }
     return `${baseUrl}/shared/theater-mic-plot/${shareCode}`;
   }
 
-
-  console.warn(`Generating generic share URL for share_code ${shareCode} as resourceType "${resourceType}" or linkType "${linkType}" was not fully matched or provided for specific routing.`);
-  return `${baseUrl}/shared/${shareCode}`; 
+  console.warn(
+    `Generating generic share URL for share_code ${shareCode} as resourceType "${resourceType}" or linkType "${linkType}" was not fully matched or provided for specific routing.`,
+  );
+  return `${baseUrl}/shared/${shareCode}`;
 };
 
 export const updateSharedResource = async (
@@ -342,13 +361,17 @@ export const updateSharedResource = async (
 ) => {
   try {
     if (!shareCode) throw new Error("Share code is required");
-    
+
     if (resourceType === "run_of_show") {
-        console.warn("Run of Show updates should be handled by RunOfShowEditor's save logic directly.");
-        throw new Error("Direct update for Run of Show via this generic function is not recommended.");
+      console.warn(
+        "Run of Show updates should be handled by RunOfShowEditor's save logic directly.",
+      );
+      throw new Error(
+        "Direct update for Run of Show via this generic function is not recommended.",
+      );
     }
 
-    const verifiedLink = await verifyShareLink(shareCode); 
+    const verifiedLink = await verifyShareLink(shareCode);
 
     if (verifiedLink.link_type !== "edit") {
       throw new Error("This link does not have edit permissions");
@@ -358,7 +381,7 @@ export const updateSharedResource = async (
     }
 
     const updatesWithTimestamp = { ...updates, last_edited: new Date().toISOString() };
-    
+
     let tableName: string;
     switch (resourceType) {
       case "patch_sheet":
@@ -408,27 +431,44 @@ export const addClaimedShare = async (userId: string, sharedLinkId: string): Pro
     throw new Error("User ID and Shared Link ID are required to claim a share.");
   }
 
-  console.log('[addClaimedShare] Attempting to insert:', { user_id: userId, shared_link_id: sharedLinkId });
+  console.log("[addClaimedShare] Attempting to insert:", {
+    user_id: userId,
+    shared_link_id: sharedLinkId,
+  });
 
   const { data, error, status, statusText, count } = await supabase
     .from("user_claimed_shares")
     .insert({ user_id: userId, shared_link_id: sharedLinkId });
 
-  console.log('[addClaimedShare] Insert operation response:', { data, error, status, statusText, count });
+  console.log("[addClaimedShare] Insert operation response:", {
+    data,
+    error,
+    status,
+    statusText,
+    count,
+  });
 
   if (error) {
-    console.error("Error claiming shared link (raw Supabase error object):", JSON.stringify(error, null, 2));
+    console.error(
+      "Error claiming shared link (raw Supabase error object):",
+      JSON.stringify(error, null, 2),
+    );
     let errorMessage = `Failed to claim document: ${error.message}`;
     if (error.code) errorMessage += ` (Code: ${error.code})`;
     if (error.details) errorMessage += ` (Details: ${error.details})`;
     if (error.hint) errorMessage += ` (Hint: ${error.hint})`;
-    
-    if (error.code === '23505') { 
+
+    if (error.code === "23505") {
       throw new Error("You have already claimed this document.");
     }
     throw new Error(errorMessage);
   }
-  return { success: true, user_id: userId, shared_link_id: sharedLinkId, claimed_at: new Date().toISOString() };
+  return {
+    success: true,
+    user_id: userId,
+    shared_link_id: sharedLinkId,
+    claimed_at: new Date().toISOString(),
+  };
 };
 
 /**

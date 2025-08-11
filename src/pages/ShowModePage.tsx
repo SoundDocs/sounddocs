@@ -22,6 +22,7 @@ interface FullRunOfShowData {
   name: string;
   items: RunOfShowItem[];
   custom_column_definitions: CustomColumnDefinition[];
+  default_column_colors?: Record<string, string>; // Store colors for default columns
   created_at?: string;
   last_edited?: string;
   user_id?: string;
@@ -517,6 +518,7 @@ const ShowModePage: React.FC = () => {
     type?: string;
     id?: string;
     isCustom?: boolean;
+    highlightColor?: string;
   }[] = [
     { key: "itemNumber", label: "Item #" },
     { key: "startTime", label: "Start", type: "time" },
@@ -530,13 +532,17 @@ const ShowModePage: React.FC = () => {
   ];
 
   const allDisplayColumns = [
-    ...defaultColumns,
+    ...defaultColumns.map((col) => ({
+      ...col,
+      highlightColor: runOfShow.default_column_colors?.[col.key] || col.highlightColor,
+    })),
     ...(runOfShow.custom_column_definitions || []).map((col) => ({
       key: col.name,
       label: col.name,
       id: col.id,
       isCustom: true,
       type: col.type || "text",
+      highlightColor: col.highlightColor,
     })),
   ];
 
@@ -701,25 +707,35 @@ const ShowModePage: React.FC = () => {
 
                   return (
                     <tr key={item.id} className={rowClass} style={rowStyle}>
-                      {allDisplayColumns.map((colConfig, colIdx) => (
-                        <td
-                          key={colConfig.key || colConfig.id}
-                          className={`px-2 sm:px-3 py-2 sm:py-2.5 whitespace-pre-wrap text-sm 
+                      {allDisplayColumns.map((colConfig, colIdx) => {
+                        const columnColor = colConfig.highlightColor;
+                        // Don't apply column color if row is current/next cue (row colors take priority)
+                        const cellStyle =
+                          columnColor && !isCurrent && !isNext
+                            ? { backgroundColor: columnColor }
+                            : {};
+
+                        return (
+                          <td
+                            key={colConfig.key || colConfig.id}
+                            className={`px-2 sm:px-3 py-2 sm:py-2.5 whitespace-pre-wrap text-sm 
                                         ${colIdx === 0 ? "pl-3 sm:pl-4 md:pl-6" : ""} 
                                         ${colIdx === allDisplayColumns.length - 1 ? "pr-3 sm:pr-4 md:pr-6" : ""}
                                         ${item.type === "header" && colIdx === 0 ? "text-lg text-white py-3 sm:py-3.5" : "text-gray-200"}
                                         ${item.type === "header" && colIdx > 0 ? "text-gray-500 italic" : ""}
                                         `}
-                        >
-                          {item.type === "header"
-                            ? colIdx === 0
-                              ? item.headerTitle
-                              : colIdx === 1
-                                ? item.startTime
-                                : ""
-                            : item[colConfig.key as keyof RunOfShowItem] || ""}
-                        </td>
-                      ))}
+                            style={cellStyle}
+                          >
+                            {item.type === "header"
+                              ? colIdx === 0
+                                ? item.headerTitle
+                                : colIdx === 1
+                                  ? item.startTime
+                                  : ""
+                              : item[colConfig.key as keyof RunOfShowItem] || ""}
+                          </td>
+                        );
+                      })}
                     </tr>
                   );
                 })

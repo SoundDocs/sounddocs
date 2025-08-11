@@ -1,7 +1,7 @@
 import React, { forwardRef } from "react";
 import { FullRunOfShowData } from "../../pages/AllRunOfShows";
 import { RunOfShowItem } from "../../pages/RunOfShowEditor"; // Ensure RunOfShowItem includes highlightColor
-import { Bookmark, Clock } from "lucide-react"; 
+import { Bookmark, Clock } from "lucide-react";
 
 interface RunOfShowExportProps {
   schedule: FullRunOfShowData;
@@ -25,9 +25,12 @@ const isColorLight = (hexColor?: string): boolean => {
   }
 };
 
-
 const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ schedule }, ref) => {
-  const defaultColumnsConfig: { key: keyof RunOfShowItem | string; label: string }[] = [
+  const defaultColumnsConfig: {
+    key: keyof RunOfShowItem | string;
+    label: string;
+    highlightColor?: string;
+  }[] = [
     { key: "itemNumber", label: "Item #" },
     { key: "startTime", label: "Start Time" },
     { key: "preset", label: "Preset / Scene" },
@@ -40,8 +43,15 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
   ];
 
   const allTableColumns = [
-    ...defaultColumnsConfig,
-    ...(schedule.custom_column_definitions || []).map(col => ({ key: col.name, label: col.name }))
+    ...defaultColumnsConfig.map((col) => ({
+      ...col,
+      highlightColor: schedule.default_column_colors?.[col.key] || col.highlightColor,
+    })),
+    ...(schedule.custom_column_definitions || []).map((col) => ({
+      key: col.id,
+      label: col.name,
+      highlightColor: col.highlightColor,
+    })),
   ];
 
   const formatDate = (dateString: string | undefined) => {
@@ -54,18 +64,18 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
       minute: "2-digit",
     });
   };
-  
+
   return (
-    <div 
-      ref={ref} 
+    <div
+      ref={ref}
       className="export-wrapper text-white p-8 rounded-lg shadow-xl"
-      style={{ 
-        width: '1600px', 
-        fontFamily: 'Inter, sans-serif',
+      style={{
+        width: "1600px",
+        fontFamily: "Inter, sans-serif",
         background: "linear-gradient(to bottom, #111827, #0f172a)",
         boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
-        position: "absolute", 
-        left: "-9999px",      
+        position: "absolute",
+        left: "-9999px",
       }}
     >
       <style>
@@ -162,9 +172,14 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
       >
         <div
           style={{
-            position: "absolute", top: "-50px", right: "-50px", width: "200px", height: "200px",
+            position: "absolute",
+            top: "-50px",
+            right: "-50px",
+            width: "200px",
+            height: "200px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0) 70%)",
+            background:
+              "radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0) 70%)",
             zIndex: 0,
           }}
         ></div>
@@ -179,42 +194,63 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
             <Bookmark className="h-10 w-10 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold" style={{color: "#fff", marginBottom: "0.25rem"}}>SoundDocs</h1>
+            <h1 className="text-3xl font-bold" style={{ color: "#fff", marginBottom: "0.25rem" }}>
+              SoundDocs
+            </h1>
             <p className="text-indigo-400 font-medium">Professional Audio Documentation</p>
           </div>
         </div>
         <div className="text-right z-10 header-info">
-          <h2 className="text-2xl font-bold text-white" style={{marginBottom: "0.25rem"}}>{schedule.name || "Run of Show"}</h2>
-          <p><strong>Created:</strong> {formatDate(schedule.created_at)}</p>
-          {schedule.last_edited && <p><strong>Last Edited:</strong> {formatDate(schedule.last_edited)}</p>}
+          <h2 className="text-2xl font-bold text-white" style={{ marginBottom: "0.25rem" }}>
+            {schedule.name || "Run of Show"}
+          </h2>
+          <p>
+            <strong>Created:</strong> {formatDate(schedule.created_at)}
+          </p>
+          {schedule.last_edited && (
+            <p>
+              <strong>Last Edited:</strong> {formatDate(schedule.last_edited)}
+            </p>
+          )}
         </div>
       </div>
 
       <table>
         <thead>
           <tr>
-            {allTableColumns.map(col => (
+            {allTableColumns.map((col) => (
               <th key={col.key}>{col.label}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {(schedule.items || []).map((item, index) => {
-            const currentItem = item as RunOfShowItem; 
-            if (currentItem.type === 'header') {
+            const currentItem = item as RunOfShowItem;
+            if (currentItem.type === "header") {
               return (
                 <tr key={currentItem.id || `item-${index}`} className="header-row">
-                  <td className="header-cell-title">
-                    {currentItem.headerTitle || "Section Header"}
-                  </td>
-                  <td className="header-cell-meta">{currentItem.startTime || ''}</td>
-                  <td className="header-cell-empty">N/A</td>
-                  {defaultColumnsConfig.slice(3).map(colDef => (
-                     <td key={`header-empty-default-${colDef.key}`} className="header-cell-empty">N/A</td>
-                  ))}
-                  {(schedule.custom_column_definitions || []).map(customCol => (
-                    <td key={`header-empty-custom-${customCol.id}`} className="header-cell-empty">N/A</td>
-                  ))}
+                  {allTableColumns.map((col, colIdx) => {
+                    const columnColor = col.highlightColor;
+                    const cellStyle = columnColor ? { backgroundColor: columnColor } : {};
+                    const cellClass =
+                      colIdx === 0
+                        ? "header-cell-title"
+                        : colIdx === 1
+                          ? "header-cell-meta"
+                          : "header-cell-empty";
+                    const cellContent =
+                      colIdx === 0
+                        ? currentItem.headerTitle || "Section Header"
+                        : colIdx === 1
+                          ? currentItem.startTime || ""
+                          : "N/A";
+
+                    return (
+                      <td key={`header-${col.key}`} className={cellClass} style={cellStyle}>
+                        {cellContent}
+                      </td>
+                    );
+                  })}
                 </tr>
               );
             }
@@ -224,30 +260,35 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
               rowStyle.backgroundColor = currentItem.highlightColor;
               // Adjust text color for contrast if needed (using simplified logic)
               if (!isColorLight(currentItem.highlightColor)) {
-                rowStyle.color = '#FFFFFF'; // Use light text on dark background
+                rowStyle.color = "#FFFFFF"; // Use light text on dark background
               } else {
-                rowStyle.color = '#1f2937'; // Use dark text on light background (Tailwind gray-800)
+                rowStyle.color = "#1f2937"; // Use dark text on light background (Tailwind gray-800)
               }
             }
 
             return (
               <tr key={currentItem.id || `item-${index}`}>
-                {allTableColumns.map(col => (
-                  <td 
-                    key={`${currentItem.id || `item-${index}`}-${col.key}`}
-                    style={rowStyle} // Apply style to each cell in the highlighted row
-                  >
-                    {String(currentItem[col.key as keyof RunOfShowItem] || '')}
-                  </td>
-                ))}
+                {allTableColumns.map((col) => {
+                  const columnColor = col.highlightColor;
+                  // Apply column color only if no row highlight color (row colors take priority)
+                  const cellStyle = currentItem.highlightColor
+                    ? rowStyle
+                    : columnColor
+                      ? { backgroundColor: columnColor }
+                      : {};
+
+                  return (
+                    <td key={`${currentItem.id || `item-${index}`}-${col.key}`} style={cellStyle}>
+                      {String(currentItem[col.key as keyof RunOfShowItem] || "")}
+                    </td>
+                  );
+                })}
               </tr>
             );
           })}
           {(schedule.items || []).length === 0 && (
             <tr className="empty-row">
-              <td colSpan={allTableColumns.length}>
-                No items in this run of show.
-              </td>
+              <td colSpan={allTableColumns.length}>No items in this run of show.</td>
             </tr>
           )}
         </tbody>
@@ -256,10 +297,12 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
       <div className="relative mt-12 pt-6 overflow-hidden">
         <div
           style={{
-            position: "absolute", inset: 0,
+            position: "absolute",
+            inset: 0,
             background: "linear-gradient(to right, rgba(31, 41, 55, 0.5), rgba(31, 41, 55, 0.7))",
             borderTop: "1px solid rgba(99, 102, 241, 0.3)",
-            borderRadius: "8px", zIndex: -1,
+            borderRadius: "8px",
+            zIndex: -1,
           }}
         ></div>
         <div className="flex justify-between items-center p-4">
@@ -277,13 +320,24 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
           </div>
           <div className="text-gray-400 text-sm flex items-center">
             <Clock className="h-4 w-4 mr-1" />
-            <span>Generated on {new Date().toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <span>
+              Generated on{" "}
+              {new Date().toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </span>
           </div>
         </div>
         <div
           style={{
-            position: "absolute", bottom: "-30px", right: "-30px", opacity: "0.05",
-            transform: "rotate(-15deg)", zIndex: -1,
+            position: "absolute",
+            bottom: "-30px",
+            right: "-30px",
+            opacity: "0.05",
+            transform: "rotate(-15deg)",
+            zIndex: -1,
           }}
         >
           <Bookmark className="h-40 w-40 text-gray-500" />
