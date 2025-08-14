@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.2] - 2025-8-14
+
+### Added
+
+- **Monorepo Architecture**: Transitioned to pnpm workspace-based monorepo structure
+  - Created workspace packages: `apps/web`, `packages/analyzer-protocol`, `agents/capture-agent-*`, `models/eqalign`
+  - Established foundation for AI-powered audio analyzer feature development
+  - Added shared TypeScript protocol definitions for browser-to-agent communication
+- **Cross-Origin Isolation**: Implemented Cross-Origin-Opener-Policy (COOP) and Cross-Origin-Embedder-Policy (COEP) headers
+  - Enables SharedArrayBuffer support for high-performance audio processing
+  - Required for browser-based real-time DSP and WebAssembly threading
+  - Added headers to both development server and production deployment configuration
+- **Analyzer Protocol Package**: Created `@sounddocs/analyzer-protocol` for shared type definitions
+  - WebSocket message schemas for device communication
+  - Transfer function (TF) data structures for dual-channel measurements
+  - SPL/Leq measurement interfaces
+  - Device discovery and capture configuration types
+
+### Changed
+
+- **Project Structure**: Reorganized codebase into monorepo workspace layout
+  - Moved existing SoundDocs web app to `apps/web/`
+  - Separated shared packages under `packages/`
+  - Reserved directories for capture agents (`agents/`) and ML models (`models/`)
+  - Updated build and development scripts for workspace management
+
+### Technical Details
+
+- **Workspace Configuration**:
+  - Added `pnpm-workspace.yaml` with workspace package definitions
+  - Updated root `package.json` with workspace references and multi-package scripts
+  - Configured TypeScript project references for cross-package type checking
+- **Cross-Origin Headers**:
+  - Development: Added COOP/COEP headers to Vite dev server configuration
+  - Production: Created `public/_headers` file for Netlify/Vercel deployment
+  - Headers enable SharedArrayBuffer and WASM threading for audio processing
+- **Package Structure**:
+  - `apps/web/`: Main SoundDocs React application with existing features
+  - `packages/analyzer-protocol/`: Shared TypeScript definitions for analyzer communication
+  - Future packages: `packages/analyzer-lite/` (browser-only analyzer), `agents/capture-agent-py/` (Python audio capture)
+- **Path Aliases**: Added `@/*` alias mapping to `src/*` for cleaner imports across the monorepo
+
 ## [1.3.1] - 2025-8-11
 
 ### Added
