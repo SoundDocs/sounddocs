@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.9.7] - 2025-08-15
+
+### Fixed
+
+- **Coherence Calculation**: Replaced the manual coherence calculation with `scipy.signal.coherence` to provide a more robust and accurate measurement. This also simplifies the DSP code by removing the need for manual averaging.
+
 ## [1.4.9.6] - 2025-08-15
 
 ### Fixed
