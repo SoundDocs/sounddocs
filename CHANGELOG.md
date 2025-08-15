@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.3.2] - 2025-08-15
+
+### Fixed
+
+- **Site Branding**: Corrected the application's browser tab title to consistently display "SoundDocs" instead of "Resources" across all pages.
+
 ## [1.3.3.1] - 2025-08-15
 
 ### Fixed

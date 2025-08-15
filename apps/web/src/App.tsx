@@ -60,7 +60,7 @@ import AllPixelMaps from "./pages/AllPixelMaps";
 function App() {
   useEffect(() => {
     // Update title
-    document.title = "SoundDocs | Event Production Docs, Tools & Resources";
+    document.title = "SoundDocs | Event Production Docs & Tools";
   }, []);
 
   return (
