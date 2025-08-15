@@ -20,16 +20,26 @@ export interface SPLData {
   LZ: number;
 }
 
+export type WindowType = "hann" | "kaiser" | "blackman";
+export type AvgType = "power" | "linear" | "exp";
+export type LpfMode = "lpf" | "none";
+
 export interface CaptureConfig {
   deviceId: string;
   sampleRate: number;
   blockSize: number;
-  nfft: number;
   refChan: number;
   measChan: number;
-  window: "hann" | "kaiser" | "blackman";
-  avg: "exp" | "linear";
-  smoothing: "none" | "1/3" | "1/6" | "1/12";
+
+  // FFT & Averaging
+  nfft: number;
+  avg: AvgType;
+  avgCount: number;
+  window: WindowType;
+
+  // Smoothing
+  lpfMode: LpfMode;
+  lpfFreq: number;
 }
 
 // Message types from client to agent
@@ -43,17 +53,8 @@ export interface ListDevicesMessage {
   type: "list_devices";
 }
 
-export interface StartCaptureMessage {
+export interface StartCaptureMessage extends CaptureConfig {
   type: "start";
-  deviceId: string;
-  sampleRate: number;
-  blockSize: number;
-  nfft: number;
-  refChan: number;
-  measChan: number;
-  window: "hann" | "kaiser" | "blackman";
-  avg: "exp" | "linear";
-  smoothing: "none" | "1/3" | "1/6" | "1/12";
 }
 
 export interface StopCaptureMessage {

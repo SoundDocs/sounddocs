@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.7] - 2025-08-15
+
+### Improved
+
+- **Professional Settings Panel**: Rebuilt the "Pro Mode Settings" UI to include professional controls inspired by Open Sound Meter, including LPF Mode, LPF Frequency, Averaging Type, and Window Type.
+- **Agent DSP Refactor**: Implemented a robust overlap-add buffering strategy in the Python agent to ensure all calculations (TF, Coherence, Delay) are performed on correctly windowed and aligned data blocks, resulting in smooth and stable measurements.
+- **LPF Smoothing**: Added a Bessel LPF to the agent's DSP for smoothing the Magnitude, Phase, and Coherence traces.
+
 ## [1.4.6] - 2025-08-15
 
 ### Fixed

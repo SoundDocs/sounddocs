@@ -6,6 +6,7 @@ import time
 from typing import Set
 import websockets
 from websockets.server import WebSocketServerProtocol
+import numpy as np
 
 from . import audio
 from . import dsp
@@ -23,9 +24,7 @@ from .schema import (
 )
 
 # --- State Management ---
-# A set of currently connected WebSocket clients
 connected_clients: Set[WebSocketServerProtocol] = set()
-# A task for the current audio capture loop, if any
 capture_task = None
 
 ALLOWED_ORIGINS = ["https://sounddocs.org", "https://beta.sounddocs.org", "http://localhost:5173", "https://localhost:5173"]
@@ -35,7 +34,6 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
     global capture_task
 
     try:
-        # Use Pydantic for validation
         incoming = IncomingMessage(message=message_data)
         message = incoming.message
     except Exception as e:
@@ -43,7 +41,6 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
         return
 
     if message.type == "hello":
-        # The 'hello' is implicitly handled by the origin check in the handler
         ack = HelloAckMessage(
             type="hello_ack", agent="capture-agent-py/0.1.0", originAllowed=True
         )
@@ -69,16 +66,25 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
         if capture_task and not capture_task.done():
             capture_task.cancel()
             capture_task = None
-        # The run_capture task will send the 'stopped' message on cancellation
-    
-    # 'calibrate' message is not handled in this MVP
 
 async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
-    """The main audio capture and processing loop."""
+    """The main audio capture and processing loop with overlap-add."""
     try:
+        buffer_size = config.nfft
+        hop_size = buffer_size // 2  # 50% overlap
+        
+        num_channels = max(config.refChan, config.measChan)
+        audio_buffer = np.zeros((buffer_size, num_channels), dtype=np.float32)
+        
         with audio.Stream(config) as stream:
             for block in stream.blocks():
-                tf_data, spl_data, delay_ms = dsp.compute_metrics(block, config)
+                # Shift old data
+                audio_buffer = np.roll(audio_buffer, -config.blockSize, axis=0)
+                # Add new data
+                audio_buffer[-config.blockSize:, :] = block
+
+                # Process the full buffer
+                tf_data, spl_data, delay_ms = dsp.compute_metrics(audio_buffer, config)
                 
                 frame = FrameMessage(
                     type="frame",
@@ -89,8 +95,8 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
                     ts=int(time.time() * 1000),
                 )
                 await ws.send(json.dumps(frame.dict()))
-                # Yield control to the event loop briefly
-                await asyncio.sleep(0)
+                await asyncio.sleep(0) # Yield control
+                
     except asyncio.CancelledError:
         print("Capture stopped by client.")
     except Exception as e:
@@ -102,12 +108,10 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
         print("Capture finished.")
 
 async def send_error(ws: WebSocketServerProtocol, error_message: str):
-    """Sends a formatted error message to the client."""
     error_msg = ErrorMessage(type="error", message=error_message)
     await ws.send(json.dumps(error_msg.dict()))
 
 async def handler(ws: WebSocketServerProtocol, path: str):
-    """Handles a new WebSocket connection."""
     origin = ws.request_headers.get("Origin")
     if origin not in ALLOWED_ORIGINS:
         print(f"Connection rejected from disallowed origin: {origin}")
@@ -127,7 +131,6 @@ async def handler(ws: WebSocketServerProtocol, path: str):
     except websockets.exceptions.ConnectionClosed:
         print("Client disconnected.")
     finally:
-        # If this client was running a capture, stop it
         global capture_task
         if capture_task and not capture_task.done():
             capture_task.cancel()
@@ -135,8 +138,6 @@ async def handler(ws: WebSocketServerProtocol, path: str):
         connected_clients.remove(ws)
 
 async def start_server(host="127.0.0.1", port=9469):
-    """Starts the WebSocket server."""
-    # Path to the certs relative to this file's parent directory
     cert_path = pathlib.Path(__file__).parent.parent / "localhost.pem"
     key_path = pathlib.Path(__file__).parent.parent / "localhost-key.pem"
 
@@ -145,4 +146,4 @@ async def start_server(host="127.0.0.1", port=9469):
 
     async with websockets.serve(handler, host, port, ssl=ssl_context):
         print(f"Secure WebSocket server started at wss://{host}:{port}")
-        await asyncio.Future()  # Run forever
+        await asyncio.Future()

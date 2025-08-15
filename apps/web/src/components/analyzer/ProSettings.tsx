@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Device, CaptureConfig } from "@sounddocs/analyzer-protocol";
+import { Device, CaptureConfig, WindowType, AvgType, LpfMode } from "@sounddocs/analyzer-protocol";
 
 interface ProSettingsProps {
   devices: Device[];
-  onStartCapture: (config: Omit<CaptureConfig, "type">) => void;
+  onStartCapture: (config: CaptureConfig) => void;
   onStopCapture: () => void;
 }
 
@@ -17,8 +17,15 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
   const [refChan, setRefChan] = useState<number>(1);
   const [measChan, setMeasChan] = useState<number>(2);
 
+  // New settings from OSM
+  const [lpfMode, setLpfMode] = useState<LpfMode>("lpf");
+  const [lpfFreq, setLpfFreq] = useState<number>(0.25);
+  const [avg, setAvg] = useState<AvgType>("power");
+  const [avgCount, setAvgCount] = useState<number>(16);
+  const [window, setWindow] = useState<WindowType>("hann");
+  const [nfft, setNfft] = useState<number>(8192);
+
   useEffect(() => {
-    // Default to the first available device
     if (devices.length > 0 && !selectedDeviceId) {
       setSelectedDeviceId(devices[0].id);
     }
@@ -33,14 +40,16 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
     }
     const config = {
       deviceId: selectedDeviceId,
-      sampleRate: 48000, // Default values for now
+      sampleRate: 48000,
       blockSize: 1024,
-      nfft: 8192,
       refChan,
       measChan,
-      window: "hann" as const,
-      avg: "exp" as const,
-      smoothing: "1/6" as const,
+      nfft,
+      avg,
+      avgCount,
+      window,
+      lpfMode,
+      lpfFreq,
     };
     onStartCapture(config);
     setIsCapturing(true);
@@ -62,9 +71,9 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
   return (
     <div className="p-4 rounded-lg bg-gray-800 border border-gray-700">
       <h3 className="text-lg font-semibold text-white mb-3">Pro Mode Settings</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-        {/* Audio Device */}
-        <div className="col-span-1">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        {/* Row 1 */}
+        <div className="col-span-2">
           <label className="block text-sm font-medium text-gray-300 mb-1">Audio Device</label>
           <select
             value={selectedDeviceId}
@@ -79,9 +88,7 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
             ))}
           </select>
         </div>
-
-        {/* Reference Channel */}
-        <div className="col-span-1">
+        <div>
           <label className="block text-sm font-medium text-gray-300 mb-1">Reference Channel</label>
           <select
             value={refChan}
@@ -92,9 +99,7 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
             {selectedDevice && renderChannelOptions(selectedDevice.inputs)}
           </select>
         </div>
-
-        {/* Measurement Channel */}
-        <div className="col-span-1">
+        <div>
           <label className="block text-sm font-medium text-gray-300 mb-1">
             Measurement Channel
           </label>
@@ -105,6 +110,59 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
             className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
           >
             {selectedDevice && renderChannelOptions(selectedDevice.inputs)}
+          </select>
+        </div>
+
+        {/* Row 2 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">LPF Mode</label>
+          <select
+            value={lpfMode}
+            onChange={(e) => setLpfMode(e.target.value as LpfMode)}
+            disabled={isCapturing}
+            className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
+          >
+            <option value="lpf">LPF</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">LPF Freq</label>
+          <select
+            value={lpfFreq}
+            onChange={(e) => setLpfFreq(Number(e.target.value))}
+            disabled={isCapturing}
+            className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
+          >
+            <option value={0.25}>0.25 Hz</option>
+            <option value={0.5}>0.5 Hz</option>
+            <option value={1}>1 Hz</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">Average</label>
+          <select
+            value={avgCount}
+            onChange={(e) => setAvgCount(Number(e.target.value))}
+            disabled={isCapturing}
+            className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
+          >
+            <option value={16}>Power: 16</option>
+            <option value={32}>Power: 32</option>
+            <option value={64}>Power: 64</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">Window</label>
+          <select
+            value={window}
+            onChange={(e) => setWindow(e.target.value as WindowType)}
+            disabled={isCapturing}
+            className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
+          >
+            <option value="hann">Hann</option>
+            <option value="kaiser">Kaiser</option>
+            <option value="blackman">Blackman</option>
           </select>
         </div>
       </div>

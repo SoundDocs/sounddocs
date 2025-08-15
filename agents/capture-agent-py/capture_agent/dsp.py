@@ -1,94 +1,69 @@
 import numpy as np
-from scipy.signal import welch, csd
+from scipy.signal import welch, csd, butter, lfilter
 from .schema import CaptureConfig, TFData, SPLData
 
 # Pre-compute windows to avoid recalculation
 _windows = {}
+_filters = {}
 
 def get_window(name, N):
     if (name, N) not in _windows:
         if name == 'hann':
             _windows[(name, N)] = np.hanning(N)
+        elif name == 'kaiser':
+            _windows[(name, N)] = np.kaiser(N, beta=14)
+        elif name == 'blackman':
+            _windows[(name, N)] = np.blackman(N)
         else:
-            # Default to hanning if an unsupported window is requested
             _windows[(name, N)] = np.hanning(N)
     return _windows[(name, N)]
 
+def get_lpf(freq, fs):
+    key = (freq, fs)
+    if key not in _filters:
+        nyquist = 0.5 * fs
+        normal_cutoff = freq / nyquist
+        b, a = butter(2, normal_cutoff, btype='low', analog=False)
+        _filters[key] = (b, a)
+    return _filters[key]
+
 def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int) -> float:
-    """
-    Estimates the time delay between two signals using GCC-PHAT.
-    """
     n = len(ref_chan)
-    # FFT of the signals
     ref_fft = np.fft.rfft(ref_chan, n=n)
     meas_fft = np.fft.rfft(meas_chan, n=n)
-    
-    # Cross-power spectrum
     R = np.conj(ref_fft) * meas_fft
-    
-    # PHAT weighting
-    R_phat = R / (np.abs(R) + 1e-10) # Add epsilon to avoid division by zero
-    
-    # Inverse FFT to get cross-correlation
+    R_phat = R / (np.abs(R) + 1e-10)
     cross_corr = np.fft.irfft(R_phat, n=n)
-    
-    # Find the peak of the cross-correlation
     delta_n = np.argmax(cross_corr)
     
-    # Parabolic interpolation for sub-sample accuracy
     if delta_n > 0 and delta_n < n - 1:
-        y1 = cross_corr[delta_n - 1]
-        y2 = cross_corr[delta_n]
-        y3 = cross_corr[delta_n + 1]
-        
-        # Calculate the fractional offset from the integer peak
+        y1, y2, y3 = cross_corr[delta_n - 1], cross_corr[delta_n], cross_corr[delta_n + 1]
         offset = (y1 - y3) / (2 * (y1 - 2 * y2 + y3))
         delta_n_fine = delta_n + offset
     else:
         delta_n_fine = float(delta_n)
 
-    # Handle negative delays
     if delta_n_fine > n / 2:
         delta_n_fine -= n
         
-    # Convert sample delay to milliseconds
-    delay_ms = (delta_n_fine / fs) * 1000
-    
-    return delay_ms
+    return (delta_n_fine / fs) * 1000
 
 def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, SPLData, float]:
-    if block.ndim == 1:
-        block = block[:, np.newaxis]
-
     ref_chan = block[:, config.refChan - 1]
     meas_chan = block[:, config.measChan - 1]
-
-    # nperseg cannot exceed the signal length
     nperseg = int(min(config.nfft, ref_chan.size, meas_chan.size))
-
-    # window length must equal nperseg
     window = get_window(config.window, nperseg)
 
-    # --- Cross/Power Spectral Densities ---
-    # Cross-PSD (complex)
     freqs, Pxy = csd(
-        ref_chan, meas_chan,
-        fs=float(config.sampleRate),
-        window=window, nperseg=nperseg, scaling='density'
+        ref_chan, meas_chan, fs=float(config.sampleRate), window=window, nperseg=nperseg, scaling='density'
     )
-    # Auto-PSDs
     _, Pxx = welch(
-        ref_chan,
-        fs=float(config.sampleRate),
-        window=window, nperseg=nperseg, scaling='density'
+        ref_chan, fs=float(config.sampleRate), window=window, nperseg=nperseg, scaling='density'
     )
     _, Pyy = welch(
-        meas_chan,
-        fs=float(config.sampleRate),
-        window=window, nperseg=nperseg, scaling='density'
+        meas_chan, fs=float(config.sampleRate), window=window, nperseg=nperseg, scaling='density'
     )
 
-    # Guard against zeros
     Pxx[Pxx == 0] = 1e-10
     Pyy[Pyy == 0] = 1e-10
 
@@ -97,6 +72,13 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     phase_deg = np.angle(H, deg=True)
     coh = (np.abs(Pxy)**2) / (Pxx * Pyy)
 
+    if config.lpfMode == 'lpf' and config.lpfFreq > 0:
+        b, a = get_lpf(config.lpfFreq, config.sampleRate)
+        mag_db = lfilter(b, a, mag_db)
+        phase_deg = lfilter(b, a, np.unwrap(np.deg2rad(phase_deg)))
+        phase_deg = np.rad2deg(phase_deg)
+        coh = lfilter(b, a, coh)
+
     tf_data = TFData(
         freqs=freqs.tolist(),
         mag_db=mag_db.tolist(),
@@ -104,12 +86,10 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         coh=coh.tolist(),
     )
 
-    # --- SPL (simple RMS, Z-weighted) ---
     rms = float(np.sqrt(np.mean(meas_chan**2))) or 1e-10
     dbfs = 20 * np.log10(rms)
     spl_data = SPLData(Leq=dbfs, LZ=dbfs)
 
-    # --- Delay (GCC-PHAT on a centered window) ---
     delay_window_size = min(ref_chan.size, 4096)
     start = (ref_chan.size - delay_window_size) // 2
     end = start + delay_window_size

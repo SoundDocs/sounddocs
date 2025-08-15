@@ -18,16 +18,26 @@ class SPLData(BaseModel):
     Leq: float
     LZ: float
 
+WindowType = Literal["hann", "kaiser", "blackman"]
+AvgType = Literal["power", "linear", "exp"]
+LpfMode = Literal["lpf", "none"]
+
 class CaptureConfig(BaseModel):
     deviceId: str
     sampleRate: int
     blockSize: int
-    nfft: int
     refChan: int
     measChan: int
-    window: Literal["hann", "kaiser", "blackman"]
-    avg: Literal["exp", "linear"]
-    smoothing: Literal["none", "1/3", "1/6", "1/12"]
+    
+    # FFT & Averaging
+    nfft: int
+    avg: AvgType
+    avgCount: int
+    window: WindowType
+
+    # Smoothing
+    lpfMode: LpfMode
+    lpfFreq: float
 
 # Message types from client to agent
 class HelloMessage(BaseModel):
