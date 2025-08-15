@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.9.1] - 2025-08-15
+
+### Fixed
+
+- **Coherence Calculation**: Fixed a `RuntimeWarning` in the Python agent that occurred during coherence calculation when both signals had no energy. The calculation is now wrapped in a safe division block to prevent divide-by-zero errors.
+
 ## [1.4.9] - 2025-08-15
 
 ### Fixed

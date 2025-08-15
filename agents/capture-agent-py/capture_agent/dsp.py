@@ -101,7 +101,10 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     H = Pxy / Pxx
     mag_db = 20 * np.log10(np.abs(H))
     phase_deg = np.angle(H, deg=True)
-    coh = (np.abs(Pxy)**2) / (Pxx * Pyy)
+    with np.errstate(invalid='ignore'):
+        coh = (np.abs(Pxy)**2) / (Pxx * Pyy)
+    np.nan_to_num(coh, copy=False, nan=0.0)
+    np.clip(coh, 0, 1, out=coh)
 
     if config.avgCount > 0:
         if 'mag_db' not in _averagers:
