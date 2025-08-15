@@ -12,8 +12,7 @@ interface AnalyzerState {
   analyzerType: "lite" | "pro"; // lite = browser only, pro = with capture agent
 
   // FFT settings
-  averageType: "off" | "lpf" | "fifo";
-  lpfFrequency: number;
+  averageType: "off" | "fifo";
   averageCount: number;
   transformMode: "fast" | "log";
   windowFunction: "hann" | "kaiser" | "blackman";
@@ -27,8 +26,7 @@ interface AnalyzerState {
   setConnected: (connected: boolean) => void;
   setAnalyzing: (analyzing: boolean) => void;
   setAnalyzerType: (type: "lite" | "pro") => void;
-  setAverageType: (type: "off" | "lpf" | "fifo") => void;
-  setLpfFrequency: (frequency: number) => void;
+  setAverageType: (type: "off" | "fifo") => void;
   setAverageCount: (count: number) => void;
   setTransformMode: (mode: "fast" | "log") => void;
   setWindowFunction: (window: "hann" | "kaiser" | "blackman") => void;
@@ -45,7 +43,6 @@ export const useAnalyzerStore = create<AnalyzerState>((set, get) => ({
   isAnalyzing: false,
   analyzerType: "lite",
   averageType: "off",
-  lpfFrequency: 1,
   averageCount: 1,
   transformMode: "fast",
   windowFunction: "hann",
@@ -63,8 +60,6 @@ export const useAnalyzerStore = create<AnalyzerState>((set, get) => ({
   setAnalyzerType: (type) => set({ analyzerType: type }),
 
   setAverageType: (type) => set({ averageType: type }),
-
-  setLpfFrequency: (frequency) => set({ lpfFrequency: frequency }),
 
   setAverageCount: (count) => set({ averageCount: count }),
 

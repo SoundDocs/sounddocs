@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.9] - 2025-08-15
+
+### Fixed
+
+- **Delay Finder Accuracy**: Improved the delay finder's accuracy at high delay times by increasing the cross-correlation window size to 8192 samples.
+
+### Improved
+
+- **FIFO Averaging**: Implemented FIFO averaging in the Python agent to match the behavior of Open Sound Meter.
+- **Simplified Averaging**: Removed the LPF averaging option from the UI and backend to simplify the user experience and align with the new FIFO implementation.
+
 ## [1.4.8] - 2025-08-15
 
 ### Fixed

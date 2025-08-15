@@ -21,12 +21,10 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
 
   const {
     averageType,
-    lpfFrequency,
     averageCount,
     transformMode,
     windowFunction,
     setAverageType,
-    setLpfFrequency,
     setAverageCount,
     setTransformMode,
     setWindowFunction,
@@ -55,8 +53,8 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
       avg: "power", // This is not directly used in the new DSP code, but required by the type
       avgCount: averageCount,
       window: windowFunction,
-      lpfMode: averageType === "lpf" ? "lpf" : "none",
-      lpfFreq: lpfFrequency,
+      lpfMode: "none",
+      lpfFreq: 0,
     };
     onStartCapture(config);
     setIsCapturing(true);
@@ -125,30 +123,14 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
           <label className="block text-sm font-medium text-gray-300 mb-1">Average Type</label>
           <select
             value={averageType}
-            onChange={(e) => setAverageType(e.target.value as "off" | "lpf" | "fifo")}
+            onChange={(e) => setAverageType(e.target.value as "off" | "fifo")}
             disabled={isCapturing}
             className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
           >
             <option value="off">Off</option>
-            <option value="lpf">LPF</option>
             <option value="fifo">FIFO</option>
           </select>
         </div>
-        {averageType === "lpf" && (
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">LPF Freq</label>
-            <select
-              value={lpfFrequency}
-              onChange={(e) => setLpfFrequency(Number(e.target.value))}
-              disabled={isCapturing}
-              className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
-            >
-              <option value={0.25}>0.25 Hz</option>
-              <option value={0.5}>0.5 Hz</option>
-              <option value={1}>1 Hz</option>
-            </select>
-          </div>
-        )}
         {averageType === "fifo" && (
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">Average Count</label>
