@@ -47,24 +47,27 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     if block.ndim == 1:
         block = block[:, np.newaxis]
 
-    # 1-based -> 0-based
-    x = block[:, config.refChan - 1].astype(np.float64, copy=False)
-    y = block[:, config.measChan - 1].astype(np.float64, copy=False)
+    x = block[:, config.refChan - 1].astype(np.float64, copy=False)   # ref/input
+    y = block[:, config.measChan - 1].astype(np.float64, copy=False)  # meas/output
 
-    # Choose stable analysis params (accumulate upstream until you have this much)
     fs = float(config.sampleRate)
-    nperseg = int(min(config.nfft, x.size, y.size))  # but prefer to accumulate so nperseg == config.nfft
-    nperseg = max(256, nperseg)                      # guardrail
+    nperseg = int(min(config.nfft, x.size, y.size))
+    nperseg = max(256, nperseg)
     noverlap = int(0.75 * nperseg)
     if noverlap >= nperseg:
         noverlap = nperseg // 2
-
     window = get_window("hann", nperseg)
 
-    # Cross/Auto spectral densities (consistent params)
-    freqs, Pxy = csd(
-        x, y,
-        fs=fs, window=window, nperseg=nperseg, noverlap=noverlap,
+    # --- Find delay on a stable centered window (as you already do) ---
+    delay_window_size = min(x.size, 32768)
+    start = (x.size - delay_window_size) // 2
+    end = start + delay_window_size
+    delay_ms = find_delay_ms(x[start:end], y[start:end], config.sampleRate)
+    tau = delay_ms / 1000.0  # seconds (meas lags ref by +tau)
+
+    # --- Spectra (note the order: csd(y, x)) ---
+    freqs, Pyx = csd(
+        y, x, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap,
         detrend='constant', return_onesided=True, scaling='density'
     )
     _, Pxx = welch(
@@ -76,17 +79,22 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         detrend='constant', return_onesided=True, scaling='density'
     )
 
-    # Guard against zeros
     eps = 1e-20
     Pxx = np.maximum(Pxx, eps)
     Pyy = np.maximum(Pyy, eps)
 
-    # Transfer function and manual coherence
-    H = Pxy / Pxx
-    mag_db   = 20.0 * np.log10(np.abs(H) + eps)
+    # --- Apply delay to the cross-spectrum (phase de-rotation) ---
+    # If meas (y) is late by +tau, remove e^{-jωτ} by multiplying e^{+jωτ}
+    rot = np.exp(1j * 2 * np.pi * freqs * tau)
+    Pyx_aligned = Pyx * rot
+
+    # Transfer function and coherence
+    H = Pyx_aligned / Pxx
+    mag_db = 20.0 * np.log10(np.abs(H) + eps)
     phase_deg = np.angle(H, deg=True)
 
-    coh = (np.abs(Pxy) ** 2) / (Pxx * Pyy + eps)
+    # Coherence (rotation doesn’t change magnitude, so either Pyx or Pyx_aligned is fine)
+    coh = (np.abs(Pyx) ** 2) / (Pxx * Pyy + eps)
     coh = np.clip(coh, 0.0, 1.0)
 
     tf_data = TFData(
@@ -96,15 +104,8 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         coh=coh.tolist(),
     )
 
-    # SPL (simple Z-weighted RMS of measured channel)
-    rms = float(np.sqrt(np.mean(y**2))) or 1e-20
+    rms = float(np.sqrt(np.mean(y**2))) or eps
     dbfs = 20.0 * np.log10(rms)
     spl_data = SPLData(Leq=dbfs, LZ=dbfs)
-
-    # Delay via GCC-PHAT on a centered window (ok)
-    delay_window_size = min(x.size, 32768)
-    start = (x.size - delay_window_size) // 2
-    end = start + delay_window_size
-    delay_ms = find_delay_ms(x[start:end], y[start:end], config.sampleRate)
 
     return tf_data, spl_data, delay_ms

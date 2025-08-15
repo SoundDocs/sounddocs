@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.9.8] - 2025-08-15
+
+### Fixed
+
+- **Coherence Calculation**: Replaced the manual coherence calculation with a more robust version that uses consistent, overlapping segments for the spectral density calculations. This will provide a more accurate and stable coherence measurement.
+
 ## [1.4.9.7.1] - 2025-08-15
 
 ### Fixed
