@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.9.8.1] - 2025-08-15
+
+### Fixed
+
+- **Coherence Calculation**: Reworked the entire DSP chain to provide a more robust and accurate measurement. This includes applying the found delay to the measurement signal _before_ spectral analysis, and using consistent, overlapping segments for all spectral calculations. This will provide a more accurate and stable coherence measurement, especially at high delay times.
+- **Buffer Overflows**: Decoupled the audio capture from the DSP by implementing a producer-consumer pattern. This prevents the audio buffer from overflowing and ensures that the DSP has clean, uncorrupted data to work with.
+
 ## [1.4.9.8] - 2025-08-15
 
 ### Fixed

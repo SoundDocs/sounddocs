@@ -68,34 +68,60 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
             capture_task = None
 
 async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
-    """The main audio capture and processing loop with overlap-add."""
+    """The main audio capture and processing loop."""
+    queue = asyncio.Queue(maxsize=100)  # Buffer up to 100 audio blocks
+
+    def audio_callback(indata, frames, time, status):
+        if status:
+            print(f"Audio callback status: {status}")
+        try:
+            queue.put_nowait(indata.copy())
+        except asyncio.QueueFull:
+            print("Warning: Python processing queue is full; dropping audio.")
+
     try:
         dsp.reset_dsp_state()
-        buffer_size = 32768  # Large buffer for delay finding
+        
+        # --- Set up analysis buffer ---
+        nperseg = config.nfft
+        noverlap = int(0.75 * nperseg)
+        hop_size = nperseg - noverlap
         
         num_channels = max(config.refChan, config.measChan)
-        audio_buffer = np.zeros((buffer_size, num_channels), dtype=np.float32)
+        analysis_buffer = np.zeros((nperseg, num_channels), dtype=np.float32)
         
-        with audio.Stream(config) as stream:
-            for block in stream.blocks():
-                # Shift old data
-                audio_buffer = np.roll(audio_buffer, -config.blockSize, axis=0)
-                # Add new data
-                audio_buffer[-config.blockSize:, :] = block
+        # --- Start stream ---
+        stream = sd.InputStream(
+            device=int(config.deviceId),
+            samplerate=config.sampleRate,
+            blocksize=hop_size,
+            channels=num_channels,
+            callback=audio_callback,
+        )
+        stream.start()
+        print("Audio stream started.")
 
-                # Process the full buffer
-                tf_data, spl_data, delay_ms = dsp.compute_metrics(audio_buffer, config)
-                
-                frame = FrameMessage(
-                    type="frame",
-                    tf=tf_data,
-                    spl=spl_data,
-                    delay_ms=delay_ms,
-                    latency_ms=stream.stream.latency * 1000,
-                    ts=int(time.time() * 1000),
-                )
-                await ws.send(json.dumps(frame.dict()))
-                await asyncio.sleep(0) # Yield control
+        # --- Processing loop ---
+        while True:
+            block = await queue.get()
+            
+            # Roll in new data
+            analysis_buffer = np.roll(analysis_buffer, -block.shape[0], axis=0)
+            analysis_buffer[-block.shape[0]:, :] = block
+
+            # Process the full buffer
+            tf_data, spl_data, delay_ms = dsp.compute_metrics(analysis_buffer, config)
+            
+            frame = FrameMessage(
+                type="frame",
+                tf=tf_data,
+                spl=spl_data,
+                delay_ms=delay_ms,
+                latency_ms=stream.latency * 1000,
+                ts=int(time.time() * 1000),
+            )
+            await ws.send(json.dumps(frame.dict()))
+            await asyncio.sleep(0) # Yield control
                 
     except asyncio.CancelledError:
         print("Capture stopped by client.")
