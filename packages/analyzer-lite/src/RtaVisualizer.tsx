@@ -26,7 +26,7 @@ export const RtaVisualizer: React.FC<RtaVisualizerProps> = ({
   height = 400,
   className = "",
   minDb = -60,
-  maxDb = 0,
+  maxDb = 20,
   minFreq = 20,
   maxFreq = 20000,
 }) => {
@@ -40,10 +40,6 @@ export const RtaVisualizer: React.FC<RtaVisualizerProps> = ({
     minFreq,
     maxFreq,
   });
-
-  // Mouse interaction state
-  const [isDragging, setIsDragging] = useState(false);
-  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
 
   // Reset view range when props change
   useEffect(() => {
@@ -68,114 +64,6 @@ export const RtaVisualizer: React.FC<RtaVisualizerProps> = ({
     },
     [viewRange.minDb, viewRange.maxDb, height],
   );
-
-  // Convert x position to frequency (logarithmic scale)
-  const xToFreq = useCallback(
-    (x: number): number => {
-      const logMin = Math.log10(viewRange.minFreq);
-      const logMax = Math.log10(viewRange.maxFreq);
-      const logFreq = logMin + (x / width) * (logMax - logMin);
-      return Math.pow(10, logFreq);
-    },
-    [viewRange.minFreq, viewRange.maxFreq, width],
-  );
-
-  // Convert y position to dB
-  const yToDb = useCallback(
-    (y: number): number => {
-      return viewRange.maxDb - (y / height) * (viewRange.maxDb - viewRange.minDb);
-    },
-    [viewRange.minDb, viewRange.maxDb, height],
-  );
-
-  // Mouse wheel zoom handler
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
-      e.preventDefault();
-
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      const rect = canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-
-      // Convert mouse position to frequency and dB
-      const mouseFreq = xToFreq(mouseX);
-      const mouseDb = yToDb(mouseY);
-
-      const zoomFactor = e.deltaY > 0 ? 1.2 : 0.8;
-
-      setViewRange((prev) => {
-        // Zoom frequency range
-        const freqRange = Math.log10(prev.maxFreq) - Math.log10(prev.minFreq);
-        const newFreqRange = freqRange * zoomFactor;
-        const mouseLogFreq = Math.log10(mouseFreq);
-
-        const freqRatio = (mouseLogFreq - Math.log10(prev.minFreq)) / freqRange;
-        const newMinLogFreq = mouseLogFreq - newFreqRange * freqRatio;
-        const newMaxLogFreq = mouseLogFreq + newFreqRange * (1 - freqRatio);
-
-        // Zoom dB range
-        const dbRange = prev.maxDb - prev.minDb;
-        const newDbRange = dbRange * zoomFactor;
-        const dbRatio = (mouseDb - prev.minDb) / dbRange;
-        const newMinDb = mouseDb - newDbRange * dbRatio;
-        const newMaxDb = mouseDb + newDbRange * (1 - dbRatio);
-
-        return {
-          minFreq: Math.max(10, Math.pow(10, newMinLogFreq)),
-          maxFreq: Math.min(30000, Math.pow(10, newMaxLogFreq)),
-          minDb: Math.max(-120, newMinDb),
-          maxDb: Math.min(20, newMaxDb),
-        };
-      });
-    },
-    [xToFreq, yToDb],
-  );
-
-  // Mouse drag handlers
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    setIsDragging(true);
-    setLastMousePos({ x: e.clientX, y: e.clientY });
-  }, []);
-
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (!isDragging) return;
-
-      const deltaX = e.clientX - lastMousePos.x;
-      const deltaY = e.clientY - lastMousePos.y;
-
-      setViewRange((prev) => {
-        // Pan frequency (logarithmic)
-        const freqRange = Math.log10(prev.maxFreq) - Math.log10(prev.minFreq);
-        const freqDelta = -(deltaX / width) * freqRange;
-        const newMinLogFreq = Math.log10(prev.minFreq) + freqDelta;
-        const newMaxLogFreq = Math.log10(prev.maxFreq) + freqDelta;
-
-        // Pan dB (linear)
-        const dbRange = prev.maxDb - prev.minDb;
-        const dbDelta = (deltaY / height) * dbRange;
-        const newMinDb = prev.minDb + dbDelta;
-        const newMaxDb = prev.maxDb + dbDelta;
-
-        return {
-          minFreq: Math.max(10, Math.pow(10, newMinLogFreq)),
-          maxFreq: Math.min(30000, Math.pow(10, newMaxLogFreq)),
-          minDb: Math.max(-120, newMinDb),
-          maxDb: Math.min(20, newMaxDb),
-        };
-      });
-
-      setLastMousePos({ x: e.clientX, y: e.clientY });
-    },
-    [isDragging, lastMousePos, width, height],
-  );
-
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
-  }, []);
 
   // Draw frequency grid
   const drawGrid = useCallback(
@@ -323,13 +211,8 @@ export const RtaVisualizer: React.FC<RtaVisualizerProps> = ({
     <div className={`relative ${className}`}>
       <canvas
         ref={canvasRef}
-        className="block bg-gray-800 rounded-lg border border-gray-600 cursor-move"
+        className="block bg-gray-800 rounded-lg border border-gray-600"
         style={{ width: `${width}px`, height: `${height}px` }}
-        onWheel={handleWheel}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
       />
 
       {/* Overlay info */}

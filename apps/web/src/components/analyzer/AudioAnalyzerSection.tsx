@@ -15,6 +15,12 @@ import { generateLeqCsv, downloadCsv, generateLeqCsvFilename } from "../../utils
 
 export const AudioAnalyzerSection: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
+  const [viewRange, setViewRange] = useState({
+    minDb: -60,
+    maxDb: 20,
+    minFreq: 20,
+    maxFreq: 20000,
+  });
   const [resetViewKey, setResetViewKey] = useState(0);
   const [isLogging, setIsLogging] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -375,11 +381,65 @@ export const AudioAnalyzerSection: React.FC = () => {
                   {/* Reset View button */}
                   <div className="flex justify-end items-end">
                     <button
-                      onClick={() => setResetViewKey((prev) => prev + 1)}
+                      onClick={() => {
+                        setViewRange({ minDb: -60, maxDb: 20, minFreq: 20, maxFreq: 20000 });
+                        setResetViewKey((prev) => prev + 1);
+                      }}
                       className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg transition-colors"
                     >
                       Reset View
                     </button>
+                  </div>
+                </div>
+                <h4 className="text-white font-medium mt-4">View Range</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      Min Freq (Hz)
+                    </label>
+                    <input
+                      type="number"
+                      value={viewRange.minFreq}
+                      onChange={(e) =>
+                        setViewRange((v) => ({ ...v, minFreq: parseInt(e.target.value) }))
+                      }
+                      className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      Max Freq (Hz)
+                    </label>
+                    <input
+                      type="number"
+                      value={viewRange.maxFreq}
+                      onChange={(e) =>
+                        setViewRange((v) => ({ ...v, maxFreq: parseInt(e.target.value) }))
+                      }
+                      className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Min dB</label>
+                    <input
+                      type="number"
+                      value={viewRange.minDb}
+                      onChange={(e) =>
+                        setViewRange((v) => ({ ...v, minDb: parseInt(e.target.value) }))
+                      }
+                      className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Max dB</label>
+                    <input
+                      type="number"
+                      value={viewRange.maxDb}
+                      onChange={(e) =>
+                        setViewRange((v) => ({ ...v, maxDb: parseInt(e.target.value) }))
+                      }
+                      className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white"
+                    />
                   </div>
                 </div>
               </div>
@@ -395,6 +455,10 @@ export const AudioAnalyzerSection: React.FC = () => {
                   height={400}
                   className="w-full"
                   key={resetViewKey}
+                  minDb={viewRange.minDb}
+                  maxDb={viewRange.maxDb}
+                  minFreq={viewRange.minFreq}
+                  maxFreq={viewRange.maxFreq}
                 />
               </div>
 

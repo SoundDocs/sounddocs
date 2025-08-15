@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.5] - 2025-08-15
+
+### Improved
+
+- **RTA Headroom**: Adjusted the default vertical scale of the RTA visualizer to -60dB to +20dB.
+- **RTA Controls**: Replaced interactive pan-and-zoom controls with input fields in the settings panel for precise control over the dB and frequency view range.
+
+### Fixed
+
+- **SPL Meter Layout**: Reduced the font size of the SPL and Leq readouts to prevent the layout from breaking when displaying triple-digit values.
+
 ## [1.3.4] - 2025-08-15
 
 ### Added

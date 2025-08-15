@@ -115,18 +115,18 @@ export const SplMeter: React.FC<SplMeterProps> = ({
         {/* SPL Display */}
         <div className="space-y-4 text-center">
           <div className="text-sm text-gray-400 mb-1">Current SPL (A)</div>
-          <div className={`text-5xl font-mono font-bold ${getSPLColor(displaySpl)}`}>
+          <div className={`text-4xl font-mono font-bold ${getSPLColor(displaySpl)}`}>
             {displaySpl.toFixed(1)}
-            <span className="text-2xl ml-2">dB(A)</span>
+            <span className="text-xl ml-2">dB(A)</span>
           </div>
         </div>
 
         {/* Leq Display */}
         <div className="space-y-4 text-center">
           <div className="text-sm text-gray-400 mb-1">Leq (A, 30m)</div>
-          <div className={`text-5xl font-mono font-bold ${getSPLColor(displayLeq)}`}>
+          <div className={`text-4xl font-mono font-bold ${getSPLColor(displayLeq)}`}>
             {displayLeq.toFixed(1)}
-            <span className="text-2xl ml-2">dB(A)</span>
+            <span className="text-xl ml-2">dB(A)</span>
           </div>
         </div>
       </div>
