@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.9.3] - 2025-08-15
+
+### Fixed
+
+- **Delay Finder Range**: Increased the audio capture buffer size to 32,768 samples to ensure the delay finder has enough data to accurately measure delays up to ~340ms.
+
 ## [1.4.9.2] - 2025-08-15
 
 ### Fixed

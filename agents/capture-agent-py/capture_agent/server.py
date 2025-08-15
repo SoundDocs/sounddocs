@@ -70,8 +70,7 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
 async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
     """The main audio capture and processing loop with overlap-add."""
     try:
-        buffer_size = config.nfft
-        hop_size = buffer_size // 2  # 50% overlap
+        buffer_size = 32768  # Large buffer for delay finding
         
         num_channels = max(config.refChan, config.measChan)
         audio_buffer = np.zeros((buffer_size, num_channels), dtype=np.float32)
