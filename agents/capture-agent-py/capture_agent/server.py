@@ -7,6 +7,7 @@ from typing import Set
 import websockets
 from websockets.server import WebSocketServerProtocol
 import numpy as np
+import sounddevice as sd
 
 from . import audio
 from . import dsp
@@ -68,68 +69,95 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
             capture_task = None
 
 async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
-    """The main audio capture and processing loop."""
-    queue = asyncio.Queue(maxsize=100)  # Buffer up to 100 audio blocks
+    loop = asyncio.get_running_loop()
+    aq = asyncio.Queue(maxsize=32)  # async queue for inter-thread handoff
 
-    def audio_callback(indata, frames, time, status):
+    def audio_callback(indata, frames, time_info, status):
+        # called on driver thread; never block here
         if status:
             print(f"Audio callback status: {status}")
         try:
-            queue.put_nowait(indata.copy())
-        except asyncio.QueueFull:
-            print("Warning: Python processing queue is full; dropping audio.")
+            loop.call_soon_threadsafe(aq.put_nowait, indata.astype(np.float32, copy=True))
+        except Exception:
+            # queue full -> drop; never block RT
+            pass
 
     try:
-        # --- Set up analysis buffer ---
-        nperseg = config.nfft
+        nperseg = int(config.nfft)
         noverlap = int(0.75 * nperseg)
         hop_size = nperseg - noverlap
-        
+
         num_channels = max(config.refChan, config.measChan)
         analysis_buffer = np.zeros((nperseg, num_channels), dtype=np.float32)
-        
-        # --- Start stream ---
+        carry = 0  # how many new samples since last analysis
+        last_send = 0.0
+        target_fps = 20.0  # UI update rate
+        send_interval = 1.0 / target_fps
+
         stream = sd.InputStream(
             device=int(config.deviceId),
             samplerate=config.sampleRate,
-            blocksize=hop_size,
+            blocksize=1024,               # <= smaller, smoother
             channels=num_channels,
+            dtype="float32",
             callback=audio_callback,
+            latency="high",               # optional: reduce overruns
         )
         stream.start()
-        print("Audio stream started.")
 
-        # --- Processing loop ---
         while True:
-            block = await queue.get()
-            
-            # Roll in new data
-            analysis_buffer = np.roll(analysis_buffer, -block.shape[0], axis=0)
-            analysis_buffer[-block.shape[0]:, :] = block
+            # wait for at least one block
+            block = await aq.get()
 
-            # Process the full buffer
-            tf_data, spl_data, delay_ms = dsp.compute_metrics(analysis_buffer, config)
-            
-            frame = FrameMessage(
-                type="frame",
-                tf=tf_data,
-                spl=spl_data,
-                delay_ms=delay_ms,
-                latency_ms=stream.latency * 1000,
-                ts=int(time.time() * 1000),
-            )
-            await ws.send(json.dumps(frame.dict()))
-            await asyncio.sleep(0) # Yield control
-                
+            # drain whatever else is queued to catch up
+            blocks = [block]
+            while not aq.empty():
+                try:
+                    blocks.append(aq.get_nowait())
+                except asyncio.QueueEmpty:
+                    break
+
+            chunk = np.concatenate(blocks, axis=0)
+
+            # roll new samples into analysis buffer
+            L = chunk.shape[0]
+            if L >= nperseg:
+                analysis_buffer[:] = chunk[-nperseg:]
+                carry = hop_size  # force immediate analysis
+            else:
+                analysis_buffer = np.roll(analysis_buffer, -L, axis=0)
+                analysis_buffer[-L:, :] = chunk
+                carry += L
+
+            # run analysis only when we've advanced by one hop
+            if carry >= hop_size:
+                tf_data, spl_data, delay_ms = dsp.compute_metrics(analysis_buffer, config)
+                now = time.monotonic()
+                if now - last_send >= send_interval:
+                    frame = FrameMessage(
+                        type="frame",
+                        tf=tf_data,
+                        spl=spl_data,
+                        delay_ms=delay_ms,
+                        latency_ms=float(stream.latency)*1000.0 if hasattr(stream, "latency") else 0.0,
+                        ts=int(time.time() * 1000),
+                    )
+                    await ws.send(json.dumps(frame.dict()))
+                    last_send = now
+                carry -= hop_size
+
+            await asyncio.sleep(0)
     except asyncio.CancelledError:
-        print("Capture stopped by client.")
+        pass
     except Exception as e:
         print(f"Error during capture: {e}")
         await send_error(ws, f"Capture failed: {e}")
     finally:
-        stopped_msg = StoppedMessage(type="stopped")
-        await ws.send(json.dumps(stopped_msg.dict()))
-        print("Capture finished.")
+        try:
+            stream.stop(); stream.close()
+        except Exception:
+            pass
+        await ws.send(json.dumps(StoppedMessage(type="stopped").dict()))
 
 async def send_error(ws: WebSocketServerProtocol, error_message: str):
     error_msg = ErrorMessage(type="error", message=error_message)
