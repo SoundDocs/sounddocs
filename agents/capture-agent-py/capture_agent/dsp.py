@@ -6,6 +6,29 @@ from collections import deque
 # Pre-compute windows to avoid recalculation
 _windows = {}
 
+class FifoAverager:
+    def __init__(self, depth):
+        self.depth = depth
+        self.fifo = deque()
+        self.sum = None
+
+    def append(self, value):
+        if self.depth == 0:
+            return value
+        
+        self.fifo.append(value)
+        if self.sum is None:
+            self.sum = value.copy()
+        else:
+            self.sum += value
+            
+        if len(self.fifo) > self.depth:
+            self.sum -= self.fifo.popleft()
+            
+        return self.sum / len(self.fifo)
+
+_averagers = {}
+
 def get_window(name, N):
     if (name, N) not in _windows:
         if name == 'hann':
@@ -71,15 +94,25 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         window=window, nperseg=nperseg, scaling='density'
     )
 
-    # Guard against zeros
-    Pxx[Pxx == 0] = 1e-10
-    Pyy[Pyy == 0] = 1e-10
+    # Averaging
+    if 'Pxx' not in _averagers:
+        _averagers['Pxx'] = FifoAverager(16)
+        _averagers['Pyy'] = FifoAverager(16)
+        _averagers['Pxy'] = FifoAverager(16)
 
-    H = Pxy / Pxx
+    Pxx_avg = _averagers['Pxx'].append(Pxx)
+    Pyy_avg = _averagers['Pyy'].append(Pyy)
+    Pxy_avg = _averagers['Pxy'].append(Pxy)
+
+    # Guard against zeros
+    Pxx_avg[Pxx_avg == 0] = 1e-10
+    Pyy_avg[Pyy_avg == 0] = 1e-10
+
+    H = Pxy_avg / Pxx_avg
     mag_db = 20 * np.log10(np.abs(H))
     phase_deg = np.angle(H, deg=True)
     with np.errstate(invalid='ignore'):
-        coh = (np.abs(Pxy)**2) / (Pxx * Pyy)
+        coh = (np.abs(Pxy_avg)**2) / (Pxx_avg * Pyy_avg)
     np.nan_to_num(coh, copy=False, nan=0.0)
     np.clip(coh, 0, 1, out=coh)
 

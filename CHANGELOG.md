@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.9.5] - 2025-08-15
+
+### Improved
+
+- **Coherence Calculation**: Reworked the coherence calculation in the Python agent to average the power spectra before division, resulting in a more accurate and stable measurement, mirroring the method used in Open Sound Meter.
+
 ## [1.4.9.4] - 2025-08-15
 
 ### Improved
