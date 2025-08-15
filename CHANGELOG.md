@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.6.3] - 2025-08-15
+
+### Fixed
+
+- **Agent Connection Loop**: Fixed a critical bug causing the web app to repeatedly try to connect to the capture agent in an infinite loop, which led to the agent crashing with a "Too many open files" error.
+
 ## [1.3.6.2] - 2025-08-15
 
 ### Fixed

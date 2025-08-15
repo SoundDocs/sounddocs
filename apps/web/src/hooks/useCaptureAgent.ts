@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { AgentMessage } from "@sounddocs/analyzer-protocol";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
@@ -17,7 +17,7 @@ export function useCaptureAgent() {
     };
   }, []);
 
-  const connect = () => {
+  const connect = useCallback(() => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
       console.log("WebSocket is already connected.");
       return;
@@ -53,19 +53,19 @@ export function useCaptureAgent() {
       console.log("Capture agent disconnected.");
       setStatus("disconnected");
     };
-  };
+  }, []);
 
-  const disconnect = () => {
+  const disconnect = useCallback(() => {
     ws.current?.close();
-  };
+  }, []);
 
-  const sendMessage = (message: object) => {
+  const sendMessage = useCallback((message: object) => {
     if (ws.current?.readyState === WebSocket.OPEN) {
       ws.current.send(JSON.stringify(message));
     } else {
       console.error("Cannot send message, WebSocket is not open.");
     }
-  };
+  }, []);
 
   return { status, lastMessage, connect, disconnect, sendMessage };
 }
