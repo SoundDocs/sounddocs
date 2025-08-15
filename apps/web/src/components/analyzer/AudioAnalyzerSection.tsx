@@ -399,26 +399,17 @@ export const AudioAnalyzerSection: React.FC = () => {
               </div>
 
               {/* SPL Meter */}
-              <SplMeter
-                frequencyData={rta.frequencyData}
-                calibrationOffset={calibrationOffset}
-                onCalibrationChange={setCalibrationOffset}
-                isLogging={isLogging}
-                onStartLogging={handleStartLogging}
-                onStopLogging={handleStopLogging}
-                onDownloadCsv={handleDownloadCsv}
-                className="w-full"
-              />
-
-              {/* Coming Soon Features */}
-              <div className="p-4 bg-blue-500/20 border border-blue-500/30 rounded-lg">
-                <h3 className="text-blue-300 font-medium mb-2">🚀 More Features Coming Soon</h3>
-                <ul className="text-blue-200 text-sm space-y-1 list-disc list-inside">
-                  <li>Transfer function analysis (with Pro mode)</li>
-                  <li>Pink noise and sweep generators</li>
-                  <li>AI-powered EQ recommendations</li>
-                  <li>Trace management and export</li>
-                </ul>
+              <div className="lg:col-start-1 lg:col-span-2 flex justify-center">
+                <SplMeter
+                  frequencyData={rta.frequencyData}
+                  calibrationOffset={calibrationOffset}
+                  onCalibrationChange={setCalibrationOffset}
+                  isLogging={isLogging}
+                  onStartLogging={handleStartLogging}
+                  onStopLogging={handleStopLogging}
+                  onDownloadCsv={handleDownloadCsv}
+                  className="w-full max-w-md"
+                />
               </div>
             </div>
           </div>

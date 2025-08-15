@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.4] - 2025-08-15
+
+### Added
+
+- **Python Capture Agent (MVP)**: Created the initial version of the local capture agent (`agents/capture-agent-py`) to enable professional, multi-channel audio analysis.
+  - Implemented a WebSocket server (`localhost:9469`) to stream analysis data to the web UI.
+  - Integrated `sounddevice` for cross-platform audio device discovery and capturing.
+  - Added core DSP logic using `numpy` and `scipy` for dual-channel Transfer Function (TF), coherence, and SPL calculations.
+  - Established a secure communication protocol with origin validation for `sounddocs.org`.
+
+### Improved
+
+- **Analyzer Page Layout**: Reworked the analyzer section into a multi-page workflow. The main `/analyzer` page now serves as a hub with navigation cards leading to separate pages for "Analyzer Lite" and "Analyzer Pro" modes.
+- **Agent Download Flow**: The new "Analyzer Pro" page contains a dedicated section for downloading the Python Capture Agent, with clear instructions for macOS/Linux and Windows.
+
+### Fixed
+
+- **Navigation**: Corrected the "AcoustIQ" link in the dashboard header to point to the new `/analyzer` hub page, resolving a 404 error.
+- **Agent Download Links**: All download links on the Analyzer Pro page now open in a new tab to prevent users from navigating away from the application.
+
+### Removed
+
+- **Redundant Info Panel**: Removed the "About the Analyzer" and "Coming Soon" sections from the analyzer page, as this information is now integrated into the new card-based layout.
+
 ## [1.3.3.2] - 2025-08-15
 
 ### Fixed

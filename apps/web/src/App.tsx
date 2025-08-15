@@ -45,6 +45,8 @@ import VideoPage from "./pages/VideoPage";
 import LightingPage from "./pages/LightingPage";
 import ProductionPage from "./pages/ProductionPage";
 import AnalyzerPage from "./pages/AnalyzerPage";
+import AnalyzerLitePage from "./pages/AnalyzerLitePage";
+import AnalyzerProPage from "./pages/AnalyzerProPage";
 import CorporateMicPlotEditor from "./pages/CorporateMicPlotEditor";
 import TheaterMicPlotEditor from "./pages/TheaterMicPlotEditor";
 import AllMicPlots from "./pages/AllMicPlots";
@@ -104,10 +106,26 @@ function App() {
               }
             />
             <Route
-              path="/acoustiq"
+              path="/analyzer"
               element={
                 <ProtectedRoute>
                   <AnalyzerPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/analyzer/lite"
+              element={
+                <ProtectedRoute>
+                  <AnalyzerLitePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/analyzer/pro"
+              element={
+                <ProtectedRoute>
+                  <AnalyzerProPage />
                 </ProtectedRoute>
               }
             />

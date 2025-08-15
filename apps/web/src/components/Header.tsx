@@ -121,7 +121,7 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
           {dashboard && user ? (
             <div className="flex items-center space-x-3">
               <Link
-                to="/acoustiq"
+                to="/analyzer"
                 className="text-gray-300 hover:text-white transition-colors duration-200 p-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 aria-label="AcoustIQ"
                 title="AcoustIQ"

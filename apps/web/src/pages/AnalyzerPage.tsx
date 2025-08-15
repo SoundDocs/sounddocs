@@ -1,11 +1,9 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import { ArrowLeftCircle, Activity } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeftCircle, Activity, Mic, Server } from "lucide-react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import AudioAnalyzerSection from "../components/analyzer/AudioAnalyzerSection";
 import { supabase } from "../lib/supabase";
-import { useNavigate } from "react-router-dom";
 
 const AnalyzerPage: React.FC = () => {
   const navigate = useNavigate();
@@ -34,82 +32,48 @@ const AnalyzerPage: React.FC = () => {
           </button>
           <div className="flex items-center mb-4">
             <Activity className="h-8 w-8 text-green-400 mr-3" />
-            <h1 className="text-4xl font-bold text-white">Audio Analyzer</h1>
+            <h1 className="text-4xl font-bold text-white">AcoustIQ Audio Analyzer</h1>
           </div>
-          <p className="text-lg text-gray-300">
-            Professional real-time audio analysis and measurement tools for live sound applications.
-          </p>
+          <p className="text-lg text-gray-300">Choose an analysis mode to get started.</p>
         </div>
 
-        {/* Analyzer Section */}
-        <div className="max-w-4xl mx-auto">
-          <AudioAnalyzerSection />
-
-          {/* Additional Information Card */}
-          <div className="mt-8 bg-gray-800 p-6 rounded-xl shadow-md">
-            <h2 className="text-xl font-semibold text-white mb-4">About the Analyzer</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-gray-300">
-              <div>
-                <h3 className="text-lg font-medium text-white mb-2">Current Features</h3>
-                <ul className="space-y-2 text-sm">
-                  <li className="flex items-start">
-                    <span className="text-green-400 mr-2">•</span>
-                    Professional audio device selection and management
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-green-400 mr-2">•</span>
-                    Browser-based microphone permission handling
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-green-400 mr-2">•</span>
-                    Real-time device detection and hot-swapping
-                  </li>
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-medium text-white mb-2">Coming Soon</h3>
-                <ul className="space-y-2 text-sm">
-                  <li className="flex items-start">
-                    <span className="text-blue-400 mr-2">•</span>
-                    Real-time spectrum analyzer (RTA) with 1/3 octave bands
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-blue-400 mr-2">•</span>
-                    SPL meter with Leq measurement and calibration
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-blue-400 mr-2">•</span>
-                    Transfer function analysis (with Pro mode capture agent)
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-blue-400 mr-2">•</span>
-                    Pink noise and sweep test signal generation
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-blue-400 mr-2">•</span>
-                    AI-powered EQ recommendations and room correction
-                  </li>
-                </ul>
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          {/* Analyzer Lite Card */}
+          <div
+            onClick={() => navigate("/analyzer/lite")}
+            className="bg-gray-800/50 p-8 rounded-xl shadow-lg hover:bg-gray-800/80 hover:scale-105 transition-all duration-300 cursor-pointer"
+          >
+            <div className="flex items-center mb-4">
+              <Mic className="h-8 w-8 text-blue-400 mr-4" />
+              <h2 className="text-3xl font-semibold text-white">Analyzer Lite</h2>
             </div>
+            <p className="text-gray-400 mb-4">
+              Quick single-channel analysis using your browser's microphone.
+            </p>
+            <ul className="text-sm text-gray-300 space-y-2">
+              <li>✓ Real-time Spectrogram (RTA)</li>
+              <li>✓ SPL Meter with Calibration</li>
+              <li>✓ No Setup Required</li>
+            </ul>
+          </div>
 
-            <div className="mt-6 p-4 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
-              <h4 className="text-yellow-300 font-medium mb-2">Browser Requirements</h4>
-              <p className="text-yellow-200 text-sm">
-                For optimal performance, use a modern browser with Web Audio API support. Chrome and
-                Edge are recommended for the best experience with real-time audio processing.
-              </p>
+          {/* Analyzer Pro Card */}
+          <div
+            onClick={() => navigate("/analyzer/pro")}
+            className="bg-gray-800/50 p-8 rounded-xl shadow-lg hover:bg-gray-800/80 hover:scale-105 transition-all duration-300 cursor-pointer"
+          >
+            <div className="flex items-center mb-4">
+              <Server className="h-8 w-8 text-indigo-400 mr-4" />
+              <h2 className="text-3xl font-semibold text-white">Analyzer Pro</h2>
             </div>
-
-            <div className="mt-4 p-4 bg-purple-500/20 border border-purple-500/30 rounded-lg">
-              <h4 className="text-purple-300 font-medium mb-2">Pro Mode Coming Soon</h4>
-              <p className="text-purple-200 text-sm">
-                A companion desktop application will provide enhanced features including
-                multi-channel capture, dual-channel transfer functions, and professional DSP
-                capabilities that require direct hardware access beyond browser limitations.
-              </p>
-            </div>
+            <p className="text-gray-400 mb-4">
+              Powerful dual-channel analysis using our local capture agent.
+            </p>
+            <ul className="text-sm text-gray-300 space-y-2">
+              <li>✓ Dual-Channel Transfer Function</li>
+              <li>✓ Coherence & Phase Measurement</li>
+              <li>✓ Requires Local Agent Download</li>
+            </ul>
           </div>
         </div>
       </main>

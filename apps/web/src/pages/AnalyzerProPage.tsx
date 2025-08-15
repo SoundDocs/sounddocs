@@ -1,0 +1,57 @@
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeftCircle, Server } from "lucide-react";
+import Header from "../components/Header";
+import Footer from "../components/Footer";
+import AgentConnectionManager from "../components/analyzer/AgentConnectionManager";
+import AgentDownload from "../components/analyzer/AgentDownload";
+import { supabase } from "../lib/supabase";
+
+const AnalyzerProPage: React.FC = () => {
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate("/");
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-900 flex flex-col">
+      <Header onSignOut={handleSignOut} />
+
+      <main className="flex-grow container mx-auto px-4 py-12 mt-12">
+        <div className="mb-8">
+          <button
+            onClick={() => navigate("/analyzer")}
+            className="inline-flex items-center text-indigo-400 hover:text-indigo-300 transition-colors duration-200 mb-4 group"
+          >
+            <ArrowLeftCircle className="h-5 w-5 mr-2 transform group-hover:-translate-x-1 transition-transform duration-200" />
+            Back to Analyzer Hub
+          </button>
+          <div className="flex items-center mb-4">
+            <Server className="h-8 w-8 text-indigo-400 mr-3" />
+            <h1 className="text-4xl font-bold text-white">Analyzer Pro</h1>
+          </div>
+          <p className="text-lg text-gray-300">
+            Connect to the local capture agent for multi-channel analysis, transfer functions, and
+            more.
+          </p>
+        </div>
+
+        <div className="max-w-2xl mx-auto space-y-8">
+          <AgentConnectionManager />
+          <AgentDownload />
+          {/* Pro mode analysis components will go here in the future */}
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
+};
+
+export default AnalyzerProPage;

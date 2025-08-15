@@ -22,6 +22,9 @@ importers:
       "@sounddocs/analyzer-lite":
         specifier: workspace:*
         version: link:../../packages/analyzer-lite
+      "@sounddocs/analyzer-protocol":
+        specifier: workspace:*
+        version: link:../../packages/analyzer-protocol
       "@supabase/supabase-js":
         specifier: ^2.49.4
         version: 2.55.0
