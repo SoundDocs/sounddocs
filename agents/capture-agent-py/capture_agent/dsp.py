@@ -64,6 +64,16 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
     lag_samples = lags_seg[k] + d
     return (lag_samples / fs) * 1000.0
 
+_delay_ms_ema = None
+
+def smooth_delay_ms(new_ms, alpha=0.9):
+    global _delay_ms_ema
+    if _delay_ms_ema is None:
+        _delay_ms_ema = new_ms
+    else:
+        _delay_ms_ema = alpha*_delay_ms_ema + (1-alpha)*new_ms
+    return _delay_ms_ema
+
 def _align_by_integer_delay_pad(x: np.ndarray, y: np.ndarray, delay_ms: float, fs: float):
     """
     Shift y by integer samples with zero-padding so x,y keep the SAME length.
@@ -96,13 +106,17 @@ def _align_by_integer_delay_pad(x: np.ndarray, y: np.ndarray, delay_ms: float, f
 
 MIN_SAMPLES_FOR_ANALYSIS = 64  # bump if you want smoother plots
 
-def _choose_nperseg(target_n: int, usable_len: int) -> int:
-    if usable_len >= target_n:
-        return target_n
-    # largest power of two ≤ usable_len
-    p = int(np.floor(np.log2(max(usable_len, 1))))
-    n = 1 << p
-    return max(32, n)  # absolute floor
+def _choose_nperseg_with_min_segments(usable_len: int, target_n: int, min_segments: int = 4):
+    # Start at target; drop by /2 until we can fit >= min_segments
+    n = min(target_n, usable_len)
+    while n >= 32:
+        no = max(1, int(0.75 * n))
+        hop = n - no
+        segs = 1 + (usable_len - n) // hop if usable_len >= n else 0
+        if segs >= min_segments:
+            return n, min(no, n-1)
+        n //= 2
+    return 32, 24  # very small fallback
 
 def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, SPLData, float]:
     if block.ndim == 1:
@@ -114,10 +128,24 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
 
     # Delay (linear GCC-PHAT you already implemented)
     MAX_DELAY_MS = getattr(config, "maxDelayMs", 300.0)
-    delay_ms = find_delay_ms(x, y, config.sampleRate, max_ms=MAX_DELAY_MS)
+    delay_ms_raw = find_delay_ms(x, y, config.sampleRate, max_ms=MAX_DELAY_MS)
+    delay_ms = smooth_delay_ms(delay_ms_raw, alpha=0.9)
 
     # Integer align with zero-padding (preserve length) + fractional remainder
-    y_al, frac_samples, D_int, usable_len = _align_by_integer_delay_pad(x, y, delay_ms, fs)
+    y_al, frac_samples, D_int, _ = _align_by_integer_delay_pad(x, y, delay_ms, fs)
+
+    # derive the fully overlapped indices (exclude zeros)
+    N = x.size
+    if D_int >= 0:
+        start = 0
+        end   = N - D_int
+    else:
+        start = -D_int
+        end   = N
+
+    x_eff = x[start:end]
+    y_eff = y_al[start:end]
+    usable_len = max(0, end - start)
 
     # Bail out early if not enough overlap to analyze
     if usable_len < MIN_SAMPLES_FOR_ANALYSIS:
@@ -129,21 +157,20 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
 
     # nperseg / noverlap from usable overlap
     target_n = int(config.nfft)
-    nperseg = _choose_nperseg(target_n, usable_len)
-    noverlap = min(int(0.75 * nperseg), nperseg - 1)
+    nperseg, noverlap = _choose_nperseg_with_min_segments(usable_len, target_n, min_segments=4)
     window = get_window("hann", nperseg)
 
-    # Spectra (x unchanged length; y_al is zero-padded shift)
+    # Spectra on effective (non-zero-padded) signal slices
     freqs, Pyx = csd(
-        y_al, x, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap,
+        y_eff, x_eff, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap,
         detrend='constant', return_onesided=True, scaling='density'
     )
     _, Pxx = welch(
-        x, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap,
+        x_eff, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap,
         detrend='constant', return_onesided=True, scaling='density'
     )
     _, Pyy = welch(
-        y_al, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap,
+        y_eff, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap,
         detrend='constant', return_onesided=True, scaling='density'
     )
 
@@ -169,7 +196,7 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         coh=coh.tolist(),
     )
 
-    rms = float(np.sqrt(np.mean(y_al**2))) or eps
+    rms = float(np.sqrt(np.mean(y_eff**2))) or eps
     dbfs = 20.0 * np.log10(rms)
     spl_data = SPLData(Leq=dbfs, LZ=dbfs)
 

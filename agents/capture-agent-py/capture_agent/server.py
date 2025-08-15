@@ -88,7 +88,7 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
         max_delay_ms = int(getattr(config, "maxDelayMs", 300))
         max_lag_samples = int(np.ceil(fs * max_delay_ms / 1000.0))
 
-        buffer_len = nperseg + max_lag_samples  # ensure ≥ nperseg after trimming
+        buffer_len = nperseg + 2*max_lag_samples + int(0.75*nperseg)
         noverlap = int(0.75 * nperseg)
         hop_size = nperseg - noverlap
 

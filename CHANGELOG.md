@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0.0.4] - 2025-08-15
+
+### Fixed
+
+- **Measurement Stability at High Delay**: Fixed an issue where magnitude, phase, and coherence plots would become noisy and erratic at high delay times. The DSP logic now analyzes only the valid, overlapping portion of the signal, ignoring zero-padded regions. It also dynamically adjusts the FFT size to ensure a minimum number of spectral averages, and the delay estimate is smoothed over time to reduce jitter.
+
 ## [1.5.0.0.3] - 2025-08-15
 
 ### Fixed
