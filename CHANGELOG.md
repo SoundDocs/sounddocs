@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.9.2] - 2025-08-15
+
+### Fixed
+
+- **Delay Finder Range**: Increased the delay finder's cross-correlation window size to 32,768 samples, extending the maximum measurable delay to ~340ms to support large-scale audio systems.
+
 ## [1.4.9.1] - 2025-08-15
 
 ### Fixed

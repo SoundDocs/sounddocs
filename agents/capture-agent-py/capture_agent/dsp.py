@@ -131,7 +131,7 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     spl_data = SPLData(Leq=dbfs, LZ=dbfs)
 
     # --- Delay (GCC-PHAT on a centered window) ---
-    delay_window_size = min(ref_chan.size, 8192)
+    delay_window_size = min(ref_chan.size, 32768)
     start = (ref_chan.size - delay_window_size) // 2
     end = start + delay_window_size
     delay_ms = find_delay_ms(ref_chan[start:end], meas_chan[start:end], config.sampleRate)
