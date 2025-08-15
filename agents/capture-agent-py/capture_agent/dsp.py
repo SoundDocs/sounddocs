@@ -64,60 +64,82 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
     lag_samples = lags_seg[k] + d
     return (lag_samples / fs) * 1000.0
 
-def _align_by_integer_delay(x, y, delay_ms, fs):
-    """Advance y by the integer number of samples implied by +delay (y lags)."""
+def _align_by_integer_delay_pad(x: np.ndarray, y: np.ndarray, delay_ms: float, fs: float):
+    """
+    Shift y by integer samples with zero-padding so x,y keep the SAME length.
+    Positive delay => y lags => shift y LEFT by D_int.
+    Returns: y_shifted, frac_samples, D_int, usable_len
+    """
     D = delay_ms * fs / 1000.0
-    D_int = int(np.round(D))  # keep the fractional remainder small
-    frac = D - D_int          # in samples, range about [-0.5, 0.5)
+    D_int = int(np.round(D))          # integer samples
+    frac = D - D_int                  # fractional remainder (in samples)
+
+    y_shift = np.zeros_like(y)
+    N = y.size
 
     if D_int > 0:
-        # y is late -> advance y
-        y2 = y[D_int:]
-        x2 = x[:len(y2)]
+        # y late: advance y (shift left)
+        if D_int < N:
+            y_shift[:N - D_int] = y[D_int:]
+        # else: all zeros; no overlap
     elif D_int < 0:
-        # y is early -> delay y (or advance x)
-        x2 = x[-D_int:]
-        y2 = y[:len(x2)]
+        # y early: delay y (shift right)
+        s = -D_int
+        if s < N:
+            y_shift[s:] = y[:N - s]
+        # else: all zeros; no overlap
     else:
-        x2, y2 = x, y
+        y_shift[:] = y
 
-    # guard: if alignment trimmed everything
-    L = min(len(x2), len(y2))
-    if L <= 0:
-        return x[:0], y[:0], 0.0  # empty, no fractional rot
-    return x2[:L], y2[:L], frac   # return small fractional remainder
+    usable_len = max(0, N - abs(D_int))
+    return y_shift, frac, D_int, usable_len
+
+MIN_SAMPLES_FOR_ANALYSIS = 64  # bump if you want smoother plots
+
+def _choose_nperseg(target_n: int, usable_len: int) -> int:
+    if usable_len >= target_n:
+        return target_n
+    # largest power of two ≤ usable_len
+    p = int(np.floor(np.log2(max(usable_len, 1))))
+    n = 1 << p
+    return max(32, n)  # absolute floor
 
 def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, SPLData, float]:
     if block.ndim == 1:
         block = block[:, np.newaxis]
 
-    x = block[:, config.refChan - 1].astype(np.float64, copy=False)   # ref/input
-    y = block[:, config.measChan - 1].astype(np.float64, copy=False)  # meas/output
+    x = block[:, config.refChan - 1].astype(np.float64, copy=False)
+    y = block[:, config.measChan - 1].astype(np.float64, copy=False)
     fs = float(config.sampleRate)
 
-    # --- Find delay on a stable centered window ---
+    # Delay (linear GCC-PHAT you already implemented)
     MAX_DELAY_MS = getattr(config, "maxDelayMs", 300.0)
     delay_ms = find_delay_ms(x, y, config.sampleRate, max_ms=MAX_DELAY_MS)
-    tau = delay_ms / 1000.0  # seconds (meas lags ref by +tau)
 
-    # --- ALIGN BY INTEGER DELAY BEFORE PSD/CSD ---
-    x_al, y_al, frac_samples = _align_by_integer_delay(x, y, delay_ms, fs)
+    # Integer align with zero-padding (preserve length) + fractional remainder
+    y_al, frac_samples, D_int, usable_len = _align_by_integer_delay_pad(x, y, delay_ms, fs)
 
-    # choose stable Welch params; accumulate upstream so nperseg == config.nfft
-    nperseg = int(min(config.nfft, x_al.size, y_al.size))
-    nperseg = max(256, nperseg)
-    noverlap = int(0.75 * nperseg)
-    if noverlap >= nperseg:
-        noverlap = nperseg // 2
+    # Bail out early if not enough overlap to analyze
+    if usable_len < MIN_SAMPLES_FOR_ANALYSIS:
+        tf_data = TFData(freqs=[], mag_db=[], phase_deg=[], coh=[])
+        rms = float(np.sqrt(np.mean(y**2))) if y.size else 1e-20
+        dbfs = 20.0 * np.log10(max(rms, 1e-20))
+        spl_data = SPLData(Leq=dbfs, LZ=dbfs)
+        return tf_data, spl_data, delay_ms
+
+    # nperseg / noverlap from usable overlap
+    target_n = int(config.nfft)
+    nperseg = _choose_nperseg(target_n, usable_len)
+    noverlap = min(int(0.75 * nperseg), nperseg - 1)
     window = get_window("hann", nperseg)
 
-    # Spectral densities on ALIGNED signals
+    # Spectra (x unchanged length; y_al is zero-padded shift)
     freqs, Pyx = csd(
-        y_al, x_al, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap,
+        y_al, x, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap,
         detrend='constant', return_onesided=True, scaling='density'
     )
     _, Pxx = welch(
-        x_al, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap,
+        x, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap,
         detrend='constant', return_onesided=True, scaling='density'
     )
     _, Pyy = welch(
@@ -129,14 +151,13 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     Pxx = np.maximum(Pxx, eps)
     Pyy = np.maximum(Pyy, eps)
 
-    # --- Optional: remove tiny fractional remainder with frequency rotation ---
+    # Remove tiny fractional remainder with freq rotation
     if abs(frac_samples) > 1e-6:
-        tau_frac = frac_samples / fs  # seconds
+        tau_frac = frac_samples / fs
         Pyx *= np.exp(1j * 2 * np.pi * freqs * tau_frac)
 
-    # TF & coherence
     H = Pyx / Pxx
-    mag_db   = 20.0 * np.log10(np.abs(H) + eps)
+    mag_db = 20.0 * np.log10(np.abs(H) + eps)
     phase_deg = np.angle(H, deg=True)
     coh = (np.abs(Pyx) ** 2) / (Pxx * Pyy + eps)
     coh = np.clip(coh, 0.0, 1.0)
@@ -148,7 +169,6 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         coh=coh.tolist(),
     )
 
-    # SPL on measured channel (aligned y has same power as original)
     rms = float(np.sqrt(np.mean(y_al**2))) or eps
     dbfs = 20.0 * np.log10(rms)
     spl_data = SPLData(Leq=dbfs, LZ=dbfs)

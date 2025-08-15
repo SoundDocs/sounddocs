@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0.0.3] - 2025-08-15
+
+### Fixed
+
+- **Agent Crash on High Delay**: Resolved a critical crash in the Python agent that occurred during signal analysis with high delay times (>85 ms). The alignment logic now uses zero-padding instead of trimming to preserve buffer length, and the analysis buffer size has been increased to ensure stable spectral measurements even with large delays.
+
+## [1.5.0.0.2] - 2025-08-15
+
+### Fixed
+
+- **Agent Crash**: Fixed a bug where the agent would crash due to a missing `reset_dsp_state` function.
+
 ## [1.5.0.0.1] - 2025-08-15
 
 ### Fixed

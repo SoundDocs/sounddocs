@@ -83,12 +83,17 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
             pass
 
     try:
+        fs = int(config.sampleRate)
         nperseg = int(config.nfft)
+        max_delay_ms = int(getattr(config, "maxDelayMs", 300))
+        max_lag_samples = int(np.ceil(fs * max_delay_ms / 1000.0))
+
+        buffer_len = nperseg + max_lag_samples  # ensure ≥ nperseg after trimming
         noverlap = int(0.75 * nperseg)
         hop_size = nperseg - noverlap
 
         num_channels = max(config.refChan, config.measChan)
-        analysis_buffer = np.zeros((nperseg, num_channels), dtype=np.float32)
+        analysis_buffer = np.zeros((buffer_len, num_channels), dtype=np.float32)
         carry = 0  # how many new samples since last analysis
         last_send = 0.0
         target_fps = 20.0  # UI update rate
@@ -121,8 +126,8 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
 
             # roll new samples into analysis buffer
             L = chunk.shape[0]
-            if L >= nperseg:
-                analysis_buffer[:] = chunk[-nperseg:]
+            if L >= buffer_len:
+                analysis_buffer[:] = chunk[-buffer_len:]
                 carry = hop_size  # force immediate analysis
             else:
                 analysis_buffer = np.roll(analysis_buffer, -L, axis=0)
