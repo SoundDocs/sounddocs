@@ -40,6 +40,7 @@ cd "$AGENT_DIR"
 # Download necessary files
 download_file "pyproject.toml" "pyproject.toml"
 download_file "README.md" "README.md"
+download_file "generate_cert.py" "generate_cert.py"
 download_dir "capture_agent" "capture_agent"
 
 # Check for Python 3.11+
@@ -55,13 +56,18 @@ if [ ! -d "$VENV_DIR" ]; then
     python3 -m venv $VENV_DIR
 fi
 
-# Activate virtual environment and install dependencies
+# Activate virtual environment
 source $VENV_DIR/bin/activate
 
+# Generate SSL certificate
+echo "Checking for SSL certificate..."
+python3 generate_cert.py
+
+# Install/update dependencies
 echo "Installing/updating dependencies..."
 pip install --upgrade pip > /dev/null
 pip install . > /dev/null
 
 echo "Starting SoundDocs Capture Agent..."
 echo "Press Ctrl+C to stop."
-python -m capture_agent
+python3 -m capture_agent

@@ -23,6 +23,19 @@ The capture agent can be installed and run with a single script. You do not need
 
 The first time you run the script, it will download the latest version of the agent, set up a Python virtual environment in your home directory (`~/.sounddocs-agent`), and install all required dependencies. The agent will then start, and you can connect to it from the SoundDocs web application.
 
+## First-Time Setup: Trusting the SSL Certificate
+
+To communicate securely, the agent uses a locally generated SSL certificate. Your browser will not trust this certificate by default. You must perform a one-time setup to grant trust.
+
+1.  **Run the agent** using the `run.sh` or `run.bat` script as described above.
+2.  **Open your browser** (Chrome, Edge, or Firefox).
+3.  Navigate to the following URL: **https://localhost:9469**
+4.  You will see a security warning page (e.g., "Your connection is not private"). This is expected.
+5.  Click the **"Advanced"** button.
+6.  Click **"Proceed to localhost (unsafe)"** or "Accept the Risk and Continue".
+
+This tells your browser to trust the local agent for this session, allowing the SoundDocs web app to connect securely.
+
 ## Manual Setup (for developers)
 
 If you prefer to set up the environment manually:

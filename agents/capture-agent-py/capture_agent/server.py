@@ -1,5 +1,7 @@
 import asyncio
 import json
+import ssl
+import pathlib
 import time
 from typing import Set
 import websockets
@@ -133,6 +135,13 @@ async def handler(ws: WebSocketServerProtocol, path: str):
 
 async def start_server(host="127.0.0.1", port=9469):
     """Starts the WebSocket server."""
-    async with websockets.serve(handler, host, port):
-        print(f"WebSocket server started at ws://{host}:{port}")
+    # Path to the certs relative to this file's parent directory
+    cert_path = pathlib.Path(__file__).parent.parent / "localhost.pem"
+    key_path = pathlib.Path(__file__).parent.parent / "localhost-key.pem"
+
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ssl_context.load_cert_chain(cert_path, key_path)
+
+    async with websockets.serve(handler, host, port, ssl=ssl_context):
+        print(f"Secure WebSocket server started at wss://{host}:{port}")
         await asyncio.Future()  # Run forever

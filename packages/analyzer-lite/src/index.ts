@@ -8,3 +8,7 @@ export {
 } from "./useRta";
 export { RtaVisualizer, type RtaVisualizerProps } from "./RtaVisualizer";
 export { SplMeter, type SplMeterProps } from "./SplMeter";
+export {
+  TransferFunctionVisualizer,
+  type TransferFunctionVisualizerProps,
+} from "./TransferFunctionVisualizer";

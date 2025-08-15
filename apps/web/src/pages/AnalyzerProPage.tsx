@@ -5,10 +5,34 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import AgentConnectionManager from "../components/analyzer/AgentConnectionManager";
 import AgentDownload from "../components/analyzer/AgentDownload";
+import ProSettings from "../components/analyzer/ProSettings";
+import { TransferFunctionVisualizer } from "@sounddocs/analyzer-lite";
+import { useCaptureAgent } from "../hooks/useCaptureAgent";
 import { supabase } from "../lib/supabase";
+import { Device, TFData } from "@sounddocs/analyzer-protocol";
+import { useState, useEffect } from "react";
 
 const AnalyzerProPage: React.FC = () => {
   const navigate = useNavigate();
+  const { status, lastMessage, sendMessage } = useCaptureAgent();
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [tfData, setTfData] = useState<TFData | null>(null);
+
+  useEffect(() => {
+    if (status === "connected") {
+      sendMessage({ type: "list_devices" });
+    }
+  }, [status, sendMessage]);
+
+  useEffect(() => {
+    if (lastMessage) {
+      if (lastMessage.type === "devices") {
+        setDevices(lastMessage.items);
+      } else if (lastMessage.type === "frame") {
+        setTfData(lastMessage.tf);
+      }
+    }
+  }, [lastMessage]);
 
   const handleSignOut = async () => {
     try {
@@ -42,10 +66,22 @@ const AnalyzerProPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="max-w-2xl mx-auto space-y-8">
-          <AgentConnectionManager />
-          <AgentDownload />
-          {/* Pro mode analysis components will go here in the future */}
+        <div className="max-w-4xl mx-auto space-y-8">
+          {status !== "connected" ? (
+            <>
+              <AgentConnectionManager />
+              <AgentDownload />
+            </>
+          ) : (
+            <>
+              <ProSettings
+                devices={devices}
+                onStartCapture={(config) => sendMessage({ type: "start", ...config })}
+                onStopCapture={() => sendMessage({ type: "stop" })}
+              />
+              <TransferFunctionVisualizer tfData={tfData} />
+            </>
+          )}
         </div>
       </main>
 

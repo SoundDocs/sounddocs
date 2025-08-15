@@ -3,7 +3,7 @@ import { AgentMessage } from "@sounddocs/analyzer-protocol";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
 
-const AGENT_URL = "ws://127.0.0.1:9469";
+const AGENT_URL = "wss://127.0.0.1:9469";
 
 export function useCaptureAgent() {
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");

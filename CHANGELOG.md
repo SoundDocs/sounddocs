@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2025-08-15
+
+### Fixed
+
+- **Mixed Content Error**: Resolved a browser security error that blocked the web app (`https://`) from connecting to the local capture agent (`ws://`).
+  - The Python agent now serves over a secure WebSocket (`wss://`) using a self-signed SSL certificate.
+  - The web app now connects to the secure `wss://127.0.0.1:9469` endpoint.
+
+### Improved
+
+- **Agent Setup**: Automated the generation of the required SSL certificate. The `run.sh` and `run.bat` scripts now automatically create `localhost.pem` and `localhost-key.pem` if they are missing.
+- **Documentation**: Added a "First-Time Setup" section to the agent's `README.md` with clear instructions for users on how to trust the self-signed certificate in their browser.
+
+## [1.4] - 2025-08-15
+
+### Added
+
+- **Analyzer Pro Mode UI**: Implemented the user interface for the "Analyzer Pro" page, completing the core functionality of Milestone 3.
+  - Added a new `TransferFunctionVisualizer` component to the `@sounddocs/analyzer-lite` package to display magnitude, phase, and coherence data.
+  - Created a `ProSettings` component to allow users to select audio devices and configure capture settings (e.g., reference/measurement channels).
+  - Integrated the new components into the `AnalyzerProPage`, which now communicates with the local agent to list devices and stream analysis data.
+
 ## [1.3.6.3] - 2025-08-15
 
 ### Fixed

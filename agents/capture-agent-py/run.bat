@@ -17,6 +17,7 @@ cd /d "%AGENT_DIR%"
 echo Downloading agent files...
 powershell -Command "(New-Object Net.WebClient).DownloadFile('%REPO_BASE_URL%/pyproject.toml', 'pyproject.toml')"
 powershell -Command "(New-Object Net.WebClient).DownloadFile('%REPO_BASE_URL%/README.md', 'README.md')"
+powershell -Command "(New-Object Net.WebClient).DownloadFile('%REPO_BASE_URL%/generate_cert.py', 'generate_cert.py')"
 powershell -Command "if not (Test-Path 'capture_agent') { mkdir 'capture_agent' }; (New-Object Net.WebClient).DownloadFile('%REPO_BASE_URL%/capture_agent/__init__.py', 'capture_agent/__init__.py'); (New-Object Net.WebClient).DownloadFile('%REPO_BASE_URL%/capture_agent/__main__.py', 'capture_agent/__main__.py'); (New-Object Net.WebClient).DownloadFile('%REPO_BASE_URL%/capture_agent/audio.py', 'capture_agent/audio.py'); (New-Object Net.WebClient).DownloadFile('%REPO_BASE_URL%/capture_agent/dsp.py', 'capture_agent/dsp.py'); (New-Object Net.WebClient).DownloadFile('%REPO_BASE_URL%/capture_agent/schema.py', 'capture_agent/schema.py'); (New-Object Net.WebClient).DownloadFile('%REPO_BASE_URL%/capture_agent/server.py', 'capture_agent/server.py')"
 
 :: Check for Python 3.11+
@@ -33,9 +34,15 @@ if not exist "%VENV_DIR%\Scripts\activate.bat" (
     python -m venv "%VENV_DIR%"
 )
 
-:: Activate virtual environment and install dependencies
-echo Installing/updating dependencies...
+:: Activate virtual environment
 call "%VENV_DIR%\Scripts\activate.bat"
+
+:: Generate SSL certificate
+echo Checking for SSL certificate...
+python generate_cert.py
+
+:: Install/update dependencies
+echo Installing/updating dependencies...
 pip install --upgrade pip > nul
 pip install . > nul
 

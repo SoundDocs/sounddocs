@@ -125,6 +125,9 @@ importers:
 
   packages/analyzer-lite:
     dependencies:
+      "@sounddocs/analyzer-protocol":
+        specifier: workspace:*
+        version: link:../analyzer-protocol
       lucide-react:
         specifier: ^0.395.0
         version: 0.395.0(react@18.3.1)
