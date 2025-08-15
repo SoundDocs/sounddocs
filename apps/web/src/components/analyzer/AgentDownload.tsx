@@ -44,8 +44,11 @@ function AgentDownload() {
         </h4>
         <ol className="list-decimal list-inside space-y-1">
           <li>Download the script for your operating system.</li>
-          <li>Move the script into the `agents/capture-agent-py` folder in the project.</li>
-          <li>Open your terminal, navigate to that folder, and run the script.</li>
+          <li>Open your terminal (or Command Prompt on Windows).</li>
+          <li>
+            On macOS/Linux, first run: <code>chmod +x run.sh</code>
+          </li>
+          <li>Run the script from your Downloads folder.</li>
         </ol>
       </div>
     </div>

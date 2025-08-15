@@ -1,7 +1,24 @@
 @echo off
-set VENV_DIR=.venv
+setlocal
 
-REM Check for Python 3.11+
+:: --- Configuration ---
+set "AGENT_DIR=%USERPROFILE%\.sounddocs-agent"
+set "VENV_DIR=%AGENT_DIR%\.venv"
+set "REPO_BASE_URL=https://raw.githubusercontent.com/SoundDocs/sounddocs/main/agents/capture-agent-py"
+
+:: --- Main Script ---
+echo Setting up SoundDocs Capture Agent...
+
+:: Create agent directory
+if not exist "%AGENT_DIR%" mkdir "%AGENT_DIR%"
+cd /d "%AGENT_DIR%"
+
+:: Download necessary files using PowerShell
+echo Downloading agent files...
+powershell -Command "(New-Object Net.WebClient).DownloadFile('%REPO_BASE_URL%/pyproject.toml', 'pyproject.toml')"
+powershell -Command "if not (Test-Path 'capture_agent') { mkdir 'capture_agent' }; (New-Object Net.WebClient).DownloadFile('%REPO_BASE_URL%/capture_agent/__main__.py', 'capture_agent/__main__.py'); (New-Object Net.WebClient).DownloadFile('%REPO_BASE_URL%/capture_agent/audio.py', 'capture_agent/audio.py'); (New-Object Net.WebClient).DownloadFile('%REPO_BASE_URL%/capture_agent/dsp.py', 'capture_agent/dsp.py'); (New-Object Net.WebClient).DownloadFile('%REPO_BASE_URL%/capture_agent/schema.py', 'capture_agent/schema.py'); (New-Object Net.WebClient).DownloadFile('%REPO_BASE_URL%/capture_agent/server.py', 'capture_agent/server.py')"
+
+:: Check for Python 3.11+
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo Error: Python is not installed or not in your PATH.
@@ -9,31 +26,20 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-for /f "tokens=2" %%i in ('python --version 2^>^&1') do set PYTHON_VERSION=%%i
-for /f "tokens=1,2 delims=." %%a in ("%PYTHON_VERSION%") do (
-    if %%a lss 3 (
-        echo Error: Python 3.11 or newer is required. You have version %PYTHON_VERSION%.
-        exit /b 1
-    )
-    if %%a equ 3 if %%b lss 11 (
-        echo Error: Python 3.11 or newer is required. You have version %PYTHON_VERSION%.
-        exit /b 1
-    )
-)
-
-REM Check if virtual environment exists
+:: Create virtual environment if it doesn't exist
 if not exist "%VENV_DIR%\Scripts\activate.bat" (
-    echo Creating Python virtual environment in '%VENV_DIR%'...
-    python -m venv %VENV_DIR%
+    echo Creating Python virtual environment...
+    python -m venv "%VENV_DIR%"
 )
 
-REM Activate virtual environment and install dependencies
-echo Activating virtual environment...
+:: Activate virtual environment and install dependencies
+echo Installing/updating dependencies...
 call "%VENV_DIR%\Scripts\activate.bat"
-
-echo Installing/updating dependencies from pyproject.toml...
-pip install .
+pip install --upgrade pip > nul
+pip install . > nul
 
 echo Starting SoundDocs Capture Agent...
 echo Press Ctrl+C to stop.
 python -m capture_agent
+
+endlocal

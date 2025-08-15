@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.6] - 2025-08-15
+
+### Improved
+
+- **Agent Installer**: Reworked the `run.sh` and `run.bat` scripts into standalone installers. They now automatically download the latest agent source code and dependencies into a local `~/.sounddocs-agent` directory, so users no longer need to download the entire project repository.
+- **Setup Instructions**: Significantly clarified the agent setup instructions in both the UI and the README to guide users through the download and execution process.
+
+### Fixed
+
+- **Agent Runner Script**: Fixed a bug where the agent runner script would fail if not executed from the correct directory.
+
 ## [1.3.5] - 2025-08-15
 
 ### Improved

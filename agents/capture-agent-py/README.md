@@ -4,23 +4,26 @@ The SoundDocs Capture Agent is a small application that runs on your local machi
 
 ## Quick Start
 
-We've provided simple scripts to get you up and running quickly.
+The capture agent can be installed and run with a single script. You do not need to download the entire SoundDocs project.
 
 **On macOS or Linux:**
 
-1.  Open a Terminal window.
-2.  Navigate to this directory: `cd /path/to/sounddocs/agents/capture-agent-py`
-3.  Run the script: `./run.sh`
+1.  Download the `run.sh` script.
+2.  Open your Terminal.
+3.  Navigate to your Downloads folder: `cd ~/Downloads`
+4.  Make the script executable: `chmod +x run.sh`
+5.  Run the script: `./run.sh`
 
 **On Windows:**
 
-1.  Open Command Prompt or PowerShell.
-2.  Navigate to this directory: `cd C:\path\to\sounddocs\agents\capture-agent-py`
-3.  Run the script: `run.bat`
+1.  Download the `run.bat` script.
+2.  Open Command Prompt or PowerShell.
+3.  Navigate to your Downloads folder: `cd %USERPROFILE%\Downloads`
+4.  Run the script: `run.bat`
 
-The first time you run the script, it will automatically set up a Python virtual environment and install the required dependencies. The agent will then start, and you can connect to it from the SoundDocs web application.
+The first time you run the script, it will download the latest version of the agent, set up a Python virtual environment in your home directory (`~/.sounddocs-agent`), and install all required dependencies. The agent will then start, and you can connect to it from the SoundDocs web application.
 
-## Manual Setup (for advanced users)
+## Manual Setup (for developers)
 
 If you prefer to set up the environment manually:
 
