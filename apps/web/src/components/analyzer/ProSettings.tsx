@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Device, CaptureConfig, WindowType, AvgType, LpfMode } from "@sounddocs/analyzer-protocol";
+import { Device, CaptureConfig, WindowType } from "@sounddocs/analyzer-protocol";
+import { useAnalyzerStore } from "@/stores/analyzerStore";
 
 interface ProSettingsProps {
   devices: Device[];
@@ -16,14 +17,20 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [refChan, setRefChan] = useState<number>(1);
   const [measChan, setMeasChan] = useState<number>(2);
-
-  // New settings from OSM
-  const [lpfMode, setLpfMode] = useState<LpfMode>("lpf");
-  const [lpfFreq, setLpfFreq] = useState<number>(0.25);
-  const [avg, setAvg] = useState<AvgType>("power");
-  const [avgCount, setAvgCount] = useState<number>(16);
-  const [window, setWindow] = useState<WindowType>("hann");
   const [nfft, setNfft] = useState<number>(8192);
+
+  const {
+    averageType,
+    lpfFrequency,
+    averageCount,
+    transformMode,
+    windowFunction,
+    setAverageType,
+    setLpfFrequency,
+    setAverageCount,
+    setTransformMode,
+    setWindowFunction,
+  } = useAnalyzerStore();
 
   useEffect(() => {
     if (devices.length > 0 && !selectedDeviceId) {
@@ -38,18 +45,18 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
       alert("Please select an audio device.");
       return;
     }
-    const config = {
+    const config: CaptureConfig = {
       deviceId: selectedDeviceId,
       sampleRate: 48000,
       blockSize: 1024,
       refChan,
       measChan,
       nfft,
-      avg,
-      avgCount,
-      window,
-      lpfMode,
-      lpfFreq,
+      avg: "power", // This is not directly used in the new DSP code, but required by the type
+      avgCount: averageCount,
+      window: windowFunction,
+      lpfMode: averageType === "lpf" ? "lpf" : "none",
+      lpfFreq: lpfFrequency,
     };
     onStartCapture(config);
     setIsCapturing(true);
@@ -115,48 +122,68 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
 
         {/* Row 2 */}
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">LPF Mode</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">Average Type</label>
           <select
-            value={lpfMode}
-            onChange={(e) => setLpfMode(e.target.value as LpfMode)}
+            value={averageType}
+            onChange={(e) => setAverageType(e.target.value as "off" | "lpf" | "fifo")}
             disabled={isCapturing}
             className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
           >
+            <option value="off">Off</option>
             <option value="lpf">LPF</option>
-            <option value="none">None</option>
+            <option value="fifo">FIFO</option>
           </select>
         </div>
+        {averageType === "lpf" && (
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">LPF Freq</label>
+            <select
+              value={lpfFrequency}
+              onChange={(e) => setLpfFrequency(Number(e.target.value))}
+              disabled={isCapturing}
+              className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
+            >
+              <option value={0.25}>0.25 Hz</option>
+              <option value={0.5}>0.5 Hz</option>
+              <option value={1}>1 Hz</option>
+            </select>
+          </div>
+        )}
+        {averageType === "fifo" && (
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Average Count</label>
+            <select
+              value={averageCount}
+              onChange={(e) => setAverageCount(Number(e.target.value))}
+              disabled={isCapturing}
+              className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
+            >
+              <option value={1}>1</option>
+              <option value={2}>2</option>
+              <option value={4}>4</option>
+              <option value={8}>8</option>
+              <option value={16}>16</option>
+              <option value={32}>32</option>
+            </select>
+          </div>
+        )}
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">LPF Freq</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">Transform Mode</label>
           <select
-            value={lpfFreq}
-            onChange={(e) => setLpfFreq(Number(e.target.value))}
+            value={transformMode}
+            onChange={(e) => setTransformMode(e.target.value as "fast" | "log")}
             disabled={isCapturing}
             className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
           >
-            <option value={0.25}>0.25 Hz</option>
-            <option value={0.5}>0.5 Hz</option>
-            <option value={1}>1 Hz</option>
+            <option value="fast">Fast</option>
+            <option value="log">Log</option>
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Average</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">Window Function</label>
           <select
-            value={avgCount}
-            onChange={(e) => setAvgCount(Number(e.target.value))}
-            disabled={isCapturing}
-            className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
-          >
-            <option value={16}>Power: 16</option>
-            <option value={32}>Power: 32</option>
-            <option value={64}>Power: 64</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Window</label>
-          <select
-            value={window}
-            onChange={(e) => setWindow(e.target.value as WindowType)}
+            value={windowFunction}
+            onChange={(e) => setWindowFunction(e.target.value as "hann" | "kaiser" | "blackman")}
             disabled={isCapturing}
             className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
           >

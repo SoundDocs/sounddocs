@@ -49,21 +49,38 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int) -> float
     return (delta_n_fine / fs) * 1000
 
 def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, SPLData, float]:
+    if block.ndim == 1:
+        block = block[:, np.newaxis]
+
     ref_chan = block[:, config.refChan - 1]
     meas_chan = block[:, config.measChan - 1]
+
+    # nperseg cannot exceed the signal length
     nperseg = int(min(config.nfft, ref_chan.size, meas_chan.size))
+
+    # window length must equal nperseg
     window = get_window(config.window, nperseg)
 
+    # --- Cross/Power Spectral Densities ---
+    # Cross-PSD (complex)
     freqs, Pxy = csd(
-        ref_chan, meas_chan, fs=float(config.sampleRate), window=window, nperseg=nperseg, scaling='density'
+        ref_chan, meas_chan,
+        fs=float(config.sampleRate),
+        window=window, nperseg=nperseg, scaling='density'
     )
+    # Auto-PSDs
     _, Pxx = welch(
-        ref_chan, fs=float(config.sampleRate), window=window, nperseg=nperseg, scaling='density'
+        ref_chan,
+        fs=float(config.sampleRate),
+        window=window, nperseg=nperseg, scaling='density'
     )
     _, Pyy = welch(
-        meas_chan, fs=float(config.sampleRate), window=window, nperseg=nperseg, scaling='density'
+        meas_chan,
+        fs=float(config.sampleRate),
+        window=window, nperseg=nperseg, scaling='density'
     )
 
+    # Guard against zeros
     Pxx[Pxx == 0] = 1e-10
     Pyy[Pyy == 0] = 1e-10
 
@@ -72,13 +89,6 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     phase_deg = np.angle(H, deg=True)
     coh = (np.abs(Pxy)**2) / (Pxx * Pyy)
 
-    if config.lpfMode == 'lpf' and config.lpfFreq > 0:
-        b, a = get_lpf(config.lpfFreq, config.sampleRate)
-        mag_db = lfilter(b, a, mag_db)
-        phase_deg = lfilter(b, a, np.unwrap(np.deg2rad(phase_deg)))
-        phase_deg = np.rad2deg(phase_deg)
-        coh = lfilter(b, a, coh)
-
     tf_data = TFData(
         freqs=freqs.tolist(),
         mag_db=mag_db.tolist(),
@@ -86,10 +96,12 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         coh=coh.tolist(),
     )
 
+    # --- SPL (simple RMS, Z-weighted) ---
     rms = float(np.sqrt(np.mean(meas_chan**2))) or 1e-10
     dbfs = 20 * np.log10(rms)
     spl_data = SPLData(Leq=dbfs, LZ=dbfs)
 
+    # --- Delay (GCC-PHAT on a centered window) ---
     delay_window_size = min(ref_chan.size, 4096)
     start = (ref_chan.size - delay_window_size) // 2
     end = start + delay_window_size

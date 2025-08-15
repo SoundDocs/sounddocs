@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.8] - 2025-08-15
+
+### Fixed
+
+- **Delay Finder Algorithm**: Updated the Python agent's `compute_metrics` function with a more robust implementation that correctly handles windowing and signal length, resolving failures at higher delay times.
+
+### Improved
+
+- **Analyzer Settings UI**: Reworked the "Pro Mode Settings" UI to align with professional audio software like Open Sound Meter.
+  - Renamed "LPF type" to "Average Type" with "Off", "LPF", and "FIFO" options.
+  - Renamed "Average" to "Average Count".
+  - Added a new "Transform mode" setting with "Fast" and "Log" options.
+- **State Management**: Centralized all analyzer settings into the `analyzerStore` for more consistent and predictable state management.
+
 ## [1.4.7] - 2025-08-15
 
 ### Improved
