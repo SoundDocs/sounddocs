@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.3.1] - 2025-08-15
+
+### Fixed
+
+- **Build Failure**: Added `lucide-react` as a direct dependency to the `@sounddocs/analyzer-lite` package to resolve build failures in isolated environments like Netlify.
+
 ## [1.3.3] - 2025-08-15
 
 ### Added

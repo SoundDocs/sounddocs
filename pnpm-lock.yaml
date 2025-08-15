@@ -122,6 +122,9 @@ importers:
 
   packages/analyzer-lite:
     dependencies:
+      lucide-react:
+        specifier: ^0.395.0
+        version: 0.395.0(react@18.3.1)
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -2034,6 +2037,14 @@ packages:
     resolution:
       {
         integrity: sha512-6YyBnn91GB45VuVT96bYCOKElbJzUHqp65vX8cDcu55MQL9T969v4dhGClpljamuI/+KMO9P6w9Acq1CVQGvIQ==,
+      }
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0
+
+  lucide-react@0.395.0:
+    resolution:
+      {
+        integrity: sha512-6hzdNH5723A4FLaYZWpK50iyZH8iS2Jq5zuPRRotOFkhu6kxxJiebVdJ72tCR5XkiIeYFOU5NUawFZOac+VeYw==,
       }
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0
@@ -4074,6 +4085,10 @@ snapshots:
       yallist: 3.1.1
 
   lucide-react@0.344.0(react@18.3.1):
+    dependencies:
+      react: 18.3.1
+
+  lucide-react@0.395.0(react@18.3.1):
     dependencies:
       react: 18.3.1
 
