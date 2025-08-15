@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.3] - 2025-08-15
+
+### Fixed
+
+- **Production Build Failure**: Resolved a critical error where the Netlify deployment would fail. The `vite.config.ts` was attempting to load local SSL certificate files, which are not present in the build environment. The configuration has been updated to only enable HTTPS during local development (`serve` command) and skip it during production builds.
+
 ## [1.4.2] - 2025-08-15
 
 ### Improved
