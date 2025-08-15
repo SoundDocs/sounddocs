@@ -29,6 +29,11 @@ class FifoAverager:
 
 _averagers = {}
 
+def reset_dsp_state():
+    """Resets all global DSP state."""
+    global _averagers
+    _averagers = {}
+
 def get_window(name, N):
     if (name, N) not in _windows:
         if name == 'hann':
@@ -96,9 +101,9 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
 
     # Averaging
     if 'Pxx' not in _averagers:
-        _averagers['Pxx'] = FifoAverager(16)
-        _averagers['Pyy'] = FifoAverager(16)
-        _averagers['Pxy'] = FifoAverager(16)
+        _averagers['Pxx'] = FifoAverager(64)
+        _averagers['Pyy'] = FifoAverager(64)
+        _averagers['Pxy'] = FifoAverager(64)
 
     Pxx_avg = _averagers['Pxx'].append(Pxx)
     Pyy_avg = _averagers['Pyy'].append(Pyy)

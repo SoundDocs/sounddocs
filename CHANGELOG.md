@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.9.6] - 2025-08-15
+
+### Fixed
+
+- **Coherence Stability**: Fixed a bug where the spectral averaging buffers were not being reset between captures, causing stale data to corrupt the coherence measurement. The averaging depth has also been increased to provide a smoother, more reliable result.
+
 ## [1.4.9.5] - 2025-08-15
 
 ### Improved
