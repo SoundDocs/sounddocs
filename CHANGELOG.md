@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Beta Branch Installer**: Updated the agent installer scripts and UI download links to pull the agent source code from the `beta` branch instead of `main`, allowing users to get the latest updates faster.
 
+### Fixed
+
+- **Agent Installer**: Fixed a bug where the installer scripts failed because they did not download the `README.md` file, which is required by the package metadata.
+
 ## [1.3.6] - 2025-08-15
 
 ### Improved

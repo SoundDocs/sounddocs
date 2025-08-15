@@ -39,6 +39,7 @@ cd "$AGENT_DIR"
 
 # Download necessary files
 download_file "pyproject.toml" "pyproject.toml"
+download_file "README.md" "README.md"
 download_dir "capture_agent" "capture_agent"
 
 # Check for Python 3.11+
