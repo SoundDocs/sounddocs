@@ -4,7 +4,7 @@ setlocal
 :: --- Configuration ---
 set "AGENT_DIR=%USERPROFILE%\.sounddocs-agent"
 set "VENV_DIR=%AGENT_DIR%\.venv"
-set "REPO_BASE_URL=https://raw.githubusercontent.com/SoundDocs/sounddocs/main/agents/capture-agent-py"
+set "REPO_BASE_URL=https://raw.githubusercontent.com/SoundDocs/sounddocs/beta/agents/capture-agent-py"
 
 :: --- Main Script ---
 echo Setting up SoundDocs Capture Agent...

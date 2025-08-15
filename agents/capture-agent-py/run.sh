@@ -12,7 +12,7 @@ function download_file() {
   local output_path="$2"
   echo "Downloading $file_path..."
   curl -s -L -H "Accept: application/vnd.github.v3.raw" \
-    "https://raw.githubusercontent.com/SoundDocs/sounddocs/main/agents/capture-agent-py/$file_path" \
+    "https://raw.githubusercontent.com/SoundDocs/sounddocs/beta/agents/capture-agent-py/$file_path" \
     -o "$output_path"
 }
 

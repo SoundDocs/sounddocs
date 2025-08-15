@@ -2,7 +2,7 @@ import { memo } from "react";
 import { DownloadCloud, Terminal } from "lucide-react";
 
 const GITHUB_RAW_URL =
-  "https://raw.githubusercontent.com/SoundDocs/sounddocs/main/agents/capture-agent-py/";
+  "https://raw.githubusercontent.com/SoundDocs/sounddocs/beta/agents/capture-agent-py/";
 
 function AgentDownload() {
   return (

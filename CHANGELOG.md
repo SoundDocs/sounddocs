@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.6.1] - 2025-08-15
+
+### Improved
+
+- **Beta Branch Installer**: Updated the agent installer scripts and UI download links to pull the agent source code from the `beta` branch instead of `main`, allowing users to get the latest updates faster.
+
 ## [1.3.6] - 2025-08-15
 
 ### Improved
