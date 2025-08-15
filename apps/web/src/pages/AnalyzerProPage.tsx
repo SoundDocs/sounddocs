@@ -7,7 +7,7 @@ import AgentConnectionManager from "../components/analyzer/AgentConnectionManage
 import AgentDownload from "../components/analyzer/AgentDownload";
 import ProSettings from "../components/analyzer/ProSettings";
 import { TransferFunctionVisualizer } from "@sounddocs/analyzer-lite";
-import { useCaptureAgent } from "../hooks/useCaptureAgent";
+import { useCaptureAgent } from "../stores/agentStore";
 import { supabase } from "../lib/supabase";
 import { Device, TFData } from "@sounddocs/analyzer-protocol";
 import { useState, useEffect } from "react";
@@ -69,12 +69,9 @@ const AnalyzerProPage: React.FC = () => {
         </div>
 
         <div className="max-w-4xl mx-auto space-y-8">
-          {status !== "connected" ? (
-            <>
-              <AgentConnectionManager />
-              <AgentDownload />
-            </>
-          ) : (
+          <AgentConnectionManager />
+
+          {status === "connected" ? (
             <>
               <ProSettings
                 devices={devices}
@@ -92,6 +89,8 @@ const AnalyzerProPage: React.FC = () => {
               </div>
               <TransferFunctionVisualizer tfData={tfData} />
             </>
+          ) : (
+            <AgentDownload />
           )}
         </div>
       </main>

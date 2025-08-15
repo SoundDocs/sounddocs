@@ -66,11 +66,11 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     )
     # Power spectral density of the reference channel
     _, Pxx = welch(
-        ref_chan, fs=config.sampleRate, window=window, nperseg=config.nfft, scaling='density'
+        x=ref_chan, fs=config.sampleRate, window=window, nperseg=config.nfft, scaling='density'
     )
     # Power spectral density of the measurement channel
     _, Pyy = welch(
-        meas_chan, fs=config.sampleRate, window=window, nperseg=config.nfft, scaling='density'
+        x=meas_chan, fs=config.sampleRate, window=window, nperseg=config.nfft, scaling='density'
     )
 
     # Avoid division by zero

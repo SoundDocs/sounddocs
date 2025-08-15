@@ -128,12 +128,18 @@ importers:
       "@sounddocs/analyzer-protocol":
         specifier: workspace:*
         version: link:../analyzer-protocol
+      chart.js:
+        specifier: ^4.5.0
+        version: 4.5.0
       lucide-react:
         specifier: ^0.395.0
         version: 0.395.0(react@18.3.1)
       react:
         specifier: ^18.3.1
         version: 18.3.1
+      react-chartjs-2:
+        specifier: ^5.3.0
+        version: 5.3.0(chart.js@4.5.0)(react@18.3.1)
     devDependencies:
       "@types/react":
         specifier: ^18.3.5
@@ -647,6 +653,12 @@ packages:
     resolution:
       {
         integrity: sha512-GQ7Nw5G2lTu/BtHTKfXhKHok2WGetd4XYcVKGx00SjAk8GMwgJM3zr6zORiPGuOE+/vkc90KtTosSSvaCjKb2Q==,
+      }
+
+  "@kurkle/color@0.3.4":
+    resolution:
+      {
+        integrity: sha512-M5UknZPHRu3DEDWoipU6sE8PdkZ6Z/S+v4dD+Ke8IaNlpdSQah50lz1KtcFBa2vsdOnwbbnxJwVM4wty6udA5w==,
       }
 
   "@nodelib/fs.scandir@2.1.5":
@@ -1291,6 +1303,13 @@ packages:
         integrity: sha512-1tm8DTaJhPBG3bIkVeZt1iZM9GfSX2lzOeDVZH9R9ffRHpmHvxZ/QhgQH/aDTkswQVt+YHdXAdS/In/30OjCbg==,
       }
     engines: { node: ^12.17.0 || ^14.13 || >=16.0.0 }
+
+  chart.js@4.5.0:
+    resolution:
+      {
+        integrity: sha512-aYeC/jDgSEx8SHWZvANYMioYMZ2KX02W6f6uVfyteuCGcadDLcYVHdfdygsTQkQ4TKn5lghoojAsPj5pu0SnvQ==,
+      }
+    engines: { pnpm: ">=8" }
 
   chokidar@3.6.0:
     resolution:
@@ -2409,6 +2428,15 @@ packages:
         integrity: sha512-Sq4CW4QhwOHE8ucn6J34MqtZCeWFP2aQSmrlroYgqAV1PjStIhJXxYuTgUIfkEk7zTLjmIjLmU5q+fbD1NnOJA==,
       }
 
+  react-chartjs-2@5.3.0:
+    resolution:
+      {
+        integrity: sha512-UfZZFnDsERI3c3CZGxzvNJd02SHjaSJ8kgW1djn65H1KK8rehwTjyrRKOG3VTMG8wtHZ5rgAO5oTHtHi9GCCmw==,
+      }
+    peerDependencies:
+      chart.js: ^4.1.1
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
   react-dom@18.3.1:
     resolution:
       {
@@ -3260,6 +3288,8 @@ snapshots:
       "@jridgewell/resolve-uri": 3.1.2
       "@jridgewell/sourcemap-codec": 1.5.5
 
+  "@kurkle/color@0.3.4": {}
+
   "@nodelib/fs.scandir@2.1.5":
     dependencies:
       "@nodelib/fs.stat": 2.0.5
@@ -3651,6 +3681,10 @@ snapshots:
       supports-color: 7.2.0
 
   chalk@5.5.0: {}
+
+  chart.js@4.5.0:
+    dependencies:
+      "@kurkle/color": 0.3.4
 
   chokidar@3.6.0:
     dependencies:
@@ -4261,6 +4295,11 @@ snapshots:
     dependencies:
       performance-now: 2.1.0
     optional: true
+
+  react-chartjs-2@5.3.0(chart.js@4.5.0)(react@18.3.1):
+    dependencies:
+      chart.js: 4.5.0
+      react: 18.3.1
 
   react-dom@18.3.1(react@18.3.1):
     dependencies:

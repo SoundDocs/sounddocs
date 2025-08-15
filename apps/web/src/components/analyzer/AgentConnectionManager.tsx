@@ -1,5 +1,5 @@
 import { memo, useEffect } from "react";
-import { useCaptureAgent } from "@/hooks/useCaptureAgent";
+import { useCaptureAgent } from "@/stores/agentStore";
 import { Wifi, WifiOff } from "lucide-react";
 
 function AgentConnectionManager() {

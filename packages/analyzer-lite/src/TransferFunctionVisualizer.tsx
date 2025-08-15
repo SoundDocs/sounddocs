@@ -1,72 +1,128 @@
-import React, { useRef, useEffect, useCallback } from "react";
+import React from "react";
+import { Line } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  LogarithmicScale,
+} from "chart.js";
 import type { TFData } from "@sounddocs/analyzer-protocol";
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  LogarithmicScale,
+);
 
 export interface TransferFunctionVisualizerProps {
   tfData: TFData | null;
-  width?: number;
-  height?: number;
   className?: string;
 }
 
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: false as const,
+  scales: {
+    x: {
+      type: "logarithmic" as const,
+      min: 20,
+      max: 20000,
+      ticks: {
+        color: "#9CA3AF",
+        callback: (value: any) => {
+          const freqs = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+          return freqs.includes(Number(value)) ? `${Number(value) / 1000}k` : "";
+        },
+      },
+      grid: {
+        color: "#4B5563",
+      },
+    },
+    y: {
+      ticks: { color: "#9CA3AF" },
+      grid: { color: "#4B5563" },
+    },
+  },
+  plugins: {
+    legend: {
+      labels: { color: "#D1D5DB" },
+    },
+  },
+  elements: {
+    point: {
+      radius: 0,
+    },
+  },
+};
+
 export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProps> = ({
   tfData,
-  width = 800,
-  height = 600,
   className = "",
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationFrameRef = useRef<number>();
+  const magnitudeData = {
+    labels: tfData?.freqs,
+    datasets: [
+      {
+        label: "Magnitude (dB)",
+        data: tfData?.mag_db || [],
+        borderColor: "#8DA2FB",
+        backgroundColor: "#8DA2FB",
+      },
+    ],
+  };
 
-  // This component will be complex. For now, we will just draw a placeholder.
-  // The full implementation will follow in subsequent steps.
+  const phaseData = {
+    labels: tfData?.freqs,
+    datasets: [
+      {
+        label: "Phase (°)",
+        data: tfData?.phase_deg || [],
+        borderColor: "#A78BFA",
+        backgroundColor: "#A78BFA",
+      },
+    ],
+  };
 
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
-
-    // Dark background
-    ctx.fillStyle = "#1F2937";
-    ctx.fillRect(0, 0, width, height);
-
-    // Placeholder text
-    ctx.fillStyle = "#9CA3AF";
-    ctx.font = "16px Inter, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("Transfer Function Visualizer - Coming Soon", width / 2, height / 2);
-
-    if (tfData) {
-      ctx.fillText(`Received ${tfData.freqs.length} frequency bins.`, width / 2, height / 2 + 20);
-    }
-  }, [width, height, tfData]);
-
-  useEffect(() => {
-    const animate = () => {
-      draw();
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
-
-    animate();
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [draw]);
+  const coherenceData = {
+    labels: tfData?.freqs,
+    datasets: [
+      {
+        label: "Coherence",
+        data: tfData?.coh || [],
+        borderColor: "#F472B6",
+        backgroundColor: "#F472B6",
+      },
+    ],
+  };
 
   return (
-    <div className={`relative ${className}`}>
-      <canvas
-        ref={canvasRef}
-        className="block bg-gray-800 rounded-lg border border-gray-600"
-        style={{ width: `${width}px`, height: `${height}px` }}
-      />
+    <div className={`space-y-4 ${className}`}>
+      <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
+        <Line options={chartOptions} data={magnitudeData} />
+      </div>
+      <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
+        <Line options={chartOptions} data={phaseData} />
+      </div>
+      <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
+        <Line
+          options={{
+            ...chartOptions,
+            scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, min: 0, max: 1 } },
+          }}
+          data={coherenceData}
+        />
+      </div>
     </div>
   );
 };
