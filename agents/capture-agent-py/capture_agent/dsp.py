@@ -14,9 +14,39 @@ def get_window(name, N):
             _windows[(name, N)] = np.hanning(N)
     return _windows[(name, N)]
 
-def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, SPLData]:
+def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int) -> float:
     """
-    Computes Transfer Function and SPL metrics from a block of audio data.
+    Estimates the time delay between two signals using GCC-PHAT.
+    """
+    n = len(ref_chan)
+    # FFT of the signals
+    ref_fft = np.fft.rfft(ref_chan, n=n)
+    meas_fft = np.fft.rfft(meas_chan, n=n)
+    
+    # Cross-power spectrum
+    R = ref_fft * np.conj(meas_fft)
+    
+    # PHAT weighting
+    R_phat = R / (np.abs(R) + 1e-10) # Add epsilon to avoid division by zero
+    
+    # Inverse FFT to get cross-correlation
+    cross_corr = np.fft.irfft(R_phat, n=n)
+    
+    # Find the peak of the cross-correlation
+    delta_n = np.argmax(cross_corr)
+    
+    # Handle negative delays
+    if delta_n > n // 2:
+        delta_n -= n
+        
+    # Convert sample delay to milliseconds
+    delay_ms = (delta_n / fs) * 1000
+    
+    return delay_ms
+
+def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, SPLData, float]:
+    """
+    Computes Transfer Function, SPL, and Delay metrics from a block of audio data.
     """
     # Ensure block is 2D
     if block.ndim == 1:
@@ -82,4 +112,12 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         LZ=dbfs,  # Z-weighting (linear) is equivalent to no weighting
     )
 
-    return tf_data, spl_data
+    # --- Delay Calculation ---
+    # Use a smaller, centered portion of the block for delay calculation to save computation
+    # and focus on the most relevant part of the impulse response.
+    delay_window_size = min(len(ref_chan), 4096)
+    start = (len(ref_chan) - delay_window_size) // 2
+    end = start + delay_window_size
+    delay_ms = find_delay_ms(ref_chan[start:end], meas_chan[start:end], config.sampleRate)
+
+    return tf_data, spl_data, delay_ms

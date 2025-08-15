@@ -94,6 +94,7 @@ export interface FrameMessage {
   type: "frame";
   tf: TFData;
   spl: SPLData;
+  delay_ms: number;
   latency_ms: number;
   ts: number;
 }

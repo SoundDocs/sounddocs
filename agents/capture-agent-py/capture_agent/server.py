@@ -28,7 +28,7 @@ connected_clients: Set[WebSocketServerProtocol] = set()
 # A task for the current audio capture loop, if any
 capture_task = None
 
-ALLOWED_ORIGINS = ["https://sounddocs.org", "https://beta.sounddocs.org", "http://localhost:5173"]
+ALLOWED_ORIGINS = ["https://sounddocs.org", "https://beta.sounddocs.org", "http://localhost:5173", "https://localhost:5173"]
 
 async def process_message(ws: WebSocketServerProtocol, message_data: dict):
     """Parses and routes incoming messages."""
@@ -78,12 +78,13 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
     try:
         with audio.Stream(config) as stream:
             for block in stream.blocks():
-                tf_data, spl_data = dsp.compute_metrics(block, config)
+                tf_data, spl_data, delay_ms = dsp.compute_metrics(block, config)
                 
                 frame = FrameMessage(
                     type="frame",
                     tf=tf_data,
                     spl=spl_data,
+                    delay_ms=delay_ms,
                     latency_ms=stream.stream.latency * 1000,
                     ts=int(time.time() * 1000),
                 )

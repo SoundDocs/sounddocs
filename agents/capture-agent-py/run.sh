@@ -3,7 +3,6 @@ set -e
 
 # --- Configuration ---
 AGENT_DIR="$HOME/.sounddocs-agent"
-REPO_URL="https://api.github.com/repos/SoundDocs/sounddocs/contents/agents/capture-agent-py"
 VENV_DIR="$AGENT_DIR/.venv"
 
 # --- Helper Functions ---
@@ -21,7 +20,6 @@ function download_dir() {
   local output_dir="$2"
   mkdir -p "$output_dir"
   
-  # Get directory contents from GitHub API
   local api_url="https://api.github.com/repos/SoundDocs/sounddocs/contents/agents/capture-agent-py/$dir_path?ref=beta"
   local files=$(curl -s -L "$api_url" | grep '"name":' | sed 's/.*"name": "\(.*\)",.*/\1/')
 
@@ -36,6 +34,28 @@ echo "Setting up SoundDocs Capture Agent..."
 # Create agent directory
 mkdir -p "$AGENT_DIR"
 cd "$AGENT_DIR"
+
+# --- Prerequisite: mkcert ---
+if ! command -v mkcert &> /dev/null; then
+    echo "'mkcert' is not found. Attempting to install with Homebrew..."
+    if ! command -v brew &> /dev/null; then
+        echo "Error: Homebrew is not installed. Please install it to continue."
+        echo "You can install Homebrew by running this command:"
+        echo '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+        echo "After installing Homebrew, please run this script again."
+        exit 1
+    fi
+    brew install mkcert
+fi
+
+# --- Prerequisite: mkcert CA ---
+# Check if the local CA is installed, if not, install it.
+CAROOT=$(mkcert -CAROOT)
+if [ ! -f "$CAROOT/rootCA.pem" ]; then
+    echo "Setting up the mkcert local Certificate Authority (CA)..."
+    echo "This may prompt for your password."
+    mkcert -install
+fi
 
 # Download necessary files
 download_file "pyproject.toml" "pyproject.toml"
@@ -59,8 +79,8 @@ fi
 # Activate virtual environment
 source $VENV_DIR/bin/activate
 
-# Generate SSL certificate
-echo "Checking for SSL certificate..."
+# Generate SSL certificate using mkcert
+echo "Generating trusted SSL certificate..."
 python3 generate_cert.py
 
 # Install/update dependencies

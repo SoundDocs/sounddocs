@@ -66,6 +66,7 @@ class FrameMessage(BaseModel):
     type: Literal["frame"]
     tf: TFData
     spl: SPLData
+    delay_ms: float
     latency_ms: float
     ts: int
 

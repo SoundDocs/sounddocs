@@ -13,6 +13,29 @@ echo Setting up SoundDocs Capture Agent...
 if not exist "%AGENT_DIR%" mkdir "%AGENT_DIR%"
 cd /d "%AGENT_DIR%"
 
+:: --- Prerequisite: mkcert ---
+where mkcert >nul 2>nul
+if %errorlevel% neq 0 (
+    echo 'mkcert' is not found. Attempting to install with Chocolatey...
+    where choco >nul 2>nul
+    if %errorlevel% neq 0 (
+        echo Error: Chocolatey is not installed. Please install it to continue.
+        echo You can install Chocolatey by opening PowerShell as an Administrator and running:
+        echo Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+        echo After installing Chocolatey, please run this script again.
+        exit /b 1
+    )
+    choco install mkcert -y
+)
+
+:: --- Prerequisite: mkcert CA ---
+mkcert -CAROOT >nul 2>nul
+if %errorlevel% neq 0 (
+    echo Setting up the mkcert local Certificate Authority (CA)...
+    echo This may open a User Account Control (UAC) prompt.
+    mkcert -install
+)
+
 :: Download necessary files using PowerShell
 echo Downloading agent files...
 powershell -Command "(New-Object Net.WebClient).DownloadFile('%REPO_BASE_URL%/pyproject.toml', 'pyproject.toml')"
@@ -37,8 +60,8 @@ if not exist "%VENV_DIR%\Scripts\activate.bat" (
 :: Activate virtual environment
 call "%VENV_DIR%\Scripts\activate.bat"
 
-:: Generate SSL certificate
-echo Checking for SSL certificate...
+:: Generate SSL certificate using mkcert
+echo Generating trusted SSL certificate...
 python generate_cert.py
 
 :: Install/update dependencies

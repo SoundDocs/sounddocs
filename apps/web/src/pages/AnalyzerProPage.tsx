@@ -17,6 +17,7 @@ const AnalyzerProPage: React.FC = () => {
   const { status, lastMessage, sendMessage } = useCaptureAgent();
   const [devices, setDevices] = useState<Device[]>([]);
   const [tfData, setTfData] = useState<TFData | null>(null);
+  const [delayMs, setDelayMs] = useState<number>(0);
 
   useEffect(() => {
     if (status === "connected") {
@@ -30,6 +31,7 @@ const AnalyzerProPage: React.FC = () => {
         setDevices(lastMessage.items);
       } else if (lastMessage.type === "frame") {
         setTfData(lastMessage.tf);
+        setDelayMs(lastMessage.delay_ms);
       }
     }
   }, [lastMessage]);
@@ -79,6 +81,15 @@ const AnalyzerProPage: React.FC = () => {
                 onStartCapture={(config) => sendMessage({ type: "start", ...config })}
                 onStopCapture={() => sendMessage({ type: "stop" })}
               />
+              <div className="bg-gray-800 p-4 rounded-lg shadow-inner">
+                <h3 className="text-lg font-semibold text-white mb-2">Live Measurements</h3>
+                <div className="flex items-center space-x-4">
+                  <div className="text-center">
+                    <div className="text-3xl font-mono text-green-400">{delayMs.toFixed(2)}</div>
+                    <div className="text-sm text-gray-400">Delay (ms)</div>
+                  </div>
+                </div>
+              </div>
               <TransferFunctionVisualizer tfData={tfData} />
             </>
           )}

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.2] - 2025-08-15
+
+### Improved
+
+- **Fully Automated Agent Setup**: Replaced the manual self-signed certificate process with `mkcert`.
+  - The `run.sh` and `run.bat` scripts now automatically check for and install `mkcert` using the system's package manager (Homebrew/Chocolatey).
+  - The scripts then automatically create a local Certificate Authority (CA) and generate a browser-trusted SSL certificate.
+  - This eliminates all browser security warnings and the need for any manual certificate trust steps, providing a seamless one-click setup for users.
+- **Developer Experience**: Configured the Vite dev server to use the `mkcert`-generated certificate, enabling a fully secure `https://` environment for local development that mirrors production.
+- **Documentation**: Updated the `README.md` to reflect the new, simplified, and fully automated setup process.
+
 ## [1.4.1] - 2025-08-15
 
 ### Fixed

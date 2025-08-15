@@ -1,5 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import fs from "fs";
+import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -16,6 +18,12 @@ export default defineConfig({
     headers: {
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
+    },
+    https: {
+      key: fs.readFileSync(
+        path.resolve(__dirname, "../../agents/capture-agent-py/localhost-key.pem"),
+      ),
+      cert: fs.readFileSync(path.resolve(__dirname, "../../agents/capture-agent-py/localhost.pem")),
     },
   },
   assetsInclude: ["**/*.worklet.js"],
