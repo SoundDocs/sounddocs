@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Mixed Content Error**: Resolved a browser security error that blocked the web app (`https://`) from connecting to the local capture agent (`ws://`).
   - The Python agent now serves over a secure WebSocket (`wss://`) using a self-signed SSL certificate.
   - The web app now connects to the secure `wss://127.0.0.1:9469` endpoint.
+- **Agent Origin Validation**: Fixed an issue where the agent would reject connections from `beta.sounddocs.org`. The beta subdomain has been added to the list of allowed origins.
 
 ### Improved
 

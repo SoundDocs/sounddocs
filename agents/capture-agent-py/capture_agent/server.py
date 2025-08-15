@@ -28,7 +28,7 @@ connected_clients: Set[WebSocketServerProtocol] = set()
 # A task for the current audio capture loop, if any
 capture_task = None
 
-ALLOWED_ORIGINS = ["https://sounddocs.org", "http://localhost:5173"]
+ALLOWED_ORIGINS = ["https://sounddocs.org", "https://beta.sounddocs.org", "http://localhost:5173"]
 
 async def process_message(ws: WebSocketServerProtocol, message_data: dict):
     """Parses and routes incoming messages."""

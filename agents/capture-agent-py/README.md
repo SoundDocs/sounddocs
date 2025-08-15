@@ -28,13 +28,34 @@ The first time you run the script, it will download the latest version of the ag
 To communicate securely, the agent uses a locally generated SSL certificate. Your browser will not trust this certificate by default. You must perform a one-time setup to grant trust.
 
 1.  **Run the agent** using the `run.sh` or `run.bat` script as described above.
-2.  **Open your browser** (Chrome, Edge, or Firefox).
-3.  Navigate to the following URL: **https://localhost:9469**
-4.  You will see a security warning page (e.g., "Your connection is not private"). This is expected.
-5.  Click the **"Advanced"** button.
-6.  Click **"Proceed to localhost (unsafe)"** or "Accept the Risk and Continue".
+2.  **Open your browser** and navigate to the following URL: **https://localhost:9469**
+3.  You will see a security warning page. Follow the instructions for your browser below.
 
-This tells your browser to trust the local agent for this session, allowing the SoundDocs web app to connect securely.
+#### **For Google Chrome / Microsoft Edge**
+
+1.  The page will show a "Your connection is not private" warning.
+2.  Click the **"Advanced"** button.
+3.  Click the link that says **"Proceed to localhost (unsafe)"**.
+
+#### **For Mozilla Firefox**
+
+1.  The page will show a "Warning: Potential Security Risk Ahead" message.
+2.  Click the **"Advanced..."** button.
+3.  Click the **"Accept the Risk and Continue"** button.
+
+#### **For Apple Safari**
+
+1.  A dialog will appear saying "Safari can't verify the identity of the website 'localhost'".
+2.  Click the **"Show Certificate"** button.
+3.  Expand the **"Trust"** section.
+4.  In the "When using this certificate" dropdown, select **"Always Trust"**.
+5.  You may be prompted to enter your computer's password to save this setting.
+
+After completing these steps, you can close the `localhost:9469` tab and return to the SoundDocs application. The connection should now work correctly.
+
+### A Note on Security
+
+Using a self-signed certificate is the standard and secure method for applications that run on your local machine (`localhost`). Because the agent is not on the public internet, it cannot use a traditional certificate from a public authority. By trusting the certificate, you are simply creating a secure, encrypted connection between the SoundDocs website and the agent running on your own computer.
 
 ## Manual Setup (for developers)
 
