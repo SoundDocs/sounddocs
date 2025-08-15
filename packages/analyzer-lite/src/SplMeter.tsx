@@ -97,6 +97,12 @@ export const SplMeter: React.FC<SplMeterProps> = ({
               >
                 Calibrate to 114 dB
               </button>
+              <button
+                onClick={() => onCalibrationChange && onCalibrationChange(0)}
+                className="px-3 py-1 text-xs bg-gray-600 hover:bg-gray-500 text-white rounded transition-colors"
+              >
+                Reset
+              </button>
             </div>
             <div className="text-xs text-gray-300">
               Current Offset: <span className="font-mono">{calibrationOffset.toFixed(2)} dB</span>
@@ -108,19 +114,19 @@ export const SplMeter: React.FC<SplMeterProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* SPL Display */}
         <div className="space-y-4 text-center">
-          <div className="text-sm text-gray-400 mb-1">Current SPL</div>
+          <div className="text-sm text-gray-400 mb-1">Current SPL (A)</div>
           <div className={`text-5xl font-mono font-bold ${getSPLColor(displaySpl)}`}>
             {displaySpl.toFixed(1)}
-            <span className="text-2xl ml-2">dB</span>
+            <span className="text-2xl ml-2">dB(A)</span>
           </div>
         </div>
 
         {/* Leq Display */}
         <div className="space-y-4 text-center">
-          <div className="text-sm text-gray-400 mb-1">Leq (30m)</div>
+          <div className="text-sm text-gray-400 mb-1">Leq (A, 30m)</div>
           <div className={`text-5xl font-mono font-bold ${getSPLColor(displayLeq)}`}>
             {displayLeq.toFixed(1)}
-            <span className="text-2xl ml-2">dB</span>
+            <span className="text-2xl ml-2">dB(A)</span>
           </div>
         </div>
       </div>

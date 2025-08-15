@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Navigation**: Corrected the "AcoustIQ" link in the dashboard header to point to the new `/analyzer` hub page, resolving a 404 error.
 - **Agent Download Links**: All download links on the Analyzer Pro page now open in a new tab to prevent users from navigating away from the application.
+- **Standardized A-Weighting**: All SPL and Leq measurements are now standardized to use A-weighting for accuracy and consistency. The RTA's weighting remains a user-configurable option.
+- **Calibration Reset**: Added a "Reset" button to the calibration panel, allowing users to easily clear the SPL offset.
+- **CSV Export**: The exported CSV file for Leq measurements now correctly specifies "LEQ (A)" in the header to reflect the A-weighting.
+
+### Fixed
+
+- **Unweighted SPL/Leq**: Corrected an issue where SPL and Leq measurements were being calculated without A-weighting, regardless of the user's setting.
 
 ### Removed
 

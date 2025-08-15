@@ -14,7 +14,7 @@ interface LeqMeasurement {
 export function generateLeqCsv(measurements: LeqMeasurement[]): string {
   const headers = [
     "Timestamp",
-    "LEQ (dB)",
+    "LEQ (A)",
     "Duration (s)",
     "Calibration Offset (dB)",
     "Sample Rate (Hz)",

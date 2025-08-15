@@ -351,7 +351,7 @@ export const AudioAnalyzerSection: React.FC = () => {
                       className="mr-3 w-4 h-4 text-green-600 bg-gray-600 border-gray-500 rounded focus:ring-green-500"
                     />
                     <label htmlFor="aWeighting" className="text-sm font-medium text-gray-300">
-                      A-weighting Filter
+                      A-Weighting (RTA)
                     </label>
                   </div>
 

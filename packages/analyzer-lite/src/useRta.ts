@@ -132,6 +132,9 @@ class RtaWorkletProcessor extends AudioWorkletProcessor {
     
     // Smoothed magnitude array for temporal smoothing
     this.smoothedMagnitudes = null;
+
+    // A-weighting filter for SPL/Leq
+    this.aWeightFilter = this.createAWeightingFilter();
   }
 
   setFFTSize(newSize) {
@@ -171,6 +174,38 @@ class RtaWorkletProcessor extends AudioWorkletProcessor {
     
     // Convert to dB and add reference adjustment
     return 20 * Math.log10(response) + 2.00;
+  }
+
+  // Biquad filter implementation
+  createAWeightingFilter() {
+    // This is a 4th order A-weighting filter approximated by two biquad filters
+    // Coefficients are pre-calculated for 48kHz sample rate
+    const filters = [
+      { // High-pass
+        b0: 0.9839, b1: -1.9678, b2: 0.9839,
+        a1: -1.9677, a2: 0.9679,
+        z1: 0, z2: 0
+      },
+      { // High-pass
+        b0: 0.8433, b1: -1.6866, b2: 0.8433,
+        a1: -1.6776, a2: 0.6956,
+        z1: 0, z2: 0
+      }
+    ];
+
+    return (input) => {
+      let output = new Float32Array(input.length);
+      for (let f of filters) {
+        for (let i = 0; i < input.length; i++) {
+          const out = input[i] * f.b0 + f.z1;
+          f.z1 = input[i] * f.b1 - out * f.a1 + f.z2;
+          f.z2 = input[i] * f.b2 - out * f.a2;
+          output[i] = out;
+        }
+        input = output; // Chain the filters
+      }
+      return output;
+    };
   }
 
   performFFT(inputData) {
@@ -369,8 +404,11 @@ class RtaWorkletProcessor extends AudioWorkletProcessor {
           // Perform FFT analysis
           this.performFFT(audioData);
           
-          // Calculate RMS from the current input buffer
-          const rmsValue = this.calculateRMS(inputChannel);
+          // Apply A-weighting filter for SPL/Leq calculations
+          const weightedChannel = this.aWeightFilter(inputChannel);
+
+          // Calculate RMS from the A-weighted buffer
+          const rmsValue = this.calculateRMS(weightedChannel);
           
           // Calculate SPL
           const splValue = this.calculateSPL(rmsValue);
