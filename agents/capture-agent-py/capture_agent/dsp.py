@@ -24,7 +24,7 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int) -> float
     meas_fft = np.fft.rfft(meas_chan, n=n)
     
     # Cross-power spectrum
-    R = ref_fft * np.conj(meas_fft)
+    R = np.conj(ref_fft) * meas_fft
     
     # PHAT weighting
     R_phat = R / (np.abs(R) + 1e-10) # Add epsilon to avoid division by zero

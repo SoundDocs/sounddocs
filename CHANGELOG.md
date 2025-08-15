@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.6] - 2025-08-15
+
+### Fixed
+
+- **Delay Finder Algorithm**: Corrected the cross-power spectrum formula in the delay finder to use the conjugate of the reference signal, not the measurement signal. This resolves a critical bug that caused inaccurate and unstable delay readings.
+
 ## [1.4.5] - 2025-08-15
 
 ### Improved
