@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.signal import welch
+from scipy.signal import welch, csd
 from .schema import CaptureConfig, TFData, SPLData
 
 # Pre-compute windows to avoid recalculation
@@ -45,45 +45,44 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int) -> float
     return delay_ms
 
 def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, SPLData, float]:
-    """
-    Computes Transfer Function, SPL, and Delay metrics from a block of audio data.
-    """
-    # Ensure block is 2D
     if block.ndim == 1:
         block = block[:, np.newaxis]
 
-    # Extract reference and measurement channels
-    # Note: channel indices are 1-based from the UI
     ref_chan = block[:, config.refChan - 1]
     meas_chan = block[:, config.measChan - 1]
 
-    # --- Transfer Function Calculation ---
-    window = get_window(config.window, config.nfft)
-    
-    # Cross-power spectral density
-    freqs, Pxy = welch(
-        ref_chan, meas_chan, fs=config.sampleRate, window=window, nperseg=config.nfft, scaling='density'
+    # nperseg cannot exceed the signal length
+    nperseg = int(min(config.nfft, ref_chan.size, meas_chan.size))
+
+    # window length must equal nperseg
+    window = get_window(config.window, nperseg)
+
+    # --- Cross/Power Spectral Densities ---
+    # Cross-PSD (complex)
+    freqs, Pxy = csd(
+        ref_chan, meas_chan,
+        fs=float(config.sampleRate),
+        window=window, nperseg=nperseg, scaling='density'
     )
-    # Power spectral density of the reference channel
+    # Auto-PSDs
     _, Pxx = welch(
-        ref_chan, fs=config.sampleRate, window=window, nperseg=config.nfft, scaling='density'
+        ref_chan,
+        fs=float(config.sampleRate),
+        window=window, nperseg=nperseg, scaling='density'
     )
-    # Power spectral density of the measurement channel
     _, Pyy = welch(
-        meas_chan, fs=config.sampleRate, window=window, nperseg=config.nfft, scaling='density'
+        meas_chan,
+        fs=float(config.sampleRate),
+        window=window, nperseg=nperseg, scaling='density'
     )
 
-    # Avoid division by zero
+    # Guard against zeros
     Pxx[Pxx == 0] = 1e-10
     Pyy[Pyy == 0] = 1e-10
 
-    # Transfer function H = Pxy / Pxx
     H = Pxy / Pxx
-    
     mag_db = 20 * np.log10(np.abs(H))
     phase_deg = np.angle(H, deg=True)
-
-    # Coherence γ² = |Pxy|² / (Pxx * Pyy)
     coh = (np.abs(Pxy)**2) / (Pxx * Pyy)
 
     tf_data = TFData(
@@ -93,30 +92,14 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         coh=coh.tolist(),
     )
 
-    # --- SPL Calculation ---
-    # Simple RMS-based SPL calculation (Z-weighted)
-    # A proper implementation would involve A/C weighting filters
-    rms = np.sqrt(np.mean(meas_chan**2))
-    
-    # Avoid log of zero
-    if rms == 0:
-        rms = 1e-10
-        
-    # This is dBFS. Calibration will be applied on the client-side for now.
+    # --- SPL (simple RMS, Z-weighted) ---
+    rms = float(np.sqrt(np.mean(meas_chan**2))) or 1e-10
     dbfs = 20 * np.log10(rms)
+    spl_data = SPLData(Leq=dbfs, LZ=dbfs)
 
-    # Placeholder for Leq. A true Leq requires integration over time.
-    # For now, we'll treat each block's SPL as an instantaneous Leq.
-    spl_data = SPLData(
-        Leq=dbfs, # This is not a true Leq, but a block-by-block dBFS value
-        LZ=dbfs,  # Z-weighting (linear) is equivalent to no weighting
-    )
-
-    # --- Delay Calculation ---
-    # Use a smaller, centered portion of the block for delay calculation to save computation
-    # and focus on the most relevant part of the impulse response.
-    delay_window_size = min(len(ref_chan), 4096)
-    start = (len(ref_chan) - delay_window_size) // 2
+    # --- Delay (GCC-PHAT on a centered window) ---
+    delay_window_size = min(ref_chan.size, 4096)
+    start = (ref_chan.size - delay_window_size) // 2
     end = start + delay_window_size
     delay_ms = find_delay_ms(ref_chan[start:end], meas_chan[start:end], config.sampleRate)
 

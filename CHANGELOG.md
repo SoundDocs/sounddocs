@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.4] - 2025-08-15
+
+### Fixed
+
+- **Agent Capture Error**: Resolved a persistent crash in the Python agent caused by incorrect argument passing to the `scipy.signal.welch` function. The DSP logic has been refactored to use `scipy.signal.csd` for cross-spectral density and the correct `welch` signature for auto-spectral density, ensuring stable and accurate transfer function calculations.
+
 ## [1.4.3] - 2025-08-15
 
 ### Fixed
