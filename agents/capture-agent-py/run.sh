@@ -22,7 +22,7 @@ function download_dir() {
   mkdir -p "$output_dir"
   
   # Get directory contents from GitHub API
-  local api_url="https://api.github.com/repos/SoundDocs/sounddocs/contents/agents/capture-agent-py/$dir_path"
+  local api_url="https://api.github.com/repos/SoundDocs/sounddocs/contents/agents/capture-agent-py/$dir_path?ref=beta"
   local files=$(curl -s -L "$api_url" | grep '"name":' | sed 's/.*"name": "\(.*\)",.*/\1/')
 
   for file in $files; do

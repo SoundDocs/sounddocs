@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.6.2] - 2025-08-15
+
+### Fixed
+
+- **Agent Installer**: Fixed a critical bug where the installer scripts failed because they did not create a valid Python package structure, causing the `pip install` command to fail.
+
 ## [1.3.6.1] - 2025-08-15
 
 ### Improved
