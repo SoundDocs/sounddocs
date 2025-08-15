@@ -35,12 +35,24 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int) -> float
     # Find the peak of the cross-correlation
     delta_n = np.argmax(cross_corr)
     
+    # Parabolic interpolation for sub-sample accuracy
+    if delta_n > 0 and delta_n < n - 1:
+        y1 = cross_corr[delta_n - 1]
+        y2 = cross_corr[delta_n]
+        y3 = cross_corr[delta_n + 1]
+        
+        # Calculate the fractional offset from the integer peak
+        offset = (y1 - y3) / (2 * (y1 - 2 * y2 + y3))
+        delta_n_fine = delta_n + offset
+    else:
+        delta_n_fine = float(delta_n)
+
     # Handle negative delays
-    if delta_n > n // 2:
-        delta_n -= n
+    if delta_n_fine > n / 2:
+        delta_n_fine -= n
         
     # Convert sample delay to milliseconds
-    delay_ms = (delta_n / fs) * 1000
+    delay_ms = (delta_n_fine / fs) * 1000
     
     return delay_ms
 

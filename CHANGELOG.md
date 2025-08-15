@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.5] - 2025-08-15
+
+### Improved
+
+- **Delay Finder Accuracy**: Upgraded the agent's delay finder to use parabolic interpolation. This provides sub-sample accuracy, resulting in a much more precise and professional time delay measurement.
+
 ## [1.4.4] - 2025-08-15
 
 ### Fixed
