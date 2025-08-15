@@ -80,8 +80,6 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
             print("Warning: Python processing queue is full; dropping audio.")
 
     try:
-        dsp.reset_dsp_state()
-        
         # --- Set up analysis buffer ---
         nperseg = config.nfft
         noverlap = int(0.75 * nperseg)
