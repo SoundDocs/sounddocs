@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.9.4] - 2025-08-15
+
+### Improved
+
+- **Simplified Analyzer**: Removed the Average Type, Transform Mode, and Window Function controls from the UI and backend to streamline the user experience and focus on core functionality.
+
 ## [1.4.9.3] - 2025-08-15
 
 ### Fixed

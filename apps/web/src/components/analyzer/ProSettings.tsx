@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Device, CaptureConfig, WindowType } from "@sounddocs/analyzer-protocol";
-import { useAnalyzerStore } from "@/stores/analyzerStore";
+import { Device, CaptureConfig } from "@sounddocs/analyzer-protocol";
 
 interface ProSettingsProps {
   devices: Device[];
@@ -18,17 +17,6 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
   const [refChan, setRefChan] = useState<number>(1);
   const [measChan, setMeasChan] = useState<number>(2);
   const [nfft, setNfft] = useState<number>(8192);
-
-  const {
-    averageType,
-    averageCount,
-    transformMode,
-    windowFunction,
-    setAverageType,
-    setAverageCount,
-    setTransformMode,
-    setWindowFunction,
-  } = useAnalyzerStore();
 
   useEffect(() => {
     if (devices.length > 0 && !selectedDeviceId) {
@@ -50,9 +38,9 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
       refChan,
       measChan,
       nfft,
-      avg: "power", // This is not directly used in the new DSP code, but required by the type
-      avgCount: averageCount,
-      window: windowFunction,
+      avg: "power",
+      avgCount: 0,
+      window: "hann",
       lpfMode: "none",
       lpfFreq: 0,
     };
@@ -119,61 +107,6 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
         </div>
 
         {/* Row 2 */}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Average Type</label>
-          <select
-            value={averageType}
-            onChange={(e) => setAverageType(e.target.value as "off" | "fifo")}
-            disabled={isCapturing}
-            className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
-          >
-            <option value="off">Off</option>
-            <option value="fifo">FIFO</option>
-          </select>
-        </div>
-        {averageType === "fifo" && (
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Average Count</label>
-            <select
-              value={averageCount}
-              onChange={(e) => setAverageCount(Number(e.target.value))}
-              disabled={isCapturing}
-              className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
-            >
-              <option value={1}>1</option>
-              <option value={2}>2</option>
-              <option value={4}>4</option>
-              <option value={8}>8</option>
-              <option value={16}>16</option>
-              <option value={32}>32</option>
-            </select>
-          </div>
-        )}
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Transform Mode</label>
-          <select
-            value={transformMode}
-            onChange={(e) => setTransformMode(e.target.value as "fast" | "log")}
-            disabled={isCapturing}
-            className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
-          >
-            <option value="fast">Fast</option>
-            <option value="log">Log</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Window Function</label>
-          <select
-            value={windowFunction}
-            onChange={(e) => setWindowFunction(e.target.value as "hann" | "kaiser" | "blackman")}
-            disabled={isCapturing}
-            className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
-          >
-            <option value="hann">Hann</option>
-            <option value="kaiser">Kaiser</option>
-            <option value="blackman">Blackman</option>
-          </select>
-        </div>
       </div>
       <div className="mt-4">
         {!isCapturing ? (

@@ -6,29 +6,6 @@ from collections import deque
 # Pre-compute windows to avoid recalculation
 _windows = {}
 
-class FifoAverager:
-    def __init__(self, depth):
-        self.depth = depth
-        self.fifo = deque()
-        self.sum = None
-
-    def append(self, value):
-        if self.depth == 0:
-            return value
-        
-        self.fifo.append(value)
-        if self.sum is None:
-            self.sum = value
-        else:
-            self.sum += value
-            
-        if len(self.fifo) > self.depth:
-            self.sum -= self.fifo.popleft()
-            
-        return self.sum / len(self.fifo)
-
-_averagers = {}
-
 def get_window(name, N):
     if (name, N) not in _windows:
         if name == 'hann':
@@ -73,7 +50,7 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     nperseg = int(min(config.nfft, ref_chan.size, meas_chan.size))
 
     # window length must equal nperseg
-    window = get_window(config.window, nperseg)
+    window = get_window("hann", nperseg)
 
     # --- Cross/Power Spectral Densities ---
     # Cross-PSD (complex)
@@ -105,18 +82,6 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         coh = (np.abs(Pxy)**2) / (Pxx * Pyy)
     np.nan_to_num(coh, copy=False, nan=0.0)
     np.clip(coh, 0, 1, out=coh)
-
-    if config.avgCount > 0:
-        if 'mag_db' not in _averagers:
-            _averagers['mag_db'] = FifoAverager(config.avgCount)
-        if 'phase_deg' not in _averagers:
-            _averagers['phase_deg'] = FifoAverager(config.avgCount)
-        if 'coh' not in _averagers:
-            _averagers['coh'] = FifoAverager(config.avgCount)
-            
-        mag_db = _averagers['mag_db'].append(mag_db)
-        phase_deg = _averagers['phase_deg'].append(phase_deg)
-        coh = _averagers['coh'].append(coh)
 
     tf_data = TFData(
         freqs=freqs.tolist(),
