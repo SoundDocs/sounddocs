@@ -18,4 +18,19 @@ export default defineConfig({
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
   },
+  assetsInclude: ["**/*.worklet.js"],
+  build: {
+    rollupOptions: {
+      external: [],
+      output: {
+        // Ensure worklet files are treated as assets
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name && assetInfo.name.includes("RtaWorkletProcessor")) {
+            return "assets/worklets/[name].[hash][extname]";
+          }
+          return "assets/[name].[hash][extname]";
+        },
+      },
+    },
+  },
 });

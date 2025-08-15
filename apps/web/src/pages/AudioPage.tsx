@@ -19,7 +19,11 @@ import {
   X,
   Briefcase,
   Drama,
+  Activity,
 } from "lucide-react";
+import { DevicePicker, type AudioDevice } from "@sounddocs/analyzer-lite";
+import { useAnalyzerStore } from "../stores/analyzerStore";
+import AudioAnalyzerSection from "../components/analyzer/AudioAnalyzerSection";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -1212,9 +1216,10 @@ const AudioPage = () => {
           </div>
         </div>
 
-        {/* My Mic Plots Card Section - Centered */}
+        {/* Cards Section - Mic Plots */}
         <div className="flex justify-center mb-12">
-          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 w-full md:max-w-lg">
+          {/* My Mic Plots Card */}
+          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 w-full md:w-1/2">
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h2 className="text-xl font-semibold text-white mb-2">My Mic Plots</h2>

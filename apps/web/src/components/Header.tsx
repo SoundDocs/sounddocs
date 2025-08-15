@@ -120,7 +120,14 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
         <nav className="hidden md:flex items-center space-x-8" aria-label="Main Navigation">
           {dashboard && user ? (
             <div className="flex items-center space-x-3">
-              {" "}
+              <Link
+                to="/acoustiq"
+                className="text-gray-300 hover:text-white transition-colors duration-200 p-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                aria-label="AcoustIQ"
+                title="AcoustIQ"
+              >
+                AcoustIQ
+              </Link>
               {/* Reduced space for tighter grouping */}
               <Link
                 to="/shared-with-me"

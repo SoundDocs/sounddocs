@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.3] - 2025-08-15
+
+### Added
+
+- **AcoustIQ Audio Analyzer Page**: Created a new top-level page for the audio analyzer, branded as "AcoustIQ", accessible directly from the main dashboard header for improved visibility and user access.
+- **Professional Calibration Workflow**: Replaced the manual offset input with a two-button system (94/114 dB) for a faster, more intuitive, and less error-prone calibration process that matches the workflow of professional audio software.
+
+### Improved
+
+- **SPL Meter Readability**: The SPL meter display now updates at a slower, more consistent rate (every 250ms) for a more stable and less "jumpy" reading.
+- **CSV Data Export**: LEQ measurement CSV downloads are now filtered to only include data from the most recent logging session, providing more focused and useful exports.
+
+### Fixed
+
+- **Live Calibration Updates**: Fixed a critical bug where changes to the calibration offset were not being applied in real-time, ensuring that calibration adjustments are now reflected instantly.
+- **Stale LEQ Logging**: Resolved an issue where the same LEQ value was being logged repeatedly by implementing a `useRef` to ensure the logging function always has access to the latest data.
+
+### Removed
+
+- **Temporary Debug Panel**: Removed the temporary debug panel from the Audio Analyzer UI for a cleaner and more professional user experience.
+
 ## [1.3.2] - 2025-8-14
 
 ### Added

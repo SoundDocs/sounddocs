@@ -19,6 +19,9 @@ importers:
 
   apps/web:
     dependencies:
+      "@sounddocs/analyzer-lite":
+        specifier: workspace:*
+        version: link:../../packages/analyzer-lite
       "@supabase/supabase-js":
         specifier: ^2.49.4
         version: 2.55.0
@@ -58,6 +61,9 @@ importers:
       uuid:
         specifier: ^11.1.0
         version: 11.1.0
+      zustand:
+        specifier: ^4.4.7
+        version: 4.5.7(@types/react@18.3.23)(react@18.3.1)
     devDependencies:
       "@eslint/js":
         specifier: ^9.9.1
@@ -113,6 +119,19 @@ importers:
       vite:
         specifier: ^5.4.2
         version: 5.4.19(@types/node@24.2.1)
+
+  packages/analyzer-lite:
+    dependencies:
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+    devDependencies:
+      "@types/react":
+        specifier: ^18.3.5
+        version: 18.3.23
+      typescript:
+        specifier: ^5.5.3
+        version: 5.9.2
 
   packages/analyzer-protocol:
     devDependencies:
@@ -2790,6 +2809,14 @@ packages:
         integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==,
       }
 
+  use-sync-external-store@1.5.0:
+    resolution:
+      {
+        integrity: sha512-Rb46I4cGGVBmjamjphe8L/UnvJD+uPPtTkNvX5mZgqdbavhI4EbgIWJiIHXJ8bc/i9EQGPRh4DwEURJ552Do0A==,
+      }
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
   util-deprecate@1.0.2:
     resolution:
       {
@@ -2926,6 +2953,24 @@ packages:
         integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==,
       }
     engines: { node: ">=10" }
+
+  zustand@4.5.7:
+    resolution:
+      {
+        integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==,
+      }
+    engines: { node: ">=12.7.0" }
+    peerDependencies:
+      "@types/react": ">=16.8"
+      immer: ">=9.0.6"
+      react: ">=16.8"
+    peerDependenciesMeta:
+      "@types/react":
+        optional: true
+      immer:
+        optional: true
+      react:
+        optional: true
 
 snapshots:
   "@alloc/quick-lru@5.2.0": {}
@@ -4474,6 +4519,10 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
+  use-sync-external-store@1.5.0(react@18.3.1):
+    dependencies:
+      react: 18.3.1
+
   util-deprecate@1.0.2: {}
 
   utrie@1.0.2:
@@ -4529,3 +4578,10 @@ snapshots:
   yaml@2.8.1: {}
 
   yocto-queue@0.1.0: {}
+
+  zustand@4.5.7(@types/react@18.3.23)(react@18.3.1):
+    dependencies:
+      use-sync-external-store: 1.5.0(react@18.3.1)
+    optionalDependencies:
+      "@types/react": 18.3.23
+      react: 18.3.1

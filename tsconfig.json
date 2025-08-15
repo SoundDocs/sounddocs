@@ -1,4 +1,8 @@
 {
   "files": [],
-  "references": [{ "path": "./apps/web" }, { "path": "./packages/analyzer-protocol" }]
+  "references": [
+    { "path": "./apps/web" },
+    { "path": "./packages/analyzer-protocol" },
+    { "path": "./packages/analyzer-lite" }
+  ]
 }
