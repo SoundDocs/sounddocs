@@ -47,47 +47,47 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     if block.ndim == 1:
         block = block[:, np.newaxis]
 
-    ref_chan = block[:, config.refChan - 1]
-    meas_chan = block[:, config.measChan - 1]
+    # 1-based -> 0-based
+    x = block[:, config.refChan - 1].astype(np.float64, copy=False)
+    y = block[:, config.measChan - 1].astype(np.float64, copy=False)
 
-    # nperseg cannot exceed the signal length
-    nperseg = int(min(config.nfft, ref_chan.size, meas_chan.size))
+    # Choose stable analysis params (accumulate upstream until you have this much)
+    fs = float(config.sampleRate)
+    nperseg = int(min(config.nfft, x.size, y.size))  # but prefer to accumulate so nperseg == config.nfft
+    nperseg = max(256, nperseg)                      # guardrail
+    noverlap = int(0.75 * nperseg)
+    if noverlap >= nperseg:
+        noverlap = nperseg // 2
 
-    # window length must equal nperseg
     window = get_window("hann", nperseg)
 
-    # --- Cross/Power Spectral Densities ---
-    # Cross-PSD (complex)
+    # Cross/Auto spectral densities (consistent params)
     freqs, Pxy = csd(
-        ref_chan, meas_chan,
-        fs=float(config.sampleRate),
-        window=window, nperseg=nperseg, scaling='density'
+        x, y,
+        fs=fs, window=window, nperseg=nperseg, noverlap=noverlap,
+        detrend='constant', return_onesided=True, scaling='density'
     )
-    # Auto-PSDs
     _, Pxx = welch(
-        ref_chan,
-        fs=float(config.sampleRate),
-        window=window, nperseg=nperseg, scaling='density'
+        x, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap,
+        detrend='constant', return_onesided=True, scaling='density'
     )
     _, Pyy = welch(
-        meas_chan,
-        fs=float(config.sampleRate),
-        window=window, nperseg=nperseg, scaling='density'
+        y, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap,
+        detrend='constant', return_onesided=True, scaling='density'
     )
 
     # Guard against zeros
-    Pxx[Pxx == 0] = 1e-10
-    Pyy[Pyy == 0] = 1e-10
+    eps = 1e-20
+    Pxx = np.maximum(Pxx, eps)
+    Pyy = np.maximum(Pyy, eps)
 
+    # Transfer function and manual coherence
     H = Pxy / Pxx
-    mag_db = 20 * np.log10(np.abs(H))
+    mag_db   = 20.0 * np.log10(np.abs(H) + eps)
     phase_deg = np.angle(H, deg=True)
-    
-    _, coh = coherence(
-        ref_chan, meas_chan,
-        fs=float(config.sampleRate),
-        window=window, nperseg=nperseg
-    )
+
+    coh = (np.abs(Pxy) ** 2) / (Pxx * Pyy + eps)
+    coh = np.clip(coh, 0.0, 1.0)
 
     tf_data = TFData(
         freqs=freqs.tolist(),
@@ -96,15 +96,15 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         coh=coh.tolist(),
     )
 
-    # --- SPL (simple RMS, Z-weighted) ---
-    rms = float(np.sqrt(np.mean(meas_chan**2))) or 1e-10
-    dbfs = 20 * np.log10(rms)
+    # SPL (simple Z-weighted RMS of measured channel)
+    rms = float(np.sqrt(np.mean(y**2))) or 1e-20
+    dbfs = 20.0 * np.log10(rms)
     spl_data = SPLData(Leq=dbfs, LZ=dbfs)
 
-    # --- Delay (GCC-PHAT on a centered window) ---
-    delay_window_size = min(ref_chan.size, 32768)
-    start = (ref_chan.size - delay_window_size) // 2
+    # Delay via GCC-PHAT on a centered window (ok)
+    delay_window_size = min(x.size, 32768)
+    start = (x.size - delay_window_size) // 2
     end = start + delay_window_size
-    delay_ms = find_delay_ms(ref_chan[start:end], meas_chan[start:end], config.sampleRate)
+    delay_ms = find_delay_ms(x[start:end], y[start:end], config.sampleRate)
 
     return tf_data, spl_data, delay_ms
