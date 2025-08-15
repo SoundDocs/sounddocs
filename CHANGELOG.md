@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0.0.1] - 2025-08-15
+
+### Fixed
+
+- **Delay Finder Algorithm**: Replaced the circular GCC-PHAT with a linear GCC-PHAT algorithm. This correctly handles delays greater than 85ms and provides a much larger and more useful delay measurement range.
+
 ## [1.4.9.8.1] - 2025-08-15
 
 ### Fixed

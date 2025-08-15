@@ -16,25 +16,53 @@ def get_window(name, N):
             _windows[(name, N)] = np.hanning(N)
     return _windows[(name, N)]
 
-def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int) -> float:
-    n = len(ref_chan)
-    ref_fft = np.fft.rfft(ref_chan, n=n)
-    meas_fft = np.fft.rfft(meas_chan, n=n)
-    R = np.conj(ref_fft) * meas_fft
-    R_phat = R / (np.abs(R) + 1e-10)
-    cross_corr = np.fft.irfft(R_phat, n=n)
-    delta_n = np.argmax(cross_corr)
+def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: float | None = None) -> float:
+    """
+    Linear (zero-padded) GCC-PHAT delay. Positive => meas lags ref by +delay.
+    """
+    x = ref_chan.astype(np.float64, copy=False)
+    y = meas_chan.astype(np.float64, copy=False)
+    n = min(len(x), len(y))
+    if n < 2:
+        return 0.0
 
-    if 0 < delta_n < n - 1:
-        y1, y2, y3 = cross_corr[delta_n - 1], cross_corr[delta_n], cross_corr[delta_n + 1]
-        offset = (y1 - y3) / (2 * (y1 - 2*y2 + y3))
-        delta_n_fine = delta_n + offset
+    # FFT size >= 2n-1 for linear correlation
+    N = 1 << int(np.ceil(np.log2(2*n - 1)))
+
+    X = np.fft.rfft(x, n=N)
+    Y = np.fft.rfft(y, n=N)
+    R = np.conj(X) * Y
+    R /= (np.abs(R) + 1e-15)  # PHAT
+
+    cc = np.fft.irfft(R, n=N)
+
+    # keep only the valid linear part (length 2n-1), map to lags [-(n-1) .. +(n-1)]
+    cc_lin = np.concatenate((cc[-(n-1):], cc[:n]))
+    lags = np.arange(-(n-1), n, dtype=np.int64)
+
+    # optional search limit
+    if max_ms is not None:
+        max_lag = int(round(max_ms * fs / 1000.0))
+        half = min(max_lag, n-1)
+        center = n-1
+        sl = slice(center - half, center + half + 1)
+        cc_seg = cc_lin[sl]
+        lags_seg = lags[sl]
     else:
-        delta_n_fine = float(delta_n)
+        cc_seg = cc_lin
+        lags_seg = lags
 
-    if delta_n_fine > n / 2:
-        delta_n_fine -= n
-    return (delta_n_fine / fs) * 1000.0  # +ms means meas (y) lags ref (x)
+    k = int(np.argmax(cc_seg))
+    # sub-sample parabolic refinement
+    if 0 < k < len(cc_seg) - 1:
+        y0, y1, y2 = cc_seg[k-1], cc_seg[k], cc_seg[k+1]
+        denom = (y0 - 2*y1 + y2)
+        d = 0.0 if abs(denom) < 1e-20 else 0.5 * (y0 - y2) / denom
+    else:
+        d = 0.0
+
+    lag_samples = lags_seg[k] + d
+    return (lag_samples / fs) * 1000.0
 
 def _align_by_integer_delay(x, y, delay_ms, fs):
     """Advance y by the integer number of samples implied by +delay (y lags)."""
@@ -68,10 +96,8 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     fs = float(config.sampleRate)
 
     # --- Find delay on a stable centered window ---
-    delay_window_size = min(x.size, 32768)
-    start = (x.size - delay_window_size) // 2
-    end = start + delay_window_size
-    delay_ms = find_delay_ms(x[start:end], y[start:end], config.sampleRate)
+    MAX_DELAY_MS = getattr(config, "maxDelayMs", 300.0)
+    delay_ms = find_delay_ms(x, y, config.sampleRate, max_ms=MAX_DELAY_MS)
     tau = delay_ms / 1000.0  # seconds (meas lags ref by +tau)
 
     # --- ALIGN BY INTEGER DELAY BEFORE PSD/CSD ---
