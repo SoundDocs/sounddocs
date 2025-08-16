@@ -236,20 +236,35 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         Pyx *= np.exp(1j * 2 * np.pi * freqs * tau_frac)
 
     H = Pyx / Pxx
-    ir = np.fft.irfft(H, n=nperseg)
-    ir = np.roll(ir, nperseg // 2)
-    
     mag_db = 20.0 * np.log10(np.abs(H) + eps)
     phase_deg = np.angle(H, deg=True)
     coh = (np.abs(Pyx) ** 2) / (Pxx * Pyy + eps)
     coh = np.clip(coh, 0.0, 1.0)
+
+    # Impulse response
+    M = len(freqs)
+    n_ir = 2 * (M - 1)
+    H_ir = H.copy()
+    if _delay["mode"] in ("frozen", "manual"):
+        tau = delay_ms / 1000.0
+        H_ir *= np.exp(-1j * 2 * np.pi * freqs * tau)
+    H_ir[0] = H_ir[0].real + 0j
+    if M > 1:
+        H_ir[-1] = H_ir[-1].real + 0j
+    fade = max(8, M // 64)
+    taper = np.ones(M)
+    taper[:fade] = np.linspace(0, 1, fade)
+    taper[-fade:] = np.linspace(1, 0, fade)
+    H_ir *= taper
+    ir = np.fft.irfft(H_ir, n=n_ir).real
+    ir_plot = np.roll(ir, n_ir // 2)
 
     tf_data = TFData(
         freqs=freqs.tolist(),
         mag_db=mag_db.tolist(),
         phase_deg=phase_deg.tolist(),
         coh=coh.tolist(),
-        ir=ir.tolist(),
+        ir=ir_plot.tolist(),
     )
 
     rms = float(np.sqrt(np.mean(y_eff**2))) or eps

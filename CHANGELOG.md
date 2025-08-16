@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0.0.9] - 2025-08-16
+
+### Fixed
+
+- **Impulse Response Calculation**: Replaced the flawed impulse response calculation with a robust method that correctly handles fractional delay, DC/Nyquist components, and band-edge tapering. This ensures a sharp, accurate impulse response that correctly reflects the system's behavior.
+
 ## [1.5.0.0.8] - 2025-08-16
 
 ### Changed
@@ -15,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Impulse Response Calculation**: Fixed a bug where the impulse response was being calculated after the delay correction, causing the graph to be empty. The calculation is now performed before the delay is applied, ensuring the graph displays correctly.
+- **Impulse Response Calculation**: Fixed a bug where the impulse response was being calculated on the aligned signals, which is incorrect. The calculation is now performed on the original signals and the delay is applied to the impulse response itself, ensuring the graph displays correctly.
 
 ## [1.5.0.0.7] - 2025-08-16
 
