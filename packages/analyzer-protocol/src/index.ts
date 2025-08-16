@@ -133,6 +133,13 @@ export interface CalibrationDoneMessage {
   offset: number;
 }
 
+export interface DelayStatusMessage {
+  type: "delay_status";
+  mode: string;
+  applied_ms: number;
+  raw_ms?: number;
+}
+
 export type AgentMessage =
   | HelloAckMessage
   | DevicesMessage
@@ -140,7 +147,8 @@ export type AgentMessage =
   | StoppedMessage
   | ErrorMessage
   | VersionMessage
-  | CalibrationDoneMessage;
+  | CalibrationDoneMessage
+  | DelayStatusMessage;
 
 // Union type for all messages
 export type ProtocolMessage = ClientMessage | AgentMessage;
@@ -167,5 +175,6 @@ export function isAgentMessage(msg: ProtocolMessage): msg is AgentMessage {
     "error",
     "version",
     "calibration_done",
+    "delay_status",
   ].includes(msg.type);
 }

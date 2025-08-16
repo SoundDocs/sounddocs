@@ -71,7 +71,13 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
 
     elif message.type in ("delay_freeze", "freeze_delay"):
         enabled = bool(getattr(message, "enabled", getattr(message, "enable", True)))
-        dsp.delay_freeze(enabled)
+        # read from pydantic model if present, else raw dict (so strict schemas don't drop it)
+        applied = getattr(message, "applied_ms", None)
+        if applied is None:
+            applied = getattr(message, "appliedDelayMs", None)
+        if applied is None:
+            applied = message_data.get("applied_ms", message_data.get("appliedDelayMs", None))
+        dsp.delay_freeze(enabled, applied)
         await ws.send(json.dumps({"type": "delay_status", **dsp.delay_status()}))
 
     elif message.type == "set_manual_delay":

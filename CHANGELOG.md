@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1.1.0.4] - 2025-08-16
+
+### Fixed
+
+- **Analyzer Pro**: Fixed a regression where the "Freeze Delay" button was unresponsive. The UI now correctly sends the `appliedDelayMs` to the agent and immediately updates its state upon receiving the `delay_status` acknowledgment, ensuring a responsive user experience.
+- **Capture Agent**: The agent now correctly uses the `applied_ms` value sent from the client when freezing the delay.
+- **Protocol**: Added the `DelayStatusMessage` to the `AgentMessage` type definition to resolve TypeScript errors.
+
 ## [1.5.1.1.0.3] - 2025-08-16
 
 ### Fixed

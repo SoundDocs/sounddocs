@@ -38,6 +38,14 @@ const AnalyzerProPage: React.FC = () => {
         setSampleRate(lastMessage.sampleRate);
         setDelayMode(lastMessage.delay_mode);
         setAppliedDelayMs(lastMessage.applied_delay_ms);
+      } else if (lastMessage.type === "delay_status") {
+        // immediate UI feedback when you click the button
+        if (typeof lastMessage.applied_ms === "number") {
+          setAppliedDelayMs(lastMessage.applied_ms);
+        }
+        if (typeof lastMessage.mode === "string") {
+          setDelayMode(lastMessage.mode);
+        }
       }
     }
   }, [lastMessage]);
@@ -84,7 +92,7 @@ const AnalyzerProPage: React.FC = () => {
                 onStartCapture={(config) => sendMessage({ type: "start", ...config })}
                 onStopCapture={() => sendMessage({ type: "stop" })}
                 onFreezeDelay={(enable) =>
-                  sendMessage({ type: "delay_freeze", enable, applied_ms: delayMs })
+                  sendMessage({ type: "delay_freeze", enable, applied_ms: appliedDelayMs })
                 }
                 delayMode={delayMode}
                 appliedDelayMs={appliedDelayMs}
@@ -93,8 +101,10 @@ const AnalyzerProPage: React.FC = () => {
                 <h3 className="text-lg font-semibold text-white mb-2">Live Measurements</h3>
                 <div className="flex items-center space-x-4">
                   <div className="text-center">
-                    <div className="text-3xl font-mono text-green-400">{delayMs.toFixed(2)}</div>
-                    <div className="text-sm text-gray-400">Delay (ms)</div>
+                    <div className="text-3xl font-mono text-green-400">
+                      {appliedDelayMs.toFixed(2)}
+                    </div>
+                    <div className="text-sm text-gray-400">Applied Delay (ms)</div>
                   </div>
                 </div>
               </div>
