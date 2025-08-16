@@ -107,7 +107,10 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
   };
 
   const impulseData = {
-    labels: tfData?.ir?.map((_, i) => i),
+    labels: tfData?.ir?.map((_, i) => {
+      const center = Math.floor((tfData?.ir?.length || 0) / 2);
+      return ((i - center) / 48) * 1000;
+    }),
     datasets: [
       {
         label: "Impulse Response",
@@ -134,6 +137,8 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
               ...chartOptions.scales,
               x: {
                 type: "linear",
+                min: -8,
+                max: 8,
                 ticks: { color: "#9CA3AF" },
                 grid: { color: "#4B5563" },
               },

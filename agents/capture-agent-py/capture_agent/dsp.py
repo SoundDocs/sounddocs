@@ -241,6 +241,7 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     coh = (np.abs(Pyx) ** 2) / (Pxx * Pyy + eps)
     coh = np.clip(coh, 0.0, 1.0)
     ir = np.fft.irfft(H, n=nperseg)
+    ir = np.roll(ir, nperseg // 2)
 
     tf_data = TFData(
         freqs=freqs.tolist(),

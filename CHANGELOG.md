@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0.0.7] - 2025-08-16
+
+### Changed
+
+- **Impulse Response Graph**: The impulse response graph now displays a range of -8ms to +8ms, providing a more focused view of the impulse.
+
 ## [1.5.0.0.6] - 2025-08-16
 
 ### Added
