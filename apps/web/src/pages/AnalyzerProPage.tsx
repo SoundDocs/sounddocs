@@ -21,6 +21,7 @@ const AnalyzerProPage: React.FC = () => {
   const [sampleRate, setSampleRate] = useState<number>(48000);
   const [delayMode, setDelayMode] = useState<string>("auto");
   const [appliedDelayMs, setAppliedDelayMs] = useState<number>(0);
+  const [isCapturing, setIsCapturing] = useState(false);
 
   useEffect(() => {
     if (status === "connected") {
@@ -33,11 +34,14 @@ const AnalyzerProPage: React.FC = () => {
       if (lastMessage.type === "devices") {
         setDevices(lastMessage.items);
       } else if (lastMessage.type === "frame") {
+        setIsCapturing(true);
         setTfData(lastMessage.tf);
         setDelayMs(lastMessage.delay_ms);
         setSampleRate(lastMessage.sampleRate);
         setDelayMode(lastMessage.delay_mode);
         setAppliedDelayMs(lastMessage.applied_delay_ms);
+      } else if (lastMessage.type === "stopped") {
+        setIsCapturing(false);
       } else if (lastMessage.type === "delay_status") {
         // immediate UI feedback when you click the button
         if (typeof lastMessage.applied_ms === "number") {
@@ -89,13 +93,20 @@ const AnalyzerProPage: React.FC = () => {
             <>
               <ProSettings
                 devices={devices}
-                onStartCapture={(config) => sendMessage({ type: "start", ...config })}
-                onStopCapture={() => sendMessage({ type: "stop" })}
+                onStartCapture={(config) => {
+                  sendMessage({ type: "start", ...config });
+                  setIsCapturing(true);
+                }}
+                onStopCapture={() => {
+                  sendMessage({ type: "stop" });
+                  setIsCapturing(false);
+                }}
                 onFreezeDelay={(enable) =>
                   sendMessage({ type: "delay_freeze", enable, applied_ms: appliedDelayMs })
                 }
                 delayMode={delayMode}
                 appliedDelayMs={appliedDelayMs}
+                isCapturing={isCapturing}
               />
               <div className="bg-gray-800 p-4 rounded-lg shadow-inner">
                 <h3 className="text-lg font-semibold text-white mb-2">Live Measurements</h3>

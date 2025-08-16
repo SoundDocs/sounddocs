@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1.1.0.5] - 2025-08-16
+
+### Fixed
+
+- **Analyzer Pro**: Fixed a bug where the "Freeze Delay" button would become unresponsive. The `isCapturing` state is now managed by the parent `AnalyzerProPage` component, ensuring the button's state is always in sync with the server.
+
 ## [1.5.1.1.0.4] - 2025-08-16
 
 ### Fixed

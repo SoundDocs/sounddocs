@@ -9,6 +9,7 @@ interface ProSettingsProps {
   onFreezeDelay: (enabled: boolean) => void;
   delayMode?: string;
   appliedDelayMs?: number;
+  isCapturing: boolean;
 }
 
 export const ProSettings: React.FC<ProSettingsProps> = ({
@@ -18,8 +19,8 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
   onFreezeDelay,
   delayMode,
   appliedDelayMs,
+  isCapturing,
 }) => {
-  const [isCapturing, setIsCapturing] = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [refChan, setRefChan] = useState<number>(1);
   const [measChan, setMeasChan] = useState<number>(2);
@@ -52,12 +53,10 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
       lpfFreq: 0,
     };
     onStartCapture(config);
-    setIsCapturing(true);
   };
 
   const handleStop = () => {
     onStopCapture();
-    setIsCapturing(false);
   };
 
   const handleFreezeClick = () => {

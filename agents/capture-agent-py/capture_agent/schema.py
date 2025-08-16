@@ -63,9 +63,10 @@ class CalibrateMessage(BaseModel):
 class GetVersionMessage(BaseModel):
     type: Literal["get_version"]
 
-class FreezeDelayMessage(BaseModel):
-    type: Literal["freeze_delay"]
-    enabled: bool
+class DelayFreezeMessage(BaseModel):
+    type: Literal["delay_freeze"]
+    enable: bool
+    applied_ms: float | None = None
 
 class SetManualDelayMessage(BaseModel):
     type: Literal["set_manual_delay"]
@@ -118,7 +119,7 @@ ClientMessage = Union[
     StopCaptureMessage,
     CalibrateMessage,
     GetVersionMessage,
-    FreezeDelayMessage,
+    DelayFreezeMessage,
     SetManualDelayMessage,
 ]
 
