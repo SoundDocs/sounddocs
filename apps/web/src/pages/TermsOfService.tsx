@@ -37,7 +37,7 @@ const TermsOfService = () => {
           <h1 className="text-3xl font-bold text-white mb-6">Terms of Service</h1>
 
           <div className="prose prose-invert max-w-none">
-            <p className="text-gray-300 mb-6">Last Updated: April 24, 2025</p>
+            <p className="text-gray-300 mb-6">Last Updated: August 16, 2025</p>
 
             <h2 className="text-xl font-semibold text-white mt-8 mb-4">1. Acceptance of Terms</h2>
             <p className="text-gray-300 mb-4">
@@ -54,6 +54,12 @@ const TermsOfService = () => {
               professionals to create, edit, and share technical documentation such as patch sheets
               and stage plots. Our services include creating, storing, and exporting these documents
               in various formats.
+            </p>
+            <p className="text-gray-300 mb-4">
+              The AcoustIQ Pro feature requires the use of a local Capture Agent application. This
+              application processes audio from your device in real-time and does not record, store,
+              or transmit any raw audio data. By using the AcoustIQ Pro feature, you agree to run
+              the Capture Agent on your local machine.
             </p>
 
             <h2 className="text-xl font-semibold text-white mt-8 mb-4">3. User Accounts</h2>
@@ -162,8 +168,8 @@ const TermsOfService = () => {
 
             <h2 className="text-xl font-semibold text-white mt-8 mb-4">10. Governing Law</h2>
             <p className="text-gray-300 mb-4">
-              These Terms shall be governed and construed in accordance with the laws of the United
-              States, without regard to its conflict of law provisions.
+              These Terms shall be governed and construed in accordance with the laws of the State
+              of Colorado, United States, without regard to its conflict of law provisions.
             </p>
             <p className="text-gray-300 mb-4">
               Our failure to enforce any right or provision of these Terms will not be considered a

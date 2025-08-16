@@ -37,7 +37,7 @@ const PrivacyPolicy = () => {
           <h1 className="text-3xl font-bold text-white mb-6">Privacy Policy</h1>
 
           <div className="prose prose-invert max-w-none">
-            <p className="text-gray-300 mb-6">Last Updated: April 24, 2025</p>
+            <p className="text-gray-300 mb-6">Last Updated: August 16, 2025</p>
 
             <h2 className="text-xl font-semibold text-white mt-8 mb-4">1. Introduction</h2>
             <p className="text-gray-300 mb-4">
@@ -133,7 +133,18 @@ const PrivacyPolicy = () => {
               some features of our service.
             </p>
 
-            <h2 className="text-xl font-semibold text-white mt-8 mb-4">9. Third-Party Services</h2>
+            <h2 className="text-xl font-semibold text-white mt-8 mb-4">
+              9. Sharing of Your Information
+            </h2>
+            <p className="text-gray-300 mb-4">
+              Our service allows you to share your documents with others via a unique link. When you
+              share a document, anyone with the link will be able to view its contents. You are
+              responsible for managing who you share these links with. We do not share your personal
+              information or documents with any third parties, except as necessary to provide the
+              service (e.g., our database provider, Supabase) or as required by law.
+            </p>
+
+            <h2 className="text-xl font-semibold text-white mt-8 mb-4">10. Third-Party Services</h2>
             <p className="text-gray-300 mb-4">
               We may employ third-party companies and individuals to facilitate our service, provide
               the service on our behalf, perform service-related tasks, or assist us in analyzing
@@ -142,7 +153,7 @@ const PrivacyPolicy = () => {
               for any other purpose.
             </p>
 
-            <h2 className="text-xl font-semibold text-white mt-8 mb-4">10. Children's Privacy</h2>
+            <h2 className="text-xl font-semibold text-white mt-8 mb-4">11. Children's Privacy</h2>
             <p className="text-gray-300 mb-4">
               Our service is not intended for use by children under the age of 13. We do not
               knowingly collect personally identifiable information from children under 13. If we
@@ -151,7 +162,19 @@ const PrivacyPolicy = () => {
             </p>
 
             <h2 className="text-xl font-semibold text-white mt-8 mb-4">
-              11. Changes to This Privacy Policy
+              12. AcoustIQ Capture Agent
+            </h2>
+            <p className="text-gray-300 mb-4">
+              Our AcoustIQ Pro audio analysis feature uses a local application called the Capture
+              Agent. The Capture Agent processes audio from your selected audio interface in
+              real-time on your local machine. It does **not** record, store, or transmit any raw
+              audio. Only the resulting anonymized analysis data (such as frequency spectrum and SPL
+              levels) is sent to the browser for visualization. All audio processing happens locally
+              on your computer.
+            </p>
+
+            <h2 className="text-xl font-semibold text-white mt-8 mb-4">
+              13. Changes to This Privacy Policy
             </h2>
             <p className="text-gray-300 mb-4">
               We may update our Privacy Policy from time to time. We will notify you of any changes
@@ -159,7 +182,7 @@ const PrivacyPolicy = () => {
               the top. You are advised to review this Privacy Policy periodically for any changes.
             </p>
 
-            <h2 className="text-xl font-semibold text-white mt-8 mb-4">12. Contact Us</h2>
+            <h2 className="text-xl font-semibold text-white mt-8 mb-4">14. Contact Us</h2>
             <p className="text-gray-300 mb-4">
               If you have any questions about this Privacy Policy, please contact us at
               contact@sounddocs.org.
