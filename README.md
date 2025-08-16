@@ -107,7 +107,8 @@ Before you begin, make sure you have the following tools installed:
   ```bash
   npm install -g pnpm
   ```
-- **Supabase CLI**: Required for running the backend services locally. Follow the official installation guide for your OS: [Supabase CLI Docs](https://supabase.com/docs/guides/cli).
+- **Docker**: The Supabase CLI uses Docker to run the local development environment. [Install Docker](https://docs.docker.com/get-docker/).
+- **Supabase CLI**: Required for managing the local Supabase stack. Follow the official installation guide for your OS: [Supabase CLI Docs](https://supabase.com/docs/guides/cli).
 - **Python**: v3.11+ is required for the capture agent.
 - **mkcert**: A tool for creating trusted local SSL certificates. The capture agent's `run` script will attempt to install this for you if you have Homebrew (macOS) or Chocolatey (Windows) installed.
 
@@ -127,7 +128,7 @@ First, set up the main web application.
     pnpm install
     ```
 3.  **Start Local Supabase Services**:
-    This command starts all the necessary backend services (database, auth, etc.) in Docker containers.
+    This command uses Docker to start all the necessary backend services (database, auth, etc.).
     ```bash
     supabase start
     ```
