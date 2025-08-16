@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1.0.1] - 2025-08-16
+
+### Changed
+
+- **Delay Finder**: Increased the default maximum delay fallback from 300ms to 500ms to improve accuracy in larger spaces.
+
 ## [1.5.1] - 2025-08-16
 
 ### Changed

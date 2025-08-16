@@ -180,7 +180,7 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     fs = float(config.sampleRate)
 
     # Delay (linear GCC-PHAT you already implemented)
-    MAX_DELAY_MS = getattr(config, "maxDelayMs", 300.0)
+    MAX_DELAY_MS = getattr(config, "maxDelayMs", 500.0)
     delay_ms, _ = _delay_pick_applied(x, y, fs, max_ms=MAX_DELAY_MS)
 
     # Integer align with zero-padding (preserve length) + fractional remainder
