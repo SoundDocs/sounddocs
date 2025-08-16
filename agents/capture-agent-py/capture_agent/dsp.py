@@ -240,12 +240,14 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     phase_deg = np.angle(H, deg=True)
     coh = (np.abs(Pyx) ** 2) / (Pxx * Pyy + eps)
     coh = np.clip(coh, 0.0, 1.0)
+    ir = np.fft.irfft(H, n=nperseg)
 
     tf_data = TFData(
         freqs=freqs.tolist(),
         mag_db=mag_db.tolist(),
         phase_deg=phase_deg.tolist(),
         coh=coh.tolist(),
+        ir=ir.tolist(),
     )
 
     rms = float(np.sqrt(np.mean(y_eff**2))) or eps

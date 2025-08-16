@@ -13,6 +13,7 @@ export interface TFData {
   mag_db: number[];
   phase_deg: number[];
   coh: number[];
+  ir: number[];
 }
 
 export interface SPLData {

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0.0.6] - 2025-08-16
+
+### Added
+
+- **Impulse Response Graph**: Added a new impulse response graph to the Analyzer Pro page. This graph is displayed between the phase response and coherence graphs, providing a more complete analysis of the audio system.
+- **Impulse Response Calculation**: Implemented the impulse response calculation in the capture agent's DSP script. The agent now computes and transmits the impulse response data to the web app, making the graph fully functional.
+
 ## [1.5.0.0.5] - 2025-08-15
 
 ### Added

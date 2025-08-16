@@ -106,6 +106,18 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
     ],
   };
 
+  const impulseData = {
+    labels: tfData?.ir?.map((_, i) => i),
+    datasets: [
+      {
+        label: "Impulse Response",
+        data: tfData?.ir || [],
+        borderColor: "#34D399",
+        backgroundColor: "#34D399",
+      },
+    ],
+  };
+
   return (
     <div className={`space-y-4 ${className}`}>
       <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
@@ -113,6 +125,22 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
       </div>
       <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
         <Line options={chartOptions} data={phaseData} />
+      </div>
+      <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
+        <Line
+          options={{
+            ...chartOptions,
+            scales: {
+              ...chartOptions.scales,
+              x: {
+                type: "linear",
+                ticks: { color: "#9CA3AF" },
+                grid: { color: "#4B5563" },
+              },
+            },
+          }}
+          data={impulseData}
+        />
       </div>
       <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
         <Line

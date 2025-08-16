@@ -10,8 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@sounddocs/analyzer-protocol": "workspace:*",
     "@sounddocs/analyzer-lite": "workspace:*",
+    "@sounddocs/analyzer-protocol": "workspace:*",
     "@supabase/supabase-js": "^2.49.4",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1",
@@ -23,7 +23,7 @@
     "react-draggable": "^4.4.6",
     "react-helmet": "^6.1.0",
     "react-resizable": "^3.0.5",
-    "react-router-dom": "^6.22.3",
+    "react-router-dom": "^6.30.1",
     "uuid": "^11.1.0",
     "zustand": "^4.4.7"
   },
