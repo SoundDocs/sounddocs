@@ -253,9 +253,8 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     M = len(freqs)
     n_ir = 2 * (M - 1)
     H_ir = H.copy()
-    if _delay["mode"] in ("frozen", "manual"):
-        tau = delay_ms / 1000.0
-        H_ir *= np.exp(-1j * 2 * np.pi * freqs * tau)
+    # Note: When frozen/manual, we're already aligning signals with the frozen delay,
+    # so we don't need additional phase rotation - just compute IR from the aligned TF
     H_ir[0] = H_ir[0].real + 0j
     if M > 1:
         H_ir[-1] = H_ir[-1].real + 0j
