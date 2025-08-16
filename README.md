@@ -109,8 +109,12 @@ Before you begin, make sure you have the following tools installed:
   ```
 - **Docker**: The Supabase CLI uses Docker to run the local development environment. [Install Docker](https://docs.docker.com/get-docker/).
 - **Supabase CLI**: Required for managing the local Supabase stack. Follow the official installation guide for your OS: [Supabase CLI Docs](https://supabase.com/docs/guides/cli).
-- **Python**: v3.11+ is required for the capture agent.
-- **mkcert**: A tool for creating trusted local SSL certificates. The capture agent's `run` script will attempt to install this for you if you have Homebrew (macOS) or Chocolatey (Windows) installed.
+- **Python**: v3.11+ is required for generating the SSL certificate.
+- **mkcert**: A tool for creating trusted local SSL certificates.
+  - **macOS**: `brew install mkcert`
+  - **Windows**: `choco install mkcert`
+  - **Linux**: Follow the [mkcert installation guide](https://github.com/FiloSottile/mkcert#installation).
+    After installing, run `mkcert -install` to create a local Certificate Authority.
 
 #### 1. Web App Setup
 
@@ -147,7 +151,7 @@ First, set up the main web application.
     cd ../..
     ```
 
-    The script uses `mkcert` and may prompt for your password to install a local Certificate Authority (CA). This is a crucial one-time step.
+    This script uses `mkcert` to generate the necessary certificate files.
 
 6.  **Start the Development Server**:
     Now you can start the web app.
