@@ -64,15 +64,68 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
     lag_samples = lags_seg[k] + d
     return (lag_samples / fs) * 1000.0
 
-_delay_ms_ema = None
+# ---- Delay state ----
+_delay = {
+    "mode": "auto",         # "auto" | "frozen" | "manual"
+    "ema_ms": None,         # smoothed auto delay
+    "frozen_ms": 0.0,       # value latched when freezing
+    "manual_ms": 0.0,       # operator-set delay
+    "alpha": 0.9,           # EMA factor
+    "last_raw_ms": None,    # optional: for UI visibility
+}
 
-def smooth_delay_ms(new_ms, alpha=0.9):
-    global _delay_ms_ema
-    if _delay_ms_ema is None:
-        _delay_ms_ema = new_ms
+def reset_dsp_state():
+    _delay.update({"mode":"auto","ema_ms":None,"frozen_ms":0.0,"manual_ms":0.0,"last_raw_ms":None})
+
+def delay_freeze(enable: bool):
+    if enable:
+        # If we have an EMA use it, otherwise freeze at zero until first valid frame
+        if _delay["ema_ms"] is not None:
+            _delay["frozen_ms"] = float(_delay["ema_ms"])
+        _delay["mode"] = "frozen"
     else:
-        _delay_ms_ema = alpha*_delay_ms_ema + (1-alpha)*new_ms
-    return _delay_ms_ema
+        _delay["mode"] = "auto"
+
+def delay_set_manual(ms: float | None):
+    if ms is None:
+        _delay["mode"] = "auto"
+    else:
+        _delay["manual_ms"] = float(ms)
+        _delay["mode"] = "manual"
+
+def _delay_pick_applied(x: np.ndarray, y: np.ndarray, fs: float, max_ms: float) -> tuple[float, float | None]:
+    """
+    Returns (applied_delay_ms, raw_measured_ms_or_None).
+    Skips GCC-PHAT when frozen/manual to save CPU and to keep the value fixed.
+    """
+    mode = _delay["mode"]
+    if mode == "auto":
+        raw = find_delay_ms(x, y, fs, max_ms=max_ms)
+        _delay["last_raw_ms"] = raw
+        ema = _delay["ema_ms"]
+        alpha = _delay["alpha"]
+        ema = raw if ema is None else alpha*ema + (1.0-alpha)*raw
+        _delay["ema_ms"] = ema
+        return float(ema), float(raw)
+    elif mode == "frozen":
+        raw = None  # not updated
+        # If we somehow froze before any EMA existed, fall back to 0.0
+        applied = _delay["frozen_ms"] if _delay["ema_ms"] is not None else 0.0
+        return float(applied), raw
+    else:  # "manual"
+        raw = None
+        return float(_delay["manual_ms"]), raw
+
+def delay_status() -> dict:
+    return {
+        "mode": _delay["mode"],
+        "applied_ms": (
+            _delay["ema_ms"] if _delay["mode"]=="auto" else
+            _delay["frozen_ms"] if _delay["mode"]=="frozen" else
+            _delay["manual_ms"]
+        ) or 0.0,
+        "raw_ms": _delay["last_raw_ms"],
+    }
 
 def _align_by_integer_delay_pad(x: np.ndarray, y: np.ndarray, delay_ms: float, fs: float):
     """
@@ -128,8 +181,7 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
 
     # Delay (linear GCC-PHAT you already implemented)
     MAX_DELAY_MS = getattr(config, "maxDelayMs", 300.0)
-    delay_ms_raw = find_delay_ms(x, y, config.sampleRate, max_ms=MAX_DELAY_MS)
-    delay_ms = smooth_delay_ms(delay_ms_raw, alpha=0.9)
+    delay_ms, _ = _delay_pick_applied(x, y, fs, max_ms=MAX_DELAY_MS)
 
     # Integer align with zero-padding (preserve length) + fractional remainder
     y_al, frac_samples, D_int, _ = _align_by_integer_delay_pad(x, y, delay_ms, fs)

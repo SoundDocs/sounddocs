@@ -60,6 +60,7 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
         if capture_task and not capture_task.done():
             await send_error(ws, "Capture is already in progress.")
             return
+        dsp.reset_dsp_state()
         config = CaptureConfig(**message.dict())
         capture_task = asyncio.create_task(run_capture(ws, config))
 
@@ -67,6 +68,22 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
         if capture_task and not capture_task.done():
             capture_task.cancel()
             capture_task = None
+
+    elif message.type == "freeze_delay":
+        enabled = bool(getattr(message, "enabled", True))
+        dsp.delay_freeze(enabled)
+        await ws.send(json.dumps({
+            "type": "delay_status",
+            **dsp.delay_status()
+        }))
+
+    elif message.type == "set_manual_delay":
+        ms = getattr(message, "delay_ms", None)
+        dsp.delay_set_manual(ms)
+        await ws.send(json.dumps({
+            "type": "delay_status",
+            **dsp.delay_status()
+        }))
 
 async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
     loop = asyncio.get_running_loop()
@@ -139,6 +156,7 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
                 tf_data, spl_data, delay_ms = dsp.compute_metrics(analysis_buffer, config)
                 now = time.monotonic()
                 if now - last_send >= send_interval:
+                    status = dsp.delay_status()
                     frame = FrameMessage(
                         type="frame",
                         tf=tf_data,
@@ -146,6 +164,8 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
                         delay_ms=delay_ms,
                         latency_ms=float(stream.latency)*1000.0 if hasattr(stream, "latency") else 0.0,
                         ts=int(time.time() * 1000),
+                        delay_mode=status["mode"],
+                        applied_delay_ms=status["applied_ms"],
                     )
                     await ws.send(json.dumps(frame.dict()))
                     last_send = now

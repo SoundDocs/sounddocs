@@ -62,6 +62,14 @@ class CalibrateMessage(BaseModel):
 class GetVersionMessage(BaseModel):
     type: Literal["get_version"]
 
+class FreezeDelayMessage(BaseModel):
+    type: Literal["freeze_delay"]
+    enabled: bool
+
+class SetManualDelayMessage(BaseModel):
+    type: Literal["set_manual_delay"]
+    delay_ms: float | None = None
+
 # Message types from agent to client
 class HelloAckMessage(BaseModel):
     type: Literal["hello_ack"]
@@ -79,6 +87,8 @@ class FrameMessage(BaseModel):
     delay_ms: float
     latency_ms: float
     ts: int
+    delay_mode: str | None = None
+    applied_delay_ms: float | None = None
 
 class StoppedMessage(BaseModel):
     type: Literal["stopped"]
@@ -106,6 +116,8 @@ ClientMessage = Union[
     StopCaptureMessage,
     CalibrateMessage,
     GetVersionMessage,
+    FreezeDelayMessage,
+    SetManualDelayMessage,
 ]
 
 AgentMessage = Union[

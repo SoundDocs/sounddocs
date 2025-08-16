@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0.0.5] - 2025-08-15
+
+### Added
+
+- **Freeze Delay**: Added a "Freeze Delay" feature to the capture agent. This allows users to lock the delay finder's current measurement, enabling them to see how physical changes in their system affect the phase response in real-time without the agent automatically re-aligning the signals. A manual delay entry mode was also added for precise control.
+
 ## [1.5.0.0.4] - 2025-08-15
 
 ### Fixed
