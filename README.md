@@ -46,82 +46,164 @@ SoundDocs empowers you to manage event audio documentation efficiently:
 - **Icons**: Lucide React
 - **State Management**: React Context API / Zustand (for more complex states)
 - **Routing**: React Router 6
-- **Exporting**: `html2canvas` for image generation
+- **Exporting**: `jspdf` for PDF generation
 
 ### Backend
 
 - **Authentication**: Supabase Auth
 - **Database**: Supabase (PostgreSQL)
 - **Real-time Features**: Supabase Realtime
-- **Storage**: Supabase Storage (for user uploads, templates)
+- **Storage**: Supabase (PostgreSQL)
 
-## 🚀 Get Started / Self-Host
+## 🚀 Development
 
-### Prerequisites
+This guide provides instructions for setting up the SoundDocs project for local development.
 
-- Node.js v18+ (LTS recommended)
-- A Supabase account (the free tier is sufficient to get started)
+### Quick Start
 
-### Installation & Setup
+For experienced developers, here are the essential commands to get the project running:
 
-1.  **Clone the Repository:**
+1.  **Clone and Checkout `beta` Branch**:
     ```bash
     git clone https://github.com/SoundDocs/sounddocs.git
     cd sounddocs
+    git checkout beta
     ```
-2.  **Install Dependencies:**
+2.  **Install Dependencies**:
     ```bash
-    npm install
+    pnpm install
     ```
-3.  **Environment Variables:**
-    Create a `.env` file in the project root and add your Supabase credentials:
+3.  **Start Local Supabase Services**:
+    ```bash
+    supabase start
+    ```
+4.  **Set Up Web App Environment**:
+    Copy the local Supabase credentials output by the previous command into a new `.env` file in `apps/web`.
+5.  **Generate SSL Certificate**:
+    ```bash
+    cd agents/capture-agent-py
+    python3 generate_cert.py
+    cd ../..
+    ```
+6.  **Start the Web App**:
+    ```bash
+    pnpm dev
+    ```
+7.  **(Optional) Run Capture Agent**:
+    If developing agent-related features:
+    ```bash
+    cd agents/capture-agent-py
+    ./run.sh # or run.bat
+    ```
+
+### Detailed Setup Guide
+
+#### Prerequisites
+
+Before you begin, make sure you have the following tools installed:
+
+- **Node.js**: v18+ (LTS recommended).
+- **pnpm**: This project uses `pnpm` for package management. If you don't have it, install it globally:
+  ```bash
+  npm install -g pnpm
+  ```
+- **Supabase CLI**: Required for running the backend services locally. Follow the official installation guide for your OS: [Supabase CLI Docs](https://supabase.com/docs/guides/cli).
+- **Python**: v3.11+ is required for the capture agent.
+- **mkcert**: A tool for creating trusted local SSL certificates. The capture agent's `run` script will attempt to install this for you if you have Homebrew (macOS) or Chocolatey (Windows) installed.
+
+#### 1. Web App Setup
+
+First, set up the main web application.
+
+1.  **Clone the Repository and Checkout `beta`**:
+    All development should be done on the `beta` branch.
+    ```bash
+    git clone https://github.com/SoundDocs/sounddocs.git
+    cd sounddocs
+    git checkout beta
+    ```
+2.  **Install Dependencies**:
+    ```bash
+    pnpm install
+    ```
+3.  **Start Local Supabase Services**:
+    This command starts all the necessary backend services (database, auth, etc.) in Docker containers.
+    ```bash
+    supabase start
+    ```
+4.  **Set Up Environment Variables**:
+    After `supabase start` completes, it will output your local credentials (API URL and anon key). Create a new file at `apps/web/.env` and add the credentials to it:
     ```env
-    VITE_SUPABASE_URL=your-supabase-project-url
+    VITE_SUPABASE_URL=http://127.0.0.1:54321
+    VITE_SUPABASE_ANON_KEY=your-local-anon-key-from-the-cli
+    ```
+5.  **Generate SSL Certificate**:
+    The Vite development server requires a trusted SSL certificate to run over HTTPS.
+
+    ```bash
+    cd agents/capture-agent-py
+    python3 generate_cert.py
+    cd ../..
+    ```
+
+    The script uses `mkcert` and may prompt for your password to install a local Certificate Authority (CA). This is a crucial one-time step.
+
+6.  **Start the Development Server**:
+    Now you can start the web app.
+    ```bash
+    pnpm dev
+    ```
+    The application will be available at `https://localhost:5173` (or the next available port).
+
+#### 2. (Optional) Capture Agent Development
+
+If you are working on features related to the "AcoustIQ Pro" audio analyzer, you will need to run the Python-based capture agent locally. The HTTPS dev server is a prerequisite for the secure WebSocket (`wss://`) connection the agent uses.
+
+1.  **Navigate to the Agent Directory**:
+    In a **new terminal window** (leaving the web app server running), go to the agent's directory:
+    ```bash
+    cd agents/capture-agent-py
+    ```
+2.  **Run the Agent**:
+    The `run` script handles installing dependencies and starting the agent.
+
+    - **macOS/Linux**: `./run.sh`
+    - **Windows**: `run.bat`
+
+    The agent will now be running and can communicate with the web app.
+
+_This section has been moved and integrated into the main setup guide._
+
+## 🌐 Self-Hosting
+
+To self-host SoundDocs, you will need a remote Supabase project.
+
+1.  **Clone the Repository and Install Dependencies**:
+    Follow steps 1 and 2 from the "Web App Setup" section.
+2.  **Create a Supabase Project**:
+    Go to [Supabase](https://supabase.com/) and create a new project.
+3.  **Set Up Environment Variables**:
+    Create a file at `apps/web/.env` and add your remote Supabase project's credentials:
+    ```env
+    VITE_SUPABASE_URL=your-supabase-project-url (looks like https://(projecturl).supabase.co)
     VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
     ```
-    _You can find these in your Supabase project settings._
-4.  **Database Migrations:**
-    Apply the necessary database schema. Navigate to the Supabase SQL Editor in your project dashboard and run the migration files located in `/supabase/migrations`.
-5.  **Start the Development Server:**
+    You can find these in your Supabase project's API settings.
+4.  **Apply Database Migrations**:
+    In your Supabase project dashboard, go to the "SQL Editor" and run the contents of the migration files located in the `/supabase/migrations` directory in chronological order.
+5.  **Build and Deploy**:
+    Build the application and deploy the contents of the `apps/web/dist` folder to your preferred hosting provider (e.g., Vercel, Netlify, AWS S3).
     ```bash
-    npm run dev
+    pnpm build
     ```
-    The application will be available at `http://localhost:5173` (or the next available port).
-
-## 📖 How to Use SoundDocs
-
-1.  **Navigate** to the live application (e.g., `http://localhost:5173` if running locally, or https://sounddocs.org).
-2.  **Create an Account / Sign In** using email and password.
-3.  **Choose Document Type:** Click New "Patch Sheet", "Stage Plot", "Run of Show", or "Production Schedule".
-4.  **Build Your Setup:**
-    - **Patch Sheets:** Add channels, assign inputs/outputs, specify microphones, DIs, processing, and notes.
-    - **Stage Plots:** Drag and drop elements onto the canvas. Label items, indicate positions, and specify connections.
-    - **Run of Shows:** Define event segments, cues, timings, and responsible personnel. Use Show Mode during the event.
-    - **Production Schedules:** Outline tasks, deadlines, and assignees for all event phases.
-5.  **Save & Export:** Your work is auto-saved. When ready, export your document as a PDF, or generate a shareable link.
 
 ## 🤝 Contributing
 
 We welcome contributions from the community! Whether it's bug fixes, feature enhancements, or documentation improvements, your help is appreciated.
 
-Please review our [Contributing Guidelines](CONTRIBUTING.md) (to be created) and Code of Conduct before submitting a pull request. Join our Discord server to discuss ideas and collaborate: [discord.gg/hVk6tctuHM](https://discord.com/invite/NRcRtyxFQa)
+Please review our [Contributing Guidelines](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests.
 
-### Local Development
-
-Getting set up for local development is currently a tad convoluted. There's an issue to make it better.
-
-Assuming you're on a Mac:
-
-- Install either Docker Desktop or OrbStack if you don't have it already
-- Install Homebrew (https://brew.sh/) if you don't have it already
-- Install nvm (brew install nvm) if you don't have it already
-- Install Node.js LTS Iron (nvm install --lts=iron)
-- Clone the codebase (git clone https://github.com/SoundDocs/sounddocs.git)
-- cd into that directory
-- Ensure you're using Node.js LTS Iron (nvm use --lts=iron)
-- Run npm install
-- Start Supabase locally using npm run local-db
-- Start the app locally using npm run dev
+Join our [Discord server](https://discord.com/invite/NRcRtyxFQa) to discuss ideas and collaborate with the community.
 
 ## 📄 License
 
