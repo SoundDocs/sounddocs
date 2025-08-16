@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1.1.0.1] - 2025-08-16
+
+### Fixed
+
+- **Analyzer Pro**: Fixed a bug where the "Freeze Delay" button would not correctly lock the current delay value.
+
 ## [1.5.1.1] - 2025-08-16
 
 ### Added

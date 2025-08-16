@@ -80,8 +80,7 @@ def reset_dsp_state():
 def delay_freeze(enable: bool):
     if enable:
         # If we have an EMA use it, otherwise freeze at zero until first valid frame
-        if _delay["ema_ms"] is not None:
-            _delay["frozen_ms"] = float(_delay["ema_ms"])
+        _delay["frozen_ms"] = _delay["ema_ms"] or 0.0
         _delay["mode"] = "frozen"
     else:
         _delay["mode"] = "auto"
@@ -109,9 +108,7 @@ def _delay_pick_applied(x: np.ndarray, y: np.ndarray, fs: float, max_ms: float) 
         return float(ema), float(raw)
     elif mode == "frozen":
         raw = None  # not updated
-        # If we somehow froze before any EMA existed, fall back to 0.0
-        applied = _delay["frozen_ms"] if _delay["ema_ms"] is not None else 0.0
-        return float(applied), raw
+        return float(_delay["frozen_ms"]), raw
     else:  # "manual"
         raw = None
         return float(_delay["manual_ms"]), raw
