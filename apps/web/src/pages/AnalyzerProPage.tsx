@@ -19,6 +19,8 @@ const AnalyzerProPage: React.FC = () => {
   const [tfData, setTfData] = useState<TFData | null>(null);
   const [delayMs, setDelayMs] = useState<number>(0);
   const [sampleRate, setSampleRate] = useState<number>(48000);
+  const [delayMode, setDelayMode] = useState<string>("auto");
+  const [appliedDelayMs, setAppliedDelayMs] = useState<number>(0);
 
   useEffect(() => {
     if (status === "connected") {
@@ -34,6 +36,8 @@ const AnalyzerProPage: React.FC = () => {
         setTfData(lastMessage.tf);
         setDelayMs(lastMessage.delay_ms);
         setSampleRate(lastMessage.sampleRate);
+        setDelayMode(lastMessage.delay_mode);
+        setAppliedDelayMs(lastMessage.applied_delay_ms);
       }
     }
   }, [lastMessage]);
@@ -79,7 +83,11 @@ const AnalyzerProPage: React.FC = () => {
                 devices={devices}
                 onStartCapture={(config) => sendMessage({ type: "start", ...config })}
                 onStopCapture={() => sendMessage({ type: "stop" })}
-                onFreezeDelay={(enable) => sendMessage({ type: "delay_freeze", enable })}
+                onFreezeDelay={(enable) =>
+                  sendMessage({ type: "delay_freeze", enable, applied_ms: delayMs })
+                }
+                delayMode={delayMode}
+                appliedDelayMs={appliedDelayMs}
               />
               <div className="bg-gray-800 p-4 rounded-lg shadow-inner">
                 <h3 className="text-lg font-semibold text-white mb-2">Live Measurements</h3>

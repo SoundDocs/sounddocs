@@ -6,7 +6,9 @@ interface ProSettingsProps {
   devices: Device[];
   onStartCapture: (config: CaptureConfig) => void;
   onStopCapture: () => void;
-  onFreezeDelay: (enable: boolean) => void;
+  onFreezeDelay: (enabled: boolean) => void;
+  delayMode?: string;
+  appliedDelayMs?: number;
 }
 
 export const ProSettings: React.FC<ProSettingsProps> = ({
@@ -14,6 +16,8 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
   onStartCapture,
   onStopCapture,
   onFreezeDelay,
+  delayMode,
+  appliedDelayMs,
 }) => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [isDelayFrozen, setIsDelayFrozen] = useState(false);
@@ -62,6 +66,8 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
     setIsDelayFrozen(nextState);
     onFreezeDelay(nextState);
   };
+
+  const canFreeze = delayMode === "auto" && appliedDelayMs !== 0;
 
   const renderChannelOptions = (numChannels: number) => {
     return Array.from({ length: numChannels }, (_, i) => i + 1).map((chan) => (
@@ -138,11 +144,12 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
         {isCapturing && (
           <button
             onClick={handleFreezeClick}
+            disabled={!canFreeze && !isDelayFrozen}
             className={`ml-4 px-4 py-2 flex items-center rounded-lg transition-colors ${
               isDelayFrozen
                 ? "bg-blue-600 hover:bg-blue-500 text-white"
                 : "bg-gray-600 hover:bg-gray-500 text-white"
-            }`}
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             <Snowflake className="h-4 w-4 mr-2" />
             {isDelayFrozen ? "Unfreeze Delay" : "Freeze Delay"}

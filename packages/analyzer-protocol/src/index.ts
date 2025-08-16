@@ -75,6 +75,7 @@ export interface GetVersionMessage {
 export interface DelayFreezeMessage {
   type: "delay_freeze";
   enable: boolean;
+  applied_ms?: number;
 }
 
 export type ClientMessage =
@@ -106,6 +107,8 @@ export interface FrameMessage {
   latency_ms: number;
   ts: number;
   sampleRate: number;
+  delay_mode: string;
+  applied_delay_ms: number;
 }
 
 export interface StoppedMessage {

@@ -69,13 +69,10 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
             capture_task.cancel()
             capture_task = None
 
-    elif message.type == "delay_freeze":
-        enabled = bool(getattr(message, "enable", True))
+    elif message.type in ("delay_freeze", "freeze_delay"):
+        enabled = bool(getattr(message, "enabled", getattr(message, "enable", True)))
         dsp.delay_freeze(enabled)
-        await ws.send(json.dumps({
-            "type": "delay_status",
-            **dsp.delay_status()
-        }))
+        await ws.send(json.dumps({"type": "delay_status", **dsp.delay_status()}))
 
     elif message.type == "set_manual_delay":
         ms = getattr(message, "delay_ms", None)

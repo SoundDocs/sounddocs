@@ -77,10 +77,20 @@ _delay = {
 def reset_dsp_state():
     _delay.update({"mode":"auto","ema_ms":None,"frozen_ms":0.0,"manual_ms":0.0,"last_raw_ms":None})
 
-def delay_freeze(enable: bool):
+def delay_freeze(enable: bool, applied_ms: float | None = None):
     if enable:
-        # If we have an EMA use it, otherwise freeze at zero until first valid frame
-        _delay["frozen_ms"] = _delay["ema_ms"] or 0.0
+        # Prefer explicit value, else the last applied auto/manual value.
+        if applied_ms is not None:
+            ms = float(applied_ms)
+        elif _delay["mode"] == "manual":
+            ms = float(_delay["manual_ms"])
+        elif _delay["ema_ms"] is not None:
+            ms = float(_delay["ema_ms"])
+        else:
+            # no estimate yet; stay in auto until we have one
+            _delay["mode"] = "auto"
+            return
+        _delay["frozen_ms"] = ms
         _delay["mode"] = "frozen"
     else:
         _delay["mode"] = "auto"
@@ -210,8 +220,8 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     window = get_window("hann", nperseg)
 
     # Spectra on effective (non-zero-padded) signal slices
-    freqs, Pyx = csd(
-        y_eff, x_eff, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap,
+    freqs, Pxy = csd(
+        x_eff, y_eff, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap,
         detrend='constant', return_onesided=True, scaling='density'
     )
     _, Pxx = welch(
@@ -230,12 +240,12 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     # Remove tiny fractional remainder with freq rotation
     if abs(frac_samples) > 1e-6:
         tau_frac = frac_samples / fs
-        Pyx *= np.exp(1j * 2 * np.pi * freqs * tau_frac)
+        Pxy *= np.exp(1j * 2 * np.pi * freqs * tau_frac)
 
-    H = Pyx / Pxx
+    H = Pxy / Pxx
     mag_db = 20.0 * np.log10(np.abs(H) + eps)
     phase_deg = np.angle(H, deg=True)
-    coh = (np.abs(Pyx) ** 2) / (Pxx * Pyy + eps)
+    coh = (np.abs(Pxy) ** 2) / (Pxx * Pyy + eps)
     coh = np.clip(coh, 0.0, 1.0)
 
     # Impulse response
