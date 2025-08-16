@@ -91,6 +91,7 @@ def delay_freeze(enable: bool, applied_ms: float | None = None):
             _delay["mode"] = "auto"
             return
         _delay["frozen_ms"] = ms
+        _delay["ema_ms"] = ms    # keep everything consistent
         _delay["mode"] = "frozen"
     else:
         _delay["mode"] = "auto"

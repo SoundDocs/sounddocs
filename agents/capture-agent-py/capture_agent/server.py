@@ -154,16 +154,18 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
                 now = time.monotonic()
                 if now - last_send >= send_interval:
                     status = dsp.delay_status()
+                    applied = status["applied_ms"]
+
                     frame = FrameMessage(
                         type="frame",
                         tf=tf_data,
                         spl=spl_data,
-                        delay_ms=delay_ms,
+                        delay_ms=applied,              # <- show applied, not the local variable
                         latency_ms=float(stream.latency)*1000.0 if hasattr(stream, "latency") else 0.0,
                         ts=int(time.time() * 1000),
                         sampleRate=fs,
                         delay_mode=status["mode"],
-                        applied_delay_ms=status["applied_ms"],
+                        applied_delay_ms=applied,
                     )
                     await ws.send(json.dumps(frame.dict()))
                     last_send = now

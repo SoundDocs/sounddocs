@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1.1.0.3] - 2025-08-16
+
+### Fixed
+
+- **Analyzer Pro**: The "delay finder keeps updating" issue is resolved by ensuring the UI consistently displays the applied delay value from the backend, trusting the backend's `delayMode` as the single source of truth, and removing local frontend state that could cause drift.
+- **Capture Agent**: The agent now sends the applied, latched delay value in every frame to prevent the UI from showing intermediate raw values.
+- **DSP**: Hardened the delay freeze logic by mirroring the frozen value into the EMA state, ensuring consistency across all internal metrics.
+
 ## [1.5.1.1.0.2] - 2025-08-16
 
 ### Fixed

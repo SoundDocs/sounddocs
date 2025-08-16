@@ -20,7 +20,6 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
   appliedDelayMs,
 }) => {
   const [isCapturing, setIsCapturing] = useState(false);
-  const [isDelayFrozen, setIsDelayFrozen] = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [refChan, setRefChan] = useState<number>(1);
   const [measChan, setMeasChan] = useState<number>(2);
@@ -62,12 +61,12 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
   };
 
   const handleFreezeClick = () => {
-    const nextState = !isDelayFrozen;
-    setIsDelayFrozen(nextState);
-    onFreezeDelay(nextState);
+    const enable = delayMode !== "frozen";
+    onFreezeDelay(enable); // must send { type: "delay_freeze", enabled: true/false }
   };
 
-  const canFreeze = delayMode === "auto" && appliedDelayMs !== 0;
+  const isFrozen = delayMode === "frozen";
+  const canFreeze = delayMode === "auto" ? (appliedDelayMs ?? 0) !== 0 : true;
 
   const renderChannelOptions = (numChannels: number) => {
     return Array.from({ length: numChannels }, (_, i) => i + 1).map((chan) => (
@@ -144,15 +143,13 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
         {isCapturing && (
           <button
             onClick={handleFreezeClick}
-            disabled={!canFreeze && !isDelayFrozen}
+            disabled={!isCapturing || (!canFreeze && !isFrozen)}
             className={`ml-4 px-4 py-2 flex items-center rounded-lg transition-colors ${
-              isDelayFrozen
-                ? "bg-blue-600 hover:bg-blue-500 text-white"
-                : "bg-gray-600 hover:bg-gray-500 text-white"
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
+              isFrozen ? "bg-blue-600 hover:bg-blue-500" : "bg-gray-600 hover:bg-gray-500"
+            } text-white disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             <Snowflake className="h-4 w-4 mr-2" />
-            {isDelayFrozen ? "Unfreeze Delay" : "Freeze Delay"}
+            {isFrozen ? "Unfreeze Delay" : "Freeze Delay"}
           </button>
         )}
       </div>
