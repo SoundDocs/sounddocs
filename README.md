@@ -215,10 +215,14 @@ This project is distributed under the GNU AGPLv3 License. See `LICENSE` file for
 ## 🙏 Acknowledgements
 
 - **Supabase Team** for their incredible backend-as-a-service platform.
+- **Vite** for the next-generation frontend tooling.
+- **Tailwind CSS** for the utility-first CSS framework that styles the application.
+- **Zustand** for the simple and powerful state management.
 - **Lucide Icons** for the clean and versatile icon set.
 - **React Draggable & React Resizable** for interactive UI elements.
-- **html2canvas** for the client-side export functionality.
-- The open-source community for tools and libraries that make projects like SoundDocs possible.
+- **WebSockets** and **SoundDevice** for enabling real-time audio communication.
+- **NumPy** and **SciPy** for the powerful signal processing that drives the audio analysis.
+- The open-source community for the countless tools and libraries that make projects like SoundDocs possible.
 
 ## Star History
 
