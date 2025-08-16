@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from "react";
 import { Device, CaptureConfig } from "@sounddocs/analyzer-protocol";
+import { Snowflake } from "lucide-react";
 
 interface ProSettingsProps {
   devices: Device[];
   onStartCapture: (config: CaptureConfig) => void;
   onStopCapture: () => void;
+  onFreezeDelay: (enable: boolean) => void;
 }
 
 export const ProSettings: React.FC<ProSettingsProps> = ({
   devices,
   onStartCapture,
   onStopCapture,
+  onFreezeDelay,
 }) => {
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isDelayFrozen, setIsDelayFrozen] = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [refChan, setRefChan] = useState<number>(1);
   const [measChan, setMeasChan] = useState<number>(2);
@@ -51,6 +55,12 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
   const handleStop = () => {
     onStopCapture();
     setIsCapturing(false);
+  };
+
+  const handleFreezeClick = () => {
+    const nextState = !isDelayFrozen;
+    setIsDelayFrozen(nextState);
+    onFreezeDelay(nextState);
   };
 
   const renderChannelOptions = (numChannels: number) => {
@@ -123,6 +133,19 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
             className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
           >
             Stop Capture
+          </button>
+        )}
+        {isCapturing && (
+          <button
+            onClick={handleFreezeClick}
+            className={`ml-4 px-4 py-2 flex items-center rounded-lg transition-colors ${
+              isDelayFrozen
+                ? "bg-blue-600 hover:bg-blue-500 text-white"
+                : "bg-gray-600 hover:bg-gray-500 text-white"
+            }`}
+          >
+            <Snowflake className="h-4 w-4 mr-2" />
+            {isDelayFrozen ? "Unfreeze Delay" : "Freeze Delay"}
           </button>
         )}
       </div>

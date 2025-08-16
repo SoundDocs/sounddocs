@@ -79,6 +79,7 @@ const AnalyzerProPage: React.FC = () => {
                 devices={devices}
                 onStartCapture={(config) => sendMessage({ type: "start", ...config })}
                 onStopCapture={() => sendMessage({ type: "stop" })}
+                onFreezeDelay={(enable) => sendMessage({ type: "delay_freeze", enable })}
               />
               <div className="bg-gray-800 p-4 rounded-lg shadow-inner">
                 <h3 className="text-lg font-semibold text-white mb-2">Live Measurements</h3>

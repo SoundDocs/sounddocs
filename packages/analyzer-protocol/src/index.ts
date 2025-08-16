@@ -72,13 +72,19 @@ export interface GetVersionMessage {
   type: "get_version";
 }
 
+export interface DelayFreezeMessage {
+  type: "delay_freeze";
+  enable: boolean;
+}
+
 export type ClientMessage =
   | HelloMessage
   | ListDevicesMessage
   | StartCaptureMessage
   | StopCaptureMessage
   | CalibrateMessage
-  | GetVersionMessage;
+  | GetVersionMessage
+  | DelayFreezeMessage;
 
 // Message types from agent to client
 export interface HelloAckMessage {
@@ -138,7 +144,15 @@ export type ProtocolMessage = ClientMessage | AgentMessage;
 
 // Utility type guards
 export function isClientMessage(msg: ProtocolMessage): msg is ClientMessage {
-  return ["hello", "list_devices", "start", "stop", "calibrate", "get_version"].includes(msg.type);
+  return [
+    "hello",
+    "list_devices",
+    "start",
+    "stop",
+    "calibrate",
+    "get_version",
+    "delay_freeze",
+  ].includes(msg.type);
 }
 
 export function isAgentMessage(msg: ProtocolMessage): msg is AgentMessage {
