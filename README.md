@@ -177,8 +177,6 @@ If you are working on features related to the "AcoustIQ Pro" audio analyzer, you
 
     The agent will now be running and can communicate with the web app.
 
-_This section has been moved and integrated into the main setup guide._
-
 ## 🌐 Self-Hosting
 
 To self-host SoundDocs, you will need a remote Supabase project.
