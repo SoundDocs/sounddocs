@@ -88,6 +88,7 @@ class FrameMessage(BaseModel):
     delay_ms: float
     latency_ms: float
     ts: int
+    sampleRate: int
     delay_mode: str | None = None
     applied_delay_ms: float | None = None
 

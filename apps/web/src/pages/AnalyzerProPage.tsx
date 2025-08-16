@@ -18,6 +18,7 @@ const AnalyzerProPage: React.FC = () => {
   const [devices, setDevices] = useState<Device[]>([]);
   const [tfData, setTfData] = useState<TFData | null>(null);
   const [delayMs, setDelayMs] = useState<number>(0);
+  const [sampleRate, setSampleRate] = useState<number>(48000);
 
   useEffect(() => {
     if (status === "connected") {
@@ -32,6 +33,7 @@ const AnalyzerProPage: React.FC = () => {
       } else if (lastMessage.type === "frame") {
         setTfData(lastMessage.tf);
         setDelayMs(lastMessage.delay_ms);
+        setSampleRate(lastMessage.sampleRate);
       }
     }
   }, [lastMessage]);
@@ -87,7 +89,7 @@ const AnalyzerProPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <TransferFunctionVisualizer tfData={tfData} />
+              <TransferFunctionVisualizer tfData={tfData} sampleRate={sampleRate} />
             </>
           ) : (
             <AgentDownload />

@@ -164,6 +164,7 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
                         delay_ms=delay_ms,
                         latency_ms=float(stream.latency)*1000.0 if hasattr(stream, "latency") else 0.0,
                         ts=int(time.time() * 1000),
+                        sampleRate=fs,
                         delay_mode=status["mode"],
                         applied_delay_ms=status["applied_ms"],
                     )

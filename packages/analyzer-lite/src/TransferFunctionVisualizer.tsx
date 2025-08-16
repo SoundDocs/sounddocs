@@ -26,6 +26,7 @@ ChartJS.register(
 
 export interface TransferFunctionVisualizerProps {
   tfData: TFData | null;
+  sampleRate: number;
   className?: string;
 }
 
@@ -68,6 +69,7 @@ const chartOptions = {
 
 export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProps> = ({
   tfData,
+  sampleRate,
   className = "",
 }) => {
   const magnitudeData = {
@@ -109,7 +111,7 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
   const impulseData = {
     labels: tfData?.ir?.map((_, i) => {
       const center = Math.floor((tfData?.ir?.length || 0) / 2);
-      return ((i - center) / 48) * 1000;
+      return ((i - center) / sampleRate) * 1000;
     }),
     datasets: [
       {

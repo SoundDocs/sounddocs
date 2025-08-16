@@ -99,6 +99,7 @@ export interface FrameMessage {
   delay_ms: number;
   latency_ms: number;
   ts: number;
+  sampleRate: number;
 }
 
 export interface StoppedMessage {
