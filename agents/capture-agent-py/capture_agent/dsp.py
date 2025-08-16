@@ -201,7 +201,7 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
 
     # Bail out early if not enough overlap to analyze
     if usable_len < MIN_SAMPLES_FOR_ANALYSIS:
-        tf_data = TFData(freqs=[], mag_db=[], phase_deg=[], coh=[])
+        tf_data = TFData(freqs=[], mag_db=[], phase_deg=[], coh=[], ir=[])
         rms = float(np.sqrt(np.mean(y**2))) if y.size else 1e-20
         dbfs = 20.0 * np.log10(max(rms, 1e-20))
         spl_data = SPLData(Leq=dbfs, LZ=dbfs)
@@ -236,12 +236,13 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         Pyx *= np.exp(1j * 2 * np.pi * freqs * tau_frac)
 
     H = Pyx / Pxx
+    ir = np.fft.irfft(H, n=nperseg)
+    ir = np.roll(ir, nperseg // 2)
+    
     mag_db = 20.0 * np.log10(np.abs(H) + eps)
     phase_deg = np.angle(H, deg=True)
     coh = (np.abs(Pyx) ** 2) / (Pxx * Pyy + eps)
     coh = np.clip(coh, 0.0, 1.0)
-    ir = np.fft.irfft(H, n=nperseg)
-    ir = np.roll(ir, nperseg // 2)
 
     tf_data = TFData(
         freqs=freqs.tolist(),

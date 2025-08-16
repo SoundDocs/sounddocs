@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0.0.8] - 2025-08-16
+
+### Changed
+
+- **Impulse Response Graph**: The impulse response graph's y-axis is now fixed to a range of -1 to +1.
+
+### Fixed
+
+- **Impulse Response Calculation**: Fixed a bug where the impulse response was being calculated after the delay correction, causing the graph to be empty. The calculation is now performed before the delay is applied, ensuring the graph displays correctly.
+
 ## [1.5.0.0.7] - 2025-08-16
 
 ### Changed

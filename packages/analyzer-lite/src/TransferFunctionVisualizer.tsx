@@ -142,6 +142,12 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
                 ticks: { color: "#9CA3AF" },
                 grid: { color: "#4B5563" },
               },
+              y: {
+                min: -1,
+                max: 1,
+                ticks: { color: "#9CA3AF" },
+                grid: { color: "#4B5563" },
+              },
             },
           }}
           data={impulseData}
