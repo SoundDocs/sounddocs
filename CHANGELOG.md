@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2025-08-16
+
+### Changed
+
+- **Magnitude and Phase Graphs**: The y-axis on the magnitude graph is now fixed to a range of -20 to +20, and the y-axis on the phase graph is fixed to a range of -180 to +180.
+- **X-Axis Formatting**: The x-axis on the magnitude, phase, and coherence graphs is now displayed in Hz until 1kHz, with labels between 500Hz and 1kHz removed to prevent overlapping.
+- **Branding**: Rebranded the Analyzer pages to "AcoustIQ".
+
 ## [1.5.0.0.9] - 2025-08-16
 
 ### Fixed

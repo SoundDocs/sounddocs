@@ -62,7 +62,7 @@ const AnalyzerProPage: React.FC = () => {
           </button>
           <div className="flex items-center mb-4">
             <Server className="h-8 w-8 text-indigo-400 mr-3" />
-            <h1 className="text-4xl font-bold text-white">Analyzer Pro</h1>
+            <h1 className="text-4xl font-bold text-white">AcoustIQ Pro</h1>
           </div>
           <p className="text-lg text-gray-300">
             Connect to the local capture agent for multi-channel analysis, transfer functions, and

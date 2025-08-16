@@ -33,7 +33,7 @@ const AnalyzerLitePage: React.FC = () => {
           </button>
           <div className="flex items-center mb-4">
             <Mic className="h-8 w-8 text-blue-400 mr-3" />
-            <h1 className="text-4xl font-bold text-white">Analyzer Lite</h1>
+            <h1 className="text-4xl font-bold text-white">AcoustIQ Lite</h1>
           </div>
           <p className="text-lg text-gray-300">
             Use your browser's microphone for basic single-channel measurements. Ideal for quick

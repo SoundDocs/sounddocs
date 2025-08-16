@@ -28,6 +28,25 @@ The first time you run the script, it will automatically:
 
 Because the script handles the certificate trust process, you will **not** see any browser security warnings.
 
+### Detailed Instructions
+
+#### macOS & Linux
+
+1.  **Download `run.sh`:** Click the "Download for macOS / Linux" button on the AcoustIQ Pro page.
+2.  **Open Terminal:** You can find this in `/Applications/Utilities/Terminal.app`.
+3.  **Navigate to Downloads:** Type `cd ~/Downloads` and press Enter.
+4.  **Make the script executable:** Type `chmod +x run.sh` and press Enter. This only needs to be done once.
+5.  **Run the script:** Type `./run.sh` and press Enter.
+6.  **Follow the on-screen prompts:** The script will guide you through any necessary installations (like Homebrew or mkcert) and will ask for your password to install the local CA.
+
+#### Windows
+
+1.  **Download `run.bat`:** Click the "Download for Windows" button on the AcoustIQ Pro page.
+2.  **Open Command Prompt or PowerShell:** You can find these by searching in the Start Menu.
+3.  **Navigate to Downloads:** Type `cd %USERPROFILE%\Downloads` and press Enter.
+4.  **Run the script:** Type `run.bat` and press Enter.
+5.  **Follow the on-screen prompts:** The script will guide you through any necessary installations (like Chocolatey or mkcert) and will open a User Account Control (UAC) prompt to install the local CA.
+
 ## Local Development
 
 When running the web app in development mode (`pnpm dev`), it will be served at **https://localhost:5173**.

@@ -42,8 +42,13 @@ const chartOptions = {
       ticks: {
         color: "#9CA3AF",
         callback: (value: any) => {
-          const freqs = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
-          return freqs.includes(Number(value)) ? `${Number(value) / 1000}k` : "";
+          const numValue = Number(value);
+          if (numValue < 1000) {
+            if (numValue > 500) return "";
+            return numValue % 100 === 0 || numValue === 20 || numValue === 50 ? `${numValue}` : "";
+          }
+          const freqs = [1000, 2000, 5000, 10000, 20000];
+          return freqs.includes(numValue) ? `${numValue / 1000}k` : "";
         },
       },
       grid: {
@@ -72,6 +77,30 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
   sampleRate,
   className = "",
 }) => {
+  const magnitudeChartOptions = {
+    ...chartOptions,
+    scales: {
+      ...chartOptions.scales,
+      y: {
+        ...chartOptions.scales.y,
+        min: -20,
+        max: 20,
+      },
+    },
+  };
+
+  const phaseChartOptions = {
+    ...chartOptions,
+    scales: {
+      ...chartOptions.scales,
+      y: {
+        ...chartOptions.scales.y,
+        min: -180,
+        max: 180,
+      },
+    },
+  };
+
   const magnitudeData = {
     labels: tfData?.freqs,
     datasets: [
@@ -126,10 +155,10 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
   return (
     <div className={`space-y-4 ${className}`}>
       <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
-        <Line options={chartOptions} data={magnitudeData} />
+        <Line options={magnitudeChartOptions} data={magnitudeData} />
       </div>
       <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
-        <Line options={chartOptions} data={phaseData} />
+        <Line options={phaseChartOptions} data={phaseData} />
       </div>
       <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
         <Line

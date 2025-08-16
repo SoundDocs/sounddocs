@@ -45,15 +45,40 @@ function AgentConnectionManager() {
               >
                 Retry Connection
               </button>
-              <a
-                href="https://github.com/SoundDocs/sounddocs/blob/main/agents/capture-agent-py/README.md"
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => {
+                  const GITHUB_RAW_URL =
+                    "https://raw.githubusercontent.com/SoundDocs/sounddocs/beta/agents/capture-agent-py/";
+                  const downloadFile = async (filename: string) => {
+                    try {
+                      const response = await fetch(`${GITHUB_RAW_URL}${filename}`);
+                      if (!response.ok) throw new Error("Network response was not ok");
+
+                      const blob = await response.blob();
+                      const url = window.URL.createObjectURL(blob);
+
+                      const a = document.createElement("a");
+                      a.style.display = "none";
+                      a.href = url;
+                      a.download = filename;
+
+                      document.body.appendChild(a);
+                      a.click();
+
+                      window.URL.revokeObjectURL(url);
+                      document.body.removeChild(a);
+                    } catch (error) {
+                      console.error("Download failed:", error);
+                      // Fallback to direct link
+                      window.open(`${GITHUB_RAW_URL}${filename}`, "_blank");
+                    }
+                  };
+                  downloadFile("README.md");
+                }}
+                className="px-2 py-1 text-sm bg-gray-600 border border-gray-600 rounded-md hover:bg-gray-500"
               >
-                <button className="px-2 py-1 text-sm bg-gray-600 border border-gray-600 rounded-md hover:bg-gray-500">
-                  Download Instructions
-                </button>
-              </a>
+                Download Instructions
+              </button>
             </div>
           </div>
         );

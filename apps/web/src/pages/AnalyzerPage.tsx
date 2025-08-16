@@ -45,7 +45,7 @@ const AnalyzerPage: React.FC = () => {
           >
             <div className="flex items-center mb-4">
               <Mic className="h-8 w-8 text-blue-400 mr-4" />
-              <h2 className="text-3xl font-semibold text-white">Analyzer Lite</h2>
+              <h2 className="text-3xl font-semibold text-white">AcoustIQ Lite</h2>
             </div>
             <p className="text-gray-400 mb-4">
               Quick single-channel analysis using your browser's microphone.
@@ -64,7 +64,7 @@ const AnalyzerPage: React.FC = () => {
           >
             <div className="flex items-center mb-4">
               <Server className="h-8 w-8 text-indigo-400 mr-4" />
-              <h2 className="text-3xl font-semibold text-white">Analyzer Pro</h2>
+              <h2 className="text-3xl font-semibold text-white">AcoustIQ Pro</h2>
             </div>
             <p className="text-gray-400 mb-4">
               Powerful dual-channel analysis using our local capture agent.

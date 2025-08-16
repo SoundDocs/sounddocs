@@ -16,43 +16,54 @@ SoundDocs is a modern web application meticulously crafted for audio engineers, 
 
 SoundDocs empowers you to manage event audio documentation efficiently:
 
--   **📝 Patch Sheet Editor:**
-    Design detailed input/output lists, map signal flows, specify equipment, and add critical technical notes. Perfect for FOH, monitors, and broadcast.
--   **🎨 Stage Plot Designer:**
-    Visually construct stage layouts using a library of draggable elements including instruments, microphones, monitors, DI boxes, and risers. Clearly communicate stage needs.
--   **🗓️ Run of Show Creator (with Show Mode):**
-    Develop detailed event timelines, cue sheets, and segment breakdowns. Utilize the "Show Mode" for real-time event tracking and execution.
--   **📊 Production Schedule Manager:**
-    Organize and track all pre-production, setup, rehearsal, show, and strike activities. Ensure your entire team is aligned.
--   **🚀 Smart Export System:**
-    Generate professional, high-quality PDF exports of your documents. Choose between dark or light mode to suit your presentation needs.
--   **🤝 Collaboration Tools:**
-    Share your documents securely via unique links. Facilitate smooth communication with clients, band members, and technical crew.
+- **📝 Patch Sheet Editor:**
+  Design detailed input/output lists, map signal flows, specify equipment, and add critical technical notes. Perfect for FOH, monitors, and broadcast.
+- **🎨 Stage Plot Designer:**
+  Visually construct stage layouts using a library of draggable elements including instruments, microphones, monitors, DI boxes, and risers. Clearly communicate stage needs.
+- **🗓️ Run of Show Creator (with Show Mode):**
+  Develop detailed event timelines, cue sheets, and segment breakdowns. Utilize the "Show Mode" for real-time event tracking and execution.
+- **📊 Production Schedule Manager:**
+  Organize and track all pre-production, setup, rehearsal, show, and strike activities. Ensure your entire team is aligned.
+- **🚀 Smart Export System:**
+  Generate professional, high-quality PDF exports of your documents. Choose between dark or light mode to suit your presentation needs.
+- **🤝 Collaboration Tools:**
+  Share your documents securely via unique links. Facilitate smooth communication with clients, band members, and technical crew.
+- **🎤 AcoustIQ Audio Analyzer:**
+  A comprehensive audio analysis tool with both a simple browser-based RTA ("Lite") and a powerful dual-channel version ("Pro") that uses a local capture agent. Features include:
+  - Real-time Spectrogram (RTA)
+  - SPL Meter with Calibration
+  - Dual-Channel Transfer Function
+  - Coherence & Phase Measurement
+  - Impulse Response
 
 ## 🛠️ Tech Stack
 
 ### Frontend
--   **Framework**: React 18 with TypeScript
--   **Build Tool**: Vite
--   **Styling**: Tailwind CSS
--   **Icons**: Lucide React
--   **State Management**: React Context API / Zustand (for more complex states)
--   **Routing**: React Router 6
--   **Exporting**: `html2canvas` for image generation
+
+- **Framework**: React 18 with TypeScript
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **State Management**: React Context API / Zustand (for more complex states)
+- **Routing**: React Router 6
+- **Exporting**: `html2canvas` for image generation
 
 ### Backend
--   **Authentication**: Supabase Auth
--   **Database**: Supabase (PostgreSQL)
--   **Real-time Features**: Supabase Realtime
--   **Storage**: Supabase Storage (for user uploads, templates)
+
+- **Authentication**: Supabase Auth
+- **Database**: Supabase (PostgreSQL)
+- **Real-time Features**: Supabase Realtime
+- **Storage**: Supabase Storage (for user uploads, templates)
 
 ## 🚀 Get Started / Self-Host
 
 ### Prerequisites
--   Node.js v18+ (LTS recommended)
--   A Supabase account (the free tier is sufficient to get started)
+
+- Node.js v18+ (LTS recommended)
+- A Supabase account (the free tier is sufficient to get started)
 
 ### Installation & Setup
+
 1.  **Clone the Repository:**
     ```bash
     git clone https://github.com/SoundDocs/sounddocs.git
@@ -68,7 +79,7 @@ SoundDocs empowers you to manage event audio documentation efficiently:
     VITE_SUPABASE_URL=your-supabase-project-url
     VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
     ```
-    *You can find these in your Supabase project settings.*
+    _You can find these in your Supabase project settings._
 4.  **Database Migrations:**
     Apply the necessary database schema. Navigate to the Supabase SQL Editor in your project dashboard and run the migration files located in `/supabase/migrations`.
 5.  **Start the Development Server:**
@@ -83,10 +94,10 @@ SoundDocs empowers you to manage event audio documentation efficiently:
 2.  **Create an Account / Sign In** using email and password.
 3.  **Choose Document Type:** Click New "Patch Sheet", "Stage Plot", "Run of Show", or "Production Schedule".
 4.  **Build Your Setup:**
-    -   **Patch Sheets:** Add channels, assign inputs/outputs, specify microphones, DIs, processing, and notes.
-    -   **Stage Plots:** Drag and drop elements onto the canvas. Label items, indicate positions, and specify connections.
-    -   **Run of Shows:** Define event segments, cues, timings, and responsible personnel. Use Show Mode during the event.
-    -   **Production Schedules:** Outline tasks, deadlines, and assignees for all event phases.
+    - **Patch Sheets:** Add channels, assign inputs/outputs, specify microphones, DIs, processing, and notes.
+    - **Stage Plots:** Drag and drop elements onto the canvas. Label items, indicate positions, and specify connections.
+    - **Run of Shows:** Define event segments, cues, timings, and responsible personnel. Use Show Mode during the event.
+    - **Production Schedules:** Outline tasks, deadlines, and assignees for all event phases.
 5.  **Save & Export:** Your work is auto-saved. When ready, export your document as a PDF, or generate a shareable link.
 
 ## 🤝 Contributing
@@ -118,11 +129,11 @@ This project is distributed under the GNU AGPLv3 License. See `LICENSE` file for
 
 ## 🙏 Acknowledgements
 
--   **Supabase Team** for their incredible backend-as-a-service platform.
--   **Lucide Icons** for the clean and versatile icon set.
--   **React Draggable & React Resizable** for interactive UI elements.
--   **html2canvas** for the client-side export functionality.
--   The open-source community for tools and libraries that make projects like SoundDocs possible.
+- **Supabase Team** for their incredible backend-as-a-service platform.
+- **Lucide Icons** for the clean and versatile icon set.
+- **React Draggable & React Resizable** for interactive UI elements.
+- **html2canvas** for the client-side export functionality.
+- The open-source community for tools and libraries that make projects like SoundDocs possible.
 
 ## Star History
 
