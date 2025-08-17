@@ -27,7 +27,16 @@ ChartJS.register(
 export interface TransferFunctionVisualizerProps {
   tfData: TFData | null;
   sampleRate: number;
+  saved?: Array<{
+    id: string;
+    tf: TFData;
+    label: string;
+    color?: string;
+    offsetDb?: number;
+    offsetMs?: number;
+  }>;
   className?: string;
+  onChartClick?: (chartName: "magnitude" | "phase" | "impulse" | "coherence") => void;
 }
 
 const chartOptions = {
@@ -64,6 +73,10 @@ const chartOptions = {
     legend: {
       labels: { color: "#D1D5DB" },
     },
+    tooltip: {
+      mode: "index" as const,
+      intersect: false,
+    },
   },
   elements: {
     point: {
@@ -75,7 +88,9 @@ const chartOptions = {
 export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProps> = ({
   tfData,
   sampleRate,
+  saved = [],
   className = "",
+  onChartClick = () => {},
 }) => {
   const magnitudeChartOptions = {
     ...chartOptions,
@@ -101,97 +116,174 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
     },
   };
 
-  const magnitudeData = {
-    labels: tfData?.freqs,
-    datasets: [
-      {
-        label: "Magnitude (dB)",
-        data: tfData?.mag_db || [],
-        borderColor: "#8DA2FB",
-        backgroundColor: "#8DA2FB",
-      },
-    ],
-  };
+  const magnitudeData = React.useMemo(() => {
+    const datasets = [];
+    if (tfData) {
+      datasets.push({
+        label: "Live",
+        data: tfData.mag_db,
+        borderColor: "#FFFFFF",
+        backgroundColor: "#FFFFFF",
+        borderWidth: 2,
+      });
+    }
+    saved.forEach((trace) => {
+      datasets.push({
+        label: trace.label,
+        data: trace.tf.mag_db, // Note: offset logic will be added later
+        borderColor: trace.color || "#F472B6",
+        backgroundColor: trace.color || "#F472B6",
+        borderWidth: 1,
+      });
+    });
+    return {
+      labels: tfData?.freqs || saved[0]?.tf.freqs || [],
+      datasets,
+    };
+  }, [tfData, saved]);
 
-  const phaseData = {
-    labels: tfData?.freqs,
-    datasets: [
-      {
-        label: "Phase (°)",
-        data: tfData?.phase_deg || [],
-        borderColor: "#A78BFA",
-        backgroundColor: "#A78BFA",
-      },
-    ],
-  };
+  const phaseData = React.useMemo(() => {
+    const datasets = [];
+    if (tfData) {
+      datasets.push({
+        label: "Live",
+        data: tfData.phase_deg,
+        borderColor: "#FFFFFF",
+        backgroundColor: "#FFFFFF",
+        borderWidth: 2,
+      });
+    }
+    saved.forEach((trace) => {
+      datasets.push({
+        label: trace.label,
+        data: trace.tf.phase_deg, // Note: offset logic will be added later
+        borderColor: trace.color || "#F472B6",
+        backgroundColor: trace.color || "#F472B6",
+        borderWidth: 1,
+      });
+    });
+    return {
+      labels: tfData?.freqs || saved[0]?.tf.freqs || [],
+      datasets,
+    };
+  }, [tfData, saved]);
 
-  const coherenceData = {
-    labels: tfData?.freqs,
-    datasets: [
-      {
-        label: "Coherence",
-        data: tfData?.coh || [],
-        borderColor: "#F472B6",
-        backgroundColor: "#F472B6",
-      },
-    ],
-  };
+  const coherenceData = React.useMemo(() => {
+    const datasets = [];
+    if (tfData) {
+      datasets.push({
+        label: "Live",
+        data: tfData.coh,
+        borderColor: "#FFFFFF",
+        backgroundColor: "#FFFFFF",
+        borderWidth: 2,
+      });
+    }
+    saved.forEach((trace) => {
+      if (trace.tf.coh) {
+        datasets.push({
+          label: trace.label,
+          data: trace.tf.coh,
+          borderColor: trace.color || "#F472B6",
+          backgroundColor: trace.color || "#F472B6",
+          borderWidth: 1,
+        });
+      }
+    });
+    return {
+      labels: tfData?.freqs || saved[0]?.tf.freqs || [],
+      datasets,
+    };
+  }, [tfData, saved]);
 
-  const impulseData = {
-    labels: tfData?.ir?.map((_, i) => {
-      const center = Math.floor((tfData?.ir?.length || 0) / 2);
-      return ((i - center) / sampleRate) * 1000;
-    }),
-    datasets: [
-      {
-        label: "Impulse Response",
-        data: tfData?.ir || [],
-        borderColor: "#34D399",
-        backgroundColor: "#34D399",
-      },
-    ],
-  };
+  const impulseData = React.useMemo(() => {
+    const datasets = [];
+    if (tfData?.ir) {
+      datasets.push({
+        label: "Live",
+        data: tfData.ir,
+        borderColor: "#FFFFFF",
+        backgroundColor: "#FFFFFF",
+        borderWidth: 2,
+      });
+    }
+    saved.forEach((trace) => {
+      if (trace.tf.ir) {
+        datasets.push({
+          label: trace.label,
+          data: trace.tf.ir,
+          borderColor: trace.color || "#F472B6",
+          backgroundColor: trace.color || "#F472B6",
+          borderWidth: 1,
+        });
+      }
+    });
+
+    const labels = tfData?.ir
+      ? tfData.ir.map((_, i) => {
+          const center = Math.floor(tfData.ir.length / 2);
+          return ((i - center) / sampleRate) * 1000;
+        })
+      : [];
+
+    return {
+      labels,
+      datasets,
+    };
+  }, [tfData, saved, sampleRate]);
 
   return (
     <div className={`space-y-4 ${className}`}>
-      <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
-        <Line options={magnitudeChartOptions} data={magnitudeData} />
+      <div onClick={() => onChartClick("magnitude")} className="cursor-pointer">
+        <p className="text-lg font-bold text-white">Magnitude</p>
+        <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
+          <Line options={magnitudeChartOptions} data={magnitudeData} />
+        </div>
       </div>
-      <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
-        <Line options={phaseChartOptions} data={phaseData} />
+      <div onClick={() => onChartClick("phase")} className="cursor-pointer">
+        <p className="text-lg font-bold text-white">Phase</p>
+        <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
+          <Line options={phaseChartOptions} data={phaseData} />
+        </div>
       </div>
-      <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
-        <Line
-          options={{
-            ...chartOptions,
-            scales: {
-              ...chartOptions.scales,
-              x: {
-                type: "linear",
-                min: -8,
-                max: 8,
-                ticks: { color: "#9CA3AF" },
-                grid: { color: "#4B5563" },
+      <div onClick={() => onChartClick("impulse")} className="cursor-pointer">
+        <p className="text-lg font-bold text-white">Impulse Response</p>
+        <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
+          <Line
+            options={{
+              ...chartOptions,
+              scales: {
+                ...chartOptions.scales,
+                x: {
+                  type: "linear",
+                  min: -8,
+                  max: 8,
+                  ticks: { color: "#9CA3AF" },
+                  grid: { color: "#4B5563" },
+                },
+                y: {
+                  min: -1,
+                  max: 1,
+                  ticks: { color: "#9CA3AF" },
+                  grid: { color: "#4B5563" },
+                },
               },
-              y: {
-                min: -1,
-                max: 1,
-                ticks: { color: "#9CA3AF" },
-                grid: { color: "#4B5563" },
-              },
-            },
-          }}
-          data={impulseData}
-        />
+            }}
+            data={impulseData}
+          />
+        </div>
       </div>
-      <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
-        <Line
-          options={{
-            ...chartOptions,
-            scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, min: 0, max: 1 } },
-          }}
-          data={coherenceData}
-        />
+      <div onClick={() => onChartClick("coherence")} className="cursor-pointer">
+        <p className="text-lg font-bold text-white">Coherence</p>
+        <div className="h-64 p-4 bg-gray-800 rounded-lg border border-gray-600">
+          <Line
+            options={{
+              ...chartOptions,
+              scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, min: 0, max: 1 } },
+            }}
+            data={coherenceData}
+          />
+        </div>
       </div>
     </div>
   );

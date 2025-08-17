@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2025-08-17
+
+### Added
+
+- **Analyzer Pro Save/Recall**: Implemented the ability to save and recall transfer function measurements.
+- **Interactive Chart Modal**: Created a full-screen modal for detailed chart analysis, with controls for trace visibility and dB scaling.
+- **Customizable Trace Colors**: Added a color palette to assign unique colors to each saved measurement for better visual distinction.
+
+### Fixed
+
+- **Impulse Response Chart**: Corrected multiple issues with the impulse response chart to ensure it displays accurately.
+- **Chart Labeling**: Improved chart labeling for clarity and readability.
+
 ## [1.5.1.1.1] - 2025-08-17
 
 ### Added

@@ -70,3 +70,21 @@ export const RESOLUTIONS: Resolution[] = [
   { value: "720x1280", label: "720 x 1280", width: 720, height: 1280, aspectRatio: "9:16" },
   { value: "1080x1920", label: "1080 x 1920", width: 1080, height: 1920, aspectRatio: "9:16" },
 ];
+
+export const TRACE_COLORS = [
+  "#FF6384",
+  "#36A2EB",
+  "#FFCE56",
+  "#4BC0C0",
+  "#9966FF",
+  "#FF9F40",
+  "#8C564B",
+  "#E377C2",
+  "#7F7F7F",
+  "#BCBD22",
+  "#17BECF",
+  "#AEC7E8",
+  "#FFBB78",
+  "#98DF8A",
+  "#FF9896",
+];

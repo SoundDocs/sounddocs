@@ -1,16 +1,27 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeftCircle, Server } from "lucide-react";
+import { ArrowLeftCircle, Server, Save, FolderOpen } from "lucide-react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import AgentConnectionManager from "../components/analyzer/AgentConnectionManager";
 import AgentDownload from "../components/analyzer/AgentDownload";
 import ProSettings from "../components/analyzer/ProSettings";
+import SavedMeasurementsModal from "../components/analyzer/SavedMeasurementsModal";
+import ChartDetailModal from "../components/analyzer/ChartDetailModal";
 import { TransferFunctionVisualizer } from "@sounddocs/analyzer-lite";
 import { useCaptureAgent } from "../stores/agentStore";
 import { supabase } from "../lib/supabase";
 import { Device, TFData } from "@sounddocs/analyzer-protocol";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { TRACE_COLORS } from "../lib/constants";
+
+interface Measurement {
+  id: string;
+  name: string;
+  created_at: string;
+  tf_data: TFData;
+  color?: string;
+}
 
 const AnalyzerProPage: React.FC = () => {
   const navigate = useNavigate();
@@ -22,10 +33,19 @@ const AnalyzerProPage: React.FC = () => {
   const [delayMode, setDelayMode] = useState<string>("auto");
   const [appliedDelayMs, setAppliedDelayMs] = useState<number>(0);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedChart, setSelectedChart] = useState<
+    "magnitude" | "phase" | "impulse" | "coherence"
+  >("magnitude");
+  const [savedMeasurements, setSavedMeasurements] = useState<Measurement[]>([]);
+  const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (status === "connected") {
       sendMessage({ type: "list_devices" });
+      fetchMeasurements();
     }
   }, [status, sendMessage]);
 
@@ -53,6 +73,101 @@ const AnalyzerProPage: React.FC = () => {
       }
     }
   }, [lastMessage]);
+
+  const fetchMeasurements = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("tf_measurements")
+        .select("id, name, created_at, tf_data")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setSavedMeasurements(
+        (data || []).map((m, i) => ({
+          ...m,
+          color: TRACE_COLORS[i % TRACE_COLORS.length],
+        })),
+      );
+    } catch (error) {
+      console.error("Error fetching measurements:", error);
+    }
+  };
+
+  const handleDeleteMeasurement = async (id: string) => {
+    try {
+      const { error } = await supabase.from("tf_measurements").delete().match({ id });
+      if (error) throw error;
+      setSavedMeasurements(savedMeasurements.filter((m) => m.id !== id));
+    } catch (error) {
+      console.error("Error deleting measurement:", error);
+    }
+  };
+
+  const toggleMeasurementVisibility = (id: string) => {
+    setVisibleIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSaveMeasurement = async () => {
+    if (!tfData) {
+      alert("No measurement data to save.");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("User not logged in.");
+      }
+
+      const name = prompt(
+        "Enter a name for the measurement:",
+        `Measurement - ${new Date().toLocaleString()}`,
+      );
+      if (!name) {
+        setIsSaving(false);
+        return;
+      }
+
+      const payload = {
+        user_id: user.id,
+        name,
+        tf_data: tfData,
+        sample_rate: sampleRate,
+        nfft: tfData.freqs.length * 2 - 2, // This is an approximation
+        // Hardcoded for now, will be dynamic later
+        agent_version: "capture-agent-py/0.1.0",
+        dsp_version: "tf/0.1.0",
+        window: "hann",
+        ref_chan: 1,
+        meas_chan: 2,
+      };
+
+      const { error } = await supabase.from("tf_measurements").insert(payload);
+
+      if (error) {
+        throw error;
+      }
+
+      alert("Measurement saved successfully!");
+      fetchMeasurements(); // Refresh the list after saving
+    } catch (error) {
+      console.error("Error saving measurement:", error);
+      alert(`Error saving measurement: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleSignOut = async () => {
     try {
@@ -109,7 +224,26 @@ const AnalyzerProPage: React.FC = () => {
                 isCapturing={isCapturing}
               />
               <div className="bg-gray-800 p-4 rounded-lg shadow-inner">
-                <h3 className="text-lg font-semibold text-white mb-2">Live Measurements</h3>
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-lg font-semibold text-white">Live Measurements</h3>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      className="bg-indigo-500 text-white hover:bg-indigo-600 font-semibold py-2 px-4 rounded-md inline-flex items-center transition-all duration-300 ease-in-out shadow-md hover:shadow-lg transform hover:-translate-y-px"
+                      onClick={handleSaveMeasurement}
+                      disabled={isSaving}
+                    >
+                      <Save className="h-5 w-5 mr-2" />
+                      {isSaving ? "Saving..." : "Save Measurement"}
+                    </button>
+                    <button
+                      className="bg-transparent text-indigo-400 hover:text-white hover:bg-indigo-500 border border-indigo-400 font-semibold py-2 px-4 rounded-md inline-flex items-center transition-all duration-300 ease-in-out"
+                      onClick={() => setIsModalOpen(true)}
+                    >
+                      <FolderOpen className="h-5 w-5 mr-2" />
+                      View Saved
+                    </button>
+                  </div>
+                </div>
                 <div className="flex items-center space-x-4">
                   <div className="text-center">
                     <div className="text-3xl font-mono text-green-400">
@@ -119,7 +253,21 @@ const AnalyzerProPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <TransferFunctionVisualizer tfData={tfData} sampleRate={sampleRate} />
+              <TransferFunctionVisualizer
+                tfData={tfData}
+                sampleRate={sampleRate}
+                saved={savedMeasurements
+                  .filter((m) => visibleIds.has(m.id))
+                  .map((m) => ({
+                    id: m.id,
+                    tf: m.tf_data,
+                    label: m.name,
+                  }))}
+                onChartClick={(chartName) => {
+                  setSelectedChart(chartName);
+                  setIsDetailModalOpen(true);
+                }}
+              />
             </>
           ) : (
             <AgentDownload />
@@ -128,6 +276,28 @@ const AnalyzerProPage: React.FC = () => {
       </main>
 
       <Footer />
+
+      <SavedMeasurementsModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        measurements={savedMeasurements}
+        visibleIds={visibleIds}
+        onToggleVisibility={toggleMeasurementVisibility}
+        onDelete={handleDeleteMeasurement}
+        onRefresh={fetchMeasurements}
+      />
+
+      <ChartDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        initialChart={selectedChart}
+        liveData={tfData}
+        savedMeasurements={savedMeasurements}
+        visibleIds={visibleIds}
+        onToggleVisibility={toggleMeasurementVisibility}
+        onDelete={handleDeleteMeasurement}
+        sampleRate={sampleRate}
+      />
     </div>
   );
 };
