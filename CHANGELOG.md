@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2.0.1] - 2025-08-17
+
+### Added
+
+- **Gain and Delay Controls**: Added gain and delay controls to the chart detail modal for each measurement.
+
+### Fixed
+
+- **Phase Wrapping**: Corrected the phase wrapping logic to handle both positive and negative phase values correctly.
+- **Impulse Response Visibility**: Ensured the impulse response chart for saved traces is always visible, even when there is no live data.
+- **Chart Modal Opening**: The chart modal now opens to the correct chart when a user clicks on it from the Analyzer Pro page.
+- **Impulse Response Y-Axis**: Fixed the y-axis of the impulse response graph on the chart modal to be locked between -1 and 1.
+- **Delay Control for Impulse Response**: The delay control now correctly affects the impulse response graph on the chart modal.
+
 ## [1.5.2] - 2025-08-17
 
 ### Added

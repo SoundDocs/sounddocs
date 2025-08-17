@@ -34,6 +34,7 @@ export interface TransferFunctionVisualizerProps {
     color?: string;
     offsetDb?: number;
     offsetMs?: number;
+    sample_rate: number;
   }>;
   className?: string;
   onChartClick?: (chartName: "magnitude" | "phase" | "impulse" | "coherence") => void;
@@ -219,10 +220,19 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
       }
     });
 
-    const labels = tfData?.ir
-      ? tfData.ir.map((_, i) => {
-          const center = Math.floor(tfData.ir.length / 2);
-          return ((i - center) / sampleRate) * 1000;
+    const irDataSource = tfData?.ir
+      ? { data: tfData.ir, rate: sampleRate }
+      : saved.find((t) => t.tf.ir)?.tf.ir
+        ? {
+            data: saved.find((t) => t.tf.ir)!.tf.ir!,
+            rate: saved.find((t) => t.tf.ir)!.sample_rate,
+          }
+        : null;
+
+    const labels = irDataSource
+      ? irDataSource.data.map((_, i) => {
+          const center = Math.floor(irDataSource.data.length / 2);
+          return ((i - center) / irDataSource.rate) * 1000;
         })
       : [];
 

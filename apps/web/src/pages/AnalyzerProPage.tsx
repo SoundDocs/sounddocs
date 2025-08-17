@@ -21,6 +21,7 @@ interface Measurement {
   created_at: string;
   tf_data: TFData;
   color?: string;
+  sample_rate: number;
 }
 
 const AnalyzerProPage: React.FC = () => {
@@ -41,11 +42,30 @@ const AnalyzerProPage: React.FC = () => {
   >("magnitude");
   const [savedMeasurements, setSavedMeasurements] = useState<Measurement[]>([]);
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set());
+  const [measurementAdjustments, setMeasurementAdjustments] = useState<{
+    [id: string]: { gain: number; delay: number };
+  }>({});
+
+  const handleMeasurementAdjustmentChange = (
+    id: string,
+    newValues: { gain?: number; delay?: number },
+  ) => {
+    setMeasurementAdjustments((prev) => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] || { gain: 0, delay: 0 }),
+        ...newValues,
+      },
+    }));
+  };
+
+  useEffect(() => {
+    fetchMeasurements();
+  }, []);
 
   useEffect(() => {
     if (status === "connected") {
       sendMessage({ type: "list_devices" });
-      fetchMeasurements();
     }
   }, [status, sendMessage]);
 
@@ -78,7 +98,7 @@ const AnalyzerProPage: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from("tf_measurements")
-        .select("id, name, created_at, tf_data")
+        .select("id, name, created_at, tf_data, sample_rate")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -204,79 +224,81 @@ const AnalyzerProPage: React.FC = () => {
         <div className="max-w-4xl mx-auto space-y-8">
           <AgentConnectionManager />
 
-          {status === "connected" ? (
-            <>
-              <ProSettings
-                devices={devices}
-                onStartCapture={(config) => {
-                  sendMessage({ type: "start", ...config });
-                  setIsCapturing(true);
-                }}
-                onStopCapture={() => {
-                  sendMessage({ type: "stop" });
-                  setIsCapturing(false);
-                }}
-                onFreezeDelay={(enable) =>
-                  sendMessage({ type: "delay_freeze", enable, applied_ms: appliedDelayMs })
-                }
-                delayMode={delayMode}
-                appliedDelayMs={appliedDelayMs}
-                isCapturing={isCapturing}
-              />
-              <div className="bg-gray-800 p-4 rounded-lg shadow-inner">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-lg font-semibold text-white">Live Measurements</h3>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      className="bg-indigo-500 text-white hover:bg-indigo-600 font-semibold py-2 px-4 rounded-md inline-flex items-center transition-all duration-300 ease-in-out shadow-md hover:shadow-lg transform hover:-translate-y-px"
-                      onClick={handleSaveMeasurement}
-                      disabled={isSaving}
-                    >
-                      <Save className="h-5 w-5 mr-2" />
-                      {isSaving ? "Saving..." : "Save Measurement"}
-                    </button>
-                    <button
-                      className="bg-transparent text-indigo-400 hover:text-white hover:bg-indigo-500 border border-indigo-400 font-semibold py-2 px-4 rounded-md inline-flex items-center transition-all duration-300 ease-in-out"
-                      onClick={() => setIsModalOpen(true)}
-                    >
-                      <FolderOpen className="h-5 w-5 mr-2" />
-                      View Saved
-                    </button>
+          {status !== "connected" && <AgentDownload />}
+          {status === "connected" && (
+            <ProSettings
+              devices={devices}
+              onStartCapture={(config) => {
+                sendMessage({ type: "start", ...config });
+                setIsCapturing(true);
+              }}
+              onStopCapture={() => {
+                sendMessage({ type: "stop" });
+                setIsCapturing(false);
+              }}
+              onFreezeDelay={(enable) =>
+                sendMessage({ type: "delay_freeze", enable, applied_ms: appliedDelayMs })
+              }
+              delayMode={delayMode}
+              appliedDelayMs={appliedDelayMs}
+              isCapturing={isCapturing}
+            />
+          )}
+          <div className="bg-gray-800 p-4 rounded-lg shadow-inner">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-lg font-semibold text-white">Measurements</h3>
+              <div className="flex items-center space-x-2">
+                {status === "connected" && (
+                  <button
+                    className="bg-indigo-500 text-white hover:bg-indigo-600 font-semibold py-2 px-4 rounded-md inline-flex items-center transition-all duration-300 ease-in-out shadow-md hover:shadow-lg transform hover:-translate-y-px"
+                    onClick={handleSaveMeasurement}
+                    disabled={isSaving}
+                  >
+                    <Save className="h-5 w-5 mr-2" />
+                    {isSaving ? "Saving..." : "Save Measurement"}
+                  </button>
+                )}
+                <button
+                  className="bg-transparent text-indigo-400 hover:text-white hover:bg-indigo-500 border border-indigo-400 font-semibold py-2 px-4 rounded-md inline-flex items-center transition-all duration-300 ease-in-out"
+                  onClick={() => setIsModalOpen(true)}
+                >
+                  <FolderOpen className="h-5 w-5 mr-2" />
+                  View Saved
+                </button>
+              </div>
+            </div>
+            {status === "connected" && (
+              <div className="flex items-center space-x-4">
+                <div className="text-center">
+                  <div className="text-3xl font-mono text-green-400">
+                    {appliedDelayMs.toFixed(2)}
                   </div>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="text-center">
-                    <div className="text-3xl font-mono text-green-400">
-                      {appliedDelayMs.toFixed(2)}
-                    </div>
-                    <div className="text-sm text-gray-400">Applied Delay (ms)</div>
-                  </div>
+                  <div className="text-sm text-gray-400">Applied Delay (ms)</div>
                 </div>
               </div>
-              <TransferFunctionVisualizer
-                tfData={tfData}
-                sampleRate={sampleRate}
-                saved={savedMeasurements
-                  .filter((m) => visibleIds.has(m.id))
-                  .map((m) => ({
-                    id: m.id,
-                    tf: m.tf_data,
-                    label: m.name,
-                  }))}
-                onChartClick={(chartName) => {
-                  setSelectedChart(chartName);
-                  setIsDetailModalOpen(true);
-                }}
-              />
-            </>
-          ) : (
-            <AgentDownload />
-          )}
+            )}
+          </div>
+          <TransferFunctionVisualizer
+            tfData={tfData}
+            sampleRate={sampleRate}
+            saved={savedMeasurements
+              .filter((m) => visibleIds.has(m.id))
+              .map((m) => ({
+                id: m.id,
+                tf: m.tf_data,
+                label: m.name,
+                color: m.color,
+                sample_rate: m.sample_rate,
+              }))}
+            onChartClick={(chartName) => {
+              setSelectedChart(chartName);
+              setIsDetailModalOpen(true);
+            }}
+          />
         </div>
       </main>
 
       <Footer />
-
       <SavedMeasurementsModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -297,6 +319,8 @@ const AnalyzerProPage: React.FC = () => {
         onToggleVisibility={toggleMeasurementVisibility}
         onDelete={handleDeleteMeasurement}
         sampleRate={sampleRate}
+        measurementAdjustments={measurementAdjustments}
+        onMeasurementAdjustmentChange={handleMeasurementAdjustmentChange}
       />
     </div>
   );

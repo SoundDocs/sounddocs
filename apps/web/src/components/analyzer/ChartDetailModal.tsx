@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { X, Eye, EyeOff, Trash2 } from "lucide-react";
 import { TFData } from "@sounddocs/analyzer-protocol";
 import Chart from "./Chart";
@@ -11,6 +11,7 @@ interface Measurement {
   created_at: string;
   tf_data: TFData;
   color?: string;
+  sample_rate: number;
 }
 
 interface ChartDetailModalProps {
@@ -23,6 +24,10 @@ interface ChartDetailModalProps {
   onToggleVisibility: (id: string) => void;
   onDelete: (id: string) => void;
   sampleRate: number;
+  measurementAdjustments: {
+    [id: string]: { gain: number; delay: number };
+  };
+  onMeasurementAdjustmentChange: (id: string, newValues: { gain?: number; delay?: number }) => void;
 }
 
 const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
@@ -35,10 +40,16 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
   onToggleVisibility,
   onDelete,
   sampleRate,
+  measurementAdjustments,
+  onMeasurementAdjustmentChange,
 }) => {
   const [selectedChart, setSelectedChart] = useState<ChartName>(initialChart);
   const [magnitudeRange, setMagnitudeRange] = useState({ min: -20, max: 20 });
   const [isLiveTraceVisible, setIsLiveTraceVisible] = useState(true);
+
+  useEffect(() => {
+    setSelectedChart(initialChart);
+  }, [initialChart]);
 
   const chartData = useMemo(() => {
     const datasets = [];
@@ -72,9 +83,9 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
                 : "coh"
         ]
       ) {
-        datasets.push({
-          label: trace.name,
-          data: trace.tf_data[
+        const adjustments = measurementAdjustments[trace.id] || { gain: 0, delay: 0 };
+        let data =
+          trace.tf_data[
             selectedChart === "impulse"
               ? "ir"
               : selectedChart === "magnitude"
@@ -82,7 +93,34 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
                 : selectedChart === "phase"
                   ? "phase_deg"
                   : "coh"
-          ],
+          ];
+
+        if (selectedChart === "magnitude") {
+          data = data.map((d) => d + adjustments.gain);
+        } else if (selectedChart === "phase" && trace.tf_data.freqs) {
+          data = data.map((d, i) => {
+            const freq = trace.tf_data.freqs[i];
+            const phaseShift = (adjustments.delay / 1000) * freq * 360;
+            let phase = d - phaseShift;
+            while (phase <= -180) phase += 360;
+            while (phase > 180) phase -= 360;
+            return phase;
+          });
+        } else if (selectedChart === "impulse") {
+          const delayInSamples = Math.round((adjustments.delay / 1000) * trace.sample_rate);
+          const shiftedData = new Array(data.length).fill(0);
+          for (let i = 0; i < data.length; i++) {
+            const newIndex = i + delayInSamples;
+            if (newIndex >= 0 && newIndex < data.length) {
+              shiftedData[newIndex] = data[i];
+            }
+          }
+          data = shiftedData;
+        }
+
+        datasets.push({
+          label: trace.name,
+          data,
           borderColor: trace.color || "#F472B6",
           backgroundColor: trace.color || "#F472B6",
           borderWidth: 1,
@@ -93,10 +131,11 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
     let labels: (string | number)[] = liveData?.freqs || savedMeasurements[0]?.tf_data.freqs || [];
     if (selectedChart === "impulse") {
       const irData = liveData?.ir || savedMeasurements.find((m) => m.tf_data.ir)?.tf_data.ir;
-      if (irData) {
+      const sr = liveData ? sampleRate : savedMeasurements.find((m) => m.tf_data.ir)?.sample_rate;
+      if (irData && sr) {
         labels = irData.map((_, i) => {
           const center = Math.floor(irData.length / 2);
-          return ((i - center) / sampleRate) * 1000;
+          return ((i - center) / sr) * 1000;
         });
       }
     }
@@ -105,7 +144,15 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
       labels,
       datasets,
     };
-  }, [liveData, savedMeasurements, visibleIds, selectedChart, isLiveTraceVisible, sampleRate]);
+  }, [
+    liveData,
+    savedMeasurements,
+    visibleIds,
+    selectedChart,
+    isLiveTraceVisible,
+    sampleRate,
+    measurementAdjustments,
+  ]);
 
   const chartOptions = useMemo(() => {
     const baseOptions: any = {
@@ -156,6 +203,8 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
       baseOptions.scales.x.type = "linear";
       baseOptions.scales.x.min = -8;
       baseOptions.scales.x.max = 8;
+      baseOptions.scales.y.min = -1;
+      baseOptions.scales.y.max = 1;
     } else if (selectedChart === "coherence") {
       baseOptions.scales.y.min = 0;
       baseOptions.scales.y.max = 1;
@@ -237,36 +286,65 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
                 </div>
               </div>
             </li>
-            {savedMeasurements.map((m) => (
-              <li key={m.id} className="bg-gray-700 p-3 rounded-md">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="font-semibold text-white">{m.name}</p>
-                    <p className="text-sm text-gray-400">
-                      {new Date(m.created_at).toLocaleString()}
-                    </p>
+            {savedMeasurements.map((m) => {
+              const adjustments = measurementAdjustments[m.id] || { gain: 0, delay: 0 };
+              return (
+                <li key={m.id} className="bg-gray-700 p-3 rounded-md space-y-3">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-semibold text-white">{m.name}</p>
+                      <p className="text-sm text-gray-400">
+                        {new Date(m.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => onToggleVisibility(m.id)}
+                        className="p-2 hover:bg-gray-600 rounded-full"
+                      >
+                        {visibleIds.has(m.id) ? (
+                          <Eye className="h-5 w-5 text-indigo-400" />
+                        ) : (
+                          <EyeOff className="h-5 w-5 text-gray-400" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => onDelete(m.id)}
+                        className="p-2 hover:bg-gray-600 rounded-full"
+                      >
+                        <Trash2 className="h-5 w-5 text-red-500" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => onToggleVisibility(m.id)}
-                      className="p-2 hover:bg-gray-600 rounded-full"
-                    >
-                      {visibleIds.has(m.id) ? (
-                        <Eye className="h-5 w-5 text-indigo-400" />
-                      ) : (
-                        <EyeOff className="h-5 w-5 text-gray-400" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => onDelete(m.id)}
-                      className="p-2 hover:bg-gray-600 rounded-full"
-                    >
-                      <Trash2 className="h-5 w-5 text-red-500" />
-                    </button>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-xs font-medium text-gray-400">Gain (dB)</label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        value={adjustments.gain}
+                        onChange={(e) =>
+                          onMeasurementAdjustmentChange(m.id, { gain: Number(e.target.value) })
+                        }
+                        className="w-full bg-gray-800 text-white p-1 rounded-md text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-400">Delay (ms)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={adjustments.delay}
+                        onChange={(e) =>
+                          onMeasurementAdjustmentChange(m.id, { delay: Number(e.target.value) })
+                        }
+                        className="w-full bg-gray-800 text-white p-1 rounded-md text-sm"
+                      />
+                    </div>
                   </div>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         </aside>
         <main className="flex-grow p-6 flex items-center justify-center">
