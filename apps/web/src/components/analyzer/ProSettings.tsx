@@ -122,34 +122,38 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
 
         {/* Row 2 */}
       </div>
-      <div className="mt-4">
-        {!isCapturing ? (
-          <button
-            onClick={handleStart}
-            disabled={!selectedDevice}
-            className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors disabled:bg-gray-500"
-          >
-            Start Capture
-          </button>
-        ) : (
-          <button
-            onClick={handleStop}
-            className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
-          >
-            Stop Capture
-          </button>
-        )}
+      <div className="mt-4 flex justify-between items-center">
+        <div>
+          {!isCapturing ? (
+            <button
+              onClick={handleStart}
+              disabled={!selectedDevice}
+              className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors disabled:bg-gray-500"
+            >
+              Start Capture
+            </button>
+          ) : (
+            <button
+              onClick={handleStop}
+              className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
+            >
+              Stop Capture
+            </button>
+          )}
+        </div>
         {isCapturing && (
-          <button
-            onClick={handleFreezeClick}
-            disabled={!isCapturing || (!canFreeze && !isFrozen)}
-            className={`ml-4 px-4 py-2 flex items-center rounded-lg transition-colors ${
-              isFrozen ? "bg-blue-600 hover:bg-blue-500" : "bg-gray-600 hover:bg-gray-500"
-            } text-white disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            <Snowflake className="h-4 w-4 mr-2" />
-            {isFrozen ? "Unfreeze Delay" : "Freeze Delay"}
-          </button>
+          <div>
+            <button
+              onClick={handleFreezeClick}
+              disabled={!isCapturing || (!canFreeze && !isFrozen)}
+              className={`px-4 py-2 flex items-center rounded-lg transition-colors ${
+                isFrozen ? "bg-blue-600 hover:bg-blue-500" : "bg-gray-600 hover:bg-gray-500"
+              } text-white disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              <Snowflake className="h-4 w-4 mr-2" />
+              {isFrozen ? "Unfreeze Delay" : "Freeze Delay"}
+            </button>
+          </div>
         )}
       </div>
     </div>
