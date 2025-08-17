@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import DevelopmentWarning from "../components/analyzer/DevelopmentWarning";
 import { ArrowLeftCircle, Activity, Mic, Server } from "lucide-react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -7,6 +8,11 @@ import { supabase } from "../lib/supabase";
 
 const AnalyzerPage: React.FC = () => {
   const navigate = useNavigate();
+  const [showWarning, setShowWarning] = useState(true);
+
+  const handleAcknowledge = () => {
+    setShowWarning(false);
+  };
 
   const handleSignOut = async () => {
     try {
@@ -19,6 +25,7 @@ const AnalyzerPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
+      {showWarning && <DevelopmentWarning onAcknowledge={handleAcknowledge} />}
       <Header onSignOut={handleSignOut} />
 
       <main className="flex-grow container mx-auto px-4 py-12 mt-12">
