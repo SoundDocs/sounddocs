@@ -3,7 +3,6 @@ import { X, Eye, EyeOff, Trash2 } from "lucide-react";
 import { TFData } from "@sounddocs/analyzer-protocol";
 import Chart from "./Chart";
 import { TARGET_CURVES } from "../../lib/constants";
-import { fracOctaveSmooth } from "../../lib/smoothing";
 
 type ChartName = "magnitude" | "phase" | "impulse" | "coherence";
 
@@ -50,59 +49,25 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
   const [isLiveTraceVisible, setIsLiveTraceVisible] = useState(true);
   const [selectedTargetCurve, setSelectedTargetCurve] = useState<string>("none");
   const [isTargetCurveVisible, setIsTargetCurveVisible] = useState(true);
-  const [smoothingBPO, setSmoothingBPO] = useState<number>(24); // 24 ≈ 1/24th octave
-  const [smoothingMode, setSmoothingMode] = useState<"complex" | "mag">("complex");
-  const [smoothingEnabled, setSmoothingEnabled] = useState<boolean>(true);
 
   useEffect(() => {
     setSelectedChart(initialChart);
   }, [initialChart]);
 
   const chartData = useMemo(() => {
-    const doSmooth = smoothingEnabled && smoothingBPO > 0;
-
-    const smoothTF = (freqs: number[], magDb: number[], phaseDeg?: number[]) => {
-      const s = fracOctaveSmooth(
-        freqs,
-        magDb,
-        phaseDeg ?? null,
-        smoothingBPO,
-        smoothingMode === "complex" ? "complex" : "mag",
-      );
-      return s;
-    };
-
     const datasets = [];
     if (liveData && isLiveTraceVisible) {
-      let yArr: number[] = [];
-      if (selectedChart === "magnitude") {
-        const s = doSmooth
-          ? smoothTF(liveData.freqs, liveData.mag_db, liveData.phase_deg)
-          : { mag_db: liveData.mag_db };
-        yArr = s.mag_db;
-      } else if (selectedChart === "phase") {
-        const s = doSmooth
-          ? smoothTF(liveData.freqs, liveData.mag_db, liveData.phase_deg)
-          : { phase_deg: liveData.phase_deg };
-        yArr = s.phase_deg!;
-      } else if (selectedChart === "coherence") {
-        // simple moving average on coh (optional – boxcar in log-f like magnitude)
-        yArr = doSmooth
-          ? fracOctaveSmooth(
-              liveData.freqs,
-              liveData.coh!.map((v) => 10 * Math.log10(Math.max(v, 1e-9))),
-              null,
-              smoothingBPO,
-              "mag",
-            ).mag_db.map((d) => Math.min(1, Math.max(0, Math.pow(10, d / 10))))
-          : liveData.coh!;
-      } else {
-        yArr = liveData.ir!;
-      }
-
       datasets.push({
         label: "Live",
-        data: yArr,
+        data: liveData[
+          selectedChart === "impulse"
+            ? "ir"
+            : selectedChart === "magnitude"
+              ? "mag_db"
+              : selectedChart === "phase"
+                ? "phase_deg"
+                : "coh"
+        ],
         borderColor: "#FFFFFF",
         backgroundColor: "#FFFFFF",
         borderWidth: 2,
@@ -177,25 +142,6 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
           data = shiftedData;
         }
 
-        if (selectedChart === "magnitude" || selectedChart === "phase") {
-          const freqs = trace.tf_data.freqs!;
-          const mag = selectedChart === "magnitude" ? (data as number[]) : trace.tf_data.mag_db!;
-          const phs = selectedChart === "phase" ? (data as number[]) : trace.tf_data.phase_deg!;
-          const s = doSmooth ? smoothTF(freqs, mag, phs) : { mag_db: mag, phase_deg: phs };
-
-          data = selectedChart === "magnitude" ? s.mag_db : s.phase_deg!;
-        } else if (selectedChart === "coherence" && trace.tf_data.coh) {
-          data = doSmooth
-            ? fracOctaveSmooth(
-                trace.tf_data.freqs!,
-                trace.tf_data.coh!.map((v) => 10 * Math.log10(Math.max(v, 1e-9))),
-                null,
-                smoothingBPO,
-                "mag",
-              ).mag_db.map((d) => Math.min(1, Math.max(0, Math.pow(10, d / 10))))
-            : trace.tf_data.coh;
-        }
-
         datasets.push({
           label: trace.name,
           data,
@@ -232,9 +178,6 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
     measurementAdjustments,
     selectedTargetCurve,
     isTargetCurveVisible,
-    smoothingBPO,
-    smoothingMode,
-    smoothingEnabled,
   ]);
 
   const chartOptions = useMemo(() => {
@@ -375,38 +318,6 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
               </div>
             </div>
           )}
-          <div className="space-y-2 mb-4">
-            <label className="text-sm font-medium text-gray-300">Smoothing</label>
-            <div className="flex items-center gap-2">
-              <select
-                value={smoothingEnabled ? String(smoothingBPO) : "0"}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  setSmoothingEnabled(v > 0);
-                  if (v > 0) setSmoothingBPO(v);
-                }}
-                className="bg-gray-700 text-white p-2 rounded-md"
-              >
-                <option value="0">None</option>
-                <option value="48">1/48 octave</option>
-                <option value="24">1/24 octave</option>
-                <option value="12">1/12 octave</option>
-                <option value="6">1/6 octave</option>
-                <option value="3">1/3 octave</option>
-                <option value="1">1 octave</option>
-              </select>
-
-              <select
-                value={smoothingMode}
-                onChange={(e) => setSmoothingMode(e.target.value as any)}
-                className="bg-gray-700 text-white p-2 rounded-md"
-                title="Complex = vector-avg TF; Mag = power-avg magnitude only"
-              >
-                <option value="complex">Complex</option>
-                <option value="mag">Magnitude only</option>
-              </select>
-            </div>
-          </div>
           <h3 className="text-lg font-semibold text-white mb-4">Measurements</h3>
           <ul className="space-y-2">
             <li className="bg-gray-700 p-3 rounded-md">

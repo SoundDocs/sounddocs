@@ -7,15 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.5.2.1] - 2025-08-17
-
-### Added
-
-- **Fractional-Octave Smoothing**: Implemented fractional-octave smoothing for magnitude, phase, and coherence traces.
-- **UI Controls for Smoothing**: Added UI controls to the chart detail modal to enable/disable smoothing, select the smoothing amount (e.g., 1/24th octave), and choose the smoothing mode (complex or magnitude).
-- **Temporal Smoothing**: Added server-side temporal smoothing (EMA) to the DSP for steadier live traces.
-- **Chart.js Decimation**: Registered the Chart.js decimation plugin to improve performance by reducing the number of points drawn on the chart.
-
 ## [1.5.2.0.1] - 2025-08-17
 
 ### Added
