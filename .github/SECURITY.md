@@ -16,7 +16,7 @@ We take all security vulnerabilities seriously. If you discover a security issue
 
 Instead, please use one of the following private channels:
 
-**Email:** If you prefer, you can send an email to `security@sounddocs.org`.
+**Email:** You can send an email to `security@sounddocs.org`.
 
 Please include the following information in your report:
 
