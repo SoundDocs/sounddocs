@@ -85,7 +85,11 @@ For experienced developers, here are the essential commands to get the project r
 4.  **Set Up Web App Environment**:
     Copy the local Supabase credentials output by the previous command into a new `.env` file in `apps/web`.
 5.  **Generate SSL Certificate**:
-    The project now uses `mkcert` for a fully automated, browser-trusted SSL setup. The `run.sh` and `run.bat` scripts for the capture agent handle this automatically.
+    ```bash
+    cd agents/capture-agent-py
+    python3 generate_cert.py
+    cd ../..
+    ```
 6.  **Start the Web App**:
     ```bash
     pnpm dev
@@ -144,7 +148,16 @@ First, set up the main web application.
     VITE_SUPABASE_ANON_KEY=your-local-anon-key-from-the-cli
     ```
 5.  **Generate SSL Certificate**:
-    The Vite development server requires a trusted SSL certificate to run over HTTPS. The capture agent's `run` script now handles this automatically by using `mkcert`. Simply run the agent once to generate the required files.
+    The Vite development server requires a trusted SSL certificate to run over HTTPS.
+
+    ```bash
+    cd agents/capture-agent-py
+    python3 generate_cert.py
+    cd ../..
+    ```
+
+    This script uses `mkcert` to generate the necessary certificate files.
+
 6.  **Start the Development Server**:
     Now you can start the web app.
     ```bash
