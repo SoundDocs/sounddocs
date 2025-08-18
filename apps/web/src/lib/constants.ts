@@ -88,3 +88,130 @@ export const TRACE_COLORS = [
   "#98DF8A",
   "#FF9896",
 ];
+
+// --- Target curve utils (drop-in replacement) ---
+type Filter =
+  | { type: "peak"; f: number; gain: number; q: number }
+  | { type: "highshelf"; f: number; gain: number; s: number } // shelf "S" (not Q)
+  | { type: "lpf1"; f: number }; // true 6 dB/oct
+
+type Biquad = { b0: number; b1: number; b2: number; a0: number; a1: number; a2: number };
+
+// magnitude of biquad at frequency f (Hz), fs (Hz)
+function biquadMagDbAt(f: number, fs: number, c: Biquad): number {
+  const w = 2 * Math.PI * (f / fs);
+  const cw = Math.cos(w);
+  const sw = Math.sin(w);
+  const c2 = Math.cos(2 * w);
+  const s2 = Math.sin(2 * w);
+
+  // numerator: b0 + b1 z^-1 + b2 z^-2 with z^-1 = cos(w) - j sin(w)
+  const numRe = c.b0 + c.b1 * cw + c.b2 * c2;
+  const numIm = -(c.b1 * sw + c.b2 * s2);
+  const denRe = c.a0 + c.a1 * cw + c.a2 * c2;
+  const denIm = -(c.a1 * sw + c.a2 * s2);
+
+  const num2 = numRe * numRe + numIm * numIm;
+  const den2 = denRe * denRe + denIm * denIm;
+  const mag = Math.sqrt(num2 / den2);
+  return 20 * Math.log10(mag);
+}
+
+function designPeaking(f0: number, gainDb: number, Q: number, fs: number): Biquad {
+  const A = Math.pow(10, gainDb / 40);
+  const w0 = 2 * Math.PI * (f0 / fs);
+  const alpha = Math.sin(w0) / (2 * Q);
+  const cosw = Math.cos(w0);
+
+  let b0 = 1 + alpha * A;
+  let b1 = -2 * cosw;
+  let b2 = 1 - alpha * A;
+  let a0 = 1 + alpha / A;
+  let a1 = -2 * cosw;
+  let a2 = 1 - alpha / A;
+
+  // normalize a0 = 1
+  b0 /= a0;
+  b1 /= a0;
+  b2 /= a0;
+  a1 /= a0;
+  a2 /= a0;
+  a0 = 1;
+  return { b0, b1, b2, a0, a1, a2 };
+}
+
+function designHighShelf(f0: number, gainDb: number, S: number, fs: number): Biquad {
+  // RBJ high-shelf with shelf slope S (not Q)
+  const A = Math.pow(10, gainDb / 40);
+  const w0 = 2 * Math.PI * (f0 / fs);
+  const cosw = Math.cos(w0);
+  const sinw = Math.sin(w0);
+  const alpha = (sinw / 2) * Math.sqrt((A + 1 / A) * (1 / S - 1) + 2);
+
+  let b0 = A * (A + 1 + (A - 1) * cosw + 2 * Math.sqrt(A) * alpha);
+  let b1 = -2 * A * (A - 1 + (A + 1) * cosw);
+  let b2 = A * (A + 1 + (A - 1) * cosw - 2 * Math.sqrt(A) * alpha);
+  let a0 = A + 1 - (A - 1) * cosw + 2 * Math.sqrt(A) * alpha;
+  let a1 = 2 * (A - 1 - (A + 1) * cosw);
+  let a2 = A + 1 - (A - 1) * cosw - 2 * Math.sqrt(A) * alpha;
+
+  // normalize a0 = 1
+  b0 /= a0;
+  b1 /= a0;
+  b2 /= a0;
+  a1 /= a0;
+  a2 /= a0;
+  a0 = 1;
+  return { b0, b1, b2, a0, a1, a2 };
+}
+
+function designLPF1(f0: number, fs: number): Biquad {
+  // 1st-order (6 dB/oct) bilinear-transform RC low-pass
+  const K = Math.tan(Math.PI * (f0 / fs));
+  const norm = 1 / (1 + K);
+  const b0 = K * norm;
+  const b1 = K * norm;
+  const b2 = 0;
+  const a0 = 1;
+  const a1 = (1 - K) * norm - 1; // convert to H(z)= (b0+b1 z^-1)/(1 + a1 z^-1 + a2 z^-2)
+  // Wait: the standard difference eq is y = b0 x + b1 x[n-1] - a1' y[n-1] with a1'=(K-1)/(1+K).
+  // For transfer denominator 1 + a1 z^-1 we need a1 = (K - 1) / (1 + K).
+  const a1_den = (K - 1) / (1 + K);
+  return { b0, b1, b2, a0: 1, a1: a1_den, a2: 0 };
+}
+
+// Build your “Custom” cascade once
+function buildCustomCascade(fs: number): Biquad[] {
+  return [
+    designPeaking(54, +13, 0.43, fs),
+    // treat given "q: 0.30" as shelf slope S=0.30 (RBJ)
+    designHighShelf(670, -2.5, 0.3, fs),
+    designLPF1(18100, fs),
+  ];
+}
+
+// Evaluate any curve at arbitrary frequency
+type Curve = { name: string; evalDb: (f: number, fs: number) => number };
+
+export const TARGET_CURVES: Record<string, Curve> = {
+  flat: {
+    name: "Flat",
+    evalDb: () => 0,
+  },
+  "x-curve": {
+    name: "X-Curve",
+    evalDb: (f: number) => (f <= 2000 ? 0 : -3 * Math.log2(f / 2000)),
+  },
+  custom: {
+    name: "SoundDocs Curve",
+    evalDb: (() => {
+      let biquads: Biquad[] | null = null;
+      return (f: number, fs: number) => {
+        if (!biquads) biquads = buildCustomCascade(fs);
+        // cascade magnitudes in linear, then convert to dB
+        const db = biquads.reduce((accDb, bq) => accDb + biquadMagDbAt(f, fs, bq), 0);
+        return db;
+      };
+    })(),
+  },
+};

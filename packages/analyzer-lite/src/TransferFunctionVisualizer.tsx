@@ -10,6 +10,7 @@ import {
   Tooltip,
   Legend,
   LogarithmicScale,
+  Decimation,
 } from "chart.js";
 import type { TFData } from "@sounddocs/analyzer-protocol";
 
@@ -22,6 +23,7 @@ ChartJS.register(
   Tooltip,
   Legend,
   LogarithmicScale,
+  Decimation,
 );
 
 export interface TransferFunctionVisualizerProps {
@@ -77,6 +79,11 @@ const chartOptions = {
     tooltip: {
       mode: "index" as const,
       intersect: false,
+    },
+    decimation: {
+      enabled: true,
+      algorithm: "lttb" as const, // or "min-max"
+      samples: 600, // target points per dataset
     },
   },
   elements: {

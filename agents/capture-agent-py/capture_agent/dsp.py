@@ -2,6 +2,10 @@ import numpy as np
 from scipy.signal import welch, csd
 from .schema import CaptureConfig, TFData, SPLData
 
+# in dsp.py (module-level)
+_spec = {"Pxx": None, "Pyy": None, "Pxy": None}
+_spec_alpha = 0.85  # closer to 1 = more smoothing; expose via config if you like
+
 _windows = {}
 
 def get_window(name, N):
@@ -234,19 +238,29 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         detrend='constant', return_onesided=True, scaling='density'
     )
 
+    if _spec["Pxx"] is None or _spec["Pxx"].shape != Pxx.shape:
+        _spec["Pxx"], _spec["Pyy"], _spec["Pxy"] = Pxx, Pyy, Pxy
+    else:
+        a = _spec_alpha
+        _spec["Pxx"] = a*_spec["Pxx"] + (1-a)*Pxx
+        _spec["Pyy"] = a*_spec["Pyy"] + (1-a)*Pyy
+        _spec["Pxy"] = a*_spec["Pxy"] + (1-a)*Pxy
+
+    Pxx_s, Pyy_s, Pxy_s = _spec["Pxx"], _spec["Pyy"], _spec["Pxy"]
+
     eps = 1e-20
-    Pxx = np.maximum(Pxx, eps)
-    Pyy = np.maximum(Pyy, eps)
+    Pxx_s = np.maximum(Pxx_s, eps)
+    Pyy_s = np.maximum(Pyy_s, eps)
 
     # Remove tiny fractional remainder with freq rotation
     if abs(frac_samples) > 1e-6:
         tau_frac = frac_samples / fs
-        Pxy *= np.exp(1j * 2 * np.pi * freqs * tau_frac)
+        Pxy_s *= np.exp(1j * 2 * np.pi * freqs * tau_frac)
 
-    H = Pxy / Pxx
+    H = Pxy_s / Pxx_s
     mag_db = 20.0 * np.log10(np.abs(H) + eps)
     phase_deg = np.angle(H, deg=True)
-    coh = (np.abs(Pxy) ** 2) / (Pxx * Pyy + eps)
+    coh = (np.abs(Pxy_s) ** 2) / (Pxx_s * Pyy_s + eps)
     coh = np.clip(coh, 0.0, 1.0)
 
     # Impulse response
