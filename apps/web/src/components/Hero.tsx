@@ -51,8 +51,7 @@ const Hero: React.FC = () => {
             </h1>
 
             <p className="text-gray-300 text-lg md:text-xl leading-relaxed">
-              The ultimate tool for audio engineers and production managers to create, organize, and
-              share
+              The ultimate tool for event professionals to create, organize, and share
               <span className="text-indigo-300 font-medium">
                 {" "}
                 patch lists, stage plots, run of shows, production schedules,{" "}
@@ -164,6 +163,15 @@ const Hero: React.FC = () => {
                 <div>
                   <h3 className="text-white font-semibold text-sm">Production Schedules</h3>
                   <p className="text-gray-400 text-xs">Task management, deadlines.</p>
+                </div>
+              </div>
+              <div className="bg-gray-850 rounded-lg p-3 border border-gray-700/50 flex items-center">
+                <Headphones className="text-indigo-400 mr-3 h-5 w-5 flex-shrink-0" />
+                <div>
+                  <h3 className="text-white font-semibold text-sm">AcoustIQ Audio Analyzer</h3>
+                  <p className="text-gray-400 text-xs">
+                    The first professional, browser-based FFT audio analyzer.
+                  </p>
                 </div>
               </div>
             </div>

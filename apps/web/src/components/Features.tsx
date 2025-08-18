@@ -71,16 +71,16 @@ const Features: React.FC = () => {
         "Organize pre-production, setup, rehearsal, show, and strike activities. Keep your entire team aligned and on track.",
     },
     {
+      icon: <Headphones className="h-6 w-6" />,
+      title: "AcoustIQ Audio Analyzer",
+      description:
+        "The first professional, browser-based FFT audio analyzer. Features RTA, SPL, and dual-channel transfer function capabilities.",
+    },
+    {
       icon: <Share2 className="h-6 w-6" />,
       title: "Easy Sharing & Export",
       description:
         "Generate professional PDFs. Share securely via links with venues, artists, and production teams.",
-    },
-    {
-      icon: <Headphones className="h-6 w-6" />,
-      title: "Pro A/V Focused Tools",
-      description:
-        "Features built specifically for the needs of live sound engineers, A/V techs, and event production staff.",
     },
   ];
 
@@ -97,7 +97,8 @@ const Features: React.FC = () => {
           <p className="text-gray-300 max-w-2xl mx-auto text-lg">
             SoundDocs equips event professionals with a full suite of tools to create, manage, and
             share critical documentation—from pixel maps and patch lists to stage plots, mic plots,
-            run of shows, and production schedules.
+            run of shows, production schedules, and now, the first professional, browser-based FFT
+            audio analyzer.
           </p>
         </div>
 

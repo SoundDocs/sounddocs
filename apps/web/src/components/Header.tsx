@@ -179,26 +179,6 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
             </a>
           ) : (
             <>
-              <a
-                href="/#features"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/#features");
-                }}
-                className="text-gray-300 hover:text-white transition-colors duration-200"
-              >
-                Features
-              </a>
-              <a
-                href="/#get-started"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate("/#get-started");
-                }}
-                className="text-gray-300 hover:text-white transition-colors duration-200"
-              >
-                Get Started
-              </a>
               <Link
                 to="/resources"
                 className="text-gray-300 hover:text-white transition-colors duration-200"
@@ -281,28 +261,6 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
                 </a>
               ) : (
                 <>
-                  <a
-                    href="/#features"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate("/#features");
-                      setIsMenuOpen(false);
-                    }}
-                    className="text-gray-300 hover:text-white transition-colors duration-200"
-                  >
-                    Features
-                  </a>
-                  <a
-                    href="/#get-started"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate("/#get-started");
-                      setIsMenuOpen(false);
-                    }}
-                    className="text-gray-300 hover:text-white transition-colors duration-200"
-                  >
-                    Get Started
-                  </a>
                   <Link
                     to="/resources"
                     onClick={() => setIsMenuOpen(false)}

@@ -1,4 +1,5 @@
 import React from "react";
+import { Helmet } from "react-helmet";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { Link as RouterLink } from "react-router-dom";
@@ -37,6 +38,17 @@ const ResourceCard: React.FC<{
 const Resources: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+      <Helmet>
+        <title>SoundDocs | A/V/L Resources</title>
+        <meta
+          name="description"
+          content="Access valuable tools, rate information, technical formulas, and reference guides for audio, video, and lighting to streamline your production workflow."
+        />
+        <meta
+          name="keywords"
+          content="audio visual resources, lighting design resources, production scheduling resources, stage management resources, patch sheets, stage layouts, microphone plots, corporate events, theater production, run of show software, A/V/L resources, technical guides for events"
+        />
+      </Helmet>
       <Header />
       <main className="flex-grow container mx-auto px-4 py-24">
         <h1 className="text-5xl font-bold mb-12 pb-4 text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-500">

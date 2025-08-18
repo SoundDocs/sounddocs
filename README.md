@@ -20,8 +20,12 @@ SoundDocs empowers you to manage event audio documentation efficiently:
   Design detailed input/output lists, map signal flows, specify equipment, and add critical technical notes. Perfect for FOH, monitors, and broadcast.
 - **🎨 Stage Plot Designer:**
   Visually construct stage layouts using a library of draggable elements including instruments, microphones, monitors, DI boxes, and risers. Clearly communicate stage needs.
+- **🎤 Mic Plot Designer:**
+  Craft detailed Corporate and Theater mic plots. Manage presenters, actors, wireless assignments, photos, and notes with ease.
+- **📊 Pixel Map Designer:**
+  Design and visualize LED video wall layouts, then export clear, detailed plans for your video team.
 - **🗓️ Run of Show Creator (with Show Mode):**
-  Develop detailed event timelines, cue sheets, and segment breakdowns. Utilize the "Show Mode" for real-time event tracking and execution.
+  Develop detailed event timelines, cue sheets, and segment breakdowns. Utilize the "Show Mode" for real-time event tracking and execution. Now with sticky headers, auto-scrolling, automatic time calculation, and column color highlighting.
 - **📊 Production Schedule Manager:**
   Organize and track all pre-production, setup, rehearsal, show, and strike activities. Ensure your entire team is aligned.
 - **🚀 Smart Export System:**
@@ -29,12 +33,13 @@ SoundDocs empowers you to manage event audio documentation efficiently:
 - **🤝 Collaboration Tools:**
   Share your documents securely via unique links. Facilitate smooth communication with clients, band members, and technical crew.
 - **🎤 AcoustIQ Audio Analyzer:**
-  A comprehensive audio analysis tool with both a simple browser-based RTA ("Lite") and a powerful dual-channel version ("Pro") that uses a local capture agent. Features include:
+  The first professional, browser-based FFT audio analyzer. A comprehensive audio analysis tool with both a simple browser-based RTA ("Lite") and a powerful dual-channel version ("Pro") that uses a local capture agent. Features include:
   - Real-time Spectrogram (RTA)
   - SPL Meter with Calibration
   - Dual-Channel Transfer Function
   - Coherence & Phase Measurement
   - Impulse Response
+  - Save and recall measurements
 
 ## 🛠️ Tech Stack
 
@@ -80,11 +85,7 @@ For experienced developers, here are the essential commands to get the project r
 4.  **Set Up Web App Environment**:
     Copy the local Supabase credentials output by the previous command into a new `.env` file in `apps/web`.
 5.  **Generate SSL Certificate**:
-    ```bash
-    cd agents/capture-agent-py
-    python3 generate_cert.py
-    cd ../..
-    ```
+    The project now uses `mkcert` for a fully automated, browser-trusted SSL setup. The `run.sh` and `run.bat` scripts for the capture agent handle this automatically.
 6.  **Start the Web App**:
     ```bash
     pnpm dev
@@ -109,8 +110,8 @@ Before you begin, make sure you have the following tools installed:
   ```
 - **Docker**: The Supabase CLI uses Docker to run the local development environment. [Install Docker](https://docs.docker.com/get-docker/).
 - **Supabase CLI**: Required for managing the local Supabase stack. Follow the official installation guide for your OS: [Supabase CLI Docs](https://supabase.com/docs/guides/cli).
-- **Python**: v3.11+ is required for generating the SSL certificate.
-- **mkcert**: A tool for creating trusted local SSL certificates.
+- **Python**: v3.11+ is required for the capture agent.
+- **mkcert**: A tool for creating trusted local SSL certificates. The agent setup scripts can install this for you automatically.
   - **macOS**: `brew install mkcert`
   - **Windows**: `choco install mkcert`
   - **Linux**: Follow the [mkcert installation guide](https://github.com/FiloSottile/mkcert#installation).
@@ -143,16 +144,7 @@ First, set up the main web application.
     VITE_SUPABASE_ANON_KEY=your-local-anon-key-from-the-cli
     ```
 5.  **Generate SSL Certificate**:
-    The Vite development server requires a trusted SSL certificate to run over HTTPS.
-
-    ```bash
-    cd agents/capture-agent-py
-    python3 generate_cert.py
-    cd ../..
-    ```
-
-    This script uses `mkcert` to generate the necessary certificate files.
-
+    The Vite development server requires a trusted SSL certificate to run over HTTPS. The capture agent's `run` script now handles this automatically by using `mkcert`. Simply run the agent once to generate the required files.
 6.  **Start the Development Server**:
     Now you can start the web app.
     ```bash
@@ -170,7 +162,7 @@ If you are working on features related to the "AcoustIQ Pro" audio analyzer, you
     cd agents/capture-agent-py
     ```
 2.  **Run the Agent**:
-    The `run` script handles installing dependencies and starting the agent.
+    The `run` script handles installing dependencies and starting the agent. It will also automatically generate a browser-trusted SSL certificate using `mkcert` on the first run.
 
     - **macOS/Linux**: `./run.sh`
     - **Windows**: `run.bat`
