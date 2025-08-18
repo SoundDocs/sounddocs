@@ -16,8 +16,7 @@ We take all security vulnerabilities seriously. If you discover a security issue
 
 Instead, please use one of the following private channels:
 
-1.  **GitHub's Private Vulnerability Reporting:** The preferred method is to use the "Report a vulnerability" feature on the "Security" tab of our GitHub repository. This ensures the report is private and gets to the right people quickly.
-2.  **Email:** If you prefer, you can send an email to `security@sounddocs.org`.
+**Email:** If you prefer, you can send an email to `security@sounddocs.org`.
 
 Please include the following information in your report:
 
