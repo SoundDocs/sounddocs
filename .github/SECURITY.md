@@ -14,7 +14,7 @@ We take all security vulnerabilities seriously. If you discover a security issue
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-Instead, please use one of the following private channels:
+Instead, please use a private channel:
 
 **Email:** You can send an email to `security@sounddocs.org`.
 
