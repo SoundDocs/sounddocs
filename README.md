@@ -29,7 +29,7 @@ SoundDocs empowers you to manage event audio documentation efficiently:
 - **📊 Production Schedule Manager:**
   Organize and track all pre-production, setup, rehearsal, show, and strike activities. Ensure your entire team is aligned.
 - **🚀 Smart Export System:**
-  Generate professional, high-quality PDF exports of your documents. Choose between dark or light mode to suit your presentation needs.
+  Generate professional, high-quality PDF exports of your documents. Choose between full color or print friendly to suit your presentation needs.
 - **🤝 Collaboration Tools:**
   Share your documents securely via unique links. Facilitate smooth communication with clients, band members, and technical crew.
 - **🎤 AcoustIQ Audio Analyzer:**
