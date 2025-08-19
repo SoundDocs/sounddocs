@@ -78,11 +78,6 @@ const chartOptions = {
       mode: "index" as const,
       intersect: false,
     },
-    decimation: {
-      enabled: true,
-      algorithm: "lttb" as const,
-      samples: 600,
-    },
   },
   elements: {
     point: {
@@ -125,40 +120,25 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
   const magnitudeData = React.useMemo(() => {
     const datasets = [];
     if (tfData) {
-      const smoothed =
-        tfData?.mag_db?.map((y: number, i: number) => ({ x: tfData!.freqs[i], y })) ?? [];
-      const raw =
-        tfData?.raw_mag_db?.map((y: number, i: number) => ({ x: tfData!.freqs[i], y })) ?? [];
-
       datasets.push({
-        label: "Live (raw)",
-        data: raw,
+        label: "Live",
+        data: tfData.mag_db,
         borderColor: "#FFFFFF",
         backgroundColor: "#FFFFFF",
-        borderWidth: 1,
-        borderDash: [3, 3],
-        borderOpacity: 0.3,
-        pointRadius: 0,
-      });
-      datasets.push({
-        label: "Live (smoothed)",
-        data: smoothed,
-        borderColor: "#FFFFFF",
-        backgroundColor: "#FFFFFF",
-        borderWidth: 3,
-        pointRadius: 0,
+        borderWidth: 2,
       });
     }
     saved.forEach((trace) => {
       datasets.push({
         label: trace.label,
-        data: trace.tf.mag_db.map((y, i) => ({ x: trace.tf.freqs[i], y })),
+        data: trace.tf.mag_db, // Note: offset logic will be added later
         borderColor: trace.color || "#F472B6",
         backgroundColor: trace.color || "#F472B6",
         borderWidth: 1,
       });
     });
     return {
+      labels: tfData?.freqs || saved[0]?.tf.freqs || [],
       datasets,
     };
   }, [tfData, saved]);
@@ -166,40 +146,25 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
   const phaseData = React.useMemo(() => {
     const datasets = [];
     if (tfData) {
-      const smoothed =
-        tfData?.phase_deg?.map((y: number, i: number) => ({ x: tfData!.freqs[i], y })) ?? [];
-      const raw =
-        tfData?.raw_phase_deg?.map((y: number, i: number) => ({ x: tfData!.freqs[i], y })) ?? [];
-
       datasets.push({
-        label: "Live (raw)",
-        data: raw,
+        label: "Live",
+        data: tfData.phase_deg,
         borderColor: "#FFFFFF",
         backgroundColor: "#FFFFFF",
-        borderWidth: 1,
-        borderDash: [3, 3],
-        borderOpacity: 0.3,
-        pointRadius: 0,
-      });
-      datasets.push({
-        label: "Live (smoothed)",
-        data: smoothed,
-        borderColor: "#FFFFFF",
-        backgroundColor: "#FFFFFF",
-        borderWidth: 3,
-        pointRadius: 0,
+        borderWidth: 2,
       });
     }
     saved.forEach((trace) => {
       datasets.push({
         label: trace.label,
-        data: trace.tf.phase_deg.map((y, i) => ({ x: trace.tf.freqs[i], y })),
+        data: trace.tf.phase_deg, // Note: offset logic will be added later
         borderColor: trace.color || "#F472B6",
         backgroundColor: trace.color || "#F472B6",
         borderWidth: 1,
       });
     });
     return {
+      labels: tfData?.freqs || saved[0]?.tf.freqs || [],
       datasets,
     };
   }, [tfData, saved]);

@@ -14,8 +14,6 @@ class TFData(BaseModel):
     phase_deg: List[float]
     coh: List[float]
     ir: List[float]
-    raw_mag_db: List[float] | None = None
-    raw_phase_deg: List[float] | None = None
 
 class SPLData(BaseModel):
     Leq: float
@@ -39,9 +37,8 @@ class CaptureConfig(BaseModel):
     window: WindowType
 
     # Smoothing
-    smoothFrac: int
-    smoothMethod: Literal["complex", "power"]
-    smoothCohPow: float
+    lpfMode: LpfMode
+    lpfFreq: float
 
 # Message types from client to agent
 class HelloMessage(BaseModel):

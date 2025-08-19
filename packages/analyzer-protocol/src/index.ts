@@ -10,13 +10,10 @@ export interface Device {
 
 export interface TFData {
   freqs: number[];
-  mag_db: number[]; // SMOOTHED for display
-  phase_deg: number[]; // SMOOTHED for display
+  mag_db: number[];
+  phase_deg: number[];
   coh: number[];
   ir: number[];
-
-  raw_mag_db?: number[]; // RAW (unsmoothed)
-  raw_phase_deg?: number[]; // RAW (unsmoothed)
 }
 
 export interface SPLData {
@@ -42,9 +39,8 @@ export interface CaptureConfig {
   window: WindowType;
 
   // Smoothing
-  smoothFrac: number; // e.g., 48, 24, 12, 6, 3, 1
-  smoothMethod: "complex" | "power";
-  smoothCohPow: number; // 0..2 (0 = no coh weighting)
+  lpfMode: LpfMode;
+  lpfFreq: number;
 }
 
 // Message types from client to agent
