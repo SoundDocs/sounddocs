@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2.2] - 2025-08-19
+
+### Added
+
+- **AI-Powered System Alignment**: Added a new feature to the chart detail modal to calculate the precise time delay required to align two sound systems (e.g., mains and delays).
+- **Haas Effect Logic**: The alignment calculation now ensures the front/closer system arrives 2ms before the rear/farther system to create a correct psychoacoustic localization effect.
+- **Alignment UI**: Implemented a new UI panel for the alignment feature with a dropdown to select the type of systems being aligned and dedicated dropdowns to select the exact measurements for each system, improving clarity and ease of use.
+
+### Changed
+
+- **Database Schema**: Added a `capture_delay_ms` column to the `tf_measurements` table to store the frozen delay value at the moment of capture, which is essential for accurate time alignment calculations.
+- **Supabase Edge Function**: Created a new `ai-align-systems` serverless function to handle the complex cross-correlation and delay calculation on the backend.
+
+### Fixed
+
+- **Measurement Data Fetching**: Fixed a bug where the app was not fetching the `capture_delay_ms` for saved measurements, which prevented the alignment feature from working.
+
 ## [1.5.2.1] - 2025-08-19
 
 ### Added

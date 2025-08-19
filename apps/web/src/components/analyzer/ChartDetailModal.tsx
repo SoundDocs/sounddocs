@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { X, Eye, EyeOff, Trash2, Download, Upload, SlidersHorizontal } from "lucide-react";
+import { X, Eye, EyeOff, Trash2, Download, Upload, SlidersHorizontal, Timer } from "lucide-react";
+import { supabase } from "../../lib/supabase";
 import { TFData } from "@sounddocs/analyzer-protocol";
 import Chart from "./Chart";
 import { TARGET_CURVES } from "../../lib/constants";
@@ -16,6 +17,7 @@ interface Measurement {
   color?: string;
   sample_rate: number;
   eq_settings?: EqSetting[];
+  capture_delay_ms?: number; // Added for alignment
 }
 
 interface ChartDetailModalProps {
@@ -63,9 +65,98 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
   const [isTargetCurveVisible, setIsTargetCurveVisible] = useState(true);
   const [showOriginalTrace, setShowOriginalTrace] = useState(false);
 
+  // State for AI Alignment
+  const [isAlignMode, setIsAlignMode] = useState(false);
+  const [alignmentPair, setAlignmentPair] = useState<[string | null, string | null]>([null, null]);
+  const [alignmentResult, setAlignmentResult] = useState<{
+    delayMs: number;
+    targetId: string;
+    targetName: string;
+  } | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [alignmentType, setAlignmentType] = useState("ff_mains");
+
   useEffect(() => {
     setSelectedChart(initialChart);
   }, [initialChart]);
+
+  const handleSelectForAlignment = (trace: "trace1" | "trace2", id: string) => {
+    const [first, second] = alignmentPair;
+    const newPair: [string | null, string | null] = [...alignmentPair];
+
+    if (trace === "trace1") {
+      newPair[0] = id === "none" ? null : id;
+    } else {
+      newPair[1] = id === "none" ? null : id;
+    }
+
+    setAlignmentPair(newPair);
+    setAlignmentResult(null); // Reset result when selection changes
+  };
+
+  const handleCalculateAlignment = async () => {
+    if (!alignmentPair[0] || !alignmentPair[1]) return;
+
+    setIsCalculating(true);
+    setAlignmentResult(null);
+
+    try {
+      const measurement1 = savedMeasurements.find((m) => m.id === alignmentPair[0]);
+      const measurement2 = savedMeasurements.find((m) => m.id === alignmentPair[1]);
+
+      if (!measurement1 || !measurement2) {
+        throw new Error("Could not find selected measurements.");
+      }
+      if (
+        typeof measurement1.capture_delay_ms !== "number" ||
+        typeof measurement2.capture_delay_ms !== "number"
+      ) {
+        throw new Error(
+          "Selected measurements are missing capture delay data. Please re-measure and save.",
+        );
+      }
+
+      const { data, error } = await supabase.functions.invoke("ai-align-systems", {
+        body: {
+          measurement1: {
+            ir: measurement1.tf_data.ir,
+            capture_delay_ms: measurement1.capture_delay_ms,
+          },
+          measurement2: {
+            ir: measurement2.tf_data.ir,
+            capture_delay_ms: measurement2.capture_delay_ms,
+          },
+          sampleRate: measurement1.sample_rate, // Assume they are the same
+        },
+      });
+
+      if (error) throw error;
+
+      const { alignment_delay_ms } = data;
+
+      // The function now returns the exact delay to be applied to measurement2.
+      setAlignmentResult({
+        delayMs: alignment_delay_ms,
+        targetId: measurement2.id,
+        targetName: measurement2.name,
+      });
+    } catch (err) {
+      console.error("Error calculating alignment:", err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      alert(`Alignment calculation failed: ${errorMessage}`);
+    } finally {
+      setIsCalculating(false);
+    }
+  };
+
+  const handleApplyAlignment = () => {
+    if (!alignmentResult) return;
+    onMeasurementAdjustmentChange(alignmentResult.targetId, { delay: alignmentResult.delayMs });
+    // Reset after applying
+    setIsAlignMode(false);
+    setAlignmentPair([null, null]);
+    setAlignmentResult(null);
+  };
 
   const chartData = useMemo(() => {
     const datasets = [];
@@ -370,7 +461,20 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
         <aside className="w-80 flex-shrink-0 bg-gray-900 bg-opacity-50 p-4 border-r border-gray-700 overflow-y-auto">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold text-white">Controls</h3>
-            <div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => {
+                  setIsAlignMode(!isAlignMode);
+                  setAlignmentPair([null, null]); // Reset on toggle
+                  setAlignmentResult(null);
+                }}
+                className={`p-2 hover:bg-gray-600 rounded-full ${
+                  isAlignMode ? "bg-indigo-500 text-white" : "text-indigo-400"
+                }`}
+                title="Align Two Measurements"
+              >
+                <Timer className="h-5 w-5" />
+              </button>
               <input
                 type="file"
                 ref={fileInputRef}
@@ -439,6 +543,90 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
               </div>
             </div>
           )}
+          {isAlignMode && (
+            <div className="bg-gray-800 p-3 rounded-md mb-4 space-y-3 border border-indigo-500">
+              <h4 className="font-semibold text-white">System Alignment</h4>
+              <div>
+                <label className="text-sm font-medium text-gray-300">Alignment Type</label>
+                <select
+                  value={alignmentType}
+                  onChange={(e) => setAlignmentType(e.target.value)}
+                  className="w-full bg-gray-700 text-white p-2 rounded-md mt-1"
+                >
+                  <option value="ff_mains">Front Fill & Mains</option>
+                  <option value="mains_delays">Mains & Delays</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <div>
+                  <label className="text-sm font-medium text-gray-300">
+                    Trace 1 ({alignmentType.split("_")[0].replace("ff", "Front Fill")})
+                  </label>
+                  <select
+                    value={alignmentPair[0] || "none"}
+                    onChange={(e) => handleSelectForAlignment("trace1", e.target.value)}
+                    className="w-full bg-gray-700 text-white p-2 rounded-md mt-1"
+                  >
+                    <option value="none">-- Select Measurement --</option>
+                    {savedMeasurements.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-300">
+                    Trace 2 (
+                    {alignmentType
+                      .split("_")[1]
+                      .replace("mains", "Mains")
+                      .replace("delays", "Delays")}
+                    )
+                  </label>
+                  <select
+                    value={alignmentPair[1] || "none"}
+                    onChange={(e) => handleSelectForAlignment("trace2", e.target.value)}
+                    className="w-full bg-gray-700 text-white p-2 rounded-md mt-1"
+                  >
+                    <option value="none">-- Select Measurement --</option>
+                    {savedMeasurements.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <button
+                onClick={handleCalculateAlignment}
+                disabled={!alignmentPair[0] || !alignmentPair[1] || isCalculating}
+                className="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+              >
+                {isCalculating ? "Calculating..." : "Calculate Delay"}
+              </button>
+              {alignmentResult && (
+                <div className="text-center bg-gray-900 p-3 rounded-md space-y-2">
+                  <div>
+                    <p className="text-sm text-gray-300">Recommended Delay:</p>
+                    <p className="text-2xl font-bold text-green-400">
+                      {Math.abs(alignmentResult.delayMs).toFixed(2)} ms
+                    </p>
+                    <p className="text-sm text-gray-300">
+                      to{" "}
+                      <span className="font-semibold text-white">{alignmentResult.targetName}</span>
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleApplyAlignment}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-1 px-3 rounded-md text-sm transition-colors"
+                  >
+                    Apply
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <h3 className="text-lg font-semibold text-white mb-4">Measurements</h3>
           <ul className="space-y-2">
             <li className="bg-gray-700 p-3 rounded-md">
@@ -473,7 +661,8 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
                     </div>
                     <div className="flex items-center space-x-2">
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (eqMeasurementId === m.id) {
                             onEqMeasurementIdChange(null);
                           } else {
@@ -496,7 +685,10 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
                         />
                       </button>
                       <button
-                        onClick={() => onToggleVisibility(m.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleVisibility(m.id);
+                        }}
                         className="p-2 hover:bg-gray-600 rounded-full"
                       >
                         {visibleIds.has(m.id) ? (
@@ -506,14 +698,20 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
                         )}
                       </button>
                       <button
-                        onClick={() => onDelete(m.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(m.id);
+                        }}
                         className="p-2 hover:bg-gray-600 rounded-full"
                         title="Delete Measurement"
                       >
                         <Trash2 className="h-5 w-5 text-red-500" />
                       </button>
                       <button
-                        onClick={() => handleExport(m)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleExport(m);
+                        }}
                         className="p-2 hover:bg-gray-600 rounded-full"
                         title="Export Measurement"
                       >

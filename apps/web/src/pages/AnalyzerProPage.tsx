@@ -155,7 +155,7 @@ const AnalyzerProPage: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from("tf_measurements")
-        .select("id, name, created_at, tf_data, sample_rate, eq_settings")
+        .select("id, name, created_at, tf_data, sample_rate, eq_settings, capture_delay_ms")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -221,6 +221,7 @@ const AnalyzerProPage: React.FC = () => {
         name,
         tf_data: tfData,
         sample_rate: sampleRate,
+        capture_delay_ms: appliedDelayMs,
         nfft: tfData.freqs.length * 2 - 2, // This is an approximation
         // Hardcoded for now, will be dynamic later
         agent_version: "capture-agent-py/0.1.0",
