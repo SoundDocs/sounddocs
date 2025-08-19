@@ -37,7 +37,7 @@ const TermsOfService = () => {
           <h1 className="text-3xl font-bold text-white mb-6">Terms of Service</h1>
 
           <div className="prose prose-invert max-w-none">
-            <p className="text-gray-300 mb-6">Last Updated: August 16, 2025</p>
+            <p className="text-gray-300 mb-6">Last Updated: August 19, 2025</p>
 
             <h2 className="text-xl font-semibold text-white mt-8 mb-4">1. Acceptance of Terms</h2>
             <p className="text-gray-300 mb-4">
@@ -60,6 +60,13 @@ const TermsOfService = () => {
               application processes audio from your device in real-time and does not record, store,
               or transmit any raw audio data. By using the AcoustIQ Pro feature, you agree to run
               the Capture Agent on your local machine.
+            </p>
+            <p className="text-gray-300 mb-4">
+              By using the AcoustIQ Pro service, you also consent to the use of your anonymized
+              acoustic measurement data ("trace data") for the purpose of training our artificial
+              intelligence and machine learning models. This data is used to improve our services.
+              All trace data is fully anonymized and will never be linked to any personally
+              identifiable information. For more details, please see our Privacy Policy.
             </p>
 
             <h2 className="text-xl font-semibold text-white mt-8 mb-4">3. User Accounts</h2>

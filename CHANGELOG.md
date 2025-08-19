@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2.1] - 2025-08-19
+
+### Added
+
+- **EQ Feature**: Added a comprehensive EQ feature to the chart detail modal, allowing users to apply parametric EQs and manufacturer-specific macros to their measurements.
+- **"Show Original" Trace**: Added a toggle to the EQ controls to display the original, unequalized trace alongside the EQ'd version for easy comparison.
+- **HPF/LPF Filters**: Added High-Pass and Low-Pass filters to the parametric EQ, with selectable slopes of 12, 24, and 48 dB/octave.
+
+### Changed
+
+- **Privacy Policy and Terms of Service**: Updated the Privacy Policy and Terms of Service to include a clause about using anonymized trace data for AI/ML model training.
+
+### Fixed
+
+- **EQ Controls UI**: Corrected the UI for HPF/LPF filters to hide the irrelevant "Gain" control.
+- **"Add Filter" Dropdown**: The "Add Filter" dropdown now dynamically repositions itself to avoid going off-screen.
+- **EQ Curve Rendering**: Corrected the biquad filter math to ensure accurate rendering of all EQ curves.
+- **HP/LP Slope Logic**: Corrected the slope logic for HPF/LPF filters to correctly cascade biquad sections.
+
 ## [1.5.2.0.1] - 2025-08-17
 
 ### Added

@@ -14,6 +14,7 @@ import { supabase } from "../lib/supabase";
 import { Device, TFData } from "@sounddocs/analyzer-protocol";
 import { useState, useEffect, useMemo } from "react";
 import { TRACE_COLORS } from "../lib/constants";
+import { EqSetting } from "../lib/dsp";
 
 interface Measurement {
   id: string;
@@ -22,6 +23,7 @@ interface Measurement {
   tf_data: TFData;
   color?: string;
   sample_rate: number;
+  eq_settings?: EqSetting[];
 }
 
 const AnalyzerProPage: React.FC = () => {
@@ -42,9 +44,64 @@ const AnalyzerProPage: React.FC = () => {
   >("magnitude");
   const [savedMeasurements, setSavedMeasurements] = useState<Measurement[]>([]);
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set());
+  const [eqMeasurementId, setEqMeasurementId] = useState<string | null>(null);
   const [measurementAdjustments, setMeasurementAdjustments] = useState<{
     [id: string]: { gain: number; delay: number };
   }>({});
+
+  const handleEqChange = async (id: string, eq_settings: EqSetting[]) => {
+    // Update local state immediately for responsiveness
+    const updatedMeasurements = savedMeasurements.map((m) =>
+      m.id === id ? { ...m, eq_settings } : m,
+    );
+    setSavedMeasurements(updatedMeasurements);
+
+    // Persist to database
+    try {
+      const { error } = await supabase
+        .from("tf_measurements")
+        .update({ eq_settings })
+        .match({ id });
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error updating EQ settings:", error);
+      // Optionally revert local state change on error
+    }
+  };
+
+  const handleAddMeasurements = async (measurements: Omit<Measurement, "id" | "created_at">[]) => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not logged in");
+
+      const newMeasurements = measurements.map((m) => {
+        const { color, ...rest } = m;
+        return {
+          ...rest,
+          color_preference: color,
+          user_id: user.id,
+          nfft: m.tf_data.freqs.length * 2 - 2,
+          agent_version: "capture-agent-py/0.1.0",
+          dsp_version: "tf/0.1.0",
+          window: "hann",
+          ref_chan: 1,
+          meas_chan: 2,
+        };
+      });
+
+      const { error } = await supabase.from("tf_measurements").insert(newMeasurements);
+      if (error) throw error;
+
+      fetchMeasurements();
+    } catch (error) {
+      console.error("Error importing measurements:", error);
+      alert(
+        `Error importing measurements: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  };
 
   const handleMeasurementAdjustmentChange = (
     id: string,
@@ -98,7 +155,7 @@ const AnalyzerProPage: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from("tf_measurements")
-        .select("id, name, created_at, tf_data, sample_rate")
+        .select("id, name, created_at, tf_data, sample_rate, eq_settings")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -311,16 +368,23 @@ const AnalyzerProPage: React.FC = () => {
 
       <ChartDetailModal
         isOpen={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false)}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setEqMeasurementId(null);
+        }}
         initialChart={selectedChart}
         liveData={tfData}
         savedMeasurements={savedMeasurements}
         visibleIds={visibleIds}
         onToggleVisibility={toggleMeasurementVisibility}
         onDelete={handleDeleteMeasurement}
+        onAddMeasurements={handleAddMeasurements}
         sampleRate={sampleRate}
         measurementAdjustments={measurementAdjustments}
         onMeasurementAdjustmentChange={handleMeasurementAdjustmentChange}
+        eqMeasurementId={eqMeasurementId}
+        onEqMeasurementIdChange={setEqMeasurementId}
+        onEqChange={handleEqChange}
       />
     </div>
   );

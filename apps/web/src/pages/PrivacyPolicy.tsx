@@ -37,7 +37,7 @@ const PrivacyPolicy = () => {
           <h1 className="text-3xl font-bold text-white mb-6">Privacy Policy</h1>
 
           <div className="prose prose-invert max-w-none">
-            <p className="text-gray-300 mb-6">Last Updated: August 16, 2025</p>
+            <p className="text-gray-300 mb-6">Last Updated: August 19, 2025</p>
 
             <h2 className="text-xl font-semibold text-white mt-8 mb-4">1. Introduction</h2>
             <p className="text-gray-300 mb-4">
@@ -182,7 +182,7 @@ const PrivacyPolicy = () => {
               the top. You are advised to review this Privacy Policy periodically for any changes.
             </p>
 
-            <h2 className="text-xl font-semibold text-white mt-8 mb-4">14. Contact Us</h2>
+            <h2 className="text-xl font-semibold text-white mt-8 mb-4">15. Contact Us</h2>
             <p className="text-gray-300 mb-4">
               If you have any questions about this Privacy Policy, please contact us at
               contact@sounddocs.org.

@@ -1,8 +1,10 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { X, Eye, EyeOff, Trash2 } from "lucide-react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { X, Eye, EyeOff, Trash2, Download, Upload, SlidersHorizontal } from "lucide-react";
 import { TFData } from "@sounddocs/analyzer-protocol";
 import Chart from "./Chart";
 import { TARGET_CURVES } from "../../lib/constants";
+import { EqSetting, applyEq } from "../../lib/dsp";
+import EqControls from "./EqControls";
 
 type ChartName = "magnitude" | "phase" | "impulse" | "coherence";
 
@@ -13,6 +15,7 @@ interface Measurement {
   tf_data: TFData;
   color?: string;
   sample_rate: number;
+  eq_settings?: EqSetting[];
 }
 
 interface ChartDetailModalProps {
@@ -24,11 +27,15 @@ interface ChartDetailModalProps {
   visibleIds: Set<string>;
   onToggleVisibility: (id: string) => void;
   onDelete: (id: string) => void;
+  onAddMeasurements: (measurements: Omit<Measurement, "id" | "created_at">[]) => void;
   sampleRate: number;
   measurementAdjustments: {
     [id: string]: { gain: number; delay: number };
   };
   onMeasurementAdjustmentChange: (id: string, newValues: { gain?: number; delay?: number }) => void;
+  eqMeasurementId: string | null;
+  onEqMeasurementIdChange: (id: string | null) => void;
+  onEqChange: (id: string, eq_settings: EqSetting[]) => void;
 }
 
 const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
@@ -40,15 +47,21 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
   visibleIds,
   onToggleVisibility,
   onDelete,
+  onAddMeasurements,
   sampleRate,
   measurementAdjustments,
   onMeasurementAdjustmentChange,
+  eqMeasurementId,
+  onEqMeasurementIdChange,
+  onEqChange,
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedChart, setSelectedChart] = useState<ChartName>(initialChart);
   const [magnitudeRange, setMagnitudeRange] = useState({ min: -20, max: 20 });
   const [isLiveTraceVisible, setIsLiveTraceVisible] = useState(true);
   const [selectedTargetCurve, setSelectedTargetCurve] = useState<string>("none");
   const [isTargetCurveVisible, setIsTargetCurveVisible] = useState(true);
+  const [showOriginalTrace, setShowOriginalTrace] = useState(false);
 
   useEffect(() => {
     setSelectedChart(initialChart);
@@ -70,7 +83,7 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
         ],
         borderColor: "#FFFFFF",
         backgroundColor: "#FFFFFF",
-        borderWidth: 2,
+        borderWidth: 4,
       });
     }
     if (selectedChart === "magnitude" && selectedTargetCurve !== "none" && isTargetCurveVisible) {
@@ -95,61 +108,102 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
       }
     }
     savedMeasurements.forEach((trace) => {
-      if (
-        visibleIds.has(trace.id) &&
-        trace.tf_data[
-          selectedChart === "impulse"
-            ? "ir"
-            : selectedChart === "magnitude"
-              ? "mag_db"
-              : selectedChart === "phase"
-                ? "phase_deg"
-                : "coh"
-        ]
-      ) {
-        const adjustments = measurementAdjustments[trace.id] || { gain: 0, delay: 0 };
-        let data =
-          trace.tf_data[
-            selectedChart === "impulse"
-              ? "ir"
-              : selectedChart === "magnitude"
-                ? "mag_db"
-                : selectedChart === "phase"
-                  ? "phase_deg"
-                  : "coh"
-          ];
+      const series =
+        selectedChart === "impulse"
+          ? "ir"
+          : selectedChart === "magnitude"
+            ? "mag_db"
+            : selectedChart === "phase"
+              ? "phase_deg"
+              : "coh";
 
-        if (selectedChart === "magnitude") {
-          data = data.map((d) => d + adjustments.gain);
-        } else if (selectedChart === "phase" && trace.tf_data.freqs) {
-          data = data.map((d, i) => {
-            const freq = trace.tf_data.freqs[i];
-            const phaseShift = (adjustments.delay / 1000) * freq * 360;
-            let phase = d - phaseShift;
-            while (phase <= -180) phase += 360;
-            while (phase > 180) phase -= 360;
-            return phase;
-          });
-        } else if (selectedChart === "impulse") {
-          const delayInSamples = Math.round((adjustments.delay / 1000) * trace.sample_rate);
-          const shiftedData = new Array(data.length).fill(0);
-          for (let i = 0; i < data.length; i++) {
-            const newIndex = i + delayInSamples;
-            if (newIndex >= 0 && newIndex < data.length) {
-              shiftedData[newIndex] = data[i];
-            }
-          }
-          data = shiftedData;
+      if (!visibleIds.has(trace.id)) return;
+      if (!trace.tf_data[series]) return;
+
+      const adjustments = measurementAdjustments[trace.id] || { gain: 0, delay: 0 };
+      let data = trace.tf_data[series];
+
+      if (selectedChart === "magnitude") {
+        // baseMag = original measurement + gain trim (no EQ)
+        const baseMag = data.map((d: number) => d + adjustments.gain);
+
+        // eqApplied = baseMag with EQ (if any)
+        const hasEq = Array.isArray(trace.eq_settings) && trace.eq_settings.length > 0;
+        const eqApplied = hasEq
+          ? applyEq(baseMag, trace.tf_data.freqs, trace.sample_rate, trace.eq_settings!)
+          : baseMag;
+
+        const isCurrentEqTarget = showOriginalTrace && eqMeasurementId === trace.id && hasEq;
+
+        // 1) Optional overlay: original (pre-EQ)
+        if (isCurrentEqTarget) {
+          datasets.push({
+            label: `${trace.name} (orig)`,
+            data: baseMag,
+            borderColor: trace.color || "#F472B6",
+            backgroundColor: trace.color || "#F472B6",
+            borderWidth: 2,
+            borderDash: [6, 4],
+            order: 0,
+          } as any);
         }
 
+        // 2) Active/EQ’d line
         datasets.push({
-          label: trace.name,
-          data,
+          label: `${trace.name}${hasEq ? " (EQ)" : ""}`,
+          data: eqApplied,
           borderColor: trace.color || "#F472B6",
           backgroundColor: trace.color || "#F472B6",
-          borderWidth: 1,
-        });
+          borderWidth: 4,
+          order: 1,
+        } as any);
+        return;
       }
+
+      if (selectedChart === "phase" && trace.tf_data.freqs) {
+        const phased = (data as number[]).map((d, i) => {
+          const freq = trace.tf_data.freqs[i];
+          const phaseShift = (adjustments.delay / 1000) * freq * 360;
+          let phase = d - phaseShift;
+          while (phase <= -180) phase += 360;
+          while (phase > 180) phase -= 360;
+          return phase;
+        });
+        datasets.push({
+          label: trace.name,
+          data: phased,
+          borderColor: trace.color || "#F472B6",
+          backgroundColor: trace.color || "#F472B6",
+          borderWidth: 4,
+        } as any);
+        return;
+      }
+
+      if (selectedChart === "impulse") {
+        const delayInSamples = Math.round((adjustments.delay / 1000) * trace.sample_rate);
+        const shifted = new Array((data as number[]).length).fill(0);
+        for (let i = 0; i < (data as number[]).length; i++) {
+          const newIndex = i + delayInSamples;
+          if (newIndex >= 0 && newIndex < shifted.length) shifted[newIndex] = (data as number[])[i];
+        }
+        datasets.push({
+          label: trace.name,
+          data: shifted,
+          borderColor: trace.color || "#F472B6",
+          backgroundColor: trace.color || "#F472B6",
+          borderWidth: 4,
+        } as any);
+        return;
+      }
+
+      // coherence (or anything else unchanged)
+      datasets.push({
+        label: trace.name,
+        data,
+        borderColor: trace.color || "#F472B6",
+        backgroundColor: trace.color || "#F472B6",
+        borderWidth: 4,
+      } as any);
     });
 
     let labels: (string | number)[] = liveData?.freqs || savedMeasurements[0]?.tf_data.freqs || [];
@@ -178,6 +232,8 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
     measurementAdjustments,
     selectedTargetCurve,
     isTargetCurveVisible,
+    eqMeasurementId,
+    showOriginalTrace,
   ]);
 
   const chartOptions = useMemo(() => {
@@ -243,6 +299,53 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
     return null;
   }
 
+  const handleExport = (measurement: Measurement) => {
+    const data = {
+      fileType: "sounddocs/acoustic-data",
+      version: "1.0",
+      measurements: [measurement],
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${measurement.name}.sdat`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result;
+        if (typeof text !== "string") {
+          throw new Error("File is not readable");
+        }
+        const data = JSON.parse(text);
+        if (data.fileType !== "sounddocs/acoustic-data" || !Array.isArray(data.measurements)) {
+          throw new Error("Invalid .sdat file format");
+        }
+        onAddMeasurements(data.measurements);
+        alert(`${data.measurements.length} measurement(s) imported successfully!`);
+      } catch (error) {
+        console.error("Import failed:", error);
+        alert(`Import failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = "";
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex flex-col z-50 backdrop-blur-sm">
       <header className="p-4 bg-gray-900 bg-opacity-50 border-b border-gray-700 flex justify-between items-center">
@@ -264,8 +367,26 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
         </button>
       </header>
       <div className="flex-grow flex overflow-hidden">
-        <aside className="w-80 bg-gray-900 bg-opacity-50 p-4 border-r border-gray-700 overflow-y-auto">
-          <h3 className="text-lg font-semibold text-white mb-4">Controls</h3>
+        <aside className="w-80 flex-shrink-0 bg-gray-900 bg-opacity-50 p-4 border-r border-gray-700 overflow-y-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-white">Controls</h3>
+            <div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept=".sdat"
+                onChange={handleFileChange}
+              />
+              <button
+                onClick={handleImportClick}
+                className="p-2 hover:bg-gray-600 rounded-full"
+                title="Import Measurement"
+              >
+                <Upload className="h-5 w-5 text-indigo-400" />
+              </button>
+            </div>
+          </div>
           {selectedChart === "magnitude" && (
             <div className="space-y-2 mb-4">
               <div>
@@ -352,6 +473,29 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
                     </div>
                     <div className="flex items-center space-x-2">
                       <button
+                        onClick={() => {
+                          if (eqMeasurementId === m.id) {
+                            onEqMeasurementIdChange(null);
+                          } else {
+                            onEqMeasurementIdChange(m.id);
+                            // ensure it's visible so the overlay actually renders
+                            if (!visibleIds.has(m.id)) {
+                              onToggleVisibility(m.id);
+                            }
+                          }
+                        }}
+                        className={`p-2 hover:bg-gray-600 rounded-full ${
+                          eqMeasurementId === m.id ? "bg-indigo-500" : ""
+                        }`}
+                        title="Toggle EQ"
+                      >
+                        <SlidersHorizontal
+                          className={`h-5 w-5 ${
+                            eqMeasurementId === m.id ? "text-white" : "text-gray-400"
+                          }`}
+                        />
+                      </button>
+                      <button
                         onClick={() => onToggleVisibility(m.id)}
                         className="p-2 hover:bg-gray-600 rounded-full"
                       >
@@ -364,8 +508,16 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
                       <button
                         onClick={() => onDelete(m.id)}
                         className="p-2 hover:bg-gray-600 rounded-full"
+                        title="Delete Measurement"
                       >
                         <Trash2 className="h-5 w-5 text-red-500" />
+                      </button>
+                      <button
+                        onClick={() => handleExport(m)}
+                        className="p-2 hover:bg-gray-600 rounded-full"
+                        title="Export Measurement"
+                      >
+                        <Download className="h-5 w-5 text-green-500" />
                       </button>
                     </div>
                   </div>
@@ -400,10 +552,32 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
             })}
           </ul>
         </aside>
-        <main className="flex-grow p-6 flex items-center justify-center">
-          <div className="w-full h-full bg-gray-800 rounded-lg shadow-2xl">
+        <main className="flex-grow p-6 flex flex-col min-w-0">
+          <div className="w-full flex-grow bg-gray-800 rounded-lg shadow-2xl min-h-0">
             <Chart data={chartData} options={chartOptions} />
           </div>
+          {selectedChart === "magnitude" && eqMeasurementId && (
+            <div className="w-full mt-4 flex-shrink-0 bg-gray-800 rounded-lg shadow-2xl p-4">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-white font-semibold">EQ Controls</h3>
+                <button
+                  onClick={() => setShowOriginalTrace(!showOriginalTrace)}
+                  className="p-1 hover:bg-gray-600 rounded-full"
+                  title={showOriginalTrace ? "Hide Original Trace" : "Show Original Trace"}
+                >
+                  {showOriginalTrace ? (
+                    <Eye className="h-5 w-5 text-indigo-400" />
+                  ) : (
+                    <EyeOff className="h-5 w-5 text-gray-400" />
+                  )}
+                </button>
+              </div>
+              <EqControls
+                measurement={savedMeasurements.find((m) => m.id === eqMeasurementId) || null}
+                onEqChange={onEqChange}
+              />
+            </div>
+          )}
         </main>
       </div>
     </div>
