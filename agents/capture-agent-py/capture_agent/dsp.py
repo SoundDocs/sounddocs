@@ -179,6 +179,83 @@ def _choose_nperseg_with_min_segments(usable_len: int, target_n: int, min_segmen
         n //= 2
     return 32, 24  # very small fallback
 
+def _log_band_edges(freqs: np.ndarray, frac: int = 6) -> tuple[np.ndarray, np.ndarray]:
+    """For each bin i, return [i0[i], i1[i]) index edges spanning ±(1/2*1/frac) octaves."""
+    f = freqs.copy()
+    valid = f > 0
+    L = np.log(f[valid])
+    dln = 0.5 * (np.log(2.0) / float(frac))  # half-bandwidth in natural log
+    lo = L - dln
+    hi = L + dln
+    i0 = np.searchsorted(L, lo, side="left")
+    i1 = np.searchsorted(L, hi, side="right")
+    # Map back to full-length arrays (keep zeros for f<=0; we won't use them)
+    I0 = np.zeros_like(f, dtype=np.int32)
+    I1 = np.zeros_like(f, dtype=np.int32)
+    I0[valid] = i0
+    I1[valid] = i1
+    return I0, I1, valid
+
+def _hann(M: int) -> np.ndarray:
+    if M <= 1:  # avoid divide-by-zero
+        return np.ones(max(M,1))
+    n = np.arange(M)
+    return 0.5 - 0.5*np.cos(2*np.pi*n/(M-1))
+
+def smooth_constQ_tf_and_coh(
+    freqs: np.ndarray,
+    Pxx: np.ndarray,
+    Pyy: np.ndarray,
+    Pxy: np.ndarray,
+    frac: int = 6,
+    coh_weight_pow: float = 1.0,
+    min_bins: int = 3,
+    eps: float = 1e-20,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    1/frac-octave smoothing on log-f for TF and coherence.
+    Returns (Hs, coh_s) where Hs is complex and coh_s is real in [0,1].
+    """
+    I0, I1, valid = _log_band_edges(freqs, frac=frac)
+
+    # raw coherence (unsmoothed) -> optional weights
+    coh0 = (np.abs(Pxy)**2) / (np.maximum(Pxx, eps)*np.maximum(Pyy, eps) + eps)
+    coh0 = np.clip(coh0, 0.0, 1.0)
+
+    Hs = np.zeros_like(Pxy, dtype=np.complex128)
+    coh_s = np.zeros_like(coh0, dtype=np.float64)
+
+    # Work only on positive-freq bins
+    fpos_idx = np.flatnonzero(valid)
+    for k, i in enumerate(fpos_idx):
+        a, b = int(I0[i]), int(I1[i])
+        # guardrail at very small windows
+        if b - a < min_bins:
+            a = max(0, k - min_bins//2)
+            b = min(len(fpos_idx), a + min_bins)
+            seg_idx = fpos_idx[a:b]
+        else:
+            # map (a:b) in the compressed valid-index space to real indices
+            seg_idx = fpos_idx[a:b]
+
+        M = seg_idx.size
+        w = _hann(M)
+        if coh_weight_pow > 0:
+            w = w * (coh0[seg_idx] ** coh_weight_pow)
+        wsum = float(np.sum(w)) + eps
+
+        Pxx_b = np.sum(Pxx[seg_idx] * w) / wsum
+        Pyy_b = np.sum(Pyy[seg_idx] * w) / wsum
+        Pxy_b = np.sum(Pxy[seg_idx] * w) / wsum
+
+        Hs[i] = Pxy_b / (Pxx_b + eps)
+        coh_s[i] = (np.abs(Pxy_b)**2) / (Pxx_b*Pyy_b + eps)
+
+    # Clamp coherence to [0,1] and copy DC/Nyquist safely
+    coh_s = np.clip(coh_s, 0.0, 1.0)
+    Hs[~valid] = Hs[valid][0] if np.any(valid) else 0.0
+    return Hs, coh_s
+
 def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, SPLData, float]:
     if block.ndim == 1:
         block = block[:, np.newaxis]
@@ -238,23 +315,29 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     Pxx = np.maximum(Pxx, eps)
     Pyy = np.maximum(Pyy, eps)
 
-    # Remove tiny fractional remainder with freq rotation
+    # Remove tiny fractional remainder with freq rotation BEFORE smoothing
     if abs(frac_samples) > 1e-6:
         tau_frac = frac_samples / fs
         Pxy *= np.exp(1j * 2 * np.pi * freqs * tau_frac)
 
-    H = Pxy / Pxx
-    mag_db = 20.0 * np.log10(np.abs(H) + eps)
-    phase_deg = np.angle(H, deg=True)
-    coh = (np.abs(Pxy) ** 2) / (Pxx * Pyy + eps)
-    coh = np.clip(coh, 0.0, 1.0)
+    # ---- 1/6-octave smoothing (no UI; fixed) ----
+    Hs, coh_s = smooth_constQ_tf_and_coh(
+        freqs=freqs,
+        Pxx=Pxx, Pyy=Pyy, Pxy=Pxy,
+        frac=6,                # <- fixed 1/6 octave
+        coh_weight_pow=1.0,    # modest coherence weighting
+        min_bins=3, eps=eps,
+    )
 
-    # Impulse response
+    # Smoothed display values
+    mag_db = 20.0 * np.log10(np.abs(Hs) + eps)
+    phase_deg = np.angle(Hs, deg=True)
+    coh = coh_s
+
+    # Impulse response from SMOOTHED H
     M = len(freqs)
     n_ir = 2 * (M - 1)
-    H_ir = H.copy()
-    # Note: When frozen/manual, we're already aligning signals with the frozen delay,
-    # so we don't need additional phase rotation - just compute IR from the aligned TF
+    H_ir = Hs.copy()
     H_ir[0] = H_ir[0].real + 0j
     if M > 1:
         H_ir[-1] = H_ir[-1].real + 0j
