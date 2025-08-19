@@ -25,6 +25,9 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
   const [refChan, setRefChan] = useState<number>(1);
   const [measChan, setMeasChan] = useState<number>(2);
   const [nfft, setNfft] = useState<number>(8192);
+  const [smoothFrac, setSmoothFrac] = useState<number>(12);
+  const [smoothMethod, setSmoothMethod] = useState<"complex" | "power">("complex");
+  const [smoothCohPow, setSmoothCohPow] = useState<number>(1.0);
 
   useEffect(() => {
     if (devices.length > 0 && !selectedDeviceId) {
@@ -49,8 +52,9 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
       avg: "power",
       avgCount: 0,
       window: "hann",
-      lpfMode: "none",
-      lpfFreq: 0,
+      smoothFrac,
+      smoothMethod,
+      smoothCohPow,
     };
     onStartCapture(config);
   };
@@ -121,6 +125,49 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
         </div>
 
         {/* Row 2 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">Smoothing</label>
+          <select
+            value={smoothFrac}
+            onChange={(e) => setSmoothFrac(Number(e.target.value))}
+            disabled={isCapturing}
+            className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
+          >
+            <option value={48}>1/48 oct</option>
+            <option value={24}>1/24 oct</option>
+            <option value={12}>1/12 oct</option>
+            <option value={6}>1/6 oct</option>
+            <option value={3}>1/3 oct</option>
+            <option value={1}>1 oct</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">Method</label>
+          <select
+            value={smoothMethod}
+            onChange={(e) => setSmoothMethod(e.target.value as "complex" | "power")}
+            disabled={isCapturing}
+            className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
+          >
+            <option value="complex">Complex</option>
+            <option value="power">Power</option>
+          </select>
+        </div>
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Coherence Weighting (0-2)
+          </label>
+          <input
+            type="range"
+            min="0"
+            max="2"
+            step="0.1"
+            value={smoothCohPow}
+            onChange={(e) => setSmoothCohPow(Number(e.target.value))}
+            disabled={isCapturing}
+            className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
+          />
+        </div>
       </div>
       <div className="mt-4 flex justify-between items-center">
         <div>

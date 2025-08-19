@@ -244,10 +244,20 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         Pxy *= np.exp(1j * 2 * np.pi * freqs * tau_frac)
 
     H = Pxy / Pxx
-    mag_db = 20.0 * np.log10(np.abs(H) + eps)
-    phase_deg = np.angle(H, deg=True)
     coh = (np.abs(Pxy) ** 2) / (Pxx * Pyy + eps)
     coh = np.clip(coh, 0.0, 1.0)
+
+    # Fractional-octave smoothing
+    Hs = frac_octave_smooth(
+        H, freqs,
+        frac=getattr(config, "smoothFrac", 6),
+        method=getattr(config, "smoothMethod", "complex"),
+        coh=coh,
+        coh_pow=getattr(config, "smoothCohPow", 1.0)
+    )
+
+    mag_db_s = 20.0 * np.log10(np.abs(Hs) + eps)
+    phase_deg_s = np.angle(Hs, deg=True)
 
     # Impulse response
     M = len(freqs)
@@ -268,10 +278,12 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
 
     tf_data = TFData(
         freqs=freqs.tolist(),
-        mag_db=mag_db.tolist(),
-        phase_deg=phase_deg.tolist(),
+        mag_db=mag_db_s.tolist(),
+        phase_deg=phase_deg_s.tolist(),
         coh=coh.tolist(),
         ir=ir_plot.tolist(),
+        raw_mag_db=(20.0*np.log10(np.abs(H)+eps)).tolist(),
+        raw_phase_deg=np.angle(H, deg=True).tolist(),
     )
 
     rms = float(np.sqrt(np.mean(y_eff**2))) or eps
@@ -279,3 +291,73 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     spl_data = SPLData(Leq=dbfs, LZ=dbfs)
 
     return tf_data, spl_data, delay_ms
+
+def frac_octave_smooth(
+    H: np.ndarray,
+    freqs: np.ndarray,
+    frac: int = 6,                 # 1/6 octave default
+    method: str = "complex",       # "complex" | "power"
+    window: str = "hann",          # "hann" | "rect"
+    coh: np.ndarray | None = None, # coherence weighting
+    coh_pow: float = 1.0,          # weight = coh**coh_pow
+    min_bins: int = 3,
+) -> np.ndarray:
+    """
+    Fractional-octave smoothing on log-f, constant-Q.
+    Returns complex-smoothed TF if method='complex', else real magnitude (linear).
+    """
+    f = np.asarray(freqs, float)
+    H = np.asarray(H, complex)
+    N = len(f)
+    assert H.shape[0] == N
+
+    # Work only on valid positive freqs
+    valid = f > 0
+    f = f[valid]
+    Hv = H[valid]
+    Cv = coh[valid] if coh is not None else None
+    N = len(f)
+
+    # Log-frequency grid
+    L = np.log(f)
+    dlog2 = np.log(2.0)
+    half_bw = 0.5 * (1.0/float(frac)) * dlog2  # half bandwidth in natural-log units
+
+    # Precompute index ranges for each bin
+    lo = L - half_bw
+    hi = L + half_bw
+    i0 = np.searchsorted(L, lo, side="left")
+    i1 = np.searchsorted(L, hi, side="right")
+
+    out = np.empty_like(Hv, dtype=np.complex128)
+
+    for i in range(N):
+        a, b = int(i0[i]), int(i1[i])
+        if b - a < min_bins:
+            # fall back to nearest neighbors
+            a = max(0, i - min_bins//2)
+            b = min(N, a + min_bins)
+        seg = Hv[a:b]
+
+        # Window weights (symmetric in log-f)
+        M = b - a
+        if window == "hann" and M > 1:
+            w = 0.5 - 0.5 * np.cos(2*np.pi*np.arange(M)/ (M-1))
+        else:
+            w = np.ones(M)
+
+        if Cv is not None:
+            w = w * (Cv[a:b] ** coh_pow)
+
+        wsum = np.sum(w) + 1e-20
+
+        if method == "complex":
+            out[i] = np.sum(seg * w) / wsum
+        else:  # "power" magnitude-only smoothing
+            mag2 = np.abs(seg)**2
+            out[i] = np.sqrt(np.sum(mag2 * w) / wsum) + 0j
+
+    # Reinsert into original shape
+    Hs = np.array(H, dtype=np.complex128)
+    Hs[valid] = out
+    return Hs

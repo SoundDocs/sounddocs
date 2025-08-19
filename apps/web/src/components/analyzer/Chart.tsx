@@ -10,8 +10,8 @@ import {
   Tooltip,
   Legend,
   LogarithmicScale,
+  Decimation,
 } from "chart.js";
-import { TFData } from "@sounddocs/analyzer-protocol";
 
 ChartJS.register(
   CategoryScale,
@@ -22,15 +22,21 @@ ChartJS.register(
   Tooltip,
   Legend,
   LogarithmicScale,
+  Decimation,
 );
 
 interface ChartProps {
   data: any;
   options: any;
+  className?: string;
 }
 
-const Chart: React.FC<ChartProps> = ({ data, options }) => {
-  return <Line data={data} options={options} />;
+const Chart: React.FC<ChartProps> = ({ data, options, className }) => {
+  return (
+    <div className={className}>
+      <Line data={data} options={options} />
+    </div>
+  );
 };
 
 export default Chart;
