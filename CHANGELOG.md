@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3.1] - 2025-01-27
+
+### Fixed
+
+- **macOS Installer Certificate Trust**: Fixed a critical issue where the macOS installer was not installing the mkcert Certificate Authority, causing SSL certificate trust warnings in browsers. The installer now properly runs `mkcert -install` to establish trust before generating certificates, eliminating "Not Secure" warnings.
+- **Documentation**: Corrected incorrect port number in agent startup message from 8443 to the actual port 9469.
+
 ## [1.5.3] - 2025-08-20
 
 ### Added

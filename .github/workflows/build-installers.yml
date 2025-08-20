@@ -15,51 +15,58 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      
+          python-version: "3.11"
+
       - name: Install dependencies
         run: |
           cd agents/capture-agent-py
           pip install --upgrade pip
           pip install pyinstaller
           pip install .
-      
+
       - name: Build executable
         run: |
           cd agents/capture-agent-py
           pyinstaller --onefile --name sounddocs-capture-agent --add-data "capture_agent:capture_agent" --add-data "generate_cert.py:." main.py
-      
+
       - name: Install mkcert
         run: brew install mkcert
-      
+
       - name: Create installer package
         run: |
           cd agents/capture-agent-py
           mkdir -p pkg-root/Applications/SoundDocs
           cp dist/sounddocs-capture-agent pkg-root/Applications/SoundDocs/
-          
+
           # Create launch script
           cat > pkg-root/Applications/SoundDocs/launch-agent.sh << 'EOF'
           #!/bin/bash
           cd "$HOME/.sounddocs-agent" || mkdir -p "$HOME/.sounddocs-agent" && cd "$HOME/.sounddocs-agent"
-          
+
+          # Check if mkcert CA is installed
+          if ! mkcert -CAROOT >/dev/null 2>&1 || [ ! -f "$(mkcert -CAROOT)/rootCA.pem" ]; then
+            echo "Setting up mkcert Certificate Authority..."
+            mkcert -install
+          fi
+
           # Generate certs if needed
           if [ ! -f localhost.pem ]; then
+            echo "Generating SSL certificates..."
             mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1
           fi
-          
+
           exec /Applications/SoundDocs/sounddocs-capture-agent
           EOF
           chmod +x pkg-root/Applications/SoundDocs/launch-agent.sh
           chmod +x pkg-root/Applications/SoundDocs/sounddocs-capture-agent
-          
+
           # Build package
-          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.0 --install-location / SoundDocsAgent-macOS.pkg
-      
+          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.1 --install-location / SoundDocsAgent-macOS.pkg
+
       - name: Upload macOS installer
         uses: actions/upload-artifact@v4
         with:
@@ -70,41 +77,41 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      
+          python-version: "3.11"
+
       - name: Install dependencies
         run: |
           cd agents/capture-agent-py
           pip install --upgrade pip
           pip install pyinstaller
           pip install .
-      
+
       - name: Build executable
         run: |
           cd agents/capture-agent-py
           pyinstaller --onefile --name sounddocs-capture-agent --add-data "capture_agent:capture_agent" --add-data "generate_cert.py:." main.py
-      
+
       - name: Install NSIS
         run: choco install nsis -y
-      
+
       - name: Create NSIS installer script
         run: |
           cd agents/capture-agent-py
           cat > installer.nsi << 'EOF'
           !define APPNAME "SoundDocs Capture Agent"
-          !define APPVERSION "0.1.0"
+          !define APPVERSION "0.1.1"
           Name "${APPNAME}"
           OutFile "SoundDocsAgent-Windows.exe"
           InstallDir "$PROGRAMFILES\SoundDocs"
           RequestExecutionLevel admin
-          
+
           Page directory
           Page instfiles
-          
+
           Section "Install"
               SetOutPath $INSTDIR
               File "dist\sounddocs-capture-agent.exe"
@@ -156,12 +163,12 @@ jobs:
           SectionEnd
           EOF
         shell: bash
-      
+
       - name: Build NSIS installer
         run: |
           cd agents/capture-agent-py
           makensis installer.nsi
-      
+
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
@@ -181,7 +188,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           merge-multiple: true
-      
+
       - name: List downloaded files
         run: |
           echo "Contents of current directory:"
@@ -190,7 +197,7 @@ jobs:
           ls -la macos-installer/ || echo "macos-installer directory not found"
           echo "Contents of windows-installer (if exists):"
           ls -la windows-installer/ || echo "windows-installer directory not found"
-      
+
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:

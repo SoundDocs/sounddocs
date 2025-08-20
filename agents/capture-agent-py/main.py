@@ -91,7 +91,7 @@ def main():
     
     print()
     print("Starting capture agent server...")
-    print("The agent will be available at: https://localhost:8443")
+    print("The agent will be available at: wss://127.0.0.1:9469")
     print("Press Ctrl+C to stop.")
     print()
     
