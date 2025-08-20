@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2.3] - 2025-08-19
+
+### Added
+
+- **Coherence-Based Transparency**: Magnitude and phase traces are now shaded based on coherence.
+  - Traces are fully opaque when coherence is >= 0.9.
+  - Traces are fully transparent when coherence is < 0.5.
+  - A smooth alpha gradient is applied for coherence values between 0.5 and 0.9.
+- **Consistent Styling**: The coherence-based transparency is applied to both live and saved measurements in the main analyzer view and the chart detail modal.
+
 ## [1.5.2.2] - 2025-08-19
 
 ### Added

@@ -38,6 +38,8 @@ export interface TransferFunctionVisualizerProps {
   }>;
   className?: string;
   onChartClick?: (chartName: "magnitude" | "phase" | "impulse" | "coherence") => void;
+  coherenceThreshold?: number;
+  coherenceAlpha?: boolean;
 }
 
 const chartOptions = {
@@ -92,6 +94,8 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
   saved = [],
   className = "",
   onChartClick = () => {},
+  coherenceThreshold = 0.5,
+  coherenceAlpha = true,
 }) => {
   const magnitudeChartOptions = {
     ...chartOptions,
@@ -123,9 +127,17 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
       datasets.push({
         label: "Live",
         data: tfData.mag_db,
-        borderColor: "#FFFFFF",
-        backgroundColor: "#FFFFFF",
         borderWidth: 2,
+        segment: {
+          borderColor: (context: any) => {
+            if (!coherenceAlpha) return "#FFFFFF";
+            const c = tfData.coh[context.p1DataIndex];
+            if (c >= 0.9) return "rgba(255, 255, 255, 1)";
+            if (c < coherenceThreshold) return "rgba(255, 255, 255, 0)";
+            const alpha = Math.pow(2.5 * (c - 0.5), 2);
+            return `rgba(255, 255, 255, ${alpha})`;
+          },
+        },
       });
     }
     saved.forEach((trace) => {
@@ -149,18 +161,37 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
       datasets.push({
         label: "Live",
         data: tfData.phase_deg,
-        borderColor: "#FFFFFF",
-        backgroundColor: "#FFFFFF",
         borderWidth: 2,
+        segment: {
+          borderColor: (context: any) => {
+            if (!coherenceAlpha) return "#FFFFFF";
+            const c = tfData.coh[context.p1DataIndex];
+            if (c >= 0.9) return "rgba(255, 255, 255, 1)";
+            if (c < coherenceThreshold) return "rgba(255, 255, 255, 0)";
+            const alpha = Math.pow(2.5 * (c - 0.5), 2);
+            return `rgba(255, 255, 255, ${alpha})`;
+          },
+        },
       });
     }
     saved.forEach((trace) => {
       datasets.push({
         label: trace.label,
         data: trace.tf.phase_deg, // Note: offset logic will be added later
-        borderColor: trace.color || "#F472B6",
-        backgroundColor: trace.color || "#F472B6",
         borderWidth: 1,
+        segment: {
+          borderColor: (context: any) => {
+            if (!coherenceAlpha) return trace.color || "#F472B6";
+            const c = trace.tf.coh[context.p1DataIndex];
+            if (c >= 0.9) return trace.color || "#F472B6";
+            if (c < coherenceThreshold) return "rgba(255, 255, 255, 0)";
+            const alpha = Math.pow(2.5 * (c - 0.5), 2);
+            const r = parseInt((trace.color || "#F472B6").slice(1, 3), 16);
+            const g = parseInt((trace.color || "#F472B6").slice(3, 5), 16);
+            const b = parseInt((trace.color || "#F472B6").slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+          },
+        },
       });
     });
     return {

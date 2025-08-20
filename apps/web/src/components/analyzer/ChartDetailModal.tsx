@@ -38,6 +38,8 @@ interface ChartDetailModalProps {
   eqMeasurementId: string | null;
   onEqMeasurementIdChange: (id: string | null) => void;
   onEqChange: (id: string, eq_settings: EqSetting[]) => void;
+  coherenceThreshold?: number;
+  coherenceAlpha?: boolean;
 }
 
 const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
@@ -56,6 +58,8 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
   eqMeasurementId,
   onEqMeasurementIdChange,
   onEqChange,
+  coherenceThreshold = 0.5,
+  coherenceAlpha = true,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedChart, setSelectedChart] = useState<ChartName>(initialChart);
@@ -160,10 +164,45 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
 
   const chartData = useMemo(() => {
     const datasets = [];
+    const wantsCohShading =
+      coherenceAlpha && (selectedChart === "magnitude" || selectedChart === "phase");
+
+    const getCoherenceStyledDataset = (
+      data: number[],
+      coh: number[],
+      label: string,
+      color: string,
+      applyCohShading: boolean,
+    ) => {
+      const dataset: any = {
+        label,
+        data,
+        borderWidth: 4,
+      };
+      if (applyCohShading) {
+        dataset.segment = {
+          borderColor: (context: any) => {
+            const c = coh[context.p1DataIndex];
+            if (c >= 0.9) return color;
+            if (c < coherenceThreshold) return "rgba(255, 255, 255, 0)";
+            const alpha = Math.pow(2.5 * (c - 0.5), 2);
+            const r = parseInt(color.slice(1, 3), 16);
+            const g = parseInt(color.slice(3, 5), 16);
+            const b = parseInt(color.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+          },
+        };
+      } else {
+        // IMPORTANT: explicitly clear any prior segment callback
+        dataset.segment = undefined;
+      }
+      dataset.borderColor = color;
+      return dataset;
+    };
+
     if (liveData && isLiveTraceVisible) {
-      datasets.push({
-        label: "Live",
-        data: liveData[
+      const data =
+        liveData[
           selectedChart === "impulse"
             ? "ir"
             : selectedChart === "magnitude"
@@ -171,11 +210,11 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
               : selectedChart === "phase"
                 ? "phase_deg"
                 : "coh"
-        ],
-        borderColor: "#FFFFFF",
-        backgroundColor: "#FFFFFF",
-        borderWidth: 4,
-      });
+        ];
+      // Only shade on magnitude/phase; NEVER on impulse or coherence
+      datasets.push(
+        getCoherenceStyledDataset(data, liveData.coh, "Live", "#FFFFFF", wantsCohShading),
+      );
     }
     if (selectedChart === "magnitude" && selectedTargetCurve !== "none" && isTargetCurveVisible) {
       const curve = TARGET_CURVES[selectedTargetCurve];
@@ -228,26 +267,27 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
 
         // 1) Optional overlay: original (pre-EQ)
         if (isCurrentEqTarget) {
-          datasets.push({
-            label: `${trace.name} (orig)`,
-            data: baseMag,
-            borderColor: trace.color || "#F472B6",
-            backgroundColor: trace.color || "#F472B6",
-            borderWidth: 2,
-            borderDash: [6, 4],
-            order: 0,
-          } as any);
+          datasets.push(
+            getCoherenceStyledDataset(
+              baseMag,
+              trace.tf_data.coh,
+              `${trace.name} (orig)`,
+              trace.color || "#F472B6",
+              wantsCohShading,
+            ),
+          );
         }
 
         // 2) Active/EQ’d line
-        datasets.push({
-          label: `${trace.name}${hasEq ? " (EQ)" : ""}`,
-          data: eqApplied,
-          borderColor: trace.color || "#F472B6",
-          backgroundColor: trace.color || "#F472B6",
-          borderWidth: 4,
-          order: 1,
-        } as any);
+        datasets.push(
+          getCoherenceStyledDataset(
+            eqApplied,
+            trace.tf_data.coh,
+            `${trace.name}${hasEq ? " (EQ)" : ""}`,
+            trace.color || "#F472B6",
+            wantsCohShading,
+          ),
+        );
         return;
       }
 
@@ -260,13 +300,15 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
           while (phase > 180) phase -= 360;
           return phase;
         });
-        datasets.push({
-          label: trace.name,
-          data: phased,
-          borderColor: trace.color || "#F472B6",
-          backgroundColor: trace.color || "#F472B6",
-          borderWidth: 4,
-        } as any);
+        datasets.push(
+          getCoherenceStyledDataset(
+            phased,
+            trace.tf_data.coh,
+            trace.name,
+            trace.color || "#F472B6",
+            wantsCohShading,
+          ),
+        );
         return;
       }
 
