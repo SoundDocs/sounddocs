@@ -1,0 +1,148 @@
+name: Build Installers
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          cd agents/capture-agent-py
+          pip install --upgrade pip
+          pip install pyinstaller
+          pip install .
+      
+      - name: Build executable
+        run: |
+          cd agents/capture-agent-py
+          pyinstaller --onefile --name sounddocs-capture-agent capture_agent/__main__.py
+      
+      - name: Install mkcert
+        run: brew install mkcert
+      
+      - name: Create installer package
+        run: |
+          cd agents/capture-agent-py
+          mkdir -p pkg-root/Applications/SoundDocs
+          cp dist/sounddocs-capture-agent pkg-root/Applications/SoundDocs/
+          
+          # Create launch script
+          cat > pkg-root/Applications/SoundDocs/launch-agent.sh << 'EOF'
+          #!/bin/bash
+          cd "$HOME/.sounddocs-agent" || mkdir -p "$HOME/.sounddocs-agent" && cd "$HOME/.sounddocs-agent"
+          
+          # Generate certs if needed
+          if [ ! -f localhost.pem ]; then
+            mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1
+          fi
+          
+          exec /Applications/SoundDocs/sounddocs-capture-agent
+          EOF
+          chmod +x pkg-root/Applications/SoundDocs/launch-agent.sh
+          chmod +x pkg-root/Applications/SoundDocs/sounddocs-capture-agent
+          
+          # Build package
+          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.0 --install-location / SoundDocsAgent-macOS.pkg
+      
+      - name: Upload macOS installer
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos-installer
+          path: agents/capture-agent-py/SoundDocsAgent-macOS.pkg
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          cd agents/capture-agent-py
+          pip install --upgrade pip
+          pip install pyinstaller
+          pip install .
+      
+      - name: Build executable
+        run: |
+          cd agents/capture-agent-py
+          pyinstaller --onefile --name sounddocs-capture-agent capture_agent/__main__.py
+      
+      - name: Install NSIS
+        run: choco install nsis -y
+      
+      - name: Create NSIS installer script
+        run: |
+          cd agents/capture-agent-py
+          cat > installer.nsi << 'EOF'
+          !define APPNAME "SoundDocs Capture Agent"
+          !define APPVERSION "0.1.0"
+          Name "${APPNAME}"
+          OutFile "SoundDocsAgent-Windows.exe"
+          InstallDir "$PROGRAMFILES\SoundDocs"
+          RequestExecutionLevel admin
+          
+          Page directory
+          Page instfiles
+          
+          Section "Install"
+              SetOutPath $INSTDIR
+              File "dist\sounddocs-capture-agent.exe"
+              
+              CreateDirectory "$PROFILE\.sounddocs-agent"
+              
+              ExecWait 'powershell -Command "if (!(Get-Command mkcert -ErrorAction SilentlyContinue)) { if (!(Get-Command choco -ErrorAction SilentlyContinue)) { Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1')) }; choco install mkcert -y }"'
+              ExecWait 'mkcert -install'
+              
+              SetOutPath "$PROFILE\.sounddocs-agent"
+              ExecWait 'mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1'
+              
+              CreateDirectory "$SMPROGRAMS\SoundDocs"
+              CreateShortcut "$SMPROGRAMS\SoundDocs\SoundDocs Capture Agent.lnk" "$INSTDIR\sounddocs-capture-agent.exe"
+              CreateShortcut "$DESKTOP\SoundDocs Capture Agent.lnk" "$INSTDIR\sounddocs-capture-agent.exe"
+          SectionEnd
+          EOF
+        shell: bash
+      
+      - name: Build NSIS installer
+        run: |
+          cd agents/capture-agent-py
+          makensis installer.nsi
+      
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-installer
+          path: agents/capture-agent-py/SoundDocsAgent-Windows.exe
+
+  upload-to-release:
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+      
+      - name: Upload to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            macos-installer/SoundDocsAgent-macOS.pkg
+            windows-installer/SoundDocsAgent-Windows.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
