@@ -104,17 +104,50 @@ jobs:
               SetOutPath $INSTDIR
               File "dist\sounddocs-capture-agent.exe"
               
+              ; Create agent directory
               CreateDirectory "$PROFILE\.sounddocs-agent"
               
-              ExecWait 'powershell -Command "if (!(Get-Command mkcert -ErrorAction SilentlyContinue)) { if (!(Get-Command choco -ErrorAction SilentlyContinue)) { Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1')) }; choco install mkcert -y }"'
-              ExecWait 'mkcert -install'
+              ; Create setup helper script
+              FileOpen $0 "$INSTDIR\setup-dependencies.bat" w
+              FileWrite $0 "@echo off$\r$\n"
+              FileWrite $0 "echo Setting up SoundDocs Capture Agent dependencies...$\r$\n"
+              FileWrite $0 "echo Checking for mkcert...$\r$\n"
+              FileWrite $0 "where mkcert >nul 2>&1$\r$\n"
+              FileWrite $0 "if %errorlevel% neq 0 ($\r$\n"
+              FileWrite $0 "  echo Installing mkcert via Chocolatey...$\r$\n"
+              FileWrite $0 "  where choco >nul 2>&1$\r$\n"
+              FileWrite $0 "  if %errorlevel% neq 0 ($\r$\n"
+              FileWrite $0 "    echo Please install Chocolatey first: https://chocolatey.org/install$\r$\n"
+              FileWrite $0 "    pause$\r$\n"
+              FileWrite $0 "    exit /b 1$\r$\n"
+              FileWrite $0 "  )$\r$\n"
+              FileWrite $0 "  choco install mkcert -y$\r$\n"
+              FileWrite $0 ")$\r$\n"
+              FileWrite $0 "echo Setting up mkcert certificate authority...$\r$\n"
+              FileWrite $0 "mkcert -install$\r$\n"
+              FileWrite $0 "echo Generating SSL certificates...$\r$\n"
+              FileWrite $0 "cd /d %USERPROFILE%\.sounddocs-agent$\r$\n"
+              FileWrite $0 "mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1$\r$\n"
+              FileWrite $0 "echo Setup complete!$\r$\n"
+              FileWrite $0 "pause$\r$\n"
+              FileClose $0
               
-              SetOutPath "$PROFILE\.sounddocs-agent"
-              ExecWait 'mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1'
+              ; Create launch script
+              FileOpen $1 "$INSTDIR\launch-agent.bat" w
+              FileWrite $1 "@echo off$\r$\n"
+              FileWrite $1 "cd /d %USERPROFILE%\.sounddocs-agent$\r$\n"
+              FileWrite $1 "if not exist localhost.pem ($\r$\n"
+              FileWrite $1 "  echo SSL certificates not found. Running setup...$\r$\n"
+              FileWrite $1 "  call $\"$INSTDIR\setup-dependencies.bat$\"$\r$\n"
+              FileWrite $1 ")$\r$\n"
+              FileWrite $1 "$\"$INSTDIR\sounddocs-capture-agent.exe$\"$\r$\n"
+              FileClose $1
               
+              ; Create shortcuts
               CreateDirectory "$SMPROGRAMS\SoundDocs"
-              CreateShortcut "$SMPROGRAMS\SoundDocs\SoundDocs Capture Agent.lnk" "$INSTDIR\sounddocs-capture-agent.exe"
-              CreateShortcut "$DESKTOP\SoundDocs Capture Agent.lnk" "$INSTDIR\sounddocs-capture-agent.exe"
+              CreateShortcut "$SMPROGRAMS\SoundDocs\SoundDocs Capture Agent.lnk" "$INSTDIR\launch-agent.bat" "" "$INSTDIR\sounddocs-capture-agent.exe" 0
+              CreateShortcut "$SMPROGRAMS\SoundDocs\Setup Dependencies.lnk" "$INSTDIR\setup-dependencies.bat"
+              CreateShortcut "$DESKTOP\SoundDocs Capture Agent.lnk" "$INSTDIR\launch-agent.bat" "" "$INSTDIR\sounddocs-capture-agent.exe" 0
           SectionEnd
           EOF
         shell: bash
@@ -137,12 +170,23 @@ jobs:
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      
+      - name: List downloaded files
+        run: |
+          echo "Contents of current directory:"
+          ls -la
+          echo "Contents of macos-installer (if exists):"
+          ls -la macos-installer/ || echo "macos-installer directory not found"
+          echo "Contents of windows-installer (if exists):"
+          ls -la windows-installer/ || echo "windows-installer directory not found"
       
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            macos-installer/SoundDocsAgent-macOS.pkg
-            windows-installer/SoundDocsAgent-Windows.exe
+            SoundDocsAgent-macOS.pkg
+            SoundDocsAgent-Windows.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
