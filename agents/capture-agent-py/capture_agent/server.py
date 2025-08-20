@@ -216,9 +216,21 @@ async def handler(ws: WebSocketServerProtocol, path: str):
         connected_clients.remove(ws)
 
 async def start_server(host="127.0.0.1", port=9469):
-    cert_path = pathlib.Path(__file__).parent.parent / "localhost.pem"
-    key_path = pathlib.Path(__file__).parent.parent / "localhost-key.pem"
+    # Look for certificates in the user's .sounddocs-agent directory
+    agent_dir = pathlib.Path.home() / ".sounddocs-agent"
+    cert_path = agent_dir / "localhost.pem"
+    key_path = agent_dir / "localhost-key.pem"
 
+    # Check if certificates exist
+    if not cert_path.exists() or not key_path.exists():
+        raise FileNotFoundError(
+            f"SSL certificates not found!\n"
+            f"Expected certificates at:\n"
+            f"  {cert_path}\n"
+            f"  {key_path}\n"
+            f"Please run the setup process to generate certificates."
+        )
+    
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ssl_context.load_cert_chain(cert_path, key_path)
 
