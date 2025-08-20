@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3] - 2025-01-17
+
+### Added
+
+- **Professional Installer Distribution**: Created automated build system for distributing the capture agent as proper installers instead of shell scripts.
+  - **macOS .pkg Installer**: Native macOS package installer that installs to `/Applications/SoundDocs/` with automatic dependency management.
+  - **Windows .exe Installer**: NSIS-based Windows installer with Start Menu shortcuts, desktop shortcuts, and dependency setup.
+  - **GitHub Actions Workflow**: Automated CI/CD pipeline that builds both installers on release creation and uploads them as release assets.
+- **Automated Dependency Management**: Installers automatically handle Python, mkcert, and SSL certificate setup without manual user intervention.
+- **Enhanced Download Experience**: Updated download interface to use professional installers from GitHub releases instead of raw shell scripts.
+
+### Changed
+
+- **AgentDownload Component**: Updated to download `.pkg` and `.exe` installers from GitHub releases instead of raw scripts.
+- **Installation Instructions**: Replaced terminal-based setup instructions with GUI installer guidance.
+- **Distribution Method**: Moved from manual script downloads to automated release-based distribution.
+
+### Fixed
+
+- **GitHub Actions Permissions**: Added proper `contents: write` and `id-token: write` permissions for release asset uploads.
+- **Artifact Upload Paths**: Fixed artifact directory structure for GitHub Actions v4 compatibility.
+- **NSIS Syntax Issues**: Resolved PowerShell command quoting issues in Windows installer by using helper batch files.
+- **Deprecated Actions**: Updated all GitHub Actions to latest versions (upload-artifact@v4, download-artifact@v4, setup-python@v5, action-gh-release@v2).
+
 ## [1.5.2.3] - 2025-08-19
 
 ### Added

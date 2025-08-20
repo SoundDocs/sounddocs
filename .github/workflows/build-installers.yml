@@ -31,7 +31,7 @@ jobs:
       - name: Build executable
         run: |
           cd agents/capture-agent-py
-          pyinstaller --onefile --name sounddocs-capture-agent capture_agent/__main__.py
+          pyinstaller --onefile --name sounddocs-capture-agent --add-data "capture_agent:capture_agent" --add-data "generate_cert.py:." main.py
       
       - name: Install mkcert
         run: brew install mkcert
@@ -86,7 +86,7 @@ jobs:
       - name: Build executable
         run: |
           cd agents/capture-agent-py
-          pyinstaller --onefile --name sounddocs-capture-agent capture_agent/__main__.py
+          pyinstaller --onefile --name sounddocs-capture-agent --add-data "capture_agent:capture_agent" --add-data "generate_cert.py:." main.py
       
       - name: Install NSIS
         run: choco install nsis -y
