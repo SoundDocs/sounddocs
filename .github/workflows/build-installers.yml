@@ -5,6 +5,11 @@ on:
     types: [created]
   workflow_dispatch:
 
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+
 jobs:
   build-macos:
     runs-on: macos-latest
@@ -167,6 +172,10 @@ jobs:
     needs: [build-macos, build-windows]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
+    permissions:
+      contents: write
+      actions: read
+      id-token: write
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -188,5 +197,7 @@ jobs:
           files: |
             SoundDocsAgent-macOS.pkg
             SoundDocsAgent-Windows.exe
+          fail_on_unmatched_files: true
+          append_body: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
