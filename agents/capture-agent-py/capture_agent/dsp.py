@@ -315,6 +315,10 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     Pxx = np.maximum(Pxx, eps)
     Pyy = np.maximum(Pyy, eps)
 
+    # Raw coherence (unsmoothed)
+    coh_raw = (np.abs(Pxy)**2) / (Pxx * Pyy + eps)
+    coh_raw = np.clip(coh_raw, 0.0, 1.0)
+
     # Remove tiny fractional remainder with freq rotation BEFORE smoothing
     if abs(frac_samples) > 1e-6:
         tau_frac = frac_samples / fs
@@ -332,7 +336,6 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     # Smoothed display values
     mag_db = 20.0 * np.log10(np.abs(Hs) + eps)
     phase_deg = np.angle(Hs, deg=True)
-    coh = coh_s
 
     # Impulse response from SMOOTHED H
     M = len(freqs)
@@ -353,7 +356,8 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         freqs=freqs.tolist(),
         mag_db=mag_db.tolist(),
         phase_deg=phase_deg.tolist(),
-        coh=coh.tolist(),
+        coh=coh_raw.tolist(),
+        coh_smoothed=coh_s.tolist(),
         ir=ir_plot.tolist(),
     )
 

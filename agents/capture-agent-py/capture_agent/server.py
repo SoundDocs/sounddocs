@@ -159,8 +159,8 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
 
                     frame = FrameMessage(
                         type="frame",
-                        tf=tf_data,
-                        spl=spl_data,
+                        tf=tf_data.dict(),
+                        spl=spl_data.dict(),
                         delay_ms=applied,              # <- show applied, not the local variable
                         latency_ms=float(stream.latency)*1000.0 if hasattr(stream, "latency") else 0.0,
                         ts=int(time.time() * 1000),

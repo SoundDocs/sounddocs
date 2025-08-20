@@ -13,6 +13,7 @@ class TFData(BaseModel):
     mag_db: List[float]
     phase_deg: List[float]
     coh: List[float]
+    coh_smoothed: List[float]
     ir: List[float]
 
 class SPLData(BaseModel):

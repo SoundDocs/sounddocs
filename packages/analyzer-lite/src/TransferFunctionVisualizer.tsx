@@ -86,6 +86,13 @@ const chartOptions = {
   },
 };
 
+const hexToRgba = (hex: string, alpha: number) => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProps> = ({
   tfData,
   sampleRate,
@@ -120,20 +127,25 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
   const magnitudeData = React.useMemo(() => {
     const datasets = [];
     if (tfData) {
+      const coh = tfData.coh_smoothed || tfData.coh;
+      const borderColor = coh.map((c) => (c > 0.6 ? "#FFFFFF" : hexToRgba("#FFFFFF", 0.3)));
       datasets.push({
         label: "Live",
         data: tfData.mag_db,
-        borderColor: "#FFFFFF",
+        borderColor,
         backgroundColor: "#FFFFFF",
         borderWidth: 2,
       });
     }
     saved.forEach((trace) => {
+      const color = trace.color || "#F472B6";
+      const coh = trace.tf.coh_smoothed || trace.tf.coh;
+      const borderColor = coh.map((c) => (c > 0.6 ? color : hexToRgba(color, 0.3)));
       datasets.push({
         label: trace.label,
         data: trace.tf.mag_db, // Note: offset logic will be added later
-        borderColor: trace.color || "#F472B6",
-        backgroundColor: trace.color || "#F472B6",
+        borderColor,
+        backgroundColor: color,
         borderWidth: 1,
       });
     });
@@ -146,20 +158,25 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
   const phaseData = React.useMemo(() => {
     const datasets = [];
     if (tfData) {
+      const coh = tfData.coh_smoothed || tfData.coh;
+      const borderColor = coh.map((c) => (c > 0.6 ? "#FFFFFF" : hexToRgba("#FFFFFF", 0.3)));
       datasets.push({
         label: "Live",
         data: tfData.phase_deg,
-        borderColor: "#FFFFFF",
+        borderColor,
         backgroundColor: "#FFFFFF",
         borderWidth: 2,
       });
     }
     saved.forEach((trace) => {
+      const color = trace.color || "#F472B6";
+      const coh = trace.tf.coh_smoothed || trace.tf.coh;
+      const borderColor = coh.map((c) => (c > 0.6 ? color : hexToRgba(color, 0.3)));
       datasets.push({
         label: trace.label,
         data: trace.tf.phase_deg, // Note: offset logic will be added later
-        borderColor: trace.color || "#F472B6",
-        backgroundColor: trace.color || "#F472B6",
+        borderColor,
+        backgroundColor: color,
         borderWidth: 1,
       });
     });
@@ -172,19 +189,21 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
   const coherenceData = React.useMemo(() => {
     const datasets = [];
     if (tfData) {
+      const coh = tfData.coh_smoothed || tfData.coh;
       datasets.push({
         label: "Live",
-        data: tfData.coh,
+        data: coh,
         borderColor: "#FFFFFF",
         backgroundColor: "#FFFFFF",
         borderWidth: 2,
       });
     }
     saved.forEach((trace) => {
-      if (trace.tf.coh) {
+      const coh = trace.tf.coh_smoothed || trace.tf.coh;
+      if (coh) {
         datasets.push({
           label: trace.label,
-          data: trace.tf.coh,
+          data: coh,
           borderColor: trace.color || "#F472B6",
           backgroundColor: trace.color || "#F472B6",
           borderWidth: 1,
