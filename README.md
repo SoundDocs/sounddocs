@@ -33,13 +33,25 @@ SoundDocs empowers you to manage event audio documentation efficiently:
 - **🤝 Collaboration Tools:**
   Share your documents securely via unique links. Facilitate smooth communication with clients, band members, and technical crew.
 - **🎤 AcoustIQ Audio Analyzer:**
-  The first professional, browser-based FFT audio analyzer. A comprehensive audio analysis tool with both a simple browser-based RTA ("Lite") and a powerful dual-channel version ("Pro") that uses a local capture agent. Features include:
+  The first professional, browser-based FFT audio analyzer. A comprehensive audio analysis tool with both a simple browser-based RTA ("Lite") and a powerful dual-channel version ("Pro") that uses a local capture agent. The Pro version is now available with **professional installers** for easy setup. Features include:
   - Real-time Spectrogram (RTA)
   - SPL Meter with Calibration
   - Dual-Channel Transfer Function
   - Coherence & Phase Measurement
   - Impulse Response
   - Save and recall measurements
+  - **One-click installer** for macOS (.pkg) and Windows (.exe)
+
+## 📦 Quick Setup for Audio Analysis
+
+To unlock the full power of AcoustIQ Pro audio analyzer:
+
+1. **Download the installer** from [GitHub Releases](https://github.com/SoundDocs/sounddocs/releases)
+2. **Install the capture agent** with one click
+3. **Visit** [sounddocs.org/analyzer-pro](https://sounddocs.org/analyzer-pro)
+4. **Start analyzing** - automatic connection to your local agent!
+
+No Python installation, no terminal commands, no manual certificate setup required.
 
 ## 🛠️ Tech Stack
 
@@ -94,12 +106,15 @@ For experienced developers, here are the essential commands to get the project r
     ```bash
     pnpm dev
     ```
-7.  **(Optional) Run Capture Agent**:
-    If developing agent-related features:
+7.  **(Optional) Run Capture Agent for Development**:
+    If developing agent-related features, run from source:
+
     ```bash
     cd agents/capture-agent-py
-    ./run.sh # or run.bat
+    python -m capture_agent  # or python main.py
     ```
+
+    **For end users**: Download the professional installer from [GitHub Releases](https://github.com/SoundDocs/sounddocs/releases) instead.
 
 ### Detailed Setup Guide
 
@@ -114,12 +129,14 @@ Before you begin, make sure you have the following tools installed:
   ```
 - **Docker**: The Supabase CLI uses Docker to run the local development environment. [Install Docker](https://docs.docker.com/get-docker/).
 - **Supabase CLI**: Required for managing the local Supabase stack. Follow the official installation guide for your OS: [Supabase CLI Docs](https://supabase.com/docs/guides/cli).
-- **Python**: v3.11+ is required for the capture agent.
-- **mkcert**: A tool for creating trusted local SSL certificates. The agent setup scripts can install this for you automatically.
-  - **macOS**: `brew install mkcert`
-  - **Windows**: `choco install mkcert`
-  - **Linux**: Follow the [mkcert installation guide](https://github.com/FiloSottile/mkcert#installation).
-    After installing, run `mkcert -install` to create a local Certificate Authority.
+- **Python**: v3.11+ is required for capture agent development.
+- **mkcert**: A tool for creating trusted local SSL certificates.
+  - **For end users**: The [professional installers](https://github.com/SoundDocs/sounddocs/releases) handle mkcert setup automatically
+  - **For developers**: Manual installation required:
+    - **macOS**: `brew install mkcert`
+    - **Windows**: `choco install mkcert`
+    - **Linux**: Follow the [mkcert installation guide](https://github.com/FiloSottile/mkcert#installation).
+      After installing, run `mkcert -install` to create a local Certificate Authority.
 
 #### 1. Web App Setup
 
@@ -167,20 +184,45 @@ First, set up the main web application.
 
 #### 2. (Optional) Capture Agent Development
 
-If you are working on features related to the "AcoustIQ Pro" audio analyzer, you will need to run the Python-based capture agent locally. The HTTPS dev server is a prerequisite for the secure WebSocket (`wss://`) connection the agent uses.
+If you are developing features related to the "AcoustIQ Pro" audio analyzer, you can run the Python-based capture agent from source. The HTTPS dev server is a prerequisite for the secure WebSocket (`wss://`) connection the agent uses.
+
+**Note**: End users should download the [professional installers](https://github.com/SoundDocs/sounddocs/releases) instead of following these development instructions.
 
 1.  **Navigate to the Agent Directory**:
     In a **new terminal window** (leaving the web app server running), go to the agent's directory:
     ```bash
     cd agents/capture-agent-py
     ```
-2.  **Run the Agent**:
-    The `run` script handles installing dependencies and starting the agent. It will also automatically generate a browser-trusted SSL certificate using `mkcert` on the first run.
+2.  **Install Dependencies**:
+    ```bash
+    pip install -e .
+    ```
+3.  **Run the Agent**:
+    Start the agent in development mode:
 
-    - **macOS/Linux**: `./run.sh`
-    - **Windows**: `run.bat`
+    ```bash
+    python -m capture_agent
+    # or alternatively:
+    python main.py
+    ```
 
-    The agent will now be running and can communicate with the web app.
+    The agent will now be running and can communicate with the web app at `wss://localhost:9469`.
+
+#### 2b. Using the Professional Installer (End Users)
+
+For a simpler setup experience:
+
+1. **Download**: Get the installer for your platform from [GitHub Releases](https://github.com/SoundDocs/sounddocs/releases)
+
+   - **macOS**: `SoundDocsAgent-macOS.pkg`
+   - **Windows**: `SoundDocsAgent-Windows.exe`
+
+2. **Install**:
+
+   - **macOS**: Double-click the `.pkg` file and follow the prompts
+   - **Windows**: Right-click the `.exe` file, select "Run as administrator"
+
+3. **Launch**: Find "SoundDocs Capture Agent" in your Applications (macOS) or Start Menu (Windows)
 
 ## 🌐 Self-Hosting
 
