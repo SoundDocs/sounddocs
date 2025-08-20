@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3.4] - 2025-08-20
+
+### Fixed
+
+- **macOS App Bundle GUI Launch**: Fixed the app bundle "bouncing" issue where the application would start but immediately crash when launched via Finder or `open` command. The launch script now properly handles GUI launches by setting up the PATH environment for Homebrew, replacing interactive prompts with macOS notifications and dialogs, and providing proper error handling for non-terminal environments.
+
 ## [1.5.3.3] - 2025-08-20
 
 ### Fixed

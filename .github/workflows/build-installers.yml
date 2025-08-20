@@ -44,41 +44,58 @@ jobs:
           mkdir -p pkg-root/Applications/SoundDocs
           cp dist/sounddocs-capture-agent pkg-root/Applications/SoundDocs/
 
-          # Create launch script
+                    # Create launch script
           cat > pkg-root/Applications/SoundDocs/launch-agent.sh << 'EOF'
           #!/bin/bash
+
+          # Set up PATH for GUI launches (includes Homebrew paths)
+          export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+
+          # Function to show notifications on macOS
+          notify() {
+            if command -v osascript >/dev/null 2>&1; then
+              osascript -e "display notification \"$1\" with title \"SoundDocs Capture Agent\""
+            fi
+            echo "$1"
+          }
+
+          # Function to show error dialog and exit
+          error_exit() {
+            if command -v osascript >/dev/null 2>&1; then
+              osascript -e "display dialog \"$1\" with title \"SoundDocs Capture Agent Error\" buttons {\"OK\"} default button \"OK\" with icon stop"
+            else
+              echo "Error: $1" >&2
+            fi
+            exit 1
+          }
+
           cd "$HOME/.sounddocs-agent" || mkdir -p "$HOME/.sounddocs-agent" && cd "$HOME/.sounddocs-agent"
 
-          echo "Setting up SoundDocs Capture Agent dependencies..."
+          notify "Setting up SoundDocs Capture Agent dependencies..."
 
           # Check if mkcert is installed, install if missing
           if ! command -v mkcert >/dev/null 2>&1; then
-            echo "Installing mkcert..."
+            notify "Installing mkcert..."
             if command -v brew >/dev/null 2>&1; then
-              brew install mkcert
+              brew install mkcert || error_exit "Failed to install mkcert via Homebrew"
             else
-              echo "Error: Homebrew is required to install mkcert"
-              echo "Please install Homebrew first: https://brew.sh"
-              echo "After installing Homebrew, run this application again."
-              read -p "Press Enter to exit..."
-              exit 1
+              error_exit "Homebrew is required to install mkcert. Please install Homebrew first: https://brew.sh"
             fi
           fi
 
           # Check if mkcert CA is installed
           if ! mkcert -CAROOT >/dev/null 2>&1 || [ ! -f "$(mkcert -CAROOT)/rootCA.pem" ]; then
-            echo "Setting up mkcert Certificate Authority..."
-            echo "You may be prompted for your password."
-            mkcert -install
+            notify "Setting up mkcert Certificate Authority (may prompt for password)..."
+            mkcert -install || error_exit "Failed to install mkcert Certificate Authority"
           fi
 
           # Generate certs if needed
           if [ ! -f localhost.pem ]; then
-            echo "Generating SSL certificates..."
-            mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1
+            notify "Generating SSL certificates..."
+            mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 || error_exit "Failed to generate SSL certificates"
           fi
 
-          echo "Starting SoundDocs Capture Agent..."
+          notify "Starting SoundDocs Capture Agent..."
           exec /Applications/SoundDocs/sounddocs-capture-agent
           EOF
           chmod +x pkg-root/Applications/SoundDocs/launch-agent.sh
@@ -120,9 +137,9 @@ jobs:
               <key>CFBundleDisplayName</key>
               <string>SoundDocs Capture Agent</string>
               <key>CFBundleVersion</key>
-              <string>0.1.2</string>
+              <string>0.1.3</string>
               <key>CFBundleShortVersionString</key>
-              <string>0.1.2</string>
+              <string>0.1.3</string>
               <key>CFBundlePackageType</key>
               <string>APPL</string>
               <key>CFBundleIconFile</key>
@@ -140,7 +157,7 @@ jobs:
           chmod +x "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/MacOS/SoundDocs Capture Agent"
 
           # Build package
-          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.2 --install-location / SoundDocsAgent-macOS.pkg
+          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.3 --install-location / SoundDocsAgent-macOS.pkg
 
       - name: Upload macOS installer
         uses: actions/upload-artifact@v4
@@ -178,7 +195,7 @@ jobs:
           cd agents/capture-agent-py
           cat > installer.nsi << 'EOF'
           !define APPNAME "SoundDocs Capture Agent"
-          !define APPVERSION "0.1.2"
+          !define APPVERSION "0.1.3"
           Name "${APPNAME}"
           OutFile "SoundDocsAgent-Windows.exe"
           InstallDir "$PROGRAMFILES\SoundDocs"
