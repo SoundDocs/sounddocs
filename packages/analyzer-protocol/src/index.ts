@@ -13,7 +13,6 @@ export interface TFData {
   mag_db: number[];
   phase_deg: number[];
   coh: number[];
-  coh_smoothed: number[];
   ir: number[];
 }
 
