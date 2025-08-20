@@ -33,8 +33,10 @@ jobs:
           cd agents/capture-agent-py
           pyinstaller --onefile --name sounddocs-capture-agent --add-data "capture_agent:capture_agent" --add-data "generate_cert.py:." main.py
 
-      - name: Install mkcert
-        run: brew install mkcert
+      - name: Install dependencies
+        run: |
+          brew install mkcert
+          brew install librsvg
 
       - name: Create installer package
         run: |
@@ -47,9 +49,26 @@ jobs:
           #!/bin/bash
           cd "$HOME/.sounddocs-agent" || mkdir -p "$HOME/.sounddocs-agent" && cd "$HOME/.sounddocs-agent"
 
+          echo "Setting up SoundDocs Capture Agent dependencies..."
+
+          # Check if mkcert is installed, install if missing
+          if ! command -v mkcert >/dev/null 2>&1; then
+            echo "Installing mkcert..."
+            if command -v brew >/dev/null 2>&1; then
+              brew install mkcert
+            else
+              echo "Error: Homebrew is required to install mkcert"
+              echo "Please install Homebrew first: https://brew.sh"
+              echo "After installing Homebrew, run this application again."
+              read -p "Press Enter to exit..."
+              exit 1
+            fi
+          fi
+
           # Check if mkcert CA is installed
           if ! mkcert -CAROOT >/dev/null 2>&1 || [ ! -f "$(mkcert -CAROOT)/rootCA.pem" ]; then
             echo "Setting up mkcert Certificate Authority..."
+            echo "You may be prompted for your password."
             mkcert -install
           fi
 
@@ -59,13 +78,69 @@ jobs:
             mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1
           fi
 
+          echo "Starting SoundDocs Capture Agent..."
           exec /Applications/SoundDocs/sounddocs-capture-agent
           EOF
           chmod +x pkg-root/Applications/SoundDocs/launch-agent.sh
           chmod +x pkg-root/Applications/SoundDocs/sounddocs-capture-agent
 
+          # Create macOS app bundle structure
+          mkdir -p "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/MacOS"
+          mkdir -p "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/Resources"
+
+          # Convert SVG logo to .icns (macOS icon format)
+          rsvg-convert -w 1024 -h 1024 -f png ../../SoundDocs-logo.svg > logo-1024.png
+          mkdir -p icon.iconset
+          # Create different sizes for iconset
+          sips -z 16 16 logo-1024.png --out icon.iconset/icon_16x16.png
+          sips -z 32 32 logo-1024.png --out icon.iconset/icon_16x16@2x.png
+          sips -z 32 32 logo-1024.png --out icon.iconset/icon_32x32.png
+          sips -z 64 64 logo-1024.png --out icon.iconset/icon_32x32@2x.png
+          sips -z 128 128 logo-1024.png --out icon.iconset/icon_128x128.png
+          sips -z 256 256 logo-1024.png --out icon.iconset/icon_128x128@2x.png
+          sips -z 256 256 logo-1024.png --out icon.iconset/icon_256x256.png
+          sips -z 512 512 logo-1024.png --out icon.iconset/icon_256x256@2x.png
+          sips -z 512 512 logo-1024.png --out icon.iconset/icon_512x512.png
+          sips -z 1024 1024 logo-1024.png --out icon.iconset/icon_512x512@2x.png
+          iconutil -c icns icon.iconset
+          cp icon.icns "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/Resources/"
+
+          # Create Info.plist for the app bundle
+          cat > "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/Info.plist" << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>SoundDocs Capture Agent</string>
+              <key>CFBundleIdentifier</key>
+              <string>org.sounddocs.capture-agent</string>
+              <key>CFBundleName</key>
+              <string>SoundDocs Capture Agent</string>
+              <key>CFBundleDisplayName</key>
+              <string>SoundDocs Capture Agent</string>
+              <key>CFBundleVersion</key>
+              <string>0.1.2</string>
+              <key>CFBundleShortVersionString</key>
+              <string>0.1.2</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleIconFile</key>
+              <string>icon</string>
+              <key>LSUIElement</key>
+              <false/>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+
+          # Copy launch script to app bundle as the main executable
+          cp pkg-root/Applications/SoundDocs/launch-agent.sh "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/MacOS/SoundDocs Capture Agent"
+          chmod +x "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/MacOS/SoundDocs Capture Agent"
+
           # Build package
-          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.1 --install-location / SoundDocsAgent-macOS.pkg
+          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.2 --install-location / SoundDocsAgent-macOS.pkg
 
       - name: Upload macOS installer
         uses: actions/upload-artifact@v4
@@ -103,7 +178,7 @@ jobs:
           cd agents/capture-agent-py
           cat > installer.nsi << 'EOF'
           !define APPNAME "SoundDocs Capture Agent"
-          !define APPVERSION "0.1.1"
+          !define APPVERSION "0.1.2"
           Name "${APPNAME}"
           OutFile "SoundDocsAgent-Windows.exe"
           InstallDir "$PROGRAMFILES\SoundDocs"

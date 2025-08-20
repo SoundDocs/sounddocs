@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.5.3.1] - 2025-01-27
+## [1.5.3.3] - 2025-08-20
+
+### Fixed
+
+- **macOS App Bundle Structure**: Fixed the fundamental issue where the macOS installer created a launch script but provided no way for users to execute it. The installer now creates a proper macOS app bundle (`.app`) with the SoundDocs logo icon that users can double-click to launch. The app bundle properly executes the dependency installation and certificate setup process.
+- **macOS Installer User Experience**: Users now get a proper macOS application in their Applications folder instead of loose executables, providing a native macOS experience.
+
+## [1.5.3.2] - 2025-08-20
+
+### Fixed
+
+- **macOS Installer Dependency Management**: Fixed a critical issue where the macOS installer assumed mkcert was already installed on end users' systems. The installer now automatically installs mkcert via Homebrew at runtime, matching the Windows installer's dependency management approach.
+
+## [1.5.3.1] - 2025-08-20
 
 ### Fixed
 
