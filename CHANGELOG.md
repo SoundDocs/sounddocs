@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3.7] - 2025-01-10
+
+### Fixed
+
+- **Certificate Validation and Regeneration**: Enhanced SSL certificate setup to validate existing certificates and regenerate them if invalid, expired, or missing required domains. The agent now properly checks certificate authority installation and provides Firefox compatibility warnings.
+- **Cryptography Dependency**: Added cryptography library dependency for proper certificate validation.
+
 ## [1.5.3.6] - 2025-01-10
 
 ### Fixed

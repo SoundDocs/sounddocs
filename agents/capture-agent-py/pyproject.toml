@@ -12,6 +12,7 @@ sounddevice = "^0.4.6"
 numpy = "^1.26.4"
 scipy = "^1.13.1"
 pydantic = "^2.7.1"
+cryptography = "^41.0.0"
 
 [build-system]
 requires = ["poetry-core"]

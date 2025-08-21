@@ -1,7 +1,7 @@
 {
   "name": "sounddocs",
   "private": true,
-  "version": "1.5.3.6",
+  "version": "1.5.3.7",
   "type": "module",
   "workspaces": [
     "apps/*",
