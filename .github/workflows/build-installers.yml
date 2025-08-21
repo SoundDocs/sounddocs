@@ -32,13 +32,6 @@ jobs:
           pip install "cryptography>=41,<44" pyinstaller
           pip install .
 
-      - name: Create VERSION file
-        run: |
-          cd agents/capture-agent-py
-          VERSION=$(grep '^version = ' pyproject.toml | sed -e 's/version = "//' -e 's/"//')
-          echo "Found version: $VERSION"
-          echo "$VERSION" > capture_agent/VERSION
-
       - name: Build executable
         run: |
           cd agents/capture-agent-py
@@ -184,9 +177,9 @@ jobs:
               <key>CFBundleDisplayName</key>
               <string>SoundDocs Capture Agent</string>
               <key>CFBundleVersion</key>
-              <string>0.1.10</string>
+              <string>0.1.9</string>
               <key>CFBundleShortVersionString</key>
-              <string>0.1.10</string>
+              <string>0.1.9</string>
               <key>CFBundlePackageType</key>
               <string>APPL</string>
               <key>CFBundleIconFile</key>
@@ -200,7 +193,7 @@ jobs:
           EOF
 
           # Build package
-          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.10 --install-location / SoundDocsAgent-macOS.pkg
+          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.9 --install-location / SoundDocsAgent-macOS.pkg
 
       - name: Upload macOS installer
         uses: actions/upload-artifact@v4
@@ -225,14 +218,6 @@ jobs:
           pip install "cryptography>=41,<44" pyinstaller
           pip install .
 
-      - name: Create VERSION file
-        shell: bash
-        run: |
-          cd agents/capture-agent-py
-          VERSION=$(grep '^version = ' pyproject.toml | sed -e 's/version = "//' -e 's/"//')
-          echo "Found version: $VERSION"
-          echo "$VERSION" > capture_agent/VERSION
-
       - name: Build executable
         run: |
           cd agents/capture-agent-py
@@ -246,7 +231,7 @@ jobs:
           cd agents/capture-agent-py
           cat > installer.nsi << 'EOF'
           !define APPNAME "SoundDocs Capture Agent"
-          !define APPVERSION "0.1.10"
+          !define APPVERSION "0.1.9"
           Name "${APPNAME}"
           OutFile "SoundDocsAgent-Windows.exe"
           InstallDir "$PROGRAMFILES\SoundDocs"

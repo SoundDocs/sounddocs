@@ -7,30 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.5.3.13.5] - 2025-08-21
-
-### Changed
-
-- **Agent Versioning**: Reworked the agent's versioning mechanism to be more robust. The build process now creates a `VERSION` file within the agent's package, and the agent reads its version directly from this file at runtime. This removes dependency on the execution context and ensures version information is always accurate.
-
-## [1.5.3.13.4.2] - 2025-08-21
-
-### Fixed
-
-- **Version Parsing**: Implemented a robust version parsing function (`extractSemver`) to correctly extract numeric version strings from prefixed agent version identifiers (e.g., `capture-agent-py/0.1.0`). This resolves the `NaN` parsing error and ensures the version comparison logic works correctly.
-
-## [1.5.3.13.4.1] - 2025-08-21
-
-### Fixed
-
-- **Version Check Race Condition**: Fixed a race condition where the agent update notification would not appear if the agent connected before the latest version could be fetched from GitHub. The logic now correctly waits for both versions to be available before comparison.
-
-## [1.5.3.13.4] - 2025-08-21
-
-### Improved
-
-- **Dynamic Version Check**: The agent update notification now fetches the latest release version directly from the GitHub API, ensuring the check is always accurate and requires no manual code updates.
-
 ## [1.5.3.13.3] - 2025-08-21
 
 ### Fixed

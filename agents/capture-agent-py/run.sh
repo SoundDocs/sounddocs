@@ -72,7 +72,6 @@ download_file "pyproject.toml" "pyproject.toml"
 download_file "README.md" "README.md"
 download_file "generate_cert.py" "generate_cert.py"
 download_dir "capture_agent" "capture_agent"
-download_file "capture_agent/VERSION" "capture_agent/VERSION"
 
 # Check for Python 3.11+
 if ! command -v python3 &> /dev/null || ! python3 -c 'import sys; assert sys.version_info >= (3, 11)' &> /dev/null; then

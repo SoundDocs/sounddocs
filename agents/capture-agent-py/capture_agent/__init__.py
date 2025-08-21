@@ -1,9 +1,8 @@
-import os
+import tomllib
 
 try:
-    # Construct a path to the VERSION file relative to this file's location
-    version_path = os.path.join(os.path.dirname(__file__), "VERSION")
-    with open(version_path, "r") as f:
-        __version__ = f.read().strip()
-except FileNotFoundError:
+    with open("pyproject.toml", "rb") as f:
+        _pyproject_data = tomllib.load(f)
+    __version__ = _pyproject_data["tool"]["poetry"]["version"]
+except (FileNotFoundError, KeyError):
     __version__ = "0.0.0"
