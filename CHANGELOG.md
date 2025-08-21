@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3.8] - 2025-01-10
+
+### Fixed
+
+- **macOS Keychain Certificate Installation**: Fixed critical issue where `mkcert -install` would run but not actually install certificates into the macOS keychain. The installer now uses `security find-certificate` to verify certificates are properly installed in the keychain and provides better error reporting when installation fails.
+
 ## [1.5.3.7] - 2025-01-10
 
 ### Fixed

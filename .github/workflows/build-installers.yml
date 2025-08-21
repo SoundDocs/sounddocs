@@ -101,17 +101,46 @@ jobs:
             echo ""
           fi
 
-          # Check if mkcert CA is installed or if we just installed mkcert
-          if [ "$MKCERT_INSTALLED" = true ] || ! mkcert -CAROOT >/dev/null 2>&1 || [ ! -f "$(mkcert -CAROOT)/rootCA.pem" ]; then
-            echo "🔐 Setting up mkcert Certificate Authority..."
+          # Check if mkcert CA is actually installed in macOS keychain
+          NEEDS_CA_INSTALL=false
+
+          if [ "$MKCERT_INSTALLED" = true ]; then
+            echo "🔐 mkcert was just installed, setting up Certificate Authority..."
+            NEEDS_CA_INSTALL=true
+          else
+            # Check if CA is actually in the macOS keychain (not just files existing)
+            if ! security find-certificate -a -Z -c mkcert ~/Library/Keychains/login.keychain-db >/dev/null 2>&1; then
+              echo "🔐 mkcert Certificate Authority not found in keychain, installing..."
+              NEEDS_CA_INSTALL=true
+            else
+              echo "✓ mkcert Certificate Authority found in keychain"
+            fi
+          fi
+
+          if [ "$NEEDS_CA_INSTALL" = true ]; then
             echo "   This makes SSL certificates trusted by your browser."
-            echo "   You may be prompted for your password."
+            echo "   You may be prompted for your password to install certificates."
             echo ""
+            
+            # Force install even if files exist
             mkcert -install
-            if [ $? -ne 0 ]; then
-              echo "❌ Failed to install mkcert Certificate Authority"
+            CA_INSTALL_EXIT=$?
+            
+            if [ $CA_INSTALL_EXIT -ne 0 ]; then
+              echo "❌ Failed to install mkcert Certificate Authority (exit code: $CA_INSTALL_EXIT)"
+              echo "   Please run 'mkcert -install' manually and restart this app."
               read -p "Press Enter to exit..."
               exit 1
+            fi
+            
+            # Verify installation worked
+            sleep 1
+            if ! security find-certificate -a -Z -c mkcert ~/Library/Keychains/login.keychain-db >/dev/null 2>&1; then
+              echo "⚠️  Certificate Authority installed but not found in keychain."
+              echo "   This may cause SSL connection issues."
+              echo "   If you experience problems, try running 'mkcert -install' manually."
+            else
+              echo "✓ Certificate Authority successfully installed in keychain"
             fi
             echo ""
           fi
