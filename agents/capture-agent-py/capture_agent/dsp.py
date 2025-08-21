@@ -272,7 +272,7 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     fs = float(config.sampleRate)
 
     # Delay (linear GCC-PHAT you already implemented)
-    MAX_DELAY_MS = float(getattr(config, "maxDelayMs", 500.0))
+    MAX_DELAY_MS = getattr(config, "maxDelayMs", 500.0)
     delay_ms, _ = _delay_pick_applied(x, y, fs, max_ms=MAX_DELAY_MS)
 
     # Integer align with zero-padding (preserve length) + fractional remainder
@@ -301,10 +301,7 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
 
     # nperseg / noverlap from usable overlap
     target_n = int(config.nfft)
-    # Choose from fixed buckets to avoid cache churn; still honor usable_len
-    _BUCKETS = np.array([256, 512, 1024, 2048, 4096, 8192, 16384, 32768], dtype=int)
-    nperseg = int(_BUCKETS[_BUCKETS <= max(32, min(usable_len, target_n))].max())
-    noverlap = int(0.75 * nperseg)
+    nperseg, noverlap = _choose_nperseg_with_min_segments(usable_len, target_n, min_segments=4)
     window = get_window("hann", nperseg)
 
     # Spectra on effective (non-zero-padded) signal slices

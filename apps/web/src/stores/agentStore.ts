@@ -9,7 +9,6 @@ interface AgentState {
   status: ConnectionStatus;
   lastMessage: AgentMessage | null;
   worker: Worker | null;
-  agentVersion: string | null;
   actions: {
     connect: () => void;
     disconnect: () => void;
@@ -23,7 +22,6 @@ const useAgentStore = create<AgentState>((set, get) => ({
   status: "disconnected",
   lastMessage: null,
   worker: null,
-  agentVersion: null,
   actions: {
     initialize: () => {
       if (get().worker) return; // Already initialized
@@ -37,11 +35,7 @@ const useAgentStore = create<AgentState>((set, get) => ({
         if (type === "status") {
           set({ status: payload });
         } else if (type === "agentMessage") {
-          const message = payload as AgentMessage;
-          if (message.type === "hello_ack") {
-            set({ agentVersion: message.version });
-          }
-          set({ lastMessage: message });
+          set({ lastMessage: payload });
         }
       };
 
@@ -67,14 +61,12 @@ const useAgentStore = create<AgentState>((set, get) => ({
 export const useAgentActions = () => useAgentStore((state) => state.actions);
 export const useAgentStatus = () => useAgentStore((state) => state.status);
 export const useLastAgentMessage = () => useAgentStore((state) => state.lastMessage);
-export const useAgentVersion = () => useAgentStore((state) => state.agentVersion);
 
 // Custom hook to initialize the store and provide a stable API
 export const useCaptureAgent = () => {
   const actions = useAgentActions();
   const status = useAgentStatus();
   const lastMessage = useLastAgentMessage();
-  const agentVersion = useAgentVersion();
 
   useEffect(() => {
     actions.initialize();
@@ -86,7 +78,6 @@ export const useCaptureAgent = () => {
   return {
     status,
     lastMessage,
-    agentVersion,
     connect: actions.connect,
     disconnect: actions.disconnect,
     sendMessage: actions.sendMessage,
