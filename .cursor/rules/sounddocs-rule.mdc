@@ -26,6 +26,16 @@ Changelog and Versioning (Mandatory)
 - Date format: YYYY-MM-DD
 - Sections: Added, Changed, Fixed, Improved, Removed (use only those that apply)
 
+Capture Agent Versioning (Mandatory for capture agent changes)
+- When making changes to anything capture agent related (agents/capture-agent-py/*), also update:
+  1) Version in agents/capture-agent-py/pyproject.toml 
+  2) Version in .github/workflows/build-installers.yml 
+- Use semantic versioning for capture agent: MAJOR.MINOR.PATCH
+- Increment appropriately:
+  - PATCH for bug fixes and minor improvements
+  - MINOR for new features
+  - MAJOR for breaking changes
+
 Version Numbering Scheme
 - Root package.json version is canonical for the repo
 - Use multi-part versions to denote change size:
@@ -46,6 +56,15 @@ Implementation Checklist (for every edit)
   - Summarize changes as concise bullets under Added/Changed/Fixed/Improved/Removed
   - Update root package.json "version" to match the changelog section
 - Do not complete the task without these two updates
+
+Implementation Checklist (for capture agent changes)
+- Before making edits: read the current capture agent version in pyproject.toml
+- Decide next semantic version per capture agent rules above
+- After edits:
+  - Update version in agents/capture-agent-py/pyproject.toml
+  - Update all version references in .github/workflows/build-installers.yml
+  - Add capture agent version info to CHANGELOG.md release section
+- Do not complete capture agent changes without these version updates
 
 Commit / PR Hygiene
 - Commit message should include the version:
