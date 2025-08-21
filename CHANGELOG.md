@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3.9] - 2025-01-10
+
+### Fixed
+
+- **Privileged Certificate Installation**: Enhanced installer to use AppleScript `with administrator privileges` to properly prompt for user password when installing mkcert certificates. This ensures the GUI password dialog appears and `mkcert -install` runs with necessary privileges to modify the system keychain.
+
 ## [1.5.3.8] - 2025-01-10
 
 ### Fixed

@@ -1,98 +1,101 @@
-export function createPixelMapSvg({ 
-  project_name, 
-  screen_name, 
-  resolution_w, 
+export function createPixelMapSvg({
+  project_name,
+  screen_name,
+  resolution_w,
   resolution_h,
   showColorSwatches = true,
   showGrid = false,
-  gridColor = '#FFFFFF'
+  gridColor = "#FFFFFF",
 }) {
   const width = resolution_w;
   const height = resolution_h;
-  
+
   // Create unique IDs for patterns to prevent rendering conflicts
   const uniqueId = `${width}x${height}`;
   const gridPatternId = `gridPattern-${uniqueId}`;
   const gridLinesId = `gridLines-${uniqueId}`;
-  
+
   // Calculate aspect ratio
   const aspectRatio = width / height;
-  
+
   // Determine if we're in a vertical or square format
   const isVertical = aspectRatio < 1;
   const isSquare = Math.abs(aspectRatio - 1) < 0.1;
-  
+
   // Adaptive positioning based on aspect ratio
   let barYPos: number;
   let patchSize: number;
   let patchSpacing: number;
   let colorPatches: Array<{ color: string; label: string }>;
-  
+
   if (isVertical || isSquare) {
     // For vertical and square formats, position swatches lower and make them smaller
     barYPos = height * 0.75; // Position at 75% of height
     patchSize = Math.min(width * 0.06, height * 0.04, 60); // Smaller patches
     patchSpacing = patchSize * 0.15; // Tighter spacing
-    
+
     // Use fewer color patches for narrow screens
     colorPatches = [
       // Grayscale Ramp (reduced)
-      { color: '#FFFFFF', label: 'W' },
-      { color: '#808080', label: '50%' },
-      { color: '#000000', label: 'B' },
+      { color: "#FFFFFF", label: "W" },
+      { color: "#808080", label: "50%" },
+      { color: "#000000", label: "B" },
       // Primary Colors
-      { color: '#FF0000', label: 'R' },
-      { color: '#00FF00', label: 'G' },
-      { color: '#0000FF', label: 'B' },
+      { color: "#FF0000", label: "R" },
+      { color: "#00FF00", label: "G" },
+      { color: "#0000FF", label: "B" },
       // Secondary Colors
-      { color: '#FFFF00', label: 'Y' },
-      { color: '#00FFFF', label: 'C' },
-      { color: '#FF00FF', label: 'M' },
+      { color: "#FFFF00", label: "Y" },
+      { color: "#00FFFF", label: "C" },
+      { color: "#FF00FF", label: "M" },
     ];
   } else {
     // For horizontal formats, use original positioning
     barYPos = Math.max(30, height * 0.05);
     patchSize = Math.min(width * 0.08, height * 0.08, 100); // Cap at 100px
     patchSpacing = patchSize * 0.25;
-    
+
     // Full color set for wider screens
     colorPatches = [
       // Grayscale Ramp
-      { color: '#FFFFFF', label: 'White' },
-      { color: '#C0C0C0', label: '75%' },
-      { color: '#808080', label: '50%' },
-      { color: '#404040', label: '25%' },
-      { color: '#000000', label: 'Black' },
+      { color: "#FFFFFF", label: "White" },
+      { color: "#C0C0C0", label: "75%" },
+      { color: "#808080", label: "50%" },
+      { color: "#404040", label: "25%" },
+      { color: "#000000", label: "Black" },
       // Primary Colors (Additive)
-      { color: '#FF0000', label: 'Red' },
-      { color: '#00FF00', label: 'Green' },
-      { color: '#0000FF', label: 'Blue' },
+      { color: "#FF0000", label: "Red" },
+      { color: "#00FF00", label: "Green" },
+      { color: "#0000FF", label: "Blue" },
       // Secondary Colors (Subtractive)
-      { color: '#FFFF00', label: 'Yellow' },
-      { color: '#00FFFF', label: 'Cyan' },
-      { color: '#FF00FF', label: 'Magenta' },
+      { color: "#FFFF00", label: "Yellow" },
+      { color: "#00FFFF", label: "Cyan" },
+      { color: "#FF00FF", label: "Magenta" },
     ];
   }
 
   const labelFontSize = Math.max(10, patchSize * 0.15);
-  const totalPatchesWidth = colorPatches.length * patchSize + (colorPatches.length - 1) * patchSpacing;
-  
+  const totalPatchesWidth =
+    colorPatches.length * patchSize + (colorPatches.length - 1) * patchSpacing;
+
   // Ensure swatches fit within the canvas with padding
   const maxAvailableWidth = width - 40; // 20px padding on each side
   let barXPos = (width - totalPatchesWidth) / 2;
-  
+
   // If swatches are too wide, adjust size and position
   if (totalPatchesWidth > maxAvailableWidth) {
     const scaleFactor = maxAvailableWidth / totalPatchesWidth;
     patchSize *= scaleFactor;
     patchSpacing *= scaleFactor;
-    const newTotalWidth = colorPatches.length * patchSize + (colorPatches.length - 1) * patchSpacing;
+    const newTotalWidth =
+      colorPatches.length * patchSize + (colorPatches.length - 1) * patchSpacing;
     barXPos = (width - newTotalWidth) / 2;
   }
 
-  const patchesSvg = colorPatches.map((patch, index) => {
-    const patchX = index * (patchSize + patchSpacing);
-    return `
+  const patchesSvg = colorPatches
+    .map((patch, index) => {
+      const patchX = index * (patchSize + patchSpacing);
+      return `
       <g>
         <rect x="${patchX}" y="0" width="${patchSize}" height="${patchSize}" fill="${patch.color}" stroke="#A3A3A3" stroke-width="2" rx="4" />
         <text x="${patchX + patchSize / 2}" y="${patchSize + labelFontSize + 10}" font-family="Inter" font-size="${labelFontSize}" fill="#A3A3A3" text-anchor="middle">
@@ -100,7 +103,8 @@ export function createPixelMapSvg({
         </text>
       </g>
     `;
-  }).join('');
+    })
+    .join("");
 
   const scale = Math.min(width, height) / 1080;
   const boxWidth = 400 * scale;
@@ -121,15 +125,19 @@ export function createPixelMapSvg({
           <rect y="50" width="50" height="50" fill="#242830" />
           <rect x="50" y="50" width="50" height="50" fill="#222226" />
         </pattern>
-        ${showGrid ? `
+        ${
+          showGrid
+            ? `
         <pattern id="${gridLinesId}" width="50" height="50" patternUnits="userSpaceOnUse">
           <path d="M 50 0 V 50 H 0" fill="none" stroke="${gridColor}" stroke-width="1" />
         </pattern>
-        ` : ''}
+        `
+            : ""
+        }
       </defs>
       
       <rect width="${width}" height="${height}" fill="url(#${gridPatternId})" />
-      ${showGrid ? `<rect width="${width}" height="${height}" fill="url(#${gridLinesId})" />` : ''}
+      ${showGrid ? `<rect width="${width}" height="${height}" fill="url(#${gridLinesId})" />` : ""}
 
       <!-- White border -->
       <rect x="0" y="0" width="${width}" height="${height}" fill="none" stroke="white" stroke-width="4" />
@@ -142,7 +150,7 @@ export function createPixelMapSvg({
       <circle cx="${width / 2}" cy="${height / 2}" r="${Math.min(width, height) * 0.25}" fill="none" stroke="#A3A3A3" stroke-width="2" stroke-dasharray="10 10" />
       <circle cx="${width / 2}" cy="${height / 2}" r="${Math.min(width, height) * 0.375}" fill="none" stroke="#A3A3A3" stroke-width="2" stroke-dasharray="10 10" />
 
-      ${showColorSwatches ? `<g transform="translate(${barXPos}, ${barYPos})">${patchesSvg}</g>` : ''}
+      ${showColorSwatches ? `<g transform="translate(${barXPos}, ${barYPos})">${patchesSvg}</g>` : ""}
 
       <!-- Center Info Box -->
       <rect x="${boxX}" y="${boxY}" width="${boxWidth}" height="${boxHeight}" rx="${20 * scale}" fill="rgba(23, 23, 23, 0.9)" stroke="#9E7FFF" stroke-width="${3 * scale}" />

@@ -119,28 +119,43 @@ jobs:
 
           if [ "$NEEDS_CA_INSTALL" = true ]; then
             echo "   This makes SSL certificates trusted by your browser."
-            echo "   You may be prompted for your password to install certificates."
+            echo "   You will be prompted for your password to install certificates."
             echo ""
             
-            # Force install even if files exist
-            mkcert -install
-            CA_INSTALL_EXIT=$?
+            # Use osascript to run mkcert -install with proper GUI password prompt
+            echo "Installing Certificate Authority (you may see a password prompt)..."
+            INSTALL_RESULT=$(osascript << 'APPLESCRIPT'
+            try
+              do shell script "mkcert -install" with administrator privileges
+              return "success"
+            on error errMsg number errNum
+              return "error:" & errMsg & ":" & errNum
+            end try
+APPLESCRIPT
+)
             
-            if [ $CA_INSTALL_EXIT -ne 0 ]; then
-              echo "❌ Failed to install mkcert Certificate Authority (exit code: $CA_INSTALL_EXIT)"
-              echo "   Please run 'mkcert -install' manually and restart this app."
+            if [[ "$INSTALL_RESULT" == "success" ]]; then
+              echo "✓ Certificate Authority installation completed"
+            else
+              echo "❌ Failed to install Certificate Authority: $INSTALL_RESULT"
+              echo "   This may be due to:"
+              echo "   - User cancelled password prompt"
+              echo "   - Incorrect password entered"
+              echo "   - System security restrictions"
+              echo ""
+              echo "Please try running 'mkcert -install' manually in Terminal and restart this app."
               read -p "Press Enter to exit..."
               exit 1
             fi
             
             # Verify installation worked
-            sleep 1
+            sleep 2
             if ! security find-certificate -a -Z -c mkcert ~/Library/Keychains/login.keychain-db >/dev/null 2>&1; then
-              echo "⚠️  Certificate Authority installed but not found in keychain."
+              echo "⚠️  Certificate Authority not found in keychain after installation."
               echo "   This may cause SSL connection issues."
-              echo "   If you experience problems, try running 'mkcert -install' manually."
+              echo "   Please run 'mkcert -install' manually in Terminal if you experience problems."
             else
-              echo "✓ Certificate Authority successfully installed in keychain"
+              echo "✓ Certificate Authority successfully verified in keychain"
             fi
             echo ""
           fi
@@ -221,9 +236,9 @@ jobs:
               <key>CFBundleDisplayName</key>
               <string>SoundDocs Capture Agent</string>
               <key>CFBundleVersion</key>
-              <string>0.1.4</string>
+              <string>0.1.5</string>
               <key>CFBundleShortVersionString</key>
-              <string>0.1.4</string>
+              <string>0.1.5</string>
               <key>CFBundlePackageType</key>
               <string>APPL</string>
               <key>CFBundleIconFile</key>
@@ -237,7 +252,7 @@ jobs:
           EOF
 
           # Build package
-          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.4 --install-location / SoundDocsAgent-macOS.pkg
+          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.5 --install-location / SoundDocsAgent-macOS.pkg
 
       - name: Upload macOS installer
         uses: actions/upload-artifact@v4
@@ -275,7 +290,7 @@ jobs:
           cd agents/capture-agent-py
           cat > installer.nsi << 'EOF'
           !define APPNAME "SoundDocs Capture Agent"
-          !define APPVERSION "0.1.4"
+          !define APPVERSION "0.1.5"
           Name "${APPNAME}"
           OutFile "SoundDocsAgent-Windows.exe"
           InstallDir "$PROGRAMFILES\SoundDocs"
@@ -381,3 +396,4 @@ jobs:
           append_body: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+# prettier-ignore-end

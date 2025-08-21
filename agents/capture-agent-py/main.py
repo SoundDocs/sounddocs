@@ -39,13 +39,16 @@ def check_certificate_validity(cert_path, key_path):
         import cryptography.x509
         cert_obj = cryptography.x509.load_der_x509_certificate(cert)
         
-        # Check expiration
+        # Check expiration (handle timezone-aware vs naive datetime comparison)
         now = datetime.datetime.now(datetime.timezone.utc)
-        if cert_obj.not_valid_after <= now:
+        not_valid_after = cert_obj.not_valid_after_utc
+        not_valid_before = cert_obj.not_valid_before_utc
+        
+        if not_valid_after <= now:
             print("  Certificate has expired")
             return False
             
-        if cert_obj.not_valid_before > now:
+        if not_valid_before > now:
             print("  Certificate is not yet valid")
             return False
             
