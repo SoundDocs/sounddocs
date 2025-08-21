@@ -7,19 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.5.3.16] - 2025-08-21
-
-### Improved
-
-- **Coherence Stability**: Overhauled the capture agent's DSP logic to ensure stable and reliable coherence measurements, especially at high delays.
-  - **Adaptive FFT Size**: The agent now dynamically chooses the FFT size (`nperseg`) to guarantee a minimum of 8 Welch segments, preventing noisy estimates when the analysis window shrinks.
-  - **Exponential Averaging**: Implemented optional exponential moving average (EMA) for `Pxx`, `Pyy`, and `Pxy` spectra across frames, providing smoother and more stable readings.
-  - **Softer Coherence Weighting**: The constant-Q smoothing function now uses a softer coherence weighting (`coh_weight_pow=0.5`) to prevent feedback loops where low coherence would suppress its own display.
-
-### Changed
-
-- **Capture Agent Version**: Bumped capture agent version to `0.2.0`.
-
 ## [1.5.3.15.1] - 2025-08-21
 
 ### Fixed
