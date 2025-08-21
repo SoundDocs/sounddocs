@@ -7,16 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.5.3.13.3] - 2025-08-21
-
-### Fixed
-
-- **Capture Agent Memory Leak**: Fixed a memory leak in the Python capture agent where the windowing function cache (`_windows`) could grow indefinitely. Replaced the unbounded dictionary with a thread-safe, size-limited LRU cache (`functools.lru_cache`) to provide a hard memory ceiling. Cached arrays are now marked as read-only to prevent mutation.
-
-### Changed
-
-- **Capture Agent Version**: Bumped capture agent version to `0.1.9`.
-
 ## [1.5.3.13.2] - 2025-08-21
 
 ### Fixed

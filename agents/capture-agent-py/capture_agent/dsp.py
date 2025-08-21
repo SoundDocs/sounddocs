@@ -1,26 +1,20 @@
 import numpy as np
 from scipy.signal import welch, csd
-from functools import lru_cache
 from .schema import CaptureConfig, TFData, SPLData
 
-@lru_cache(maxsize=32)
-def _make_window(name: str, N: int) -> np.ndarray:
-    if name == "hann":
-        w = np.hanning(N)
-    elif name == "kaiser":
-        w = np.kaiser(N, beta=14)
-    elif name == "blackman":
-        w = np.blackman(N)
-    else:
-        w = np.hanning(N)
-    w.setflags(write=False)  # don't let callers mutate the cached array
-    return w
+_windows = {}
 
-def get_window(name: str, N: int) -> np.ndarray:
-    return _make_window(name, int(N))
-
-def clear_window_cache() -> None:
-    _make_window.cache_clear()
+def get_window(name, N):
+    if (name, N) not in _windows:
+        if name == 'hann':
+            _windows[(name, N)] = np.hanning(N)
+        elif name == 'kaiser':
+            _windows[(name, N)] = np.kaiser(N, beta=14)
+        elif name == 'blackman':
+            _windows[(name, N)] = np.blackman(N)
+        else:
+            _windows[(name, N)] = np.hanning(N)
+    return _windows[(name, N)]
 
 def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: float | None = None) -> float:
     """
@@ -81,7 +75,6 @@ _delay = {
 }
 
 def reset_dsp_state():
-    clear_window_cache()
     _delay.update({"mode":"auto","ema_ms":None,"frozen_ms":0.0,"manual_ms":0.0,"last_raw_ms":None})
 
 def delay_freeze(enable: bool, applied_ms: float | None = None):
