@@ -25,44 +25,29 @@ def clear_window_cache() -> None:
 def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: float | None = None) -> float:
     """
     Linear (zero-padded) GCC-PHAT delay. Positive => meas lags ref by +delay.
-    Robust to DC and wideband noise.
     """
-    x = np.asarray(ref_chan, dtype=np.float64)
-    y = np.asarray(meas_chan, dtype=np.float64)
-
-    n = min(x.size, y.size)
-    if n < 8:
+    x = ref_chan.astype(np.float64, copy=False)
+    y = meas_chan.astype(np.float64, copy=False)
+    n = min(len(x), len(y))
+    if n < 2:
         return 0.0
 
-    # remove DC and gently window to reduce edge leakage
-    x = x - np.mean(x)
-    y = y - np.mean(y)
-    w = np.hanning(n)
-    x = x * w
-    y = y * w
-
-    # FFT size >= 2n-1 for linear correlation (power-of-2)
-    N = 1 << int(np.ceil(np.log2(max(2*n - 1, 8))))
+    # FFT size >= 2n-1 for linear correlation
+    N = 1 << int(np.ceil(np.log2(2*n - 1)))
 
     X = np.fft.rfft(x, n=N)
     Y = np.fft.rfft(y, n=N)
-
-    # optional: drop the very first few bins to avoid DC dominance
-    # (keep phase-only info; 1..3 bins usually enough at audio rates)
-    if X.size > 4:
-        X = X.copy(); Y = Y.copy()
-        X[:2] = 0.0; Y[:2] = 0.0
-
     R = np.conj(X) * Y
-    R /= (np.abs(R) + 1e-15)  # PHAT normalization
+    R /= (np.abs(R) + 1e-15)  # PHAT
 
-    cc = np.fft.irfft(R, n=N)  # circular
-    # convert to linear [- (n-1) .. +(n-1)]
+    cc = np.fft.irfft(R, n=N)
+
+    # keep only the valid linear part (length 2n-1), map to lags [-(n-1) .. +(n-1)]
     cc_lin = np.concatenate((cc[-(n-1):], cc[:n]))
     lags = np.arange(-(n-1), n, dtype=np.int64)
 
-    # optional search bound
-    if max_ms is not None and max_ms > 0:
+    # optional search limit
+    if max_ms is not None:
         max_lag = int(round(max_ms * fs / 1000.0))
         half = min(max_lag, n-1)
         center = n-1
@@ -74,7 +59,7 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
         lags_seg = lags
 
     k = int(np.argmax(cc_seg))
-    # quadratic (parabolic) sub-sample refinement
+    # sub-sample parabolic refinement
     if 0 < k < len(cc_seg) - 1:
         y0, y1, y2 = cc_seg[k-1], cc_seg[k], cc_seg[k+1]
         denom = (y0 - 2*y1 + y2)
@@ -83,7 +68,7 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
         d = 0.0
 
     lag_samples = lags_seg[k] + d
-    return float(lag_samples) * 1000.0 / float(fs)
+    return (lag_samples / fs) * 1000.0
 
 # ---- Delay state ----
 _delay = {
@@ -201,38 +186,28 @@ def _choose_nperseg_with_min_segments(usable_len: int, target_n: int, min_segmen
         n //= 2
     return 32, 24  # very small fallback
 
-def _log_band_edges(freqs: np.ndarray, frac: int = 6) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    f = np.asarray(freqs)
-    valid_mask = f > 0.0
-    if not np.any(valid_mask):
-        # no positive frequencies
-        return np.zeros_like(f, dtype=np.int32), np.zeros_like(f, dtype=np.int32), valid_mask
-
-    fv = f[valid_mask]
-    L = np.log(fv)
+def _log_band_edges(freqs: np.ndarray, frac: int = 6) -> tuple[np.ndarray, np.ndarray]:
+    """For each bin i, return [i0[i], i1[i]) index edges spanning ±(1/2*1/frac) octaves."""
+    f = freqs.copy()
+    valid = f > 0
+    L = np.log(f[valid])
     dln = 0.5 * (np.log(2.0) / float(frac))  # half-bandwidth in natural log
-
+    lo = L - dln
+    hi = L + dln
+    i0 = np.searchsorted(L, lo, side="left")
+    i1 = np.searchsorted(L, hi, side="right")
+    # Map back to full-length arrays (keep zeros for f<=0; we won't use them)
     I0 = np.zeros_like(f, dtype=np.int32)
     I1 = np.zeros_like(f, dtype=np.int32)
-    for idx_v, Li in enumerate(L):
-        lo = Li - dln
-        hi = Li + dln
-        a = int(np.searchsorted(L, lo, side="left"))
-        b = int(np.searchsorted(L, hi, side="right"))
-        # clamp to [0, len(L)]
-        a = max(0, min(a, len(L)))
-        b = max(a+1, min(b, len(L)))
-        I0[np.flatnonzero(valid_mask)[idx_v]] = a
-        I1[np.flatnonzero(valid_mask)[idx_v]] = b
-
-    return I0, I1, valid_mask
+    I0[valid] = i0
+    I1[valid] = i1
+    return I0, I1, valid
 
 def _hann(M: int) -> np.ndarray:
-    # always return a *valid* vector; caller must check for M==0
-    if M <= 1:
-        return np.ones(max(M, 1), dtype=float)
-    n = np.arange(M, dtype=float)
-    return 0.5 - 0.5*np.cos(2.0*np.pi*n/(M-1.0))
+    if M <= 1:  # avoid divide-by-zero
+        return np.ones(max(M,1))
+    n = np.arange(M)
+    return 0.5 - 0.5*np.cos(2*np.pi*n/(M-1))
 
 def smooth_constQ_tf_and_coh(
     freqs: np.ndarray,
@@ -244,67 +219,48 @@ def smooth_constQ_tf_and_coh(
     min_bins: int = 3,
     eps: float = 1e-20,
 ) -> tuple[np.ndarray, np.ndarray]:
-    freqs = np.asarray(freqs)
-    Pxx = np.asarray(Pxx)
-    Pyy = np.asarray(Pyy)
-    Pxy = np.asarray(Pxy)
-
-    # shape / finite guards
-    m = min(freqs.size, Pxx.size, Pyy.size, Pxy.size)
-    if m == 0:
-        return np.zeros(0, dtype=np.complex128), np.zeros(0, dtype=float)
-    freqs = freqs[:m]; Pxx = Pxx[:m]; Pyy = Pyy[:m]; Pxy = Pxy[:m]
-
-    Pxx = np.maximum(Pxx, eps)
-    Pyy = np.maximum(Pyy, eps)
-
+    """
+    1/frac-octave smoothing on log-f for TF and coherence.
+    Returns (Hs, coh_s) where Hs is complex and coh_s is real in [0,1].
+    """
     I0, I1, valid = _log_band_edges(freqs, frac=frac)
-    fpos_idx = np.flatnonzero(valid)
 
-    # raw coherence to use as weights
-    coh0 = (np.abs(Pxy)**2) / (np.maximum(Pxx*Pyy, eps))
-    coh0 = np.nan_to_num(np.clip(coh0, 0.0, 1.0), nan=0.0, posinf=1.0, neginf=0.0)
+    # raw coherence (unsmoothed) -> optional weights
+    coh0 = (np.abs(Pxy)**2) / (np.maximum(Pxx, eps)*np.maximum(Pyy, eps) + eps)
+    coh0 = np.clip(coh0, 0.0, 1.0)
 
     Hs = np.zeros_like(Pxy, dtype=np.complex128)
     coh_s = np.zeros_like(coh0, dtype=np.float64)
 
-    if fpos_idx.size == 0:
-        return Hs, coh_s  # everything zero
-
-    Lc = fpos_idx.size
+    # Work only on positive-freq bins
+    fpos_idx = np.flatnonzero(valid)
     for k, i in enumerate(fpos_idx):
-        a = int(I0[i]); b = int(I1[i])
-        # if the log band is too thin, fall back to a symmetric window around k
+        a, b = int(I0[i]), int(I1[i])
+        # guardrail at very small windows
         if b - a < min_bins:
             a = max(0, k - min_bins//2)
-            b = min(Lc, a + min_bins)
-        # map compressed [a:b] to full-bin indices
-        seg_idx = fpos_idx[a:b]
-        M = seg_idx.size
-        if M <= 0:
-            continue
+            b = min(len(fpos_idx), a + min_bins)
+            seg_idx = fpos_idx[a:b]
+        else:
+            # map (a:b) in the compressed valid-index space to real indices
+            seg_idx = fpos_idx[a:b]
 
+        M = seg_idx.size
         w = _hann(M)
-        if coh_weight_pow > 0.0:
+        if coh_weight_pow > 0:
             w = w * (coh0[seg_idx] ** coh_weight_pow)
         wsum = float(np.sum(w)) + eps
 
-        Pxy_b =       np.sum(Pxy[seg_idx] * w)  / wsum
-        Pxx_b = float(np.sum(Pxx[seg_idx] * w)) / wsum
-        Pyy_b = float(np.sum(Pyy[seg_idx] * w)) / wsum
+        Pxx_b = np.sum(Pxx[seg_idx] * w) / wsum
+        Pyy_b = np.sum(Pyy[seg_idx] * w) / wsum
+        Pxy_b = np.sum(Pxy[seg_idx] * w) / wsum
 
         Hs[i] = Pxy_b / (Pxx_b + eps)
-        coh_s[i] = (np.abs(Pxy_b)**2) / (max(Pxx_b*Pyy_b, eps))
+        coh_s[i] = (np.abs(Pxy_b)**2) / (Pxx_b*Pyy_b + eps)
 
-    # clamp and fill DC/Nyquist safely
-    coh_s = np.nan_to_num(np.clip(coh_s, 0.0, 1.0), nan=0.0, posinf=1.0, neginf=0.0)
-    # Copy a reasonable value into invalid bins to avoid spikes on plotting
-    valid_any = np.any(valid)
-    if valid_any:
-        first = fpos_idx[0]
-        Hs[~valid] = Hs[first]
-        coh_s[~valid] = coh_s[first]
-
+    # Clamp coherence to [0,1] and copy DC/Nyquist safely
+    coh_s = np.clip(coh_s, 0.0, 1.0)
+    Hs[~valid] = Hs[valid][0] if np.any(valid) else 0.0
     return Hs, coh_s
 
 def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, SPLData, float]:
@@ -374,23 +330,14 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         tau_frac = frac_samples / fs
         Pxy *= np.exp(1j * 2 * np.pi * freqs * tau_frac)
 
-    # ---- 1/6-octave smoothing ----
+    # ---- 1/6-octave smoothing (no UI; fixed) ----
     Hs, coh_s = smooth_constQ_tf_and_coh(
-        freqs=freqs, Pxx=Pxx, Pyy=Pyy, Pxy=Pxy,
-        frac=6, coh_weight_pow=1.0, min_bins=3, eps=eps,
+        freqs=freqs,
+        Pxx=Pxx, Pyy=Pyy, Pxy=Pxy,
+        frac=6,                # <- fixed 1/6 octave
+        coh_weight_pow=1.0,    # modest coherence weighting
+        min_bins=3, eps=eps,
     )
-
-    if Hs.size < 4:
-        # Not enough frequency bins to make a meaningful IR
-        tf_data = TFData(freqs=freqs.tolist(),
-                         mag_db=(20*np.log10(np.abs(Hs)+eps)).tolist(),
-                         phase_deg=np.angle(Hs, deg=True).tolist(),
-                         coh=coh_s.tolist(),
-                         ir=[])
-        rms = float(np.sqrt(np.mean(y_eff**2))) or eps
-        dbfs = 20.0 * np.log10(rms)
-        spl_data = SPLData(Leq=dbfs, LZ=dbfs)
-        return tf_data, spl_data, delay_ms
 
     # Smoothed display values
     mag_db = 20.0 * np.log10(np.abs(Hs) + eps)

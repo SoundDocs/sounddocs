@@ -94,41 +94,16 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
 
 async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
     loop = asyncio.get_running_loop()
-
-    # Keep the backlog tight. 4 is usually plenty at 48k/1024.
-    aq = asyncio.Queue(maxsize=4)
-
-    # wrapper executed on the event-loop thread (so exceptions are caught here)
-    def _safe_enqueue(buf: np.ndarray):
-        try:
-            aq.put_nowait(buf)
-        except asyncio.QueueFull:
-            # drop oldest to keep latency bounded, then insert newest
-            try:
-                aq.get_nowait()
-            except asyncio.QueueEmpty:
-                pass
-            try:
-                aq.put_nowait(buf)
-            except asyncio.QueueFull:
-                # if we lost the race, just drop this buffer
-                pass
-        except RuntimeError:
-            # loop closing; ignore
-            pass
+    aq = asyncio.Queue(maxsize=8)  # keep backlog small; prevents RAM spikes
 
     def audio_callback(indata, frames, time_info, status):
-        # RT thread: never block, never allocate more than needed.
+        # called on driver thread; never block here
         if status:
-            # You can throttle this print if it’s noisy.
             print(f"Audio callback status: {status}")
-        # copy=True keeps the ring-buffer immutable after return
-        buf = np.array(indata, dtype=np.float32, copy=True)
-        # schedule a safe enqueue on the loop thread
         try:
-            loop.call_soon_threadsafe(_safe_enqueue, buf)
+            loop.call_soon_threadsafe(aq.put_nowait, indata.astype(np.float32, copy=True))
         except Exception:
-            # loop may be closing; ignore
+            # queue full -> drop; never block RT
             pass
 
     try:
@@ -166,8 +141,8 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
             # drain whatever else is queued to catch up
             blocks = [block]
             total = block.shape[0]
-            max_concat = 4096  # ~85 ms at 48k. Keeps RAM bounded.
-            while not aq.empty() and total < max_concat:
+            # Drain but cap to ~4 blocks worth to bound peak RAM
+            while not aq.empty() and total < 4096:
                 try:
                     b = aq.get_nowait()
                     blocks.append(b); total += b.shape[0]
@@ -217,18 +192,11 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
         await send_error(ws, f"Capture failed: {e}")
     finally:
         try:
-            stream.stop()
-        except Exception:
-            pass
-        try:
-            stream.close()
+            stream.stop(); stream.close()
         except Exception:
             pass
         import gc; gc.collect()
-        try:
-            await ws.send(json.dumps(StoppedMessage(type="stopped").dict()))
-        except Exception:
-            pass
+        await ws.send(json.dumps(StoppedMessage(type="stopped").dict()))
 
 async def send_error(ws: WebSocketServerProtocol, error_message: str):
     error_msg = ErrorMessage(type="error", message=error_message)

@@ -7,22 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.5.3.15] - 2025-08-21
-
-### Fixed
-
-- **Capture Agent Stability**: Resolved `QueueFull` exceptions by implementing a safe enqueue wrapper that prevents crashes on the event loop thread. The audio backlog is now bounded, and the oldest data is dropped to maintain low latency under load.
-- **Coherence Calculation**: Hardened the 1/6-octave smoothing algorithm to prevent `NaN` values and collapses at frequency band edges. The smoothing windows are now guaranteed to be a minimum width, and edge cases are handled gracefully.
-- **Delay Calculation**: Improved the robustness of the GCC-PHAT delay finder by adding DC offset removal, windowing, and a guard band to prevent chasing noise, resulting in a more stable and accurate delay measurement.
-
-### Improved
-
-- **Capture Agent Shutdown**: The agent's stream shutdown process is now more defensive, ensuring `stream.stop()` and `stream.close()` are always called in a `finally` block to prevent resource leaks.
-
-### Changed
-
-- **Capture Agent Version**: Bumped capture agent version to `0.1.12`.
-
 ## [1.5.3.14.1] - 2025-08-21
 
 ### Fixed
