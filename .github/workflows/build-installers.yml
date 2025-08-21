@@ -2,8 +2,12 @@ name: Build Installers
 
 on:
   release:
-    types: [created]
+    types: [published]
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag to upload assets to (for manual runs)"
+        required: false
 
 permissions:
   contents: write
@@ -302,30 +306,47 @@ jobs:
   upload-to-release:
     needs: [build-macos, build-windows]
     runs-on: ubuntu-latest
-    if: github.event_name == 'release'
     permissions:
       contents: write
       actions: read
       id-token: write
     steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
+      - name: Debug event
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "release tag (if any)=${{ github.event.release.tag_name }}"
+          echo "manual tag (if any)=${{ inputs.tag_name }}"
+
+      - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
 
       - name: List downloaded files
         run: |
-          echo "Contents of current directory:"
           ls -la
-          echo "Contents of macos-installer (if exists):"
-          ls -la macos-installer/ || echo "macos-installer directory not found"
-          echo "Contents of windows-installer (if exists):"
-          ls -la windows-installer/ || echo "windows-installer directory not found"
+          file SoundDocsAgent-macOS.pkg || true
+          file SoundDocsAgent-Windows.exe || true
 
-      - name: Upload to release
+      # Only upload when it's a real release event
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.release.tag_name }}
+          files: |
+            SoundDocsAgent-macOS.pkg
+            SoundDocsAgent-Windows.exe
+          fail_on_unmatched_files: true
+          append_body: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Optional: allow manual testing
+      - name: Upload to Release (manual run)
+        if: github.event_name == 'workflow_dispatch' && inputs.tag_name != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag_name }}
           files: |
             SoundDocsAgent-macOS.pkg
             SoundDocsAgent-Windows.exe
