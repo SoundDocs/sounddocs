@@ -286,7 +286,7 @@ const AnalyzerProPage: React.FC = () => {
         <div className="max-w-4xl mx-auto space-y-8">
           <AgentConnectionManager />
 
-          {status === "connected" && agentVersion !== "0.1.8" && (
+          {status === "connected" && agentVersion && agentVersion !== "0.1.8" && (
             <AgentUpdateNotification connectedVersion={agentVersion} latestVersion="0.1.8" />
           )}
 
