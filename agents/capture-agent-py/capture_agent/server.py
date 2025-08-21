@@ -11,7 +11,6 @@ import sounddevice as sd
 
 from . import audio
 from . import dsp
-from .dsp import SignalGenerator
 from .schema import (
     CaptureConfig,
     ClientMessage,
@@ -28,14 +27,6 @@ from .schema import (
 # --- State Management ---
 connected_clients: Set[WebSocketServerProtocol] = set()
 capture_task = None
-_generator_state = {
-    "config": {
-        "signalType": "off",
-        "outputChannel": 1,
-        "loopback": False,
-    },
-    "instance": None,
-}
 
 ALLOWED_ORIGINS = ["https://sounddocs.org", "https://beta.sounddocs.org", "http://localhost:5173", "https://localhost:5173"]
 
@@ -52,10 +43,7 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
 
     if message.type == "hello":
         ack = HelloAckMessage(
-            type="hello_ack",
-            agent="capture-agent-py/0.1.0",
-            version="0.1.8",
-            originAllowed=True,
+            type="hello_ack", agent="capture-agent-py/0.1.0", originAllowed=True
         )
         await ws.send(json.dumps(ack.dict()))
 
@@ -87,13 +75,6 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
         dsp.delay_freeze(enable, applied_ms)
         await ws.send(json.dumps({"type": "delay_status", **dsp.delay_status()}))
 
-    elif message.type == "configure_generator":
-        g_config = _generator_state["config"]
-        g_config["signalType"] = message.signalType
-        g_config["outputChannel"] = message.outputChannel
-        g_config["loopback"] = message.loopback
-        # No response needed, generator will pick it up
-
     elif message.type == "set_manual_delay":
         ms = getattr(message, "delay_ms", None)
         dsp.delay_set_manual(ms)
@@ -105,145 +86,83 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
 async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
     loop = asyncio.get_running_loop()
     aq = asyncio.Queue(maxsize=32)  # async queue for inter-thread handoff
-    in_stream, out_stream = None, None
-
-    fs = int(config.sampleRate)
-    block_size = 1024  # Must match InputStream blocksize for sync
-    _generator_state["instance"] = dsp.SignalGenerator(fs, block_size)
-    gen = _generator_state["instance"]
 
     def audio_callback(indata, frames, time_info, status):
+        # called on driver thread; never block here
         if status:
             print(f"Audio callback status: {status}")
         try:
             loop.call_soon_threadsafe(aq.put_nowait, indata.astype(np.float32, copy=True))
         except Exception:
+            # queue full -> drop; never block RT
             pass
 
-    def output_callback(outdata, frames, time_info, status):
-        if status:
-            print(f"Audio output callback status: {status}")
-        outdata.fill(0)
-        g_config = _generator_state["config"]
-        signal_type = g_config["signalType"]
-        output_channel_idx = g_config["outputChannel"] - 1
-        if signal_type != "off" and 0 <= output_channel_idx < outdata.shape[1]:
-            chunk = gen.generate(signal_type, frames)
-            outdata[:, output_channel_idx] = chunk
-
     try:
-        # ---- buffer geometry (always 2 columns: [ref, meas]) ----
+        fs = int(config.sampleRate)
         nperseg = int(config.nfft)
         max_delay_ms = int(getattr(config, "maxDelayMs", 300))
         max_lag_samples = int(np.ceil(fs * max_delay_ms / 1000.0))
-        buffer_len = nperseg + 2 * max_lag_samples + int(0.75 * nperseg)
+
+        buffer_len = nperseg + 2*max_lag_samples + int(0.75*nperseg)
         noverlap = int(0.75 * nperseg)
         hop_size = nperseg - noverlap
 
-        device_info = sd.query_devices(int(config.deviceId))
-        num_output_channels = device_info['max_output_channels']
-
-        # Input channels to open from the device (capture enough to include meas/ref)
-        # NOTE: sounddevice InputStream(channels=N) grabs the first N channels (1..N).
-        input_chans_to_capture = max(config.refChan if config.refChan > 0 else config.measChan,
-                                     config.measChan)
-
-        # analysis buffer is ALWAYS 2 columns: [ref, meas]
-        analysis_buffer = np.zeros((buffer_len, 2), dtype=np.float32)
-        carry = 0
+        num_channels = max(config.refChan, config.measChan)
+        analysis_buffer = np.zeros((buffer_len, num_channels), dtype=np.float32)
+        carry = 0  # how many new samples since last analysis
         last_send = 0.0
-        target_fps = 20.0
+        target_fps = 20.0  # UI update rate
         send_interval = 1.0 / target_fps
 
-        in_stream = sd.InputStream(
+        stream = sd.InputStream(
             device=int(config.deviceId),
-            samplerate=fs,
-            blocksize=block_size,
-            channels=input_chans_to_capture,
+            samplerate=config.sampleRate,
+            blocksize=1024,               # <= smaller, smoother
+            channels=num_channels,
             dtype="float32",
             callback=audio_callback,
-            latency="high",
+            latency="high",               # optional: reduce overruns
         )
-
-        out_stream = None
-        if num_output_channels > 0:
-            out_stream = sd.OutputStream(
-                device=int(config.deviceId),
-                samplerate=fs,
-                blocksize=block_size,
-                channels=num_output_channels,
-                dtype="float32",
-                callback=output_callback,
-                latency="high",
-            )
-
-        in_stream.start()
-        if out_stream:
-            out_stream.start()
+        stream.start()
 
         while True:
+            # wait for at least one block
             block = await aq.get()
 
-            # drain queue
+            # drain whatever else is queued to catch up
             blocks = [block]
             while not aq.empty():
                 try:
                     blocks.append(aq.get_nowait())
                 except asyncio.QueueEmpty:
                     break
-            chunk_in = np.concatenate(blocks, axis=0)  # shape: (L, input_chans_to_capture)
-            L = chunk_in.shape[0]
 
-            # ---- re-read generator config each block ----
-            g_config = _generator_state["config"]
-            signal_type = g_config["signalType"]
-            loopback_now = bool(g_config["loopback"]) and (config.refChan == 0)
+            chunk = np.concatenate(blocks, axis=0)
 
-            # ---- build 2-ch analysis chunk: [ref, meas] ----
-            if loopback_now:
-                # ref = internally generated signal; meas = chosen input channel
-                ref = gen.generate(signal_type, L)
-                meas = chunk_in[:, config.measChan - 1]
-                chunk2 = np.column_stack((ref.astype(np.float32, copy=False), meas))
-                # Use indices 1/2 for compute_metrics
-                ref_idx, meas_idx = 1, 2
-            else:
-                # both come from input device channels
-                ref = chunk_in[:, config.refChan - 1]
-                meas = chunk_in[:, config.measChan - 1]
-                chunk2 = np.column_stack((ref, meas))
-                ref_idx, meas_idx = config.refChan, config.measChan  # only used to set 1/2 below
-
-            # roll into analysis buffer (shape always = (buffer_len, 2))
+            # roll new samples into analysis buffer
+            L = chunk.shape[0]
             if L >= buffer_len:
-                analysis_buffer[:] = chunk2[-buffer_len:]
-                carry = hop_size
+                analysis_buffer[:] = chunk[-buffer_len:]
+                carry = hop_size  # force immediate analysis
             else:
                 analysis_buffer = np.roll(analysis_buffer, -L, axis=0)
-                analysis_buffer[-L:, :] = chunk2
+                analysis_buffer[-L:, :] = chunk
                 carry += L
 
+            # run analysis only when we've advanced by one hop
             if carry >= hop_size:
-                # Make a shallow copy of config with ref/meas forced to 1/2 for analysis buffer
-                try:
-                    cfg = config.copy()  # pydantic BaseModel
-                except Exception:
-                    cfg = config
-                setattr(cfg, "refChan", 1)
-                setattr(cfg, "measChan", 2)
-
-                tf_data, spl_data, _delay_ms = dsp.compute_metrics(analysis_buffer, cfg)
-
+                tf_data, spl_data, delay_ms = dsp.compute_metrics(analysis_buffer, config)
                 now = time.monotonic()
                 if now - last_send >= send_interval:
                     status = dsp.delay_status()
                     applied = status["applied_ms"]
+
                     frame = FrameMessage(
                         type="frame",
                         tf=tf_data,
                         spl=spl_data,
-                        delay_ms=applied,
-                        latency_ms=float(in_stream.latency)*1000.0 if hasattr(in_stream, "latency") else 0.0,
+                        delay_ms=applied,              # <- show applied, not the local variable
+                        latency_ms=float(stream.latency)*1000.0 if hasattr(stream, "latency") else 0.0,
                         ts=int(time.time() * 1000),
                         sampleRate=fs,
                         delay_mode=status["mode"],
@@ -261,14 +180,9 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
         await send_error(ws, f"Capture failed: {e}")
     finally:
         try:
-            if in_stream:
-                in_stream.stop()
-                in_stream.close()
-            if out_stream:
-                out_stream.stop()
-                out_stream.close()
-        except Exception as e:
-            print(f"Error closing streams: {e}")
+            stream.stop(); stream.close()
+        except Exception:
+            pass
         await ws.send(json.dumps(StoppedMessage(type="stopped").dict()))
 
 async def send_error(ws: WebSocketServerProtocol, error_message: str):

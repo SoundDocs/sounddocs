@@ -5,9 +5,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import AgentConnectionManager from "../components/analyzer/AgentConnectionManager";
 import AgentDownload from "../components/analyzer/AgentDownload";
-import AgentUpdateNotification from "../components/analyzer/AgentUpdateNotification";
 import ProSettings from "../components/analyzer/ProSettings";
-import { GeneratorConfig } from "../components/analyzer/SignalGenerator";
 import SavedMeasurementsModal from "../components/analyzer/SavedMeasurementsModal";
 import ChartDetailModal from "../components/analyzer/ChartDetailModal";
 import { TransferFunctionVisualizer } from "@sounddocs/analyzer-lite";
@@ -50,8 +48,6 @@ const AnalyzerProPage: React.FC = () => {
   const [measurementAdjustments, setMeasurementAdjustments] = useState<{
     [id: string]: { gain: number; delay: number };
   }>({});
-  const [agentVersion, setAgentVersion] = useState<string | null>(null);
-  const [latestAgentVersion, setLatestAgentVersion] = useState<string | null>(null);
 
   const handleEqChange = async (id: string, eq_settings: EqSetting[]) => {
     // Update local state immediately for responsiveness
@@ -122,23 +118,7 @@ const AnalyzerProPage: React.FC = () => {
 
   useEffect(() => {
     fetchMeasurements();
-    fetchLatestAgentVersion();
   }, []);
-
-  const fetchLatestAgentVersion = async () => {
-    try {
-      const response = await fetch(
-        "https://api.github.com/repos/SoundDocs/sounddocs/releases/latest",
-      );
-      const data = await response.json();
-      // The tag name for agent releases is prefixed with 'agent-v'
-      if (data.tag_name && data.tag_name.startsWith("agent-v")) {
-        setLatestAgentVersion(data.tag_name.substring("agent-v".length));
-      }
-    } catch (error) {
-      console.error("Error fetching latest agent version:", error);
-    }
-  };
 
   useEffect(() => {
     if (status === "connected") {
@@ -148,9 +128,7 @@ const AnalyzerProPage: React.FC = () => {
 
   useEffect(() => {
     if (lastMessage) {
-      if (lastMessage.type === "hello_ack") {
-        setAgentVersion(lastMessage.version);
-      } else if (lastMessage.type === "devices") {
+      if (lastMessage.type === "devices") {
         setDevices(lastMessage.items);
       } else if (lastMessage.type === "frame") {
         setIsCapturing(true);
@@ -304,10 +282,6 @@ const AnalyzerProPage: React.FC = () => {
         <div className="max-w-4xl mx-auto space-y-8">
           <AgentConnectionManager />
 
-          {agentVersion && latestAgentVersion && agentVersion < latestAgentVersion && (
-            <AgentUpdateNotification latestVersion={latestAgentVersion} />
-          )}
-
           {status !== "connected" && <AgentDownload />}
           {status === "connected" && (
             <ProSettings
@@ -323,9 +297,6 @@ const AnalyzerProPage: React.FC = () => {
               onFreezeDelay={(enable) =>
                 sendMessage({ type: "delay_freeze", enable, applied_ms: appliedDelayMs })
               }
-              onGeneratorConfigChange={(config: GeneratorConfig) => {
-                sendMessage({ type: "configure_generator", ...config });
-              }}
               delayMode={delayMode}
               appliedDelayMs={appliedDelayMs}
               isCapturing={isCapturing}

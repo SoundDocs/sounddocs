@@ -78,15 +78,6 @@ export interface DelayFreezeMessage {
   applied_ms?: number;
 }
 
-export type SignalType = "off" | "pink" | "white" | "sine";
-
-export interface ConfigureGeneratorMessage {
-  type: "configure_generator";
-  signalType: SignalType;
-  outputChannel: number;
-  loopback: boolean;
-}
-
 export type ClientMessage =
   | HelloMessage
   | ListDevicesMessage
@@ -94,14 +85,12 @@ export type ClientMessage =
   | StopCaptureMessage
   | CalibrateMessage
   | GetVersionMessage
-  | DelayFreezeMessage
-  | ConfigureGeneratorMessage;
+  | DelayFreezeMessage;
 
 // Message types from agent to client
 export interface HelloAckMessage {
   type: "hello_ack";
   agent: string;
-  version: string;
   originAllowed: boolean;
 }
 
@@ -174,7 +163,6 @@ export function isClientMessage(msg: ProtocolMessage): msg is ClientMessage {
     "calibrate",
     "get_version",
     "delay_freeze",
-    "configure_generator",
   ].includes(msg.type);
 }
 

@@ -7,26 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.5.4] - 2025-08-21
-
-### Added
-
-- **Signal Generator**: Added a signal generator to the Analyzer Pro page with pink noise, white noise, and sine sweep options.
-- **Loopback Reference**: Implemented a loopback feature that allows the internally generated signal to be used as the reference channel for transfer function measurements.
-
-### Changed
-
-- **UI**: The reference channel selector in the Pro Settings now displays "Loopback" and is disabled when the loopback feature is active.
-
-### Added
-
-- **Agent Version Check**: The Analyzer Pro page now automatically checks for new versions of the capture agent and displays a notification if an update is available.
-
-### Fixed
-
-- **Signal Generator**: Replaced the signal generator algorithms with more accurate and stable versions. The "sine" option is now a steady 1 kHz tone, and the pink noise generator is a proper 1/f implementation.
-- **Loopback Logic**: Corrected the loopback implementation to ensure the analysis buffer is always correctly shaped and that loopback can be toggled on and off during a capture session.
-
 ## [1.5.3.11] - 2025-08-21
 
 ### Fixed

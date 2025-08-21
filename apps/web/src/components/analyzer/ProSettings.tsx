@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Device, CaptureConfig } from "@sounddocs/analyzer-protocol";
 import { Snowflake } from "lucide-react";
-import { SignalGenerator, GeneratorConfig } from "./SignalGenerator";
 
 interface ProSettingsProps {
   devices: Device[];
   onStartCapture: (config: CaptureConfig) => void;
   onStopCapture: () => void;
   onFreezeDelay: (enabled: boolean) => void;
-  onGeneratorConfigChange: (config: GeneratorConfig) => void;
   delayMode?: string;
   appliedDelayMs?: number;
   isCapturing: boolean;
@@ -19,7 +17,6 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
   onStartCapture,
   onStopCapture,
   onFreezeDelay,
-  onGeneratorConfigChange,
   delayMode,
   appliedDelayMs,
   isCapturing,
@@ -28,24 +25,6 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
   const [refChan, setRefChan] = useState<number>(1);
   const [measChan, setMeasChan] = useState<number>(2);
   const [nfft, setNfft] = useState<number>(8192);
-  const [generatorConfig, setGeneratorConfig] = useState<GeneratorConfig>({
-    signalType: "off",
-    outputChannel: 1,
-    loopback: false,
-  });
-
-  const handleGeneratorConfigChange = (newConfig: Partial<GeneratorConfig>) => {
-    const updatedConfig = { ...generatorConfig, ...newConfig };
-    setGeneratorConfig(updatedConfig);
-    onGeneratorConfigChange(updatedConfig);
-
-    // When loopback is enabled, the ref channel is internal
-    if (newConfig.loopback === true) {
-      setRefChan(0); // Use 0 to signify loopback
-    } else if (newConfig.loopback === false) {
-      setRefChan(1); // Reset to default when loopback is off
-    }
-  };
 
   useEffect(() => {
     if (devices.length > 0 && !selectedDeviceId) {
@@ -121,14 +100,10 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
           <select
             value={refChan}
             onChange={(e) => setRefChan(Number(e.target.value))}
-            disabled={isCapturing || !selectedDevice || generatorConfig.loopback}
+            disabled={isCapturing || !selectedDevice}
             className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
           >
-            {generatorConfig.loopback ? (
-              <option value={0}>Loopback</option>
-            ) : (
-              selectedDevice && renderChannelOptions(selectedDevice.inputs)
-            )}
+            {selectedDevice && renderChannelOptions(selectedDevice.inputs)}
           </select>
         </div>
         <div>
@@ -181,12 +156,6 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
           </div>
         )}
       </div>
-      <SignalGenerator
-        config={generatorConfig}
-        deviceOutputs={selectedDevice?.outputs ?? 0}
-        isCapturing={isCapturing}
-        onConfigChange={handleGeneratorConfigChange}
-      />
     </div>
   );
 };
