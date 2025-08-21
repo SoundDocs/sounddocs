@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3.14.1] - 2025-08-21
+
+### Fixed
+
+- **Capture Agent Memory Leak**: Addressed multiple memory leak sources in the Python capture agent.
+  - The capture task is now properly awaited on cancellation to ensure prompt release of large NumPy buffers and the `sounddevice` stream.
+  - The audio queue backlog is bounded, and per-iteration processing is capped to prevent memory spikes from `np.concatenate`.
+  - FFT window sizes (`nperseg`) are now bucketed to a fixed set, preventing cache churn and unbounded growth of cached Hann windows.
+  - The DSP cache is now cleared on capture stop and client disconnect, releasing memory from previous sessions.
+
+### Changed
+
+- **Capture Agent Version**: Bumped capture agent version to `0.1.11`.
+
+## [1.5.3.14] - 2025-08-21
+
+### Added
+
+- **Capture Agent Version Display**: The Analyzer Pro page now displays the version of the connected capture agent.
+
+### Changed
+
+- **Agent Version Sourcing**: The Python capture agent now reads its version directly from `pyproject.toml` instead of a separate `VERSION` file, ensuring a single source of truth.
+
+### Fixed
+
+- **Protocol Definition**: The `version` field in the `HelloAckMessage` is now mandatory, ensuring the agent always provides its version upon connection.
+
 ## [1.5.3.13.5] - 2025-08-21
 
 ### Changed

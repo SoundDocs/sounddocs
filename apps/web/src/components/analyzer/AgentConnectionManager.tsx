@@ -3,7 +3,7 @@ import { useCaptureAgent } from "@/stores/agentStore";
 import { Wifi, WifiOff } from "lucide-react";
 
 function AgentConnectionManager() {
-  const { status, connect, disconnect } = useCaptureAgent();
+  const { status, connect, disconnect, agentVersion } = useCaptureAgent();
 
   useEffect(() => {
     // Attempt to connect when the component mounts
@@ -16,7 +16,7 @@ function AgentConnectionManager() {
         return (
           <div className="flex items-center gap-2 text-green-400">
             <Wifi size={16} />
-            <span>Agent Connected</span>
+            <span>Agent Connected {agentVersion && `(v${agentVersion})`}</span>
             <button
               className="px-2 py-1 text-sm border border-gray-600 rounded-md hover:bg-gray-700"
               onClick={disconnect}

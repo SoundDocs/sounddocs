@@ -71,7 +71,12 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
     elif message.type == "stop":
         if capture_task and not capture_task.done():
             capture_task.cancel()
-            capture_task = None
+            try:
+                await capture_task
+            except asyncio.CancelledError:
+                pass
+        dsp.reset_dsp_state()  # free cached windows & delay state
+        capture_task = None
 
     elif message.type == "delay_freeze":
         enable = bool(message.enable)
@@ -89,7 +94,7 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
 
 async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
     loop = asyncio.get_running_loop()
-    aq = asyncio.Queue(maxsize=32)  # async queue for inter-thread handoff
+    aq = asyncio.Queue(maxsize=8)  # keep backlog small; prevents RAM spikes
 
     def audio_callback(indata, frames, time_info, status):
         # called on driver thread; never block here
@@ -135,9 +140,12 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
 
             # drain whatever else is queued to catch up
             blocks = [block]
-            while not aq.empty():
+            total = block.shape[0]
+            # Drain but cap to ~4 blocks worth to bound peak RAM
+            while not aq.empty() and total < 4096:
                 try:
-                    blocks.append(aq.get_nowait())
+                    b = aq.get_nowait()
+                    blocks.append(b); total += b.shape[0]
                 except asyncio.QueueEmpty:
                     break
 
@@ -187,6 +195,7 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
             stream.stop(); stream.close()
         except Exception:
             pass
+        import gc; gc.collect()
         await ws.send(json.dumps(StoppedMessage(type="stopped").dict()))
 
 async def send_error(ws: WebSocketServerProtocol, error_message: str):
@@ -216,8 +225,12 @@ async def handler(ws: WebSocketServerProtocol, path: str):
         global capture_task
         if capture_task and not capture_task.done():
             capture_task.cancel()
-            capture_task = None
-        connected_clients.remove(ws)
+            try:
+                await capture_task
+            except asyncio.CancelledError:
+                pass
+            dsp.reset_dsp_state()
+        connected_clients.discard(ws)
 
 async def start_server(host="127.0.0.1", port=9469):
     # Look for certificates in the user's .sounddocs-agent directory
