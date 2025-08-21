@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3.6] - 2025-01-10
+
+### Fixed
+
+- **macOS Installer Certificate Setup**: Fixed issue where `mkcert -install` would not run after Homebrew installs mkcert. The installer now properly refreshes the PATH and forces certificate authority setup when mkcert is newly installed, ensuring SSL certificates are always properly trusted by the browser.
+
 ## [1.5.3.5] - 2025-08-20
 
 ### Fixed

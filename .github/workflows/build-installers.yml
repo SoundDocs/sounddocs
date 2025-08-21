@@ -76,6 +76,7 @@ jobs:
           cd "$HOME/.sounddocs-agent" || mkdir -p "$HOME/.sounddocs-agent" && cd "$HOME/.sounddocs-agent"
 
           # Check if mkcert is installed, install if missing
+          MKCERT_INSTALLED=false
           if ! command -v mkcert >/dev/null 2>&1; then
             echo "📦 Installing mkcert via Homebrew..."
             echo "   This enables secure SSL connections to the agent."
@@ -87,6 +88,9 @@ jobs:
                 read -p "Press Enter to exit..."
                 exit 1
               fi
+              # Refresh PATH to ensure mkcert is available immediately
+              export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+              MKCERT_INSTALLED=true
             else
               echo "❌ Error: Homebrew is required to install mkcert"
               echo "   Please install Homebrew first: https://brew.sh"
@@ -97,8 +101,8 @@ jobs:
             echo ""
           fi
 
-          # Check if mkcert CA is installed
-          if ! mkcert -CAROOT >/dev/null 2>&1 || [ ! -f "$(mkcert -CAROOT)/rootCA.pem" ]; then
+          # Check if mkcert CA is installed or if we just installed mkcert
+          if [ "$MKCERT_INSTALLED" = true ] || ! mkcert -CAROOT >/dev/null 2>&1 || [ ! -f "$(mkcert -CAROOT)/rootCA.pem" ]; then
             echo "🔐 Setting up mkcert Certificate Authority..."
             echo "   This makes SSL certificates trusted by your browser."
             echo "   You may be prompted for your password."
