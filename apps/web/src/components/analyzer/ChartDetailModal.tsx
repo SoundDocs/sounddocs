@@ -1,5 +1,15 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { X, Eye, EyeOff, Trash2, Download, Upload, SlidersHorizontal, Timer } from "lucide-react";
+import {
+  X,
+  Eye,
+  EyeOff,
+  Trash2,
+  Download,
+  Upload,
+  SlidersHorizontal,
+  Timer,
+  RefreshCw,
+} from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { TFData } from "@sounddocs/analyzer-protocol";
 import Chart from "./Chart";
@@ -18,6 +28,7 @@ interface Measurement {
   sample_rate: number;
   eq_settings?: EqSetting[];
   capture_delay_ms?: number; // Added for alignment
+  phase_flipped?: boolean;
 }
 
 interface ChartDetailModalProps {
@@ -32,9 +43,12 @@ interface ChartDetailModalProps {
   onAddMeasurements: (measurements: Omit<Measurement, "id" | "created_at">[]) => void;
   sampleRate: number;
   measurementAdjustments: {
-    [id: string]: { gain: number; delay: number };
+    [id: string]: { gain: number; delay: number; phaseFlipped: boolean };
   };
-  onMeasurementAdjustmentChange: (id: string, newValues: { gain?: number; delay?: number }) => void;
+  onMeasurementAdjustmentChange: (
+    id: string,
+    newValues: { gain?: number; delay?: number; phaseFlipped?: boolean },
+  ) => void;
   eqMeasurementId: string | null;
   onEqMeasurementIdChange: (id: string | null) => void;
   onEqChange: (id: string, eq_settings: EqSetting[]) => void;
@@ -250,7 +264,11 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
       if (!visibleIds.has(trace.id)) return;
       if (!trace.tf_data[series]) return;
 
-      const adjustments = measurementAdjustments[trace.id] || { gain: 0, delay: 0 };
+      const adjustments = measurementAdjustments[trace.id] || {
+        gain: 0,
+        delay: 0,
+        phaseFlipped: false,
+      };
       let data = trace.tf_data[series];
 
       if (selectedChart === "magnitude") {
@@ -267,15 +285,15 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
 
         // 1) Optional overlay: original (pre-EQ)
         if (isCurrentEqTarget) {
-          datasets.push(
-            getCoherenceStyledDataset(
-              baseMag,
-              trace.tf_data.coh,
-              `${trace.name} (orig)`,
-              trace.color || "#F472B6",
-              wantsCohShading,
-            ),
+          const dataset = getCoherenceStyledDataset(
+            baseMag,
+            trace.tf_data.coh,
+            `${trace.name} (orig)`,
+            trace.color || "#F472B6",
+            wantsCohShading,
           );
+          dataset.borderDash = [5, 5];
+          datasets.push(dataset);
         }
 
         // 2) Active/EQ’d line
@@ -296,6 +314,9 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
           const freq = trace.tf_data.freqs[i];
           const phaseShift = (adjustments.delay / 1000) * freq * 360;
           let phase = d - phaseShift;
+          if (adjustments.phaseFlipped) {
+            phase += 180;
+          }
           while (phase <= -180) phase += 360;
           while (phase > 180) phase -= 360;
           return phase;
@@ -691,7 +712,11 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
               </div>
             </li>
             {savedMeasurements.map((m) => {
-              const adjustments = measurementAdjustments[m.id] || { gain: 0, delay: 0 };
+              const adjustments = measurementAdjustments[m.id] || {
+                gain: 0,
+                delay: 0,
+                phaseFlipped: false,
+              };
               return (
                 <li key={m.id} className="bg-gray-700 p-3 rounded-md space-y-3">
                   <div className="flex justify-between items-center">
@@ -701,31 +726,53 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
                         {new Date(m.created_at).toLocaleString()}
                       </p>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (eqMeasurementId === m.id) {
-                            onEqMeasurementIdChange(null);
-                          } else {
-                            onEqMeasurementIdChange(m.id);
-                            // ensure it's visible so the overlay actually renders
-                            if (!visibleIds.has(m.id)) {
-                              onToggleVisibility(m.id);
-                            }
-                          }
-                        }}
-                        className={`p-2 hover:bg-gray-600 rounded-full ${
-                          eqMeasurementId === m.id ? "bg-indigo-500" : ""
-                        }`}
-                        title="Toggle EQ"
-                      >
-                        <SlidersHorizontal
-                          className={`h-5 w-5 ${
-                            eqMeasurementId === m.id ? "text-white" : "text-gray-400"
+                    <div className="flex items-center space-x-1">
+                      {selectedChart === "phase" && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMeasurementAdjustmentChange(m.id, {
+                              phaseFlipped: !adjustments.phaseFlipped,
+                            });
+                          }}
+                          className={`p-2 hover:bg-gray-600 rounded-full ${
+                            adjustments.phaseFlipped ? "bg-sky-500" : ""
                           }`}
-                        />
-                      </button>
+                          title="Flip Phase"
+                        >
+                          <RefreshCw
+                            className={`h-5 w-5 ${
+                              adjustments.phaseFlipped ? "text-white" : "text-gray-400"
+                            }`}
+                          />
+                        </button>
+                      )}
+                      {selectedChart === "magnitude" && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (eqMeasurementId === m.id) {
+                              onEqMeasurementIdChange(null);
+                            } else {
+                              onEqMeasurementIdChange(m.id);
+                              // ensure it's visible so the overlay actually renders
+                              if (!visibleIds.has(m.id)) {
+                                onToggleVisibility(m.id);
+                              }
+                            }
+                          }}
+                          className={`p-2 hover:bg-gray-600 rounded-full ${
+                            eqMeasurementId === m.id ? "bg-indigo-500" : ""
+                          }`}
+                          title="Toggle EQ"
+                        >
+                          <SlidersHorizontal
+                            className={`h-5 w-5 ${
+                              eqMeasurementId === m.id ? "text-white" : "text-gray-400"
+                            }`}
+                          />
+                        </button>
+                      )}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

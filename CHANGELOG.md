@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3.13.2] - 2025-08-21
+
+### Fixed
+
+- **Phase Flip on Pro Page**: Fixed an issue where the phase flip was not being applied to the main charts on the Analyzer Pro page.
+
+## [1.5.3.13.1] - 2025-08-21
+
+### Improved
+
+- **EQ Trace Styling**: The "before" EQ trace in the chart detail modal is now rendered as a dashed line for better visual distinction.
+
+## [1.5.3.13] - 2025-08-21
+
+### Added
+
+- **Phase Flip**: Added a "Flip Phase" button to the chart detail modal. This allows users to flip the phase of a measurement by 180 degrees, and the change is persisted to the database.
+
+### Fixed
+
+- **EQ Button Visibility**: The EQ button in the chart detail modal is now only visible when the magnitude chart is selected.
+
 ## [1.5.3.12] - 2025-08-21
 
 ### Added

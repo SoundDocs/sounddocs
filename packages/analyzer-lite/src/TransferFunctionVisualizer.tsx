@@ -35,6 +35,7 @@ export interface TransferFunctionVisualizerProps {
     offsetDb?: number;
     offsetMs?: number;
     sample_rate: number;
+    phaseFlipped?: boolean;
   }>;
   className?: string;
   onChartClick?: (chartName: "magnitude" | "phase" | "impulse" | "coherence") => void;
@@ -175,9 +176,18 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
       });
     }
     saved.forEach((trace) => {
+      const phase = trace.tf.phase_deg.map((d) => {
+        let p = d;
+        if (trace.phaseFlipped) {
+          p += 180;
+        }
+        while (p <= -180) p += 360;
+        while (p > 180) p -= 360;
+        return p;
+      });
       datasets.push({
         label: trace.label,
-        data: trace.tf.phase_deg, // Note: offset logic will be added later
+        data: phase, // Note: offset logic will be added later
         borderWidth: 1,
         segment: {
           borderColor: (context: any) => {

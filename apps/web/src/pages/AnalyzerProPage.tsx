@@ -25,6 +25,7 @@ interface Measurement {
   color?: string;
   sample_rate: number;
   eq_settings?: EqSetting[];
+  phase_flipped?: boolean;
 }
 
 const AnalyzerProPage: React.FC = () => {
@@ -47,7 +48,7 @@ const AnalyzerProPage: React.FC = () => {
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set());
   const [eqMeasurementId, setEqMeasurementId] = useState<string | null>(null);
   const [measurementAdjustments, setMeasurementAdjustments] = useState<{
-    [id: string]: { gain: number; delay: number };
+    [id: string]: { gain: number; delay: number; phaseFlipped: boolean };
   }>({});
   const [agentVersion, setAgentVersion] = useState<string | undefined>();
 
@@ -105,17 +106,37 @@ const AnalyzerProPage: React.FC = () => {
     }
   };
 
-  const handleMeasurementAdjustmentChange = (
+  const handleMeasurementAdjustmentChange = async (
     id: string,
-    newValues: { gain?: number; delay?: number },
+    newValues: { gain?: number; delay?: number; phaseFlipped?: boolean },
   ) => {
     setMeasurementAdjustments((prev) => ({
       ...prev,
       [id]: {
-        ...(prev[id] || { gain: 0, delay: 0 }),
+        ...(prev[id] || { gain: 0, delay: 0, phaseFlipped: false }),
         ...newValues,
       },
     }));
+
+    if (typeof newValues.phaseFlipped === "boolean") {
+      try {
+        const { error } = await supabase
+          .from("tf_measurements")
+          .update({ phase_flipped: newValues.phaseFlipped })
+          .match({ id });
+        if (error) throw error;
+      } catch (error) {
+        console.error("Error updating phase flip:", error);
+        // Revert on error
+        setMeasurementAdjustments((prev) => ({
+          ...prev,
+          [id]: {
+            ...prev[id],
+            phaseFlipped: !newValues.phaseFlipped,
+          },
+        }));
+      }
+    }
   };
 
   useEffect(() => {
@@ -159,16 +180,30 @@ const AnalyzerProPage: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from("tf_measurements")
-        .select("id, name, created_at, tf_data, sample_rate, eq_settings, capture_delay_ms")
+        .select(
+          "id, name, created_at, tf_data, sample_rate, eq_settings, capture_delay_ms, phase_flipped",
+        )
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setSavedMeasurements(
-        (data || []).map((m, i) => ({
-          ...m,
-          color: TRACE_COLORS[i % TRACE_COLORS.length],
-        })),
-      );
+      const measurements = (data || []).map((m, i) => ({
+        ...m,
+        color: TRACE_COLORS[i % TRACE_COLORS.length],
+      }));
+      setSavedMeasurements(measurements);
+
+      // Initialize adjustments based on fetched data
+      const initialAdjustments: {
+        [id: string]: { gain: number; delay: number; phaseFlipped: boolean };
+      } = {};
+      measurements.forEach((m) => {
+        initialAdjustments[m.id] = {
+          gain: measurementAdjustments[m.id]?.gain || 0,
+          delay: measurementAdjustments[m.id]?.delay || 0,
+          phaseFlipped: m.phase_flipped || false,
+        };
+      });
+      setMeasurementAdjustments(initialAdjustments);
     } catch (error) {
       console.error("Error fetching measurements:", error);
     }
@@ -349,13 +384,21 @@ const AnalyzerProPage: React.FC = () => {
             sampleRate={sampleRate}
             saved={savedMeasurements
               .filter((m) => visibleIds.has(m.id))
-              .map((m) => ({
-                id: m.id,
-                tf: m.tf_data,
-                label: m.name,
-                color: m.color,
-                sample_rate: m.sample_rate,
-              }))}
+              .map((m) => {
+                const adjustments = measurementAdjustments[m.id] || {
+                  gain: 0,
+                  delay: 0,
+                  phaseFlipped: false,
+                };
+                return {
+                  id: m.id,
+                  tf: m.tf_data,
+                  label: m.name,
+                  color: m.color,
+                  sample_rate: m.sample_rate,
+                  phaseFlipped: adjustments.phaseFlipped,
+                };
+              })}
             onChartClick={(chartName) => {
               setSelectedChart(chartName);
               setIsDetailModalOpen(true);
