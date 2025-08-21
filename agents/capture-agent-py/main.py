@@ -41,8 +41,15 @@ def check_certificate_validity(cert_path, key_path):
         
         # Check expiration (handle timezone-aware vs naive datetime comparison)
         now = datetime.datetime.now(datetime.timezone.utc)
-        not_valid_after = cert_obj.not_valid_after_utc
-        not_valid_before = cert_obj.not_valid_before_utc
+
+        # cryptography <41 has .not_valid_after/.not_valid_before (naive)
+        # >=41 also exposes *_utc (aware). Use whichever exists and normalize to aware.
+        if hasattr(cert_obj, "not_valid_after_utc"):
+            not_valid_after = cert_obj.not_valid_after_utc
+            not_valid_before = cert_obj.not_valid_before_utc
+        else:
+            not_valid_after = cert_obj.not_valid_after.replace(tzinfo=datetime.timezone.utc)
+            not_valid_before = cert_obj.not_valid_before.replace(tzinfo=datetime.timezone.utc)
         
         if not_valid_after <= now:
             print("  Certificate has expired")

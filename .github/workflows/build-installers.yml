@@ -25,7 +25,7 @@ jobs:
         run: |
           cd agents/capture-agent-py
           pip install --upgrade pip
-          pip install pyinstaller
+          pip install "cryptography>=41,<44" pyinstaller
           pip install .
 
       - name: Build executable
@@ -61,6 +61,7 @@ jobs:
           TEMP_SCRIPT=$(mktemp)
           cat > "$TEMP_SCRIPT" << 'TERM_EOF'
           #!/bin/bash
+          set -euo pipefail
 
           # Set up PATH for GUI launches (includes Homebrew paths)
           export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
@@ -109,7 +110,7 @@ jobs:
             NEEDS_CA_INSTALL=true
           else
             # Check if CA is actually in the macOS keychain (not just files existing)
-            if ! security find-certificate -a -Z -c mkcert ~/Library/Keychains/login.keychain-db >/dev/null 2>&1; then
+            if ! security find-certificate -a -Z -c mkcert /Library/Keychains/System.keychain >/dev/null 2>&1; then
               echo "🔐 mkcert Certificate Authority not found in keychain, installing..."
               NEEDS_CA_INSTALL=true
             else
@@ -124,9 +125,10 @@ jobs:
             
             # Use osascript to run mkcert -install with proper GUI password prompt
             echo "Installing Certificate Authority (you may see a password prompt)..."
-            INSTALL_RESULT=$(osascript << 'APPLESCRIPT'
+            MKCERT_PATH="$(command -v mkcert || true)"
+            INSTALL_RESULT=$(osascript << APPLESCRIPT
             try
-              do shell script "mkcert -install" with administrator privileges
+              do shell script "$MKCERT_PATH -install" with administrator privileges
               return "success"
             on error errMsg number errNum
               return "error:" & errMsg & ":" & errNum
@@ -150,12 +152,12 @@ jobs:
             
             # Verify installation worked
             sleep 2
-            if ! security find-certificate -a -Z -c mkcert ~/Library/Keychains/login.keychain-db >/dev/null 2>&1; then
-              echo "⚠️  Certificate Authority not found in keychain after installation."
-              echo "   This may cause SSL connection issues."
-              echo "   Please run 'mkcert -install' manually in Terminal if you experience problems."
+            if security find-certificate -a -Z -c mkcert /Library/Keychains/System.keychain >/dev/null 2>&1; then
+              echo "✓ Certificate Authority successfully verified in System keychain"
             else
-              echo "✓ Certificate Authority successfully verified in keychain"
+              echo "⚠️  CA not present in System keychain after install."
+              echo "   Try: sudo \"$(command -v mkcert)\" -install"
+              read -p "Press Enter to exit..."; exit 1
             fi
             echo ""
           fi
@@ -236,9 +238,9 @@ jobs:
               <key>CFBundleDisplayName</key>
               <string>SoundDocs Capture Agent</string>
               <key>CFBundleVersion</key>
-              <string>0.1.5</string>
+              <string>0.1.6</string>
               <key>CFBundleShortVersionString</key>
-              <string>0.1.5</string>
+              <string>0.1.6</string>
               <key>CFBundlePackageType</key>
               <string>APPL</string>
               <key>CFBundleIconFile</key>
@@ -252,7 +254,7 @@ jobs:
           EOF
 
           # Build package
-          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.5 --install-location / SoundDocsAgent-macOS.pkg
+          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.6 --install-location / SoundDocsAgent-macOS.pkg
 
       - name: Upload macOS installer
         uses: actions/upload-artifact@v4
@@ -274,7 +276,7 @@ jobs:
         run: |
           cd agents/capture-agent-py
           pip install --upgrade pip
-          pip install pyinstaller
+          pip install "cryptography>=41,<44" pyinstaller
           pip install .
 
       - name: Build executable
@@ -290,7 +292,7 @@ jobs:
           cd agents/capture-agent-py
           cat > installer.nsi << 'EOF'
           !define APPNAME "SoundDocs Capture Agent"
-          !define APPVERSION "0.1.5"
+          !define APPVERSION "0.1.6"
           Name "${APPNAME}"
           OutFile "SoundDocsAgent-Windows.exe"
           InstallDir "$PROGRAMFILES\SoundDocs"

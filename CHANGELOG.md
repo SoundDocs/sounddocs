@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3.10] - 2025-08-21
+
+### Fixed
+
+- **Certificate Validation**: Patched the certificate validation logic to be compatible with `cryptography` library versions both older and newer than v41. The agent no longer crashes when encountering datetime objects without the `_utc` suffix.
+- **macOS CA Installation**: Corrected the macOS installer script to ensure the `mkcert` Certificate Authority is installed into the System keychain instead of the login keychain. This resolves browser trust errors (`ERR_CERT_AUTHORITY_INVALID`).
+- **Privileged Path Execution**: Fixed an issue where the macOS installer could not find `mkcert` when running with administrator privileges due to a minimal `PATH`. The script now uses the absolute path to `mkcert` for privileged operations.
+
+### Changed
+
+- **Dependency Pinning**: Pinned the `cryptography` dependency to `>=41,<44` in `pyproject.toml` and CI workflows to ensure deterministic builds and prevent future validation errors.
+
 ## [1.5.3.9] - 2025-01-10
 
 ### Fixed
