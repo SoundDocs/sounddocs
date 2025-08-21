@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Agent Version Check**: The Analyzer Pro page now automatically checks for new versions of the capture agent and displays a notification if an update is available.
 
+### Fixed
+
+- **Signal Generator**: Replaced the signal generator algorithms with more accurate and stable versions. The "sine" option is now a steady 1 kHz tone, and the pink noise generator is a proper 1/f implementation.
+- **Loopback Logic**: Corrected the loopback implementation to ensure the analysis buffer is always correctly shaped and that loopback can be toggled on and off during a capture session.
+
 ## [1.5.3.11] - 2025-08-21
 
 ### Fixed

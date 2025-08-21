@@ -368,28 +368,29 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
 
 class SignalGenerator:
     """
-    Stateful signal generator for continuous, block-based audio generation.
+    Block-based audio generator. Levels chosen to avoid easy clipping.
+    white:  ~-12 dBFS RMS
+    pink:   ~-12 dBFS RMS
+    sine:   -12 dBFS RMS at 1 kHz
     """
     def __init__(self, sample_rate: int, block_size: int):
-        self.fs = sample_rate
-        self.block_size = block_size
+        self.fs = int(sample_rate)
+        self.block_size = int(block_size)
         self.rng = np.random.default_rng()
 
-        # Pink noise state (Voss-McCartney)
-        self._pink_state = np.zeros(12)
-        self._pink_key = 0
+        # Pink noise (Paul Kellet) filter state
+        self._b0 = self._b1 = self._b2 = self._b3 = self._b4 = self._b5 = self._b6 = 0.0
 
-        # Sine sweep state
-        self._sweep_phase = 0.0
+        # Sine tone
+        self._sine_freq = 1000.0  # Hz (change if you want)
+        self._sine_phase = 0.0
+        self._twopi = 2.0 * np.pi
+
+        # Optional: sweep parameters (kept here for later)
         self._sweep_f0 = 20.0
         self._sweep_f1 = 20000.0
-        self._sweep_duration_s = 5.0
-        self._sweep_k = 0.0
-        self._sweep_t = 0.0
-        self._recalculate_sweep()
-
-    def _recalculate_sweep(self):
-        self._sweep_k = (self._sweep_f1 / self._sweep_f0) ** (1.0 / self._sweep_duration_s)
+        self._sweep_T  = 5.0  # seconds
+        self._sweep_t  = 0
 
     def generate(self, signal_type: str, num_samples: int) -> np.ndarray:
         if signal_type == "white":
@@ -397,50 +398,50 @@ class SignalGenerator:
         elif signal_type == "pink":
             return self.generate_pink_noise(num_samples)
         elif signal_type == "sine":
-            return self.generate_sine_sweep(num_samples)
-        else: # 'off'
+            return self.generate_sine_tone(num_samples)
+        # elif signal_type == "sweep":
+        #     return self.generate_log_sweep(num_samples)
+        else:
             return np.zeros(num_samples, dtype=np.float32)
 
     def generate_white_noise(self, num_samples: int) -> np.ndarray:
-        """Generates a block of white noise."""
-        return self.rng.uniform(-1.0, 1.0, num_samples).astype(np.float32)
+        # Gaussian white noise, ~-12 dBFS RMS
+        x = self.rng.standard_normal(num_samples).astype(np.float32)
+        return (0.25 * x).astype(np.float32)
 
     def generate_pink_noise(self, num_samples: int) -> np.ndarray:
-        """Generates a block of pink noise using the Voss-McCartney algorithm."""
-        out = np.zeros(num_samples, dtype=np.float32)
+        # Paul Kellet filter approximation of pink noise
+        out = np.empty(num_samples, dtype=np.float32)
         for i in range(num_samples):
-            white = self.rng.uniform(-1.0, 1.0)
-            
-            # Update state based on zero crossings of the key
-            self._pink_key += 1
-            diff = self._pink_key & -self._pink_key
-            self._pink_key ^= diff
-            idx = diff.bit_length() - 1
-            
-            self._pink_state[idx] = white
-            
-            # Sum octaves
-            val = np.sum(self._pink_state)
-            out[i] = val / 12.0 # Normalize
-            
+            white = float(self.rng.standard_normal())
+            self._b0 = 0.99886 * self._b0 + white * 0.0555179
+            self._b1 = 0.99332 * self._b1 + white * 0.0750759
+            self._b2 = 0.96900 * self._b2 + white * 0.1538520
+            self._b3 = 0.86650 * self._b3 + white * 0.3104856
+            self._b4 = 0.55000 * self._b4 + white * 0.5329522
+            self._b5 = -0.7616 * self._b5 - white * 0.0168980
+            pink = (self._b0 + self._b1 + self._b2 + self._b3 + self._b4 + self._b5 + self._b6 + white * 0.5362)
+            self._b6 = white * 0.115926
+            out[i] = 0.11 * pink  # ~-12 dBFS RMS
         return out
 
-    def generate_sine_sweep(self, num_samples: int) -> np.ndarray:
-        """Generates a block of a logarithmic sine sweep."""
-        t = (self._sweep_t + np.arange(num_samples)) / self.fs
-        
-        # Reset sweep if it has completed
-        if self._sweep_t / self.fs > self._sweep_duration_s:
-            self._sweep_t = 0.0
-            self._sweep_phase = 0.0
-            t = np.arange(num_samples) / self.fs
+    def generate_sine_tone(self, num_samples: int) -> np.ndarray:
+        # Steady 1 kHz tone
+        w = self._twopi * self._sine_freq / self.fs
+        n = np.arange(num_samples, dtype=np.float64)
+        phase = self._sine_phase + w * n
+        out = 0.25 * np.sin(phase)  # -12 dBFS RMS
+        self._sine_phase = float((phase[-1] + w) % self._twopi)
+        return out.astype(np.float32)
 
-        # f(t) = f0 * k^t
-        # phase(t) = integral(2*pi*f(t) dt) = 2*pi * f0 * (k^t / ln(k))
-        phase = 2 * np.pi * self._sweep_f0 * (self._sweep_k**t) / np.log(self._sweep_k)
-        
-        out = np.sin(phase, dtype=np.float32)
-        
+    def generate_log_sweep(self, num_samples: int) -> np.ndarray:
+        # Proper log sweep (20 Hz -> 20 kHz over self._sweep_T)
+        t0 = self._sweep_t / self.fs
+        t  = t0 + (np.arange(num_samples) / self.fs)
+        K = self._sweep_T / np.log(self._sweep_f1 / self._sweep_f0)
+        phase = 2*np.pi * self._sweep_f0 * K * (np.exp((t)/K) - 1.0)
+        out = 0.25 * np.sin(phase)
         self._sweep_t += num_samples
-        
-        return out
+        if self._sweep_t >= int(self._sweep_T * self.fs):
+            self._sweep_t = 0
+        return out.astype(np.float32)

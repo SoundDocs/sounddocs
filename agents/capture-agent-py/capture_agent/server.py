@@ -132,6 +132,7 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
             outdata[:, output_channel_idx] = chunk
 
     try:
+        # ---- buffer geometry (always 2 columns: [ref, meas]) ----
         nperseg = int(config.nfft)
         max_delay_ms = int(getattr(config, "maxDelayMs", 300))
         max_lag_samples = int(np.ceil(fs * max_delay_ms / 1000.0))
@@ -140,17 +141,15 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
         hop_size = nperseg - noverlap
 
         device_info = sd.query_devices(int(config.deviceId))
-        is_loopback = _generator_state["config"]["loopback"] and config.refChan == 0
-        
-        # If loopback, we don't need to capture the ref channel from the device
-        input_chans_to_capture = config.measChan
-        if not is_loopback:
-            input_chans_to_capture = max(config.refChan, config.measChan)
-
         num_output_channels = device_info['max_output_channels']
 
-        # The analysis buffer always has space for both channels
-        analysis_buffer = np.zeros((buffer_len, max(config.refChan if not is_loopback else 1, config.measChan)), dtype=np.float32)
+        # Input channels to open from the device (capture enough to include meas/ref)
+        # NOTE: sounddevice InputStream(channels=N) grabs the first N channels (1..N).
+        input_chans_to_capture = max(config.refChan if config.refChan > 0 else config.measChan,
+                                     config.measChan)
+
+        # analysis buffer is ALWAYS 2 columns: [ref, meas]
+        analysis_buffer = np.zeros((buffer_len, 2), dtype=np.float32)
         carry = 0
         last_send = 0.0
         target_fps = 20.0
@@ -166,6 +165,7 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
             latency="high",
         )
 
+        out_stream = None
         if num_output_channels > 0:
             out_stream = sd.OutputStream(
                 device=int(config.deviceId),
@@ -182,56 +182,67 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
             out_stream.start()
 
         while True:
-            # wait for at least one block
             block = await aq.get()
 
-            # drain whatever else is queued to catch up
+            # drain queue
             blocks = [block]
             while not aq.empty():
                 try:
                     blocks.append(aq.get_nowait())
                 except asyncio.QueueEmpty:
                     break
+            chunk_in = np.concatenate(blocks, axis=0)  # shape: (L, input_chans_to_capture)
+            L = chunk_in.shape[0]
 
-            chunk = np.concatenate(blocks, axis=0)
+            # ---- re-read generator config each block ----
+            g_config = _generator_state["config"]
+            signal_type = g_config["signalType"]
+            loopback_now = bool(g_config["loopback"]) and (config.refChan == 0)
 
-            # roll new samples into analysis buffer
-            L = chunk.shape[0]
-            
-            # If loopback, generate the reference signal and combine it with the input chunk
-            if is_loopback:
-                ref_chunk = gen.generate(_generator_state["config"]["signalType"], L)
-                # The analysis buffer expects ref chan first, then meas chan
-                combined_chunk = np.zeros((L, 2), dtype=np.float32)
-                combined_chunk[:, 0] = ref_chunk
-                combined_chunk[:, 1] = chunk[:, config.measChan - 1]
-                chunk = combined_chunk
-                
-                # For dsp, pretend refChan is 1 and measChan is 2
-                config.refChan = 1
-                config.measChan = 2
+            # ---- build 2-ch analysis chunk: [ref, meas] ----
+            if loopback_now:
+                # ref = internally generated signal; meas = chosen input channel
+                ref = gen.generate(signal_type, L)
+                meas = chunk_in[:, config.measChan - 1]
+                chunk2 = np.column_stack((ref.astype(np.float32, copy=False), meas))
+                # Use indices 1/2 for compute_metrics
+                ref_idx, meas_idx = 1, 2
+            else:
+                # both come from input device channels
+                ref = chunk_in[:, config.refChan - 1]
+                meas = chunk_in[:, config.measChan - 1]
+                chunk2 = np.column_stack((ref, meas))
+                ref_idx, meas_idx = config.refChan, config.measChan  # only used to set 1/2 below
 
+            # roll into analysis buffer (shape always = (buffer_len, 2))
             if L >= buffer_len:
-                analysis_buffer[:] = chunk[-buffer_len:]
-                carry = hop_size  # force immediate analysis
+                analysis_buffer[:] = chunk2[-buffer_len:]
+                carry = hop_size
             else:
                 analysis_buffer = np.roll(analysis_buffer, -L, axis=0)
-                analysis_buffer[-L:, :] = chunk
+                analysis_buffer[-L:, :] = chunk2
                 carry += L
 
-            # run analysis only when we've advanced by one hop
             if carry >= hop_size:
-                tf_data, spl_data, delay_ms = dsp.compute_metrics(analysis_buffer, config)
+                # Make a shallow copy of config with ref/meas forced to 1/2 for analysis buffer
+                try:
+                    cfg = config.copy()  # pydantic BaseModel
+                except Exception:
+                    cfg = config
+                setattr(cfg, "refChan", 1)
+                setattr(cfg, "measChan", 2)
+
+                tf_data, spl_data, _delay_ms = dsp.compute_metrics(analysis_buffer, cfg)
+
                 now = time.monotonic()
                 if now - last_send >= send_interval:
                     status = dsp.delay_status()
                     applied = status["applied_ms"]
-
                     frame = FrameMessage(
                         type="frame",
                         tf=tf_data,
                         spl=spl_data,
-                        delay_ms=applied,              # <- show applied, not the local variable
+                        delay_ms=applied,
                         latency_ms=float(in_stream.latency)*1000.0 if hasattr(in_stream, "latency") else 0.0,
                         ts=int(time.time() * 1000),
                         sampleRate=fs,
