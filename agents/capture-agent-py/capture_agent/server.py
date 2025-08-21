@@ -9,6 +9,7 @@ from websockets.server import WebSocketServerProtocol
 import numpy as np
 import sounddevice as sd
 
+from . import __version__
 from . import audio
 from . import dsp
 from .schema import (
@@ -43,12 +44,15 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
 
     if message.type == "hello":
         ack = HelloAckMessage(
-            type="hello_ack", agent="capture-agent-py/0.1.0", originAllowed=True
+            type="hello_ack",
+            agent="capture-agent-py",
+            originAllowed=True,
+            version=__version__,
         )
         await ws.send(json.dumps(ack.dict()))
 
     elif message.type == "get_version":
-        version_msg = VersionMessage(type="version", version="0.1.0")
+        version_msg = VersionMessage(type="version", version=__version__)
         await ws.send(json.dumps(version_msg.dict()))
 
     elif message.type == "list_devices":

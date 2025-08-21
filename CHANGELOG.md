@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3.12] - 2025-08-21
+
+### Added
+
+- **Capture Agent Version Check**: Implemented a version check on the Analyzer Pro page.
+  - The Python agent now sends its version to the web app upon connection.
+  - The web app compares the agent's version to the latest required version.
+  - A notification is displayed prompting the user to update if their agent is outdated or no version is detected.
+
+### Changed
+
+- **Capture Agent Version**: Bumped capture agent version to `0.1.8`.
+- **Build Workflow**: Updated the GitHub Actions workflow to build installers with version `0.1.8`.
+
 ## [1.5.3.11] - 2025-08-21
 
 ### Fixed

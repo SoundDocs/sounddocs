@@ -5,6 +5,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import AgentConnectionManager from "../components/analyzer/AgentConnectionManager";
 import AgentDownload from "../components/analyzer/AgentDownload";
+import AgentUpdateNotification from "../components/analyzer/AgentUpdateNotification";
 import ProSettings from "../components/analyzer/ProSettings";
 import SavedMeasurementsModal from "../components/analyzer/SavedMeasurementsModal";
 import ChartDetailModal from "../components/analyzer/ChartDetailModal";
@@ -48,6 +49,7 @@ const AnalyzerProPage: React.FC = () => {
   const [measurementAdjustments, setMeasurementAdjustments] = useState<{
     [id: string]: { gain: number; delay: number };
   }>({});
+  const [agentVersion, setAgentVersion] = useState<string | undefined>();
 
   const handleEqChange = async (id: string, eq_settings: EqSetting[]) => {
     // Update local state immediately for responsiveness
@@ -128,7 +130,9 @@ const AnalyzerProPage: React.FC = () => {
 
   useEffect(() => {
     if (lastMessage) {
-      if (lastMessage.type === "devices") {
+      if (lastMessage.type === "hello_ack") {
+        setAgentVersion(lastMessage.version);
+      } else if (lastMessage.type === "devices") {
         setDevices(lastMessage.items);
       } else if (lastMessage.type === "frame") {
         setIsCapturing(true);
@@ -281,6 +285,10 @@ const AnalyzerProPage: React.FC = () => {
 
         <div className="max-w-4xl mx-auto space-y-8">
           <AgentConnectionManager />
+
+          {status === "connected" && agentVersion !== "0.1.8" && (
+            <AgentUpdateNotification connectedVersion={agentVersion} latestVersion="0.1.8" />
+          )}
 
           {status !== "connected" && <AgentDownload />}
           {status === "connected" && (

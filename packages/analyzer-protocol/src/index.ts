@@ -92,6 +92,7 @@ export interface HelloAckMessage {
   type: "hello_ack";
   agent: string;
   originAllowed: boolean;
+  version?: string;
 }
 
 export interface DevicesMessage {
