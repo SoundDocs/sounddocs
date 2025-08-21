@@ -16,6 +16,7 @@ import { Device, TFData } from "@sounddocs/analyzer-protocol";
 import { useState, useEffect, useMemo } from "react";
 import { TRACE_COLORS } from "../lib/constants";
 import { EqSetting } from "../lib/dsp";
+import { isOlderVersion, extractSemver } from "../lib/semver";
 
 interface Measurement {
   id: string;
@@ -51,6 +52,8 @@ const AnalyzerProPage: React.FC = () => {
     [id: string]: { gain: number; delay: number; phaseFlipped: boolean };
   }>({});
   const [agentVersion, setAgentVersion] = useState<string | undefined>();
+  const [latestAgentVersion, setLatestAgentVersion] = useState<string | null>(null);
+  const [showUpdateNotification, setShowUpdateNotification] = useState(false);
 
   const handleEqChange = async (id: string, eq_settings: EqSetting[]) => {
     // Update local state immediately for responsiveness
@@ -142,6 +145,40 @@ const AnalyzerProPage: React.FC = () => {
   useEffect(() => {
     fetchMeasurements();
   }, []);
+
+  useEffect(() => {
+    const fetchLatestVersion = async () => {
+      try {
+        const response = await fetch(
+          "https://api.github.com/repos/SoundDocs/sounddocs/releases/latest",
+        );
+        if (!response.ok) {
+          throw new Error(`GitHub API responded with ${response.status}`);
+        }
+        const data = await response.json();
+        if (data.tag_name) {
+          setLatestAgentVersion(data.tag_name);
+        }
+      } catch (error) {
+        console.error("Failed to fetch latest agent version:", error);
+        // Fallback to a known latest version if the API fails
+        setLatestAgentVersion("0.1.9");
+      }
+    };
+
+    fetchLatestVersion();
+  }, []);
+
+  useEffect(() => {
+    const current = extractSemver(agentVersion);
+    const latest = extractSemver(latestAgentVersion);
+
+    if (current && latest) {
+      setShowUpdateNotification(isOlderVersion(current, latest));
+    } else {
+      setShowUpdateNotification(false);
+    }
+  }, [agentVersion, latestAgentVersion]);
 
   useEffect(() => {
     if (status === "connected") {
@@ -321,8 +358,11 @@ const AnalyzerProPage: React.FC = () => {
         <div className="max-w-4xl mx-auto space-y-8">
           <AgentConnectionManager />
 
-          {status === "connected" && agentVersion && agentVersion !== "0.1.8" && (
-            <AgentUpdateNotification connectedVersion={agentVersion} latestVersion="0.1.8" />
+          {showUpdateNotification && latestAgentVersion && (
+            <AgentUpdateNotification
+              connectedVersion={agentVersion}
+              latestVersion={latestAgentVersion}
+            />
           )}
 
           {status !== "connected" && <AgentDownload />}
