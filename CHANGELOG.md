@@ -25,26 +25,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Dependency Pinning**: Pinned the `cryptography` dependency to `>=41,<44` in `pyproject.toml` and CI workflows to ensure deterministic builds and prevent future validation errors.
 
-## [1.5.3.9] - 2025-01-10
+## [1.5.3.9] - 2025-08-20
 
 ### Fixed
 
 - **Privileged Certificate Installation**: Enhanced installer to use AppleScript `with administrator privileges` to properly prompt for user password when installing mkcert certificates. This ensures the GUI password dialog appears and `mkcert -install` runs with necessary privileges to modify the system keychain.
 
-## [1.5.3.8] - 2025-01-10
+## [1.5.3.8] - 2025-08-20
 
 ### Fixed
 
 - **macOS Keychain Certificate Installation**: Fixed critical issue where `mkcert -install` would run but not actually install certificates into the macOS keychain. The installer now uses `security find-certificate` to verify certificates are properly installed in the keychain and provides better error reporting when installation fails.
 
-## [1.5.3.7] - 2025-01-10
+## [1.5.3.7] - 2025-08-20
 
 ### Fixed
 
 - **Certificate Validation and Regeneration**: Enhanced SSL certificate setup to validate existing certificates and regenerate them if invalid, expired, or missing required domains. The agent now properly checks certificate authority installation and provides Firefox compatibility warnings.
 - **Cryptography Dependency**: Added cryptography library dependency for proper certificate validation.
 
-## [1.5.3.6] - 2025-01-10
+## [1.5.3.6] - 2025-08-20
 
 ### Fixed
 
