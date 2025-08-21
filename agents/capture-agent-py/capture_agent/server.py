@@ -11,6 +11,7 @@ import sounddevice as sd
 
 from . import audio
 from . import dsp
+from .dsp import SignalGenerator
 from .schema import (
     CaptureConfig,
     ClientMessage,
@@ -27,6 +28,14 @@ from .schema import (
 # --- State Management ---
 connected_clients: Set[WebSocketServerProtocol] = set()
 capture_task = None
+_generator_state = {
+    "config": {
+        "signalType": "off",
+        "outputChannel": 1,
+        "loopback": False,
+    },
+    "instance": None,
+}
 
 ALLOWED_ORIGINS = ["https://sounddocs.org", "https://beta.sounddocs.org", "http://localhost:5173", "https://localhost:5173"]
 
@@ -43,7 +52,10 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
 
     if message.type == "hello":
         ack = HelloAckMessage(
-            type="hello_ack", agent="capture-agent-py/0.1.0", originAllowed=True
+            type="hello_ack",
+            agent="capture-agent-py/0.1.0",
+            version="0.1.8",
+            originAllowed=True,
         )
         await ws.send(json.dumps(ack.dict()))
 
@@ -75,6 +87,13 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
         dsp.delay_freeze(enable, applied_ms)
         await ws.send(json.dumps({"type": "delay_status", **dsp.delay_status()}))
 
+    elif message.type == "configure_generator":
+        g_config = _generator_state["config"]
+        g_config["signalType"] = message.signalType
+        g_config["outputChannel"] = message.outputChannel
+        g_config["loopback"] = message.loopback
+        # No response needed, generator will pick it up
+
     elif message.type == "set_manual_delay":
         ms = getattr(message, "delay_ms", None)
         dsp.delay_set_manual(ms)
@@ -86,44 +105,81 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
 async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
     loop = asyncio.get_running_loop()
     aq = asyncio.Queue(maxsize=32)  # async queue for inter-thread handoff
+    in_stream, out_stream = None, None
+
+    fs = int(config.sampleRate)
+    block_size = 1024  # Must match InputStream blocksize for sync
+    _generator_state["instance"] = dsp.SignalGenerator(fs, block_size)
+    gen = _generator_state["instance"]
 
     def audio_callback(indata, frames, time_info, status):
-        # called on driver thread; never block here
         if status:
             print(f"Audio callback status: {status}")
         try:
             loop.call_soon_threadsafe(aq.put_nowait, indata.astype(np.float32, copy=True))
         except Exception:
-            # queue full -> drop; never block RT
             pass
 
+    def output_callback(outdata, frames, time_info, status):
+        if status:
+            print(f"Audio output callback status: {status}")
+        outdata.fill(0)
+        g_config = _generator_state["config"]
+        signal_type = g_config["signalType"]
+        output_channel_idx = g_config["outputChannel"] - 1
+        if signal_type != "off" and 0 <= output_channel_idx < outdata.shape[1]:
+            chunk = gen.generate(signal_type, frames)
+            outdata[:, output_channel_idx] = chunk
+
     try:
-        fs = int(config.sampleRate)
         nperseg = int(config.nfft)
         max_delay_ms = int(getattr(config, "maxDelayMs", 300))
         max_lag_samples = int(np.ceil(fs * max_delay_ms / 1000.0))
-
-        buffer_len = nperseg + 2*max_lag_samples + int(0.75*nperseg)
+        buffer_len = nperseg + 2 * max_lag_samples + int(0.75 * nperseg)
         noverlap = int(0.75 * nperseg)
         hop_size = nperseg - noverlap
 
-        num_channels = max(config.refChan, config.measChan)
-        analysis_buffer = np.zeros((buffer_len, num_channels), dtype=np.float32)
-        carry = 0  # how many new samples since last analysis
+        device_info = sd.query_devices(int(config.deviceId))
+        is_loopback = _generator_state["config"]["loopback"] and config.refChan == 0
+        
+        # If loopback, we don't need to capture the ref channel from the device
+        input_chans_to_capture = config.measChan
+        if not is_loopback:
+            input_chans_to_capture = max(config.refChan, config.measChan)
+
+        num_output_channels = device_info['max_output_channels']
+
+        # The analysis buffer always has space for both channels
+        analysis_buffer = np.zeros((buffer_len, max(config.refChan if not is_loopback else 1, config.measChan)), dtype=np.float32)
+        carry = 0
         last_send = 0.0
-        target_fps = 20.0  # UI update rate
+        target_fps = 20.0
         send_interval = 1.0 / target_fps
 
-        stream = sd.InputStream(
+        in_stream = sd.InputStream(
             device=int(config.deviceId),
-            samplerate=config.sampleRate,
-            blocksize=1024,               # <= smaller, smoother
-            channels=num_channels,
+            samplerate=fs,
+            blocksize=block_size,
+            channels=input_chans_to_capture,
             dtype="float32",
             callback=audio_callback,
-            latency="high",               # optional: reduce overruns
+            latency="high",
         )
-        stream.start()
+
+        if num_output_channels > 0:
+            out_stream = sd.OutputStream(
+                device=int(config.deviceId),
+                samplerate=fs,
+                blocksize=block_size,
+                channels=num_output_channels,
+                dtype="float32",
+                callback=output_callback,
+                latency="high",
+            )
+
+        in_stream.start()
+        if out_stream:
+            out_stream.start()
 
         while True:
             # wait for at least one block
@@ -141,6 +197,20 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
 
             # roll new samples into analysis buffer
             L = chunk.shape[0]
+            
+            # If loopback, generate the reference signal and combine it with the input chunk
+            if is_loopback:
+                ref_chunk = gen.generate(_generator_state["config"]["signalType"], L)
+                # The analysis buffer expects ref chan first, then meas chan
+                combined_chunk = np.zeros((L, 2), dtype=np.float32)
+                combined_chunk[:, 0] = ref_chunk
+                combined_chunk[:, 1] = chunk[:, config.measChan - 1]
+                chunk = combined_chunk
+                
+                # For dsp, pretend refChan is 1 and measChan is 2
+                config.refChan = 1
+                config.measChan = 2
+
             if L >= buffer_len:
                 analysis_buffer[:] = chunk[-buffer_len:]
                 carry = hop_size  # force immediate analysis
@@ -162,7 +232,7 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
                         tf=tf_data,
                         spl=spl_data,
                         delay_ms=applied,              # <- show applied, not the local variable
-                        latency_ms=float(stream.latency)*1000.0 if hasattr(stream, "latency") else 0.0,
+                        latency_ms=float(in_stream.latency)*1000.0 if hasattr(in_stream, "latency") else 0.0,
                         ts=int(time.time() * 1000),
                         sampleRate=fs,
                         delay_mode=status["mode"],
@@ -180,9 +250,14 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
         await send_error(ws, f"Capture failed: {e}")
     finally:
         try:
-            stream.stop(); stream.close()
-        except Exception:
-            pass
+            if in_stream:
+                in_stream.stop()
+                in_stream.close()
+            if out_stream:
+                out_stream.stop()
+                out_stream.close()
+        except Exception as e:
+            print(f"Error closing streams: {e}")
         await ws.send(json.dumps(StoppedMessage(type="stopped").dict()))
 
 async def send_error(ws: WebSocketServerProtocol, error_message: str):

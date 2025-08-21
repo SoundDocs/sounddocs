@@ -362,3 +362,85 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     spl_data = SPLData(Leq=dbfs, LZ=dbfs)
 
     return tf_data, spl_data, delay_ms
+
+
+# --- Signal Generation ---
+
+class SignalGenerator:
+    """
+    Stateful signal generator for continuous, block-based audio generation.
+    """
+    def __init__(self, sample_rate: int, block_size: int):
+        self.fs = sample_rate
+        self.block_size = block_size
+        self.rng = np.random.default_rng()
+
+        # Pink noise state (Voss-McCartney)
+        self._pink_state = np.zeros(12)
+        self._pink_key = 0
+
+        # Sine sweep state
+        self._sweep_phase = 0.0
+        self._sweep_f0 = 20.0
+        self._sweep_f1 = 20000.0
+        self._sweep_duration_s = 5.0
+        self._sweep_k = 0.0
+        self._sweep_t = 0.0
+        self._recalculate_sweep()
+
+    def _recalculate_sweep(self):
+        self._sweep_k = (self._sweep_f1 / self._sweep_f0) ** (1.0 / self._sweep_duration_s)
+
+    def generate(self, signal_type: str, num_samples: int) -> np.ndarray:
+        if signal_type == "white":
+            return self.generate_white_noise(num_samples)
+        elif signal_type == "pink":
+            return self.generate_pink_noise(num_samples)
+        elif signal_type == "sine":
+            return self.generate_sine_sweep(num_samples)
+        else: # 'off'
+            return np.zeros(num_samples, dtype=np.float32)
+
+    def generate_white_noise(self, num_samples: int) -> np.ndarray:
+        """Generates a block of white noise."""
+        return self.rng.uniform(-1.0, 1.0, num_samples).astype(np.float32)
+
+    def generate_pink_noise(self, num_samples: int) -> np.ndarray:
+        """Generates a block of pink noise using the Voss-McCartney algorithm."""
+        out = np.zeros(num_samples, dtype=np.float32)
+        for i in range(num_samples):
+            white = self.rng.uniform(-1.0, 1.0)
+            
+            # Update state based on zero crossings of the key
+            self._pink_key += 1
+            diff = self._pink_key & -self._pink_key
+            self._pink_key ^= diff
+            idx = diff.bit_length() - 1
+            
+            self._pink_state[idx] = white
+            
+            # Sum octaves
+            val = np.sum(self._pink_state)
+            out[i] = val / 12.0 # Normalize
+            
+        return out
+
+    def generate_sine_sweep(self, num_samples: int) -> np.ndarray:
+        """Generates a block of a logarithmic sine sweep."""
+        t = (self._sweep_t + np.arange(num_samples)) / self.fs
+        
+        # Reset sweep if it has completed
+        if self._sweep_t / self.fs > self._sweep_duration_s:
+            self._sweep_t = 0.0
+            self._sweep_phase = 0.0
+            t = np.arange(num_samples) / self.fs
+
+        # f(t) = f0 * k^t
+        # phase(t) = integral(2*pi*f(t) dt) = 2*pi * f0 * (k^t / ln(k))
+        phase = 2 * np.pi * self._sweep_f0 * (self._sweep_k**t) / np.log(self._sweep_k)
+        
+        out = np.sin(phase, dtype=np.float32)
+        
+        self._sweep_t += num_samples
+        
+        return out
