@@ -95,9 +95,16 @@ _delay = {
     "last_raw_ms": None,    # optional: for UI visibility
 }
 
+# ---- Averaging state ----
+_avg = {"Pxx": None, "Pyy": None, "Pxy": None}
+
+def _ema(cur, new, alpha):
+    return new if cur is None else (alpha*cur + (1.0-alpha)*new)
+
 def reset_dsp_state():
     clear_window_cache()
     _delay.update({"mode":"auto","ema_ms":None,"frozen_ms":0.0,"manual_ms":0.0,"last_raw_ms":None})
+    _avg.update({"Pxx": None, "Pyy": None, "Pxy": None})
 
 def delay_freeze(enable: bool, applied_ms: float | None = None):
     if enable:
@@ -320,7 +327,7 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     delay_ms, _ = _delay_pick_applied(x, y, fs, max_ms=MAX_DELAY_MS)
 
     # Integer align with zero-padding (preserve length) + fractional remainder
-    y_al, frac_samples, D_int, _ = _align_by_integer_delay_pad(x, y, delay_ms, fs)
+    y_al, frac_samples, D_int, usable_len = _align_by_integer_delay_pad(x, y, delay_ms, fs)
 
     # derive the fully overlapped indices (exclude zeros)
     N = x.size
@@ -333,7 +340,7 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
 
     x_eff = x[start:end]
     y_eff = y_al[start:end]
-    usable_len = max(0, end - start)
+    # usable_len is already returned by _align_by_integer_delay_pad
 
     # Bail out early if not enough overlap to analyze
     if usable_len < MIN_SAMPLES_FOR_ANALYSIS:
@@ -345,11 +352,13 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
 
     # nperseg / noverlap from usable overlap
     target_n = int(config.nfft)
-    # Choose from fixed buckets to avoid cache churn; still honor usable_len
-    _BUCKETS = np.array([256, 512, 1024, 2048, 4096, 8192, 16384, 32768], dtype=int)
-    nperseg = int(_BUCKETS[_BUCKETS <= max(32, min(usable_len, target_n))].max())
-    noverlap = int(0.75 * nperseg)
-    window = get_window("hann", nperseg)
+    # Guarantee enough segments for stable CSD/Welch averaging even when usable_len shrinks at high delays
+    nperseg, noverlap = _choose_nperseg_with_min_segments(
+        usable_len=usable_len,
+        target_n=target_n,
+        min_segments=10,          # try 8; drop to 6 for faster UI, raise to 10 for rock-solid coherence
+    )
+    window = get_window(config.window if hasattr(config, "window") else "hann", nperseg)
 
     # Spectra on effective (non-zero-padded) signal slices
     freqs, Pxy = csd(
@@ -365,6 +374,16 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
         detrend='constant', return_onesided=True, scaling='density'
     )
 
+    # Optional exponential averaging across frames
+    if getattr(config, "avg", "none") == "exp":
+        # alpha ~ how much history to keep; e.g., avgCount=8 => alpha ≈ 7/8
+        hist = max(1, int(getattr(config, "avgCount", 8)))
+        alpha = (hist - 1) / float(hist)
+        _avg["Pxx"] = _ema(_avg["Pxx"], Pxx, alpha)
+        _avg["Pyy"] = _ema(_avg["Pyy"], Pyy, alpha)
+        _avg["Pxy"] = _ema(_avg["Pxy"], Pxy, alpha)
+        Pxx, Pyy, Pxy = _avg["Pxx"], _avg["Pyy"], _avg["Pxy"]
+
     eps = 1e-20
     Pxx = np.maximum(Pxx, eps)
     Pyy = np.maximum(Pyy, eps)
@@ -377,7 +396,7 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     # ---- 1/6-octave smoothing ----
     Hs, coh_s = smooth_constQ_tf_and_coh(
         freqs=freqs, Pxx=Pxx, Pyy=Pyy, Pxy=Pxy,
-        frac=6, coh_weight_pow=1.0, min_bins=3, eps=eps,
+        frac=6, coh_weight_pow=0.5, min_bins=3, eps=eps,
     )
 
     if Hs.size < 4:

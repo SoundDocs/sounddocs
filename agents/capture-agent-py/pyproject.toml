@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "capture-agent"
-version = "0.1.13"
+version = "0.2.0"
 description = "SoundDocs Capture Agent for multi-channel audio analysis."
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
