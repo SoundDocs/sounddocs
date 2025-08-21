@@ -35,27 +35,37 @@ echo "Setting up SoundDocs Capture Agent..."
 mkdir -p "$AGENT_DIR"
 cd "$AGENT_DIR"
 
-# --- Prerequisite: mkcert ---
-if ! command -v mkcert &> /dev/null; then
-    echo "'mkcert' is not found. Attempting to install with Homebrew..."
-    if ! command -v brew &> /dev/null; then
-        echo "Error: Homebrew is not installed. Please install it to continue."
-        echo "You can install Homebrew by running this command:"
-        echo '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
-        echo "After installing Homebrew, please run this script again."
-        exit 1
-    fi
-    brew install mkcert
+# --- mkcert setup (user-owned CA + system trust) ---
+MKCERT_PATH="$(command -v mkcert || true)"
+if [ -z "$MKCERT_PATH" ]; then
+  echo "'mkcert' not found. Installing with Homebrew..."
+  command -v brew >/dev/null 2>&1 || { echo "Install Homebrew first: https://brew.sh"; exit 1; }
+  brew install mkcert
+  MKCERT_PATH="$(command -v mkcert || true)"
+  [ -n "$MKCERT_PATH" ] || { echo "mkcert install failed"; exit 1; }
 fi
 
-# --- Prerequisite: mkcert CA ---
-# Check if the local CA is installed, if not, install it.
-CAROOT=$(mkcert -CAROOT)
-if [ ! -f "$CAROOT/rootCA.pem" ]; then
-    echo "Setting up the mkcert local Certificate Authority (CA)..."
-    echo "This may prompt for your password."
-    mkcert -install
+# Install CA as USER so files are user-owned
+"$MKCERT_PATH" -install || true
+
+CAROOT="$("$MKCERT_PATH" -CAROOT 2>/dev/null || echo "$HOME/Library/Application Support/mkcert")"
+if [ -d "$CAROOT" ]; then
+  # Ensure readable by the user after any privileged prompts mkcert may have triggered
+  sudo chown -R "$USER":staff "$CAROOT" || true
+  chmod 600 "$CAROOT/rootCA-key.pem" 2>/dev/null || true
 fi
+
+# Ensure CA is trusted in System keychain (admin prompt)
+if ! security find-certificate -a -Z -c mkcert /Library/Keychains/System.keychain >/dev/null 2>&1; then
+  echo "Adding mkcert root to System keychain (you’ll be prompted)…"
+  sudo /usr/bin/security add-trusted-cert -d -r trustAsRoot -k /Library/Keychains/System.keychain "$CAROOT/rootCA.pem"
+fi
+
+# Generate localhost leaf certs (as USER)
+mkdir -p "$AGENT_DIR"
+"$MKCERT_PATH" -cert-file "$AGENT_DIR/localhost.pem" \
+               -key-file "$AGENT_DIR/localhost-key.pem" \
+               localhost 127.0.0.1 ::1
 
 # Download necessary files
 download_file "pyproject.toml" "pyproject.toml"
@@ -78,10 +88,6 @@ fi
 
 # Activate virtual environment
 source $VENV_DIR/bin/activate
-
-# Generate SSL certificate using mkcert
-echo "Generating trusted SSL certificate..."
-python3 generate_cert.py
 
 # Install/update dependencies
 echo "Installing/updating dependencies..."

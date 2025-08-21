@@ -76,103 +76,38 @@ jobs:
           # Create agent directory
           cd "$HOME/.sounddocs-agent" || mkdir -p "$HOME/.sounddocs-agent" && cd "$HOME/.sounddocs-agent"
 
-          # Check if mkcert is installed, install if missing
-          MKCERT_INSTALLED=false
-          if ! command -v mkcert >/dev/null 2>&1; then
-            echo "📦 Installing mkcert via Homebrew..."
-            echo "   This enables secure SSL connections to the agent."
-            echo ""
-            if command -v brew >/dev/null 2>&1; then
-              brew install mkcert
-              if [ $? -ne 0 ]; then
-                echo "❌ Failed to install mkcert via Homebrew"
-                read -p "Press Enter to exit..."
-                exit 1
-              fi
-              # Refresh PATH to ensure mkcert is available immediately
-              export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
-              MKCERT_INSTALLED=true
-            else
-              echo "❌ Error: Homebrew is required to install mkcert"
-              echo "   Please install Homebrew first: https://brew.sh"
-              echo "   Then run this application again."
-              read -p "Press Enter to exit..."
-              exit 1
-            fi
-            echo ""
-          fi
-
-          # Check if mkcert CA is actually installed in macOS keychain
-          NEEDS_CA_INSTALL=false
-
-          if [ "$MKCERT_INSTALLED" = true ]; then
-            echo "🔐 mkcert was just installed, setting up Certificate Authority..."
-            NEEDS_CA_INSTALL=true
-          else
-            # Check if CA is actually in the macOS keychain (not just files existing)
-            if ! security find-certificate -a -Z -c mkcert /Library/Keychains/System.keychain >/dev/null 2>&1; then
-              echo "🔐 mkcert Certificate Authority not found in keychain, installing..."
-              NEEDS_CA_INSTALL=true
-            else
-              echo "✓ mkcert Certificate Authority found in keychain"
-            fi
-          fi
-
-          if [ "$NEEDS_CA_INSTALL" = true ]; then
-            echo "   This makes SSL certificates trusted by your browser."
-            echo "   You will be prompted for your password to install certificates."
-            echo ""
-            
-            # Use osascript to run mkcert -install with proper GUI password prompt
-            echo "Installing Certificate Authority (you may see a password prompt)..."
+          # --- mkcert setup (user-owned CA + system trust) ---
+          MKCERT_PATH="$(command -v mkcert || true)"
+          if [ -z "$MKCERT_PATH" ]; then
+            echo "'mkcert' not found. Installing with Homebrew..."
+            command -v brew >/dev/null 2>&1 || { echo "Install Homebrew first: https://brew.sh"; exit 1; }
+            brew install mkcert
             MKCERT_PATH="$(command -v mkcert || true)"
-            INSTALL_RESULT=$(osascript << APPLESCRIPT
-            try
-              do shell script "$MKCERT_PATH -install" with administrator privileges
-              return "success"
-            on error errMsg number errNum
-              return "error:" & errMsg & ":" & errNum
-            end try
-            APPLESCRIPT
-            )
-            
-            if [[ "$INSTALL_RESULT" == "success" ]]; then
-              echo "✓ Certificate Authority installation completed"
-            else
-              echo "❌ Failed to install Certificate Authority: $INSTALL_RESULT"
-              echo "   This may be due to:"
-              echo "   - User cancelled password prompt"
-              echo "   - Incorrect password entered"
-              echo "   - System security restrictions"
-              echo ""
-              echo "Please try running 'mkcert -install' manually in Terminal and restart this app."
-              read -p "Press Enter to exit..."
-              exit 1
-            fi
-            
-            # Verify installation worked
-            sleep 2
-            if security find-certificate -a -Z -c mkcert /Library/Keychains/System.keychain >/dev/null 2>&1; then
-              echo "✓ Certificate Authority successfully verified in System keychain"
-            else
-              echo "⚠️  CA not present in System keychain after install."
-              echo "   Try: sudo \"$(command -v mkcert)\" -install"
-              read -p "Press Enter to exit..."; exit 1
-            fi
-            echo ""
+            [ -n "$MKCERT_PATH" ] || { echo "mkcert install failed"; exit 1; }
           fi
 
-          # Generate certs if needed
-          if [ ! -f localhost.pem ]; then
-            echo "📜 Generating SSL certificates..."
-            mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1
-            if [ $? -ne 0 ]; then
-              echo "❌ Failed to generate SSL certificates"
-              read -p "Press Enter to exit..."
-              exit 1
-            fi
-            echo ""
+          # Install CA as USER so files are user-owned
+          "$MKCERT_PATH" -install || true
+
+          CAROOT="$("$MKCERT_PATH" -CAROOT 2>/dev/null || echo "$HOME/Library/Application Support/mkcert")"
+          if [ -d "$CAROOT" ]; then
+            # Ensure readable by the user after any privileged prompts mkcert may have triggered
+            sudo chown -R "$USER":staff "$CAROOT" || true
+            chmod 600 "$CAROOT/rootCA-key.pem" 2>/dev/null || true
           fi
+
+          # Ensure CA is trusted in System keychain (admin prompt)
+          if ! security find-certificate -a -Z -c mkcert /Library/Keychains/System.keychain >/dev/null 2>&1; then
+            echo "Adding mkcert root to System keychain (you’ll be prompted)…"
+            sudo /usr/bin/security add-trusted-cert -d -r trustAsRoot -k /Library/Keychains/System.keychain "$CAROOT/rootCA.pem"
+          fi
+
+          # Generate localhost leaf certs (as USER)
+          AGENT_DIR="$HOME/.sounddocs-agent"
+          mkdir -p "$AGENT_DIR"
+          "$MKCERT_PATH" -cert-file "$AGENT_DIR/localhost.pem" \
+                         -key-file "$AGENT_DIR/localhost-key.pem" \
+                         localhost 127.0.0.1 ::1
 
           echo "✅ Setup complete! SSL certificates are now trusted by your browser."
           echo ""
@@ -238,9 +173,9 @@ jobs:
               <key>CFBundleDisplayName</key>
               <string>SoundDocs Capture Agent</string>
               <key>CFBundleVersion</key>
-              <string>0.1.6</string>
+              <string>0.1.7</string>
               <key>CFBundleShortVersionString</key>
-              <string>0.1.6</string>
+              <string>0.1.7</string>
               <key>CFBundlePackageType</key>
               <string>APPL</string>
               <key>CFBundleIconFile</key>
@@ -254,7 +189,7 @@ jobs:
           EOF
 
           # Build package
-          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.6 --install-location / SoundDocsAgent-macOS.pkg
+          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.7 --install-location / SoundDocsAgent-macOS.pkg
 
       - name: Upload macOS installer
         uses: actions/upload-artifact@v4
@@ -292,7 +227,7 @@ jobs:
           cd agents/capture-agent-py
           cat > installer.nsi << 'EOF'
           !define APPNAME "SoundDocs Capture Agent"
-          !define APPVERSION "0.1.6"
+          !define APPVERSION "0.1.7"
           Name "${APPNAME}"
           OutFile "SoundDocsAgent-Windows.exe"
           InstallDir "$PROGRAMFILES\SoundDocs"

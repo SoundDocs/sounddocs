@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3.11] - 2025-08-21
+
+### Fixed
+
+- **macOS CA Ownership/Trust**: Fixed `mkcert` CA ownership and trust issues on macOS. The installer scripts now run `mkcert -install` as the user, ensure the user owns the `CAROOT` directory, trust the CA into the System keychain with a proper administrative prompt, and generate the leaf certificate as the user. This resolves permission errors and browser trust failures.
+
 ## [1.5.3.10] - 2025-08-21
 
 ### Fixed
