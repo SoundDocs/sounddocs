@@ -7,26 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.5.3.15.1] - 2025-08-21
-
-### Fixed
-
-- **Delay-Coherence Mismatch**: Fixed an issue where low coherence would appear despite a clear impulse response peak. The delay finder's smoothing filter (`EMA`) was too slow, causing a mismatch between the applied delay and the true delay. The filter is now more responsive, ensuring the applied delay converges quickly and maintains high coherence.
-
-### Changed
-
-- **Capture Agent Version**: Bumped capture agent version to `0.1.13`.
-
-## [1.5.3.15.1] - 2025-08-21
-
-### Fixed
-
-- **Delay-Coherence Mismatch**: Fixed an issue where low coherence would appear despite a clear impulse response peak. The delay finder's smoothing filter (`EMA`) was too slow, causing a mismatch between the applied delay and the true delay. The filter is now more responsive, ensuring the applied delay converges quickly and maintains high coherence.
-
-### Changed
-
-- **Capture Agent Version**: Bumped capture agent version to `0.1.13`.
-
 ## [1.5.3.15] - 2025-08-21
 
 ### Fixed

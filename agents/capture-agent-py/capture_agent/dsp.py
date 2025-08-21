@@ -91,7 +91,7 @@ _delay = {
     "ema_ms": None,         # smoothed auto delay
     "frozen_ms": 0.0,       # value latched when freezing
     "manual_ms": 0.0,       # operator-set delay
-    "alpha": 0.5,           # EMA factor
+    "alpha": 0.9,           # EMA factor
     "last_raw_ms": None,    # optional: for UI visibility
 }
 
