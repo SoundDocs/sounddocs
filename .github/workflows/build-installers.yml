@@ -131,8 +131,8 @@ jobs:
             on error errMsg number errNum
               return "error:" & errMsg & ":" & errNum
             end try
-APPLESCRIPT
-)
+            APPLESCRIPT
+            )
             
             if [[ "$INSTALL_RESULT" == "success" ]]; then
               echo "✓ Certificate Authority installation completed"
