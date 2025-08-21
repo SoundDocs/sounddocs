@@ -41,69 +41,120 @@ jobs:
       - name: Create installer package
         run: |
           cd agents/capture-agent-py
-          mkdir -p pkg-root/Applications/SoundDocs
-          cp dist/sounddocs-capture-agent pkg-root/Applications/SoundDocs/
 
-                    # Create launch script
-          cat > pkg-root/Applications/SoundDocs/launch-agent.sh << 'EOF'
+          # Create macOS app bundle structure (no loose files)
+          mkdir -p "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/MacOS"
+          mkdir -p "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/Resources"
+
+          # Copy the executable to the app bundle's Resources folder
+          cp dist/sounddocs-capture-agent "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/Resources/"
+          chmod +x "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/Resources/sounddocs-capture-agent"
+
+          # Create the main launch script that opens Terminal
+          cat > "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/MacOS/SoundDocs Capture Agent" << 'EOF'
+          #!/bin/bash
+
+          # Get the path to the app bundle's Resources folder
+          APP_DIR="$(dirname "$0")/../Resources"
+
+          # Create Terminal script that shows all setup progress
+          TEMP_SCRIPT=$(mktemp)
+          cat > "$TEMP_SCRIPT" << 'TERM_EOF'
           #!/bin/bash
 
           # Set up PATH for GUI launches (includes Homebrew paths)
           export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
 
-          # Function to show notifications on macOS
-          notify() {
-            if command -v osascript >/dev/null 2>&1; then
-              osascript -e "display notification \"$1\" with title \"SoundDocs Capture Agent\""
-            fi
-            echo "$1"
-          }
+          echo "=================================================="
+          echo "🎵 SoundDocs Capture Agent"
+          echo "=================================================="
+          echo ""
+          echo "Setting up professional audio analysis tools..."
+          echo ""
 
-          # Function to show error dialog and exit
-          error_exit() {
-            if command -v osascript >/dev/null 2>&1; then
-              osascript -e "display dialog \"$1\" with title \"SoundDocs Capture Agent Error\" buttons {\"OK\"} default button \"OK\" with icon stop"
-            else
-              echo "Error: $1" >&2
-            fi
-            exit 1
-          }
-
+          # Create agent directory
           cd "$HOME/.sounddocs-agent" || mkdir -p "$HOME/.sounddocs-agent" && cd "$HOME/.sounddocs-agent"
-
-          notify "Setting up SoundDocs Capture Agent dependencies..."
 
           # Check if mkcert is installed, install if missing
           if ! command -v mkcert >/dev/null 2>&1; then
-            notify "Installing mkcert..."
+            echo "📦 Installing mkcert via Homebrew..."
+            echo "   This enables secure SSL connections to the agent."
+            echo ""
             if command -v brew >/dev/null 2>&1; then
-              brew install mkcert || error_exit "Failed to install mkcert via Homebrew"
+              brew install mkcert
+              if [ $? -ne 0 ]; then
+                echo "❌ Failed to install mkcert via Homebrew"
+                read -p "Press Enter to exit..."
+                exit 1
+              fi
             else
-              error_exit "Homebrew is required to install mkcert. Please install Homebrew first: https://brew.sh"
+              echo "❌ Error: Homebrew is required to install mkcert"
+              echo "   Please install Homebrew first: https://brew.sh"
+              echo "   Then run this application again."
+              read -p "Press Enter to exit..."
+              exit 1
             fi
+            echo ""
           fi
 
           # Check if mkcert CA is installed
           if ! mkcert -CAROOT >/dev/null 2>&1 || [ ! -f "$(mkcert -CAROOT)/rootCA.pem" ]; then
-            notify "Setting up mkcert Certificate Authority (may prompt for password)..."
-            mkcert -install || error_exit "Failed to install mkcert Certificate Authority"
+            echo "🔐 Setting up mkcert Certificate Authority..."
+            echo "   This makes SSL certificates trusted by your browser."
+            echo "   You may be prompted for your password."
+            echo ""
+            mkcert -install
+            if [ $? -ne 0 ]; then
+              echo "❌ Failed to install mkcert Certificate Authority"
+              read -p "Press Enter to exit..."
+              exit 1
+            fi
+            echo ""
           fi
 
           # Generate certs if needed
           if [ ! -f localhost.pem ]; then
-            notify "Generating SSL certificates..."
-            mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 || error_exit "Failed to generate SSL certificates"
+            echo "📜 Generating SSL certificates..."
+            mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1
+            if [ $? -ne 0 ]; then
+              echo "❌ Failed to generate SSL certificates"
+              read -p "Press Enter to exit..."
+              exit 1
+            fi
+            echo ""
           fi
 
-          notify "Starting SoundDocs Capture Agent..."
-          exec /Applications/SoundDocs/sounddocs-capture-agent
-          EOF
-          chmod +x pkg-root/Applications/SoundDocs/launch-agent.sh
-          chmod +x pkg-root/Applications/SoundDocs/sounddocs-capture-agent
+          echo "✅ Setup complete! SSL certificates are now trusted by your browser."
+          echo ""
+          echo "🚀 Starting SoundDocs Capture Agent..."
+          echo "   Connect from: https://sounddocs.org/analyzer-pro"
+          echo ""
+          echo "📊 Agent status and logs will appear below."
+          echo "   Press Ctrl+C to stop the agent."
+          echo "=================================================="
+          echo ""
 
-          # Create macOS app bundle structure
-          mkdir -p "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/MacOS"
-          mkdir -p "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/Resources"
+          # Run the actual agent executable
+          exec "APP_RESOURCES_PATH/sounddocs-capture-agent"
+          TERM_EOF
+
+          # Replace the placeholder with the actual app resources path
+          sed -i '' "s|APP_RESOURCES_PATH|$APP_DIR|g" "$TEMP_SCRIPT"
+          chmod +x "$TEMP_SCRIPT"
+
+          # Open Terminal and run the script
+          osascript << APPLESCRIPT
+          tell application "Terminal"
+            activate
+            do script "$TEMP_SCRIPT"
+          end tell
+          APPLESCRIPT
+
+          # Clean up temp script after a short delay
+          (sleep 2 && rm -f "$TEMP_SCRIPT") &
+          EOF
+
+          chmod +x "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/MacOS/SoundDocs Capture Agent"
 
           # Convert SVG logo to .icns (macOS icon format)
           rsvg-convert -w 1024 -h 1024 -f png ../../SoundDocs-logo.svg > logo-1024.png
@@ -137,9 +188,9 @@ jobs:
               <key>CFBundleDisplayName</key>
               <string>SoundDocs Capture Agent</string>
               <key>CFBundleVersion</key>
-              <string>0.1.3</string>
+              <string>0.1.4</string>
               <key>CFBundleShortVersionString</key>
-              <string>0.1.3</string>
+              <string>0.1.4</string>
               <key>CFBundlePackageType</key>
               <string>APPL</string>
               <key>CFBundleIconFile</key>
@@ -152,12 +203,8 @@ jobs:
           </plist>
           EOF
 
-          # Copy launch script to app bundle as the main executable
-          cp pkg-root/Applications/SoundDocs/launch-agent.sh "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/MacOS/SoundDocs Capture Agent"
-          chmod +x "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/MacOS/SoundDocs Capture Agent"
-
           # Build package
-          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.3 --install-location / SoundDocsAgent-macOS.pkg
+          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.4 --install-location / SoundDocsAgent-macOS.pkg
 
       - name: Upload macOS installer
         uses: actions/upload-artifact@v4
@@ -195,7 +242,7 @@ jobs:
           cd agents/capture-agent-py
           cat > installer.nsi << 'EOF'
           !define APPNAME "SoundDocs Capture Agent"
-          !define APPVERSION "0.1.3"
+          !define APPVERSION "0.1.4"
           Name "${APPNAME}"
           OutFile "SoundDocsAgent-Windows.exe"
           InstallDir "$PROGRAMFILES\SoundDocs"

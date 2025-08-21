@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3.5] - 2025-08-20
+
+### Fixed
+
+- **macOS App Bundle Complete Redesign**: Completely redesigned the macOS installer to create a clean, single app bundle experience. Removed confusing loose files in `/Applications/SoundDocs/` folder. The app now always opens a Terminal window showing real-time progress of `mkcert -install`, SSL certificate generation, and agent status. Users get full transparency into the setup process with emoji-enhanced status messages and clear error reporting.
+
+### Changed
+
+- **macOS Installer Structure**: Simplified installer to create only `SoundDocs Capture Agent.app` bundle with embedded executable and resources. No more loose files or confusing dual installation paths.
+
 ## [1.5.3.4] - 2025-08-20
 
 ### Fixed
