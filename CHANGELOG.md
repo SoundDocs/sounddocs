@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3.13.4] - 2025-08-22
+
+### Fixed
+
+- **Capture Agent Memory Leak**: Fixed a memory leak in the Python capture agent caused by NumPy array re-allocations and an unbounded window cache. The agent's memory usage now remains stable during long capture sessions.
+- **Capture Agent Syntax Error**: Fixed a `SyntaxError: 'await' outside async function` error in the capture agent caused by incorrect indentation.
+- **Capture Agent Version**: Bumped capture agent version to `0.1.10`.
+
 ## [1.5.3.13.3] - 2025-08-22
 
 ### Fixed

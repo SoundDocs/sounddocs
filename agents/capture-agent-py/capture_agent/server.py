@@ -91,17 +91,19 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
     loop = asyncio.get_running_loop()
     aq = asyncio.Queue(maxsize=32)  # async queue for inter-thread handoff
 
-def audio_callback(indata, frames, time_info, status):
-    # called on driver thread; never block here
-    if status:
-        print(f"Audio callback status: {status}")
-    try:
-        buf = indata.copy() if indata.dtype == np.float32 else indata.astype(np.float32, copy=True)
-        loop.call_soon_threadsafe(aq.put_nowait, buf)
-    except Exception:
-        # queue full -> drop; never block RT
-        pass
+    def audio_callback(indata, frames, time_info, status):
+        # called on driver thread; never block here
+        if status:
+            print(f"Audio callback status: {status}")
+        try:
+            # PortAudio reuses its buffers; make an independent copy
+            buf = indata.copy() if indata.dtype == np.float32 else indata.astype(np.float32, copy=True)
+            loop.call_soon_threadsafe(aq.put_nowait, buf)
+        except Exception:
+            # queue full -> drop; never block RT
+            pass
 
+    stream = None
     try:
         fs = int(config.sampleRate)
         nperseg = int(config.nfft)
@@ -144,7 +146,7 @@ def audio_callback(indata, frames, time_info, status):
 
             chunk = blocks[0] if len(blocks) == 1 else np.concatenate(blocks, axis=0)
 
-            # roll new samples into analysis buffer (in place)
+            # roll new samples into analysis buffer (in place; no np.roll allocation)
             L = chunk.shape[0]
             if L >= buffer_len:
                 analysis_buffer[...] = chunk[-buffer_len:, :]
@@ -167,7 +169,7 @@ def audio_callback(indata, frames, time_info, status):
                         type="frame",
                         tf=tf_data,
                         spl=spl_data,
-                        delay_ms=applied,              # <- show applied, not the local variable
+                        delay_ms=applied,              # show applied, not local variable
                         latency_ms=float(stream.latency)*1000.0 if hasattr(stream, "latency") else 0.0,
                         ts=int(time.time() * 1000),
                         sampleRate=fs,
@@ -186,7 +188,9 @@ def audio_callback(indata, frames, time_info, status):
         await send_error(ws, f"Capture failed: {e}")
     finally:
         try:
-            stream.stop(); stream.close()
+            if stream is not None:
+                stream.stop()
+                stream.close()
         except Exception:
             pass
         await ws.send(json.dumps(StoppedMessage(type="stopped").dict()))
