@@ -1,20 +1,30 @@
 import numpy as np
 from scipy.signal import welch, csd
+from collections import OrderedDict
 from .schema import CaptureConfig, TFData, SPLData
 
-_windows = {}
+_windows = OrderedDict()
+_MAX_WINDOWS = 32  # small, safe cap; adjust if you really need more
 
 def get_window(name, N):
-    if (name, N) not in _windows:
+    key = (name, int(N))
+    w = _windows.get(key)
+    if w is None:
         if name == 'hann':
-            _windows[(name, N)] = np.hanning(N)
+            w = np.hanning(N)
         elif name == 'kaiser':
-            _windows[(name, N)] = np.kaiser(N, beta=14)
+            w = np.kaiser(N, beta=14)
         elif name == 'blackman':
-            _windows[(name, N)] = np.blackman(N)
+            w = np.blackman(N)
         else:
-            _windows[(name, N)] = np.hanning(N)
-    return _windows[(name, N)]
+            w = np.hanning(N)
+        _windows[key] = w
+        _windows.move_to_end(key, last=True)
+        if len(_windows) > _MAX_WINDOWS:
+            _windows.popitem(last=False)  # evict least-recently-used
+    else:
+        _windows.move_to_end(key, last=True)
+    return w
 
 def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: float | None = None) -> float:
     """

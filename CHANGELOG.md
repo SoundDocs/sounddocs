@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3.13.3] - 2025-08-22
+
+### Fixed
+
+- **Capture Agent Memory Leak**: Fixed a memory leak in the Python capture agent caused by NumPy array re-allocations and an unbounded window cache. The agent's memory usage now remains stable during long capture sessions.
+- **Capture Agent Version**: Bumped capture agent version to `0.1.9`.
+
 ## [1.5.3.13.2] - 2025-08-21
 
 ### Fixed

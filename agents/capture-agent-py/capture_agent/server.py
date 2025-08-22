@@ -91,15 +91,16 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
     loop = asyncio.get_running_loop()
     aq = asyncio.Queue(maxsize=32)  # async queue for inter-thread handoff
 
-    def audio_callback(indata, frames, time_info, status):
-        # called on driver thread; never block here
-        if status:
-            print(f"Audio callback status: {status}")
-        try:
-            loop.call_soon_threadsafe(aq.put_nowait, indata.astype(np.float32, copy=True))
-        except Exception:
-            # queue full -> drop; never block RT
-            pass
+def audio_callback(indata, frames, time_info, status):
+    # called on driver thread; never block here
+    if status:
+        print(f"Audio callback status: {status}")
+    try:
+        buf = indata.copy() if indata.dtype == np.float32 else indata.astype(np.float32, copy=True)
+        loop.call_soon_threadsafe(aq.put_nowait, buf)
+    except Exception:
+        # queue full -> drop; never block RT
+        pass
 
     try:
         fs = int(config.sampleRate)
@@ -141,16 +142,17 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
                 except asyncio.QueueEmpty:
                     break
 
-            chunk = np.concatenate(blocks, axis=0)
+            chunk = blocks[0] if len(blocks) == 1 else np.concatenate(blocks, axis=0)
 
-            # roll new samples into analysis buffer
+            # roll new samples into analysis buffer (in place)
             L = chunk.shape[0]
             if L >= buffer_len:
-                analysis_buffer[:] = chunk[-buffer_len:]
+                analysis_buffer[...] = chunk[-buffer_len:, :]
                 carry = hop_size  # force immediate analysis
             else:
-                analysis_buffer = np.roll(analysis_buffer, -L, axis=0)
-                analysis_buffer[-L:, :] = chunk
+                if L > 0:
+                    analysis_buffer[:-L, :] = analysis_buffer[L:, :]
+                    analysis_buffer[-L:, :] = chunk
                 carry += L
 
             # run analysis only when we've advanced by one hop
