@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.4] - 2025-08-27
+
+### Fixed
+
+- **Capture Agent Memory Churn**: Implemented significant memory optimizations in the Python capture agent to address a memory leak caused by rapid allocation and deallocation of large NumPy arrays and JSON payloads. The agent now reuses buffers, caches frequently used arrays, and uses more efficient serialization, resulting in stable, long-term memory performance.
+- **Capture Agent Version**: Bumped capture agent version to `0.1.11`.
+
 ## [1.5.3.13.4] - 2025-08-22
 
 ### Fixed

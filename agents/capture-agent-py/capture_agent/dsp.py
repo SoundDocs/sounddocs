@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.signal import welch, csd
 from collections import OrderedDict
+from functools import lru_cache
 from .schema import CaptureConfig, TFData, SPLData
 
 _windows = OrderedDict()
@@ -35,6 +36,10 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
     n = min(len(x), len(y))
     if n < 2:
         return 0.0
+
+    if max_ms is not None:
+        # Optional: keep FFT size from thrashing
+        n = min(n, int(1.25 * fs * max_ms / 1000.0))
 
     # FFT size >= 2n-1 for linear correlation
     N = 1 << int(np.ceil(np.log2(2*n - 1)))
@@ -206,8 +211,9 @@ def _log_band_edges(freqs: np.ndarray, frac: int = 6) -> tuple[np.ndarray, np.nd
     I1[valid] = i1
     return I0, I1, valid
 
-def _hann(M: int) -> np.ndarray:
-    if M <= 1:  # avoid divide-by-zero
+@lru_cache(maxsize=128)
+def _hann_cached(M: int) -> np.ndarray:
+    if M <= 1: 
         return np.ones(max(M,1))
     n = np.arange(M)
     return 0.5 - 0.5*np.cos(2*np.pi*n/(M-1))
@@ -249,7 +255,7 @@ def smooth_constQ_tf_and_coh(
             seg_idx = fpos_idx[a:b]
 
         M = seg_idx.size
-        w = _hann(M)
+        w = _hann_cached(M)
         if coh_weight_pow > 0:
             w = w * (coh0[seg_idx] ** coh_weight_pow)
         wsum = float(np.sum(w)) + eps
@@ -265,6 +271,14 @@ def smooth_constQ_tf_and_coh(
     coh_s = np.clip(coh_s, 0.0, 1.0)
     Hs[~valid] = Hs[valid][0] if np.any(valid) else 0.0
     return Hs, coh_s
+
+@lru_cache(maxsize=64)
+def _taper_for_M(M: int) -> np.ndarray:
+    fade = max(8, M // 64)
+    t = np.ones(M, dtype=np.float64)
+    t[:fade] = np.linspace(0, 1, fade)
+    t[-fade:] = np.linspace(1, 0, fade)
+    return t
 
 def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, SPLData, float]:
     if block.ndim == 1:
@@ -351,11 +365,7 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     H_ir[0] = H_ir[0].real + 0j
     if M > 1:
         H_ir[-1] = H_ir[-1].real + 0j
-    fade = max(8, M // 64)
-    taper = np.ones(M)
-    taper[:fade] = np.linspace(0, 1, fade)
-    taper[-fade:] = np.linspace(1, 0, fade)
-    H_ir *= taper
+    H_ir *= _taper_for_M(M)
     ir = np.fft.irfft(H_ir, n=n_ir).real
     ir_plot = np.roll(ir, n_ir // 2)
 

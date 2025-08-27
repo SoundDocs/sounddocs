@@ -4,6 +4,7 @@ import ssl
 import pathlib
 import time
 from typing import Set
+from collections import deque
 import websockets
 from websockets.server import WebSocketServerProtocol
 import numpy as np
@@ -90,18 +91,30 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
 async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
     loop = asyncio.get_running_loop()
     aq = asyncio.Queue(maxsize=32)  # async queue for inter-thread handoff
+    num_channels = max(config.refChan, config.measChan)
+
+    # Buffer pool to reuse memory blocks
+    pool = deque([np.empty((1024, num_channels), dtype=np.float32) for _ in range(8)])
 
     def audio_callback(indata, frames, time_info, status):
         # called on driver thread; never block here
         if status:
             print(f"Audio callback status: {status}")
         try:
-            # PortAudio reuses its buffers; make an independent copy
+            buf = pool.popleft()
+            # PortAudio reuses its buffers; copy into our reusable buffer
+            np.copyto(buf, indata, casting='no')
+        except IndexError:
+            # pool exhausted (GC lag) – fall back to fresh allocation
             buf = indata.copy() if indata.dtype == np.float32 else indata.astype(np.float32, copy=True)
+
+        try:
             loop.call_soon_threadsafe(aq.put_nowait, buf)
         except Exception:
             # queue full -> drop; never block RT
-            pass
+            # return buffer to pool immediately to avoid pool shrink
+            try: pool.append(buf)
+            except Exception: pass
 
     stream = None
     try:
@@ -114,7 +127,6 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
         noverlap = int(0.75 * nperseg)
         hop_size = nperseg - noverlap
 
-        num_channels = max(config.refChan, config.measChan)
         analysis_buffer = np.zeros((buffer_len, num_channels), dtype=np.float32)
         carry = 0  # how many new samples since last analysis
         last_send = 0.0
@@ -138,24 +150,26 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
 
             # drain whatever else is queued to catch up
             blocks = [block]
-            while not aq.empty():
+            while True:
                 try:
                     blocks.append(aq.get_nowait())
                 except asyncio.QueueEmpty:
                     break
 
-            chunk = blocks[0] if len(blocks) == 1 else np.concatenate(blocks, axis=0)
-
-            # roll new samples into analysis buffer (in place; no np.roll allocation)
-            L = chunk.shape[0]
-            if L >= buffer_len:
-                analysis_buffer[...] = chunk[-buffer_len:, :]
-                carry = hop_size  # force immediate analysis
-            else:
-                if L > 0:
-                    analysis_buffer[:-L, :] = analysis_buffer[L:, :]
-                    analysis_buffer[-L:, :] = chunk
-                carry += L
+            # roll each block into the analysis buffer without concatenating
+            for b in blocks:
+                Lb = b.shape[0]
+                if Lb >= buffer_len:
+                    analysis_buffer[...] = b[-buffer_len:, :]
+                    carry = hop_size  # force analysis
+                elif Lb > 0:
+                    analysis_buffer[:-Lb, :] = analysis_buffer[Lb:, :]
+                    analysis_buffer[-Lb:, :] = b
+                    carry += Lb
+                
+                # Return buffer to pool
+                try: pool.append(b)
+                except Exception: pass
 
             # run analysis only when we've advanced by one hop
             if carry >= hop_size:
@@ -176,7 +190,7 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
                         delay_mode=status["mode"],
                         applied_delay_ms=applied,
                     )
-                    await ws.send(json.dumps(frame.dict()))
+                    await ws.send(frame.model_dump_json())
                     last_send = now
                 carry -= hop_size
 
@@ -244,6 +258,9 @@ async def start_server(host="127.0.0.1", port=9469):
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ssl_context.load_cert_chain(cert_path, key_path)
 
-    async with websockets.serve(handler, host, port, ssl=ssl_context):
+    async with websockets.serve(
+        handler, host, port, ssl=ssl_context, 
+        max_size=8*1024*1024, max_queue=2, compression=None
+    ):
         print(f"Secure WebSocket server started at wss://{host}:{port}")
         await asyncio.Future()
