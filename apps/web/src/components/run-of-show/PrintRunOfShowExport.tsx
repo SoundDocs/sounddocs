@@ -312,7 +312,7 @@ const PrintRunOfShowExport = forwardRef<HTMLDivElement, PrintRunOfShowExportProp
         </table>
 
         <div className="print-export-footer">
-          <span>SoundDocs | Professional Audio Documentation</span>
+          <span>SoundDocs | Professional Event Documentation</span>
           <span>
             Generated on{" "}
             {formatDate(new Date().toISOString(), {

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.4.1] - 2025-09-02
+
+### Fixed
+
+- **Safari Print Export**: Fixed an issue where day header rows in the Detailed Production Schedule and Labor Schedule would disappear in print exports on Safari. The `display: flex` style was moved from the `<td>` element to a nested `<div>` to prevent WebKit from dropping the table cell content.
+- **Print Style Hardening**: Added `-webkit-print-color-adjust: exact` and `print-color-adjust: exact` to the print export wrapper to improve color consistency in printed outputs.
+
+### Changed
+
+- **Branding**: Updated the footer on all export documents to "SoundDocs | Professional Event Documentation" for consistency.
+
 ## [1.5.4] - 2025-08-27
 
 ### Fixed

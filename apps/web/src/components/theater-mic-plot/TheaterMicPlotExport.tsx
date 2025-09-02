@@ -180,7 +180,7 @@ const TheaterMicPlotExport = forwardRef<HTMLDivElement, TheaterMicPlotExportProp
           </div>
         ) : (
           <div className="text-center py-12">
-            <Users className="mx-auto text-gray-600 mb-4 h-12 w-12" />
+            <CharacterIcon className="mx-auto text-gray-600 mb-4 h-12 w-12" />
             <p className="text-xl text-gray-500">No actors listed for this mic plot.</p>
           </div>
         )}
@@ -188,7 +188,7 @@ const TheaterMicPlotExport = forwardRef<HTMLDivElement, TheaterMicPlotExportProp
         <div className="mt-12 pt-8 border-t-2 border-purple-500/40">
           <div className="flex justify-between items-center text-sm">
             <div className="flex items-center text-purple-400">
-              <Drama size={18} className="mr-2" /> SoundDocs Professional Audio Documentation
+              <Drama size={18} className="mr-2" /> SoundDocs Professional Event Documentation
             </div>
             <div className="text-gray-500">Generated on {new Date().toLocaleDateString()}</div>
           </div>

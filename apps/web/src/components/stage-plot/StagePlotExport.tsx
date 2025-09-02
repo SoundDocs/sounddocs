@@ -340,7 +340,7 @@ const StagePlotExport = forwardRef<HTMLDivElement, StagePlotExportProps>(({ stag
           </div>
           <div>
             <h1 className="text-3xl font-bold">SoundDocs</h1>
-            <p className="text-indigo-400 font-medium">Professional Audio Documentation</p>
+            <p className="text-indigo-400 font-medium">Professional Event Documentation</p>
           </div>
         </div>
 

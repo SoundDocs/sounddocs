@@ -397,7 +397,7 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
             </div>
             <div>
               <h1 style={{ fontSize: "28px", fontWeight: "bold", margin: 0 }}>SoundDocs</h1>
-              <p style={{ color: "#666", margin: 0 }}>Professional Audio Documentation</p>
+              <p style={{ color: "#666", margin: 0 }}>Professional Event Documentation</p>
             </div>
           </div>
 
@@ -527,7 +527,7 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
           }}
         >
           <div>
-            <span style={{ fontWeight: "bold" }}>SoundDocs</span> | Professional Audio Documentation
+            <span style={{ fontWeight: "bold" }}>SoundDocs</span> | Professional Event Documentation
           </div>
           <div>Generated on {new Date().toLocaleDateString()}</div>
         </div>

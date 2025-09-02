@@ -197,7 +197,7 @@ const RunOfShowExport = forwardRef<HTMLDivElement, RunOfShowExportProps>(({ sche
             <h1 className="text-3xl font-bold" style={{ color: "#fff", marginBottom: "0.25rem" }}>
               SoundDocs
             </h1>
-            <p className="text-indigo-400 font-medium">Professional Audio Documentation</p>
+            <p className="text-indigo-400 font-medium">Professional Event Documentation</p>
           </div>
         </div>
         <div className="text-right z-10 header-info">

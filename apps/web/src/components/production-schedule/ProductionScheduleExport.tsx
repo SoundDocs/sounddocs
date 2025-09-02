@@ -13,7 +13,8 @@ import {
   CalendarDays,
   Users as UsersIcon,
 } from "lucide-react";
-import { ScheduleForExport, DetailedScheduleItem } from "../../pages/ProductionScheduleEditor";
+import type { ScheduleForExport } from "../../pages/ProductionScheduleEditor";
+import { DetailedScheduleItem } from "./ProductionScheduleDetail";
 import { CrewKeyItem } from "./ProductionScheduleCrewKey";
 
 interface ProductionScheduleExportProps {
@@ -275,7 +276,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
             </div>
             <div>
               <h1 className="text-3xl font-bold">SoundDocs</h1>
-              <p className="text-indigo-400 font-medium">Professional Audio Documentation</p>
+              <p className="text-indigo-400 font-medium">Professional Event Documentation</p>
             </div>
           </div>
           <div className="text-right z-10">
@@ -329,7 +330,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
             style={{ borderLeft: "4px solid #4f46e5" }}
           >
             <h3 className="text-xl font-semibold text-indigo-400 flex items-center mb-4">
-              <Building className="h-5 w-5 mr-2" /> Venue &amp; Management
+              <Building className="h-5 w-5 mr-2" /> Venue & Management
             </h3>
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
               {info.venue && (

@@ -200,6 +200,8 @@ const PrintProductionScheduleExport = forwardRef<
         backgroundColor: "white",
         color: "#000",
         padding: "40px",
+        WebkitPrintColorAdjust: "exact",
+        printColorAdjust: "exact",
       }}
     >
       <div
@@ -473,27 +475,26 @@ const PrintProductionScheduleExport = forwardRef<
                           fontWeight: "bold",
                           textAlign: "left",
                           whiteSpace: "nowrap",
-                          display: "flex",
-                          alignItems: "center",
                         }}
                       >
-                        <CalendarDays
-                          size={14}
-                          style={{
-                            display: "inline-block",
-                            marginRight: "6px",
-                            verticalAlign: "middle",
-                            flexShrink: 0,
-                          }}
-                        />
-                        <span style={{ display: "inline-block" }}>
-                          {formatDate(dateKey, {
-                            weekday: "long",
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })}
-                        </span>
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          <CalendarDays
+                            size={14}
+                            style={{
+                              display: "inline-block",
+                              marginRight: "6px",
+                              verticalAlign: "middle",
+                            }}
+                          />
+                          <span>
+                            {formatDate(dateKey, {
+                              weekday: "long",
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            })}
+                          </span>
+                        </div>
                       </td>
                     </tr>
                     {itemsInGroup.map((item, index) => {
@@ -629,22 +630,19 @@ const PrintProductionScheduleExport = forwardRef<
                             fontWeight: "bold",
                             textAlign: "left",
                             whiteSpace: "nowrap",
-                            display: "flex",
-                            alignItems: "center",
                           }}
                         >
-                          <CalendarDays
-                            size={14}
-                            style={{
-                              display: "inline-block",
-                              marginRight: "6px",
-                              verticalAlign: "middle",
-                              flexShrink: 0,
-                            }}
-                          />
-                          <span style={{ display: "inline-block" }}>
-                            {currentLaborDayFormatted}
-                          </span>
+                          <div style={{ display: "flex", alignItems: "center" }}>
+                            <CalendarDays
+                              size={14}
+                              style={{
+                                display: "inline-block",
+                                marginRight: "6px",
+                                verticalAlign: "middle",
+                              }}
+                            />
+                            <span>{currentLaborDayFormatted}</span>
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -700,7 +698,7 @@ const PrintProductionScheduleExport = forwardRef<
           justifyContent: "space-between",
         }}
       >
-        <span>SoundDocs | Professional Audio Documentation</span>
+        <span>SoundDocs | Professional Event Documentation</span>
         <span>Generated on {new Date().toLocaleDateString()}</span>
       </div>
     </div>

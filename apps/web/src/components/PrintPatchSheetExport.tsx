@@ -419,7 +419,7 @@ const PrintPatchSheetExport = forwardRef<HTMLDivElement, PrintPatchSheetExportPr
             }}
           >
             <div>
-              <span style={{ fontWeight: "bold" }}>SoundDocs</span> | Professional Audio
+              <span style={{ fontWeight: "bold" }}>SoundDocs</span> | Professional Event
               Documentation
             </div>
             <div>Generated on {new Date().toLocaleDateString()}</div>

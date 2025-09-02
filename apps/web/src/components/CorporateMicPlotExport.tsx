@@ -247,7 +247,7 @@ const CorporateMicPlotExport = forwardRef<HTMLDivElement, CorporateMicPlotExport
         <div className="mt-12 pt-8 border-t-2 border-indigo-500/40">
           <div className="flex justify-between items-center text-sm">
             <div className="flex items-center text-indigo-400">
-              <Bookmark size={18} className="mr-2" /> SoundDocs Professional Audio Documentation
+              <Bookmark size={18} className="mr-2" /> SoundDocs Professional Event Documentation
             </div>
             <div className="text-gray-500">Generated on {new Date().toLocaleDateString()}</div>
           </div>
