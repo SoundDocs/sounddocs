@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Header from "../components/Header";
@@ -13,8 +13,6 @@ import ProductionScheduleLabor, {
 import ProductionScheduleDetail, {
   DetailedScheduleItem,
 } from "../components/production-schedule/ProductionScheduleDetail";
-// import MobileScreenWarning from "../components/MobileScreenWarning"; // Removed
-// import { useScreenSize } from "../hooks/useScreenSize"; // Removed
 import { Loader, ArrowLeft, Save, AlertCircle, Users, ListChecks } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -23,39 +21,7 @@ import {
   getShareUrl,
   SharedLink,
 } from "../lib/shareUtils"; // Added SharedLink
-
-export interface ScheduleForExport {
-  id: string;
-  name: string;
-  created_at: string;
-  last_edited?: string;
-  info: {
-    event_name?: string;
-    job_number?: string;
-    venue?: string;
-    project_manager?: string;
-    production_manager?: string;
-    account_manager?: string;
-    date?: string;
-    load_in?: string;
-    event_start?: string;
-    event_end?: string;
-    strike_datetime?: string | null;
-    event_type?: string;
-    sound_check?: string;
-    room?: string;
-    address?: string;
-    client_artist?: string;
-    contact_name?: string;
-    contact_email?: string;
-    contact_phone?: string;
-    foh_engineer?: string;
-    monitor_engineer?: string;
-  };
-  crew_key: CrewKeyItem[];
-  labor_schedule_items: LaborScheduleItem[];
-  detailed_schedule_items: DetailedScheduleItem[];
-}
+import { ScheduleForExport } from "../lib/types";
 
 const defaultColors = [
   "#EF4444",
@@ -155,22 +121,14 @@ const ProductionScheduleEditor = () => {
   const { id, shareCode } = useParams(); // Get both id and shareCode
   const navigate = useNavigate();
   const location = useLocation();
-  // const screenSize = useScreenSize(); // Removed
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [schedule, setSchedule] = useState<ProductionScheduleData | null>(null);
   const [user, setUser] = useState<any>(null); // Current logged-in user
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  // const [showMobileWarning, setShowMobileWarning] = useState(false); // Removed
   const [isSharedEdit, setIsSharedEdit] = useState(false);
   const [currentShareLink, setCurrentShareLink] = useState<SharedLink | null>(null);
-
-  // useEffect(() => { // Removed useEffect for showMobileWarning
-  //   if (screenSize === "mobile" || screenSize === "tablet") {
-  //     setShowMobileWarning(true);
-  //   }
-  // }, [screenSize]);
 
   useEffect(() => {
     const fetchUserAndSchedule = async () => {
@@ -613,8 +571,6 @@ const ProductionScheduleEditor = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      {/* Removed MobileScreenWarning component and its conditional rendering */}
-
       <Header
         dashboard={!isSharedEdit}
         scheduleForExport={isSharedEdit ? undefined : scheduleForExportProps}
@@ -651,7 +607,7 @@ const ProductionScheduleEditor = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 fixed bottom-4 right-4 z-20 md:static md:z-auto sm:ml-auto flex-shrink-0">
+          <div className="hidden md:flex items-center gap-2 sm:ml-auto flex-shrink-0">
             <button
               onClick={handleSave}
               disabled={saving}
@@ -692,7 +648,7 @@ const ProductionScheduleEditor = () => {
             <p className="text-gray-400 text-sm">Manage the core information for your event.</p>
           </div>
           <div className="p-4 md:p-6 overflow-x-auto">
-            <div className="min-w-[800px] md:min-w-0">
+            <div className="md:min-w-[800px]">
               <ProductionScheduleHeader
                 scheduleData={{
                   show_name: schedule.show_name,
@@ -712,13 +668,13 @@ const ProductionScheduleEditor = () => {
 
         <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden mb-8">
           <div className="p-4 md:p-6 border-b border-gray-700">
-            <h2 className="text-xl font-medium text-white">Crew &amp; Department Key</h2>
+            <h2 className="text-xl font-medium text-white">Crew & Department Key</h2>
             <p className="text-gray-400 text-sm">
               Define crew types and assign colors for easy identification in the schedule.
             </p>
           </div>
           <div className="p-4 md:p-6 overflow-x-auto">
-            <div className="min-w-[600px] md:min-w-0">
+            <div className="md:min-w-[600px]">
               <ProductionScheduleCrewKey
                 crewKey={schedule.crew_key}
                 onUpdateCrewKeyItem={handleUpdateCrewKeyItem}
@@ -742,7 +698,7 @@ const ProductionScheduleEditor = () => {
             </div>
           </div>
           <div className="p-0 md:p-2 lg:p-4 overflow-x-auto">
-            <div className="min-w-[1000px] md:min-w-0">
+            <div className="md:min-w-[1000px]">
               <ProductionScheduleDetail
                 detailedItems={schedule.detailed_schedule_items}
                 onUpdateDetailedItems={handleUpdateDetailedScheduleItems}
@@ -765,7 +721,7 @@ const ProductionScheduleEditor = () => {
             </div>
           </div>
           <div className="p-0 md:p-2 lg:p-4 overflow-x-auto">
-            <div className="min-w-[900px] md:min-w-0">
+            <div className="md:min-w-[900px]">
               <ProductionScheduleLabor
                 laborItems={schedule.labor_schedule_items}
                 onUpdateLaborItems={handleUpdateLaborScheduleItems}

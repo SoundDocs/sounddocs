@@ -5,14 +5,12 @@ import {
   Palette,
   UserCheck,
   Building,
-  Phone,
-  Mail,
-  UserSquare,
   CalendarDays,
   Users as UsersIcon,
 } from "lucide-react";
-import { ScheduleForExport, DetailedScheduleItem } from "../../pages/ProductionScheduleEditor";
+import { ScheduleForExport } from "../../lib/types";
 import { CrewKeyItem } from "./ProductionScheduleCrewKey";
+import { DetailedScheduleItem } from "./ProductionScheduleDetail";
 
 interface PrintProductionScheduleExportProps {
   schedule: ScheduleForExport;
@@ -398,7 +396,7 @@ const PrintProductionScheduleExport = forwardRef<
             Crew Key
           </h3>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "15px", fontSize: "13px" }}>
-            {crewKey.map((crew) => (
+            {crewKey.map((crew: CrewKeyItem) => (
               <div key={crew.id} style={{ display: "flex", alignItems: "center" }}>
                 <span
                   style={{

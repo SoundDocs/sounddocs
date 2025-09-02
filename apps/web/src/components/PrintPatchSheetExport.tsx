@@ -1,6 +1,6 @@
-import React, { forwardRef } from "react";
+import { forwardRef } from "react";
 // Icons related to Info tab removed: Calendar, MapPin, Settings, Music
-import { Headphones, Mic, Link } from "lucide-react";
+import { Headphones, Mic } from "lucide-react";
 
 interface PrintPatchSheetExportProps {
   patchSheet: any;

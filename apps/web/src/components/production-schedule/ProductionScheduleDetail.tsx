@@ -104,107 +104,149 @@ const DetailedScheduleItemRow: React.FC<{
   }, []);
 
   return (
-    <div className="grid grid-cols-[auto_1fr_1fr_3fr_2fr_1.5fr_auto] gap-2 items-start py-2 px-1 border-b border-gray-700 hover:bg-gray-750/30 transition-colors">
-      <div className="text-gray-400 text-sm flex flex-col items-center justify-center pt-1 space-y-0.5">
-        <button
-          onClick={onMoveItemUp}
-          disabled={isFirstItem}
-          className="p-0.5 text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          title="Move Up"
-        >
-          <ArrowUp size={16} />
-        </button>
-        <span className="font-mono text-xs select-none">{index + 1}</span>
-        <button
-          onClick={onMoveItemDown}
-          disabled={isLastItem}
-          className="p-0.5 text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          title="Move Down"
-        >
-          <ArrowDown size={16} />
-        </button>
-      </div>
-      <input
-        type="time"
-        name="start_time"
-        value={item.start_time || ""}
-        onChange={(e) => handleInputChange("start_time", e.target.value)}
-        className={inputClass}
-      />
-      <input
-        type="time"
-        name="end_time"
-        value={item.end_time || ""}
-        onChange={(e) => handleInputChange("end_time", e.target.value)}
-        className={inputClass}
-      />
-      <input
-        type="text"
-        name="activity"
-        value={item.activity || ""}
-        onChange={(e) => handleInputChange("activity", e.target.value)}
-        className={inputClass}
-        placeholder="Activity Description"
-      />
-      <textarea
-        name="notes"
-        value={item.notes || ""}
-        onChange={handleTextAreaChange}
-        className={textareaClass}
-        placeholder="Notes"
-        rows={1}
-      />
-      <div className="relative" ref={crewSelectorRef}>
-        <button
-          onClick={() => setIsCrewSelectorOpen(!isCrewSelectorOpen)}
-          className={`${inputClass} flex items-center justify-between text-left w-full`}
-        >
-          <span className="truncate pr-1">{getSelectedCrewNames()}</span>
-          <ChevronDown
-            size={16}
-            className={`transition-transform ${isCrewSelectorOpen ? "rotate-180" : ""}`}
-          />
-        </button>
-        {isCrewSelectorOpen && (
-          <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto bg-gray-800 border border-gray-600 rounded-md shadow-lg p-2 space-y-1">
-            {crewKey.length > 0 ? (
-              crewKey.map((crew) => (
-                <label
-                  key={crew.id}
-                  className="flex items-center space-x-2 text-white p-1.5 rounded hover:bg-gray-700 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    className="form-checkbox h-4 w-4 text-indigo-500 bg-gray-600 border-gray-500 rounded focus:ring-indigo-400"
-                    checked={(item.assigned_crew_ids || []).includes(crew.id)}
-                    onChange={(e) => handleCrewSelectionChange(crew.id, e.target.checked)}
-                  />
-                  <span style={{ color: crew.color }} className="font-medium text-sm">
-                    {crew.name}
-                  </span>
-                </label>
-              ))
-            ) : (
-              <p className="text-gray-400 text-sm p-1.5">No crew defined in Crew Key.</p>
+    <div className="border-b border-gray-700 hover:bg-gray-750/30 transition-colors">
+      <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_1fr_3fr_2fr_1.5fr_auto] gap-x-2 items-start py-2 px-1">
+        {/* Mobile Header */}
+        <div className="md:hidden col-span-1 flex justify-between items-center px-2 pb-2">
+          <span className="font-bold text-white">Item #{index + 1}</span>
+          <div className="flex items-center justify-end space-x-1">
+            <button
+              onClick={onDuplicateItem}
+              className="p-2 text-gray-400 hover:text-indigo-400 transition-colors"
+              title="Duplicate Item"
+            >
+              <Copy size={18} />
+            </button>
+            <button
+              onClick={onDeleteItem}
+              className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+              title="Delete Item"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Order and Actions */}
+        <div className="hidden md:flex text-gray-400 text-sm flex-col items-center justify-center pt-1 space-y-0.5">
+          <button
+            onClick={onMoveItemUp}
+            disabled={isFirstItem}
+            className="p-0.5 text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            title="Move Up"
+          >
+            <ArrowUp size={16} />
+          </button>
+          <span className="font-mono text-xs select-none">{index + 1}</span>
+          <button
+            onClick={onMoveItemDown}
+            disabled={isLastItem}
+            className="p-0.5 text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            title="Move Down"
+          >
+            <ArrowDown size={16} />
+          </button>
+        </div>
+
+        {/* Inputs grid */}
+        <div className="col-span-1 md:col-span-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[1fr_1fr_3fr_2fr_1.5fr] gap-2 px-2 md:px-0">
+          <div className="md:col-span-1">
+            <label className="text-xs text-gray-400 md:hidden">Start Time</label>
+            <input
+              type="time"
+              name="start_time"
+              value={item.start_time || ""}
+              onChange={(e) => handleInputChange("start_time", e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div className="md:col-span-1">
+            <label className="text-xs text-gray-400 md:hidden">End Time</label>
+            <input
+              type="time"
+              name="end_time"
+              value={item.end_time || ""}
+              onChange={(e) => handleInputChange("end_time", e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div className="sm:col-span-2 md:col-span-1">
+            <label className="text-xs text-gray-400 md:hidden">Activity</label>
+            <input
+              type="text"
+              name="activity"
+              value={item.activity || ""}
+              onChange={(e) => handleInputChange("activity", e.target.value)}
+              className={inputClass}
+              placeholder="Activity Description"
+            />
+          </div>
+          <div className="sm:col-span-2 md:col-span-1">
+            <label className="text-xs text-gray-400 md:hidden">Notes</label>
+            <textarea
+              name="notes"
+              value={item.notes || ""}
+              onChange={handleTextAreaChange}
+              className={textareaClass}
+              placeholder="Notes"
+              rows={1}
+            />
+          </div>
+          <div className="sm:col-span-2 md:col-span-1 relative" ref={crewSelectorRef}>
+            <label className="text-xs text-gray-400 md:hidden">Crew</label>
+            <button
+              onClick={() => setIsCrewSelectorOpen(!isCrewSelectorOpen)}
+              className={`${inputClass} flex items-center justify-between text-left w-full`}
+            >
+              <span className="truncate pr-1">{getSelectedCrewNames()}</span>
+              <ChevronDown
+                size={16}
+                className={`transition-transform ${isCrewSelectorOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+            {isCrewSelectorOpen && (
+              <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto bg-gray-800 border border-gray-600 rounded-md shadow-lg p-2 space-y-1">
+                {crewKey.length > 0 ? (
+                  crewKey.map((crew) => (
+                    <label
+                      key={crew.id}
+                      className="flex items-center space-x-2 text-white p-1.5 rounded hover:bg-gray-700 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        className="form-checkbox h-4 w-4 text-indigo-500 bg-gray-600 border-gray-500 rounded focus:ring-indigo-400"
+                        checked={(item.assigned_crew_ids || []).includes(crew.id)}
+                        onChange={(e) => handleCrewSelectionChange(crew.id, e.target.checked)}
+                      />
+                      <span style={{ color: crew.color }} className="font-medium text-sm">
+                        {crew.name}
+                      </span>
+                    </label>
+                  ))
+                ) : (
+                  <p className="text-gray-400 text-sm p-1.5">No crew defined in Crew Key.</p>
+                )}
+              </div>
             )}
           </div>
-        )}
-      </div>
-      <div className="flex items-center justify-end pr-1 space-x-1 pt-1.5">
-        <button
-          onClick={onDuplicateItem}
-          className="p-2 text-gray-400 hover:text-indigo-400 transition-colors"
-          title="Duplicate Item"
-        >
-          <Copy size={18} />
-        </button>
-        <button
-          onClick={onDeleteItem}
-          className="p-2 text-gray-400 hover:text-red-400 transition-colors"
-          title="Delete Item"
-        >
-          <Trash2 size={18} />
-        </button>
+        </div>
+
+        <div className="hidden md:flex items-center justify-end pr-1 space-x-1 pt-1.5">
+          <button
+            onClick={onDuplicateItem}
+            className="p-2 text-gray-400 hover:text-indigo-400 transition-colors"
+            title="Duplicate Item"
+          >
+            <Copy size={18} />
+          </button>
+          <button
+            onClick={onDeleteItem}
+            className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+            title="Delete Item"
+          >
+            <Trash2 size={18} />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -475,7 +517,7 @@ const ProductionScheduleDetail: React.FC<ProductionScheduleDetailProps> = ({
           </div>
 
           <div className="px-2 pt-2">
-            <div className="grid grid-cols-[auto_1fr_1fr_3fr_2fr_1.5fr_auto] gap-2 p-2 border-b border-gray-600 font-medium text-gray-400 text-xs sticky top-0 bg-gray-700 z-10">
+            <div className="hidden md:grid grid-cols-[auto_1fr_1fr_3fr_2fr_1.5fr_auto] gap-2 p-2 border-b border-gray-600 font-medium text-gray-400 text-xs sticky top-0 bg-gray-700 z-10">
               <div className="pl-1 text-center">Order</div>
               <div>Start Time</div>
               <div>End Time</div>
@@ -488,21 +530,23 @@ const ProductionScheduleDetail: React.FC<ProductionScheduleDetailProps> = ({
             {itemsInGroup.length === 0 ? (
               <p className="text-gray-500 text-center py-4">No items for this day.</p>
             ) : (
-              itemsInGroup.map((item, indexInGroup) => (
-                <DetailedScheduleItemRow
-                  key={item.id}
-                  item={item}
-                  onUpdateItem={handleUpdateItem}
-                  onDeleteItem={() => handleDeleteItem(item.id)}
-                  onDuplicateItem={() => handleDuplicateItem(item)}
-                  onMoveItemUp={() => handleMoveItem(item.id, "up")}
-                  onMoveItemDown={() => handleMoveItem(item.id, "down")}
-                  isFirstItem={indexInGroup === 0}
-                  isLastItem={indexInGroup === itemsInGroup.length - 1}
-                  index={indexInGroup}
-                  crewKey={crewKey}
-                />
-              ))
+              <div className="divide-y divide-gray-700 md:divide-y-0">
+                {itemsInGroup.map((item, indexInGroup) => (
+                  <DetailedScheduleItemRow
+                    key={item.id}
+                    item={item}
+                    onUpdateItem={handleUpdateItem}
+                    onDeleteItem={() => handleDeleteItem(item.id)}
+                    onDuplicateItem={() => handleDuplicateItem(item)}
+                    onMoveItemUp={() => handleMoveItem(item.id, "up")}
+                    onMoveItemDown={() => handleMoveItem(item.id, "down")}
+                    isFirstItem={indexInGroup === 0}
+                    isLastItem={indexInGroup === itemsInGroup.length - 1}
+                    index={indexInGroup}
+                    crewKey={crewKey}
+                  />
+                ))}
+              </div>
             )}
           </div>
           <div className="p-4 text-center border-t border-gray-600/50">

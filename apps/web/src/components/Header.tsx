@@ -8,17 +8,25 @@ import {
   Users as UsersIcon,
   Settings,
   ChevronDown,
-  BookOpen,
-} from "lucide-react"; // Added BookOpen
+} from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { ScheduleForExport } from "../lib/types";
+import ProductionScheduleExport from "./production-schedule/ProductionScheduleExport";
 
 interface HeaderProps {
   dashboard?: boolean;
   onSignOut?: () => void;
+  scheduleForExport?: ScheduleForExport;
+  scheduleType?: "production" | "run-of-show";
 }
 
-const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
+const Header: React.FC<HeaderProps> = ({
+  dashboard = false,
+  onSignOut,
+  scheduleForExport,
+  scheduleType,
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -205,6 +213,9 @@ const Header: React.FC<HeaderProps> = ({ dashboard = false, onSignOut }) => {
                 >
                   Log In
                 </Link>
+              )}
+              {scheduleForExport && scheduleType === "production" && (
+                <ProductionScheduleExport schedule={scheduleForExport} forDisplay={true} />
               )}
             </>
           )}

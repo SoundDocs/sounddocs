@@ -52,86 +52,133 @@ const LaborScheduleItemRow: React.FC<{
   };
 
   return (
-    <div className="grid grid-cols-[auto_2fr_2fr_1.5fr_1fr_1fr_3fr_auto] gap-2 items-center py-2 px-1 border-b border-gray-700 hover:bg-gray-750/30 transition-colors">
-      <div className="text-gray-400 text-sm flex flex-col items-center justify-center pt-1 space-y-0.5">
-        <button
-          onClick={onMoveItemUp}
-          disabled={isFirstItem}
-          className="p-0.5 text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          title="Move Up"
-        >
-          <ArrowUp size={16} />
-        </button>
-        <span className="font-mono text-xs select-none">{index + 1}</span>
-        <button
-          onClick={onMoveItemDown}
-          disabled={isLastItem}
-          className="p-0.5 text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          title="Move Down"
-        >
-          <ArrowDown size={16} />
-        </button>
-      </div>
-      <input
-        type="text"
-        name="name"
-        value={item.name || ""}
-        onChange={(e) => handleInputChange("name", e.target.value)}
-        className={inputClass}
-        placeholder="Name"
-      />
-      <input
-        type="text"
-        name="position"
-        value={item.position || ""}
-        onChange={(e) => handleInputChange("position", e.target.value)}
-        className={inputClass}
-        placeholder="Position"
-      />
-      <input
-        type="date"
-        name="date"
-        value={item.date || ""}
-        onChange={(e) => handleInputChange("date", e.target.value)}
-        className={inputClass}
-      />
-      <input
-        type="time"
-        name="time_in"
-        value={item.time_in || ""}
-        onChange={(e) => handleInputChange("time_in", e.target.value)}
-        className={inputClass}
-      />
-      <input
-        type="time"
-        name="time_out"
-        value={item.time_out || ""}
-        onChange={(e) => handleInputChange("time_out", e.target.value)}
-        className={inputClass}
-      />
-      <textarea
-        name="notes"
-        value={item.notes || ""}
-        onChange={handleTextAreaChange}
-        className={textareaClass}
-        placeholder="Notes"
-        rows={1}
-      />
-      <div className="flex items-center justify-end pr-1 space-x-1">
-        <button
-          onClick={onDuplicateItem}
-          className="p-2 text-gray-400 hover:text-indigo-400 transition-colors"
-          title="Duplicate Item"
-        >
-          <Copy size={18} />
-        </button>
-        <button
-          onClick={onDeleteItem}
-          className="p-2 text-gray-400 hover:text-red-400 transition-colors"
-          title="Delete Item"
-        >
-          <Trash2 size={18} />
-        </button>
+    <div className="border-b border-gray-700 hover:bg-gray-750/30 transition-colors">
+      <div className="grid grid-cols-1 md:grid-cols-[auto_2fr_2fr_1.5fr_1fr_1fr_3fr_auto] gap-x-2 items-center py-2 px-1">
+        {/* Mobile Header */}
+        <div className="md:hidden col-span-1 flex justify-between items-center px-2 pb-2">
+          <span className="font-bold text-white">Item #{index + 1}</span>
+          <div className="flex items-center justify-end space-x-1">
+            <button
+              onClick={onDuplicateItem}
+              className="p-2 text-gray-400 hover:text-indigo-400 transition-colors"
+              title="Duplicate Item"
+            >
+              <Copy size={18} />
+            </button>
+            <button
+              onClick={onDeleteItem}
+              className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+              title="Delete Item"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Order and Actions */}
+        <div className="hidden md:flex text-gray-400 text-sm flex-col items-center justify-center pt-1 space-y-0.5">
+          <button
+            onClick={onMoveItemUp}
+            disabled={isFirstItem}
+            className="p-0.5 text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            title="Move Up"
+          >
+            <ArrowUp size={16} />
+          </button>
+          <span className="font-mono text-xs select-none">{index + 1}</span>
+          <button
+            onClick={onMoveItemDown}
+            disabled={isLastItem}
+            className="p-0.5 text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            title="Move Down"
+          >
+            <ArrowDown size={16} />
+          </button>
+        </div>
+
+        {/* Inputs grid */}
+        <div className="col-span-1 md:col-span-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[2fr_2fr_1.5fr_1fr_1fr_3fr] gap-2 px-2 md:px-0">
+          <div className="md:col-span-1">
+            <label className="text-xs text-gray-400 md:hidden">Name</label>
+            <input
+              type="text"
+              name="name"
+              value={item.name || ""}
+              onChange={(e) => handleInputChange("name", e.target.value)}
+              className={inputClass}
+              placeholder="Name"
+            />
+          </div>
+          <div className="md:col-span-1">
+            <label className="text-xs text-gray-400 md:hidden">Position</label>
+            <input
+              type="text"
+              name="position"
+              value={item.position || ""}
+              onChange={(e) => handleInputChange("position", e.target.value)}
+              className={inputClass}
+              placeholder="Position"
+            />
+          </div>
+          <div className="md:col-span-1">
+            <label className="text-xs text-gray-400 md:hidden">Date</label>
+            <input
+              type="date"
+              name="date"
+              value={item.date || ""}
+              onChange={(e) => handleInputChange("date", e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div className="md:col-span-1">
+            <label className="text-xs text-gray-400 md:hidden">Time In</label>
+            <input
+              type="time"
+              name="time_in"
+              value={item.time_in || ""}
+              onChange={(e) => handleInputChange("time_in", e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div className="md:col-span-1">
+            <label className="text-xs text-gray-400 md:hidden">Time Out</label>
+            <input
+              type="time"
+              name="time_out"
+              value={item.time_out || ""}
+              onChange={(e) => handleInputChange("time_out", e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div className="sm:col-span-2 md:col-span-1">
+            <label className="text-xs text-gray-400 md:hidden">Notes</label>
+            <textarea
+              name="notes"
+              value={item.notes || ""}
+              onChange={handleTextAreaChange}
+              className={textareaClass}
+              placeholder="Notes"
+              rows={1}
+            />
+          </div>
+        </div>
+
+        <div className="hidden md:flex items-center justify-end pr-1 space-x-1">
+          <button
+            onClick={onDuplicateItem}
+            className="p-2 text-gray-400 hover:text-indigo-400 transition-colors"
+            title="Duplicate Item"
+          >
+            <Copy size={18} />
+          </button>
+          <button
+            onClick={onDeleteItem}
+            className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+            title="Delete Item"
+          >
+            <Trash2 size={18} />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -317,7 +364,7 @@ const ProductionScheduleLabor: React.FC<ProductionScheduleLaborProps> = ({
           </div>
 
           <div className="px-2 pt-2">
-            <div className="grid grid-cols-[auto_2fr_2fr_1.5fr_1fr_1fr_3fr_auto] gap-2 p-2 border-b border-gray-600 font-medium text-gray-400 text-xs sticky top-0 bg-gray-700 z-10">
+            <div className="hidden md:grid grid-cols-[auto_2fr_2fr_1.5fr_1fr_1fr_3fr_auto] gap-2 p-2 border-b border-gray-600 font-medium text-gray-400 text-xs sticky top-0 bg-gray-700 z-10">
               <div className="pl-1 text-center">Order</div>
               <div>Name</div>
               <div>Position</div>
@@ -331,20 +378,22 @@ const ProductionScheduleLabor: React.FC<ProductionScheduleLaborProps> = ({
             {itemsInGroup.length === 0 ? (
               <p className="text-gray-500 text-center py-4">No items for this day.</p>
             ) : (
-              itemsInGroup.map((item, indexInGroup) => (
-                <LaborScheduleItemRow
-                  key={item.id}
-                  item={item}
-                  onUpdateItem={handleUpdateItem}
-                  onDeleteItem={() => handleDeleteItem(item.id)}
-                  onDuplicateItem={() => handleDuplicateItem(item)}
-                  onMoveItemUp={() => handleMoveItem(item.id, "up")}
-                  onMoveItemDown={() => handleMoveItem(item.id, "down")}
-                  isFirstItem={indexInGroup === 0}
-                  isLastItem={indexInGroup === itemsInGroup.length - 1}
-                  index={indexInGroup}
-                />
-              ))
+              <div className="divide-y divide-gray-700 md:divide-y-0">
+                {itemsInGroup.map((item, indexInGroup) => (
+                  <LaborScheduleItemRow
+                    key={item.id}
+                    item={item}
+                    onUpdateItem={handleUpdateItem}
+                    onDeleteItem={() => handleDeleteItem(item.id)}
+                    onDuplicateItem={() => handleDuplicateItem(item)}
+                    onMoveItemUp={() => handleMoveItem(item.id, "up")}
+                    onMoveItemDown={() => handleMoveItem(item.id, "down")}
+                    isFirstItem={indexInGroup === 0}
+                    isLastItem={indexInGroup === itemsInGroup.length - 1}
+                    index={indexInGroup}
+                  />
+                ))}
+              </div>
             )}
           </div>
           <div className="p-4 text-center border-t border-gray-600/50">

@@ -18,8 +18,6 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
-// import MobileScreenWarning from "../components/MobileScreenWarning"; // Removed
-// import { useScreenSize } from "../hooks/useScreenSize"; // Removed
 import { verifyShareLink, SharedLink } from "../lib/shareUtils";
 
 // Interfaces
@@ -136,7 +134,6 @@ const RunOfShowEditor: React.FC = () => {
   console.log("[RoSEditor] Top Level Params:", { id, shareCode });
   const navigate = useNavigate();
   const location = useLocation();
-  // const screenSize = useScreenSize(); // Removed
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -144,7 +141,6 @@ const RunOfShowEditor: React.FC = () => {
   const [user, setUser] = useState<any>(null); // Authenticated user
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  // const [showMobileWarning, setShowMobileWarning] = useState(false); // Removed
 
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [newColumnName, setNewColumnName] = useState<string>("");
@@ -160,12 +156,6 @@ const RunOfShowEditor: React.FC = () => {
 
   const [currentIsSharedEdit, setCurrentIsSharedEdit] = useState(false);
   const [sharedLinkData, setSharedLinkData] = useState<SharedLink | null>(null);
-
-  // useEffect(() => { // Removed useEffect for showMobileWarning
-  //   if (screenSize === "mobile" || screenSize === "tablet") {
-  //     setShowMobileWarning(true);
-  //   }
-  // }, [screenSize]);
 
   // Effect 1: Determine and set currentIsSharedEdit
   useEffect(() => {
@@ -832,7 +822,6 @@ const RunOfShowEditor: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      {/* Removed MobileScreenWarning component and its conditional rendering */}
       <Header dashboard={true} />
       <main className="flex-grow container mx-auto px-2 sm:px-4 py-6 md:py-12 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
@@ -860,7 +849,7 @@ const RunOfShowEditor: React.FC = () => {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 fixed bottom-4 right-4 z-20 md:static md:z-auto sm:ml-auto flex-shrink-0">
+          <div className="hidden md:flex items-center gap-2 sm:ml-auto flex-shrink-0">
             <button
               onClick={handleNavigateToShowMode}
               className="inline-flex items-center bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-4 py-2 rounded-md font-medium transition-all duration-200 shadow-lg md:shadow-none"
@@ -921,7 +910,8 @@ const RunOfShowEditor: React.FC = () => {
           </div>
 
           <div className="overflow-x-auto pb-4 max-h-[calc(100vh-300px)]">
-            <table className="min-w-full">
+            {/* Desktop Table */}
+            <table className="w-full hidden md:table">
               <thead className="bg-gray-700 sticky top-0 z-20">
                 <tr>
                   {allDisplayColumns.map((col, index) => (
@@ -1244,6 +1234,93 @@ const RunOfShowEditor: React.FC = () => {
                 )}
               </tbody>
             </table>
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-4">
+              {runOfShow.items.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-gray-700/50 rounded-lg p-4 border border-gray-600"
+                  style={
+                    item.type === "item" && item.highlightColor
+                      ? { backgroundColor: item.highlightColor, border: "none" }
+                      : {}
+                  }
+                >
+                  {item.type === "header" ? (
+                    <div className="flex justify-between items-center">
+                      <input
+                        type="text"
+                        value={item.headerTitle || ""}
+                        onChange={(e) => handleItemChange(item.id, "headerTitle", e.target.value)}
+                        className="bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-400 text-lg font-bold"
+                        placeholder="Section Header Title"
+                      />
+                      <button
+                        onClick={() => handleDeleteItem(item.id)}
+                        className="text-red-400 hover:text-red-300 p-1"
+                        title="Delete Header"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start">
+                        <input
+                          type="text"
+                          value={item.itemNumber || ""}
+                          onChange={(e) => handleItemChange(item.id, "itemNumber", e.target.value)}
+                          className="bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full font-bold text-white"
+                          placeholder="Item Name/No."
+                        />
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleOpenColorPickerModal(item.id)}
+                            className="text-indigo-400 hover:text-indigo-300 p-1"
+                            title="Highlight Row"
+                          >
+                            <Palette className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteItem(item.id)}
+                            className="text-red-400 hover:text-red-300 p-1"
+                            title="Delete Item"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        {allDisplayColumns.slice(1).map((col) => (
+                          <div key={col.key || col.id}>
+                            <label className="text-xs text-gray-400">{col.label}</label>
+                            <input
+                              type={col.type || "text"}
+                              value={item[col.key as keyof RunOfShowItem] || ""}
+                              onChange={(e) =>
+                                handleItemChange(
+                                  item.id,
+                                  col.key as keyof RunOfShowItem,
+                                  e.target.value,
+                                )
+                              }
+                              className="bg-gray-600 text-white border border-gray-500 rounded-md p-2 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm w-full mt-1"
+                              placeholder={col.label}
+                              step={col.type === "time" ? "1" : undefined}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {runOfShow.items.length === 0 && (
+                <div className="text-center py-8 text-gray-400">
+                  No content yet. Click "Add Item" or "Add Header" to get started.
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

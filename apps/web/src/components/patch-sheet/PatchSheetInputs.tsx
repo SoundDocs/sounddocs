@@ -1,15 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-  PlusCircle,
-  Trash2,
-  Save,
-  ChevronDown,
-  Edit,
-  ChevronRight,
-  ChevronUp,
-  Link,
-  Link2,
-} from "lucide-react";
+import { PlusCircle, Trash2, Edit, ChevronRight, ChevronUp, Link, Link2 } from "lucide-react";
 import { useAuth } from "../../lib/AuthContext";
 import { fetchUserCustomSuggestions, addUserCustomSuggestion } from "../../lib/supabase";
 import { FIELD_TYPES } from "../../lib/constants";
@@ -42,12 +32,11 @@ interface PatchSheetInputsProps {
 
 const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInputs }) => {
   const { user } = useAuth();
-  const [showConnectionTypeOptions, setShowConnectionTypeOptions] = useState<{
+  const [, setShowConnectionTypeOptions] = useState<{
     [key: string]: boolean;
   }>({});
   const [editModeInputs, setEditModeInputs] = useState<{ [key: string]: boolean }>({});
   const [editingInputs, setEditingInputs] = useState<{ [key: string]: InputChannel }>({});
-  const [isMobile, setIsMobile] = useState(false);
 
   // Bulk add state
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
@@ -74,15 +63,6 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
   const [userCustomDigitalSnakeTypes, setUserCustomDigitalSnakeTypes] = useState<string[]>([]);
   const [userCustomNetworkTypes, setUserCustomNetworkTypes] = useState<string[]>([]);
   const [userCustomConsoleTypes, setUserCustomConsoleTypes] = useState<string[]>([]);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   // Fetch user-specific suggestions
   useEffect(() => {
@@ -379,7 +359,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
   const handleEditingInputChange = (id: string, field: keyof InputChannel, value: any) => {
     const updatedInput = { ...editingInputs[id] };
-    updatedInput[field] = value;
+    (updatedInput as any)[field] = value;
     if (field === "connection") updatedInput.connectionDetails = {};
     if (field === "type" && value !== updatedInput.type) {
       const suggestedDevices = deviceOptionsByType[value as string] || [];
@@ -395,9 +375,10 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
   const handleConnectionDetailChange = (id: string, detailKey: string, value: string) => {
     const updatedInput = { ...editingInputs[id] };
-    if (!updatedInput.connectionDetails) updatedInput.connectionDetails = {};
-    updatedInput.connectionDetails[detailKey as keyof typeof updatedInput.connectionDetails] =
-      value;
+    if (!updatedInput.connectionDetails) {
+      updatedInput.connectionDetails = {};
+    }
+    (updatedInput.connectionDetails as Record<string, string>)[detailKey] = value;
     setEditingInputs((prev) => ({ ...prev, [id]: updatedInput }));
   };
 
@@ -415,11 +396,6 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
         channelNumber: input.channelNumber,
         name: input.name || `Channel ${input.channelNumber}`,
       }));
-  };
-
-  const handleSelectConnectionType = (id: string, value: string) => {
-    handleEditingInputChange(id, "connection", value);
-    setShowConnectionTypeOptions((prev) => ({ ...prev, [id]: false }));
   };
 
   const handleCustomTypeKeyDown = async (
@@ -488,8 +464,6 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
     }
   };
 
-  const toggleConnectionTypeOptions = (id: string) =>
-    setShowConnectionTypeOptions((prev) => ({ ...prev, [id]: !prev[id] }));
   const getAllInputTypes = () => [...inputTypeOptions, ...customInputTypes];
 
   const getCombinedSuggestions = (base: string[], sheetCustom: string[], userCustom: string[]) =>
@@ -850,7 +824,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
 
                   {isEditMode ? (
                     <div className="p-4 md:p-6">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                         <div>
                           <label className="block text-gray-300 text-sm mb-2">Type</label>
                           <select
@@ -1284,7 +1258,7 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
                     </div>
                   ) : (
                     <div className="p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
                           <p className="text-gray-400 text-xs sm:text-sm">Type/Device</p>
                           <p className="text-white">

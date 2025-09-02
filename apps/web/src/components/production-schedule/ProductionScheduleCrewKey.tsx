@@ -164,28 +164,41 @@ const ProductionScheduleCrewKey: React.FC<ProductionScheduleCrewKeyProps> = ({
         {crewKey.map((item, index) => (
           <div
             key={item.id}
-            className="flex items-center space-x-3 p-3 bg-gray-700 rounded-md relative" // Relative is still useful for non-portaled elements if any
+            className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 p-3 bg-gray-700 rounded-md relative"
           >
-            <span className="text-gray-400 flex-shrink-0">{index + 1}.</span>
-            <input
-              type="text"
-              placeholder="Crew Name (e.g., Audio, Lighting)"
-              value={item.name}
-              onChange={(e) => onUpdateCrewKeyItem(item.id, "name", e.target.value)}
-              className="flex-grow bg-gray-600 text-white p-2 rounded-md border border-gray-500 focus:ring-indigo-500 focus:border-indigo-500 min-w-0"
-            />
-            <div className="flex-shrink-0">
-              <button
-                type="button"
-                onClick={(e) => handleToggleColorPicker(item.id, item.color, e)}
-                className="w-10 h-10 rounded-md cursor-pointer flex items-center justify-center border border-gray-500 hover:opacity-80 color-picker-trigger-button"
-                style={{ backgroundColor: item.color }}
-                title="Select Color"
-              >
-                <Palette size={20} className="text-white opacity-75 pointer-events-none" />
-              </button>
+            <div className="flex items-center flex-grow">
+              <span className="text-gray-400 flex-shrink-0 mr-3">{index + 1}.</span>
+              <input
+                type="text"
+                placeholder="Crew Name (e.g., Audio, Lighting)"
+                value={item.name}
+                onChange={(e) => onUpdateCrewKeyItem(item.id, "name", e.target.value)}
+                className="flex-grow bg-gray-600 text-white p-2 rounded-md border border-gray-500 focus:ring-indigo-500 focus:border-indigo-500 min-w-0"
+              />
             </div>
-
+            <div className="flex items-center justify-end space-x-2">
+              <div className="flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={(e) => handleToggleColorPicker(item.id, item.color, e)}
+                  className="w-10 h-10 rounded-md cursor-pointer flex items-center justify-center border border-gray-500 hover:opacity-80 color-picker-trigger-button"
+                  style={{ backgroundColor: item.color }}
+                  title="Select Color"
+                >
+                  <Palette size={20} className="text-white opacity-75 pointer-events-none" />
+                </button>
+              </div>
+              <div className="flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onDeleteCrewKeyItem(item.id)}
+                  className="p-2 text-red-400 hover:text-red-300 transition-colors"
+                  title="Remove Crew Item"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
             {openColorPickerItemId === item.id &&
               portalPosition &&
               createPortal(
@@ -193,7 +206,7 @@ const ProductionScheduleCrewKey: React.FC<ProductionScheduleCrewKeyProps> = ({
                   ref={colorPickerRef}
                   className="fixed z-[60] w-64 p-3 bg-slate-800 border border-gray-600 rounded-lg shadow-xl"
                   style={{ top: `${portalPosition.top}px`, left: `${portalPosition.left}px` }}
-                  onClick={(e) => e.stopPropagation()} // Prevent clicks inside picker from closing it
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <p className="text-sm text-gray-300 mb-2 font-medium">Select Color</p>
                   <div className="grid grid-cols-6 gap-1.5 mb-3">
@@ -208,7 +221,6 @@ const ProductionScheduleCrewKey: React.FC<ProductionScheduleCrewKeyProps> = ({
                       />
                     ))}
                   </div>
-
                   <div className="mb-2">
                     <label
                       htmlFor={`hex-color-input-${item.id}`}
@@ -225,7 +237,6 @@ const ProductionScheduleCrewKey: React.FC<ProductionScheduleCrewKeyProps> = ({
                       placeholder="#RRGGBB"
                     />
                   </div>
-
                   <div className="mb-3">
                     <label
                       htmlFor={`native-color-picker-${item.id}`}
@@ -236,10 +247,9 @@ const ProductionScheduleCrewKey: React.FC<ProductionScheduleCrewKeyProps> = ({
                     <input
                       type="color"
                       id={`native-color-picker-${item.id}`}
-                      value={item.color} // Bind to item.color for immediate reflection if changed by hex/predefined
+                      value={item.color}
                       onChange={(e) => handleColorSelected(item.id, e.target.value)}
                       className="w-full h-10 p-0 border-none rounded-md cursor-pointer appearance-none bg-transparent"
-                      // The browser will show the color, style backgroundColor is mostly for fallback or consistency
                       style={{ backgroundColor: item.color }}
                     />
                   </div>
@@ -253,16 +263,6 @@ const ProductionScheduleCrewKey: React.FC<ProductionScheduleCrewKeyProps> = ({
                 </div>,
                 document.body,
               )}
-            <div className="flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => onDeleteCrewKeyItem(item.id)}
-                className="p-2 text-red-400 hover:text-red-300 transition-colors"
-                title="Remove Crew Item"
-              >
-                <X size={20} />
-              </button>
-            </div>
           </div>
         ))}
       </div>

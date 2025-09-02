@@ -7,13 +7,10 @@ import {
   Palette,
   UserCheck,
   Building,
-  Phone,
-  Mail,
-  UserSquare,
   CalendarDays,
   Users as UsersIcon,
 } from "lucide-react";
-import type { ScheduleForExport } from "../../pages/ProductionScheduleEditor";
+import type { ScheduleForExport } from "../../lib/types";
 import { DetailedScheduleItem } from "./ProductionScheduleDetail";
 import { CrewKeyItem } from "./ProductionScheduleCrewKey";
 
@@ -409,7 +406,7 @@ const ProductionScheduleExport = forwardRef<HTMLDivElement, ProductionScheduleEx
               <Palette className="h-5 w-5 mr-2" /> Crew Key
             </h3>
             <div className="flex flex-wrap gap-x-6 gap-y-3">
-              {crewKey.map((crew) => (
+              {crewKey.map((crew: CrewKeyItem) => (
                 <div key={crew.id} className="flex items-center">
                   <span
                     className="w-4 h-4 rounded-sm mr-2 border border-gray-600"

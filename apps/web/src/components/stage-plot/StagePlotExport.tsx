@@ -1,4 +1,4 @@
-import React, { forwardRef } from "react";
+import { forwardRef } from "react";
 import { Bookmark, Layout, Clock } from "lucide-react";
 import { StageElementProps } from "./StageElement";
 import {

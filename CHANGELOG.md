@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.4.2] - 2025-09-02
+
+### Changed
+
+- Made the production schedule and run of show editors more mobile-first, with a card-based layout on mobile that is always in edit mode.
+- Centralized the `ScheduleForExport` type to `apps/web/src/lib/types.ts`.
+
+### Fixed
+
+- Removed extra buttons on smaller screens for a cleaner mobile experience.
+- Fixed various TypeScript errors.
+
 ## [1.5.4.1] - 2025-09-02
 
 ### Fixed

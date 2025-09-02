@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   PlusCircle,
   Trash2,
-  Save,
   ChevronDown,
   Edit,
   ChevronRight,
@@ -46,7 +45,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
   }>({});
   const [editModeOutputs, setEditModeOutputs] = useState<{ [key: string]: boolean }>({});
   const [editingOutputs, setEditingOutputs] = useState<{ [key: string]: OutputChannel }>({});
-  const [isMobile, setIsMobile] = useState(false);
+  useState(false);
 
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
   const [bulkQuantity, setBulkQuantity] = useState<number | string>(8);
@@ -72,13 +71,6 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
   const [userCustomNetworkTypes, setUserCustomNetworkTypes] = useState<string[]>([]);
   const [userCustomDestinationTypes, setUserCustomDestinationTypes] = useState<string[]>([]);
   const [userCustomDestinationGear, setUserCustomDestinationGear] = useState<string[]>([]);
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   useEffect(() => {
     if (user) {
@@ -322,7 +314,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
   const handleEditingOutputChange = (id: string, field: keyof OutputChannel, value: any) => {
     const updatedOutput = { ...editingOutputs[id] };
-    updatedOutput[field] = value;
+    (updatedOutput as any)[field] = value;
     if (field === "sourceType") updatedOutput.sourceDetails = {};
     if (field === "isStereo" && value === false) updatedOutput.stereoChannelNumber = undefined;
     setEditingOutputs((prev) => ({ ...prev, [id]: updatedOutput }));
@@ -330,8 +322,10 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
   const handleSourceDetailChange = (id: string, detailKey: string, value: string) => {
     const updatedOutput = { ...editingOutputs[id] };
-    if (!updatedOutput.sourceDetails) updatedOutput.sourceDetails = {};
-    updatedOutput.sourceDetails[detailKey as keyof typeof updatedOutput.sourceDetails] = value;
+    if (!updatedOutput.sourceDetails) {
+      updatedOutput.sourceDetails = {};
+    }
+    (updatedOutput.sourceDetails as Record<string, string>)[detailKey] = value;
     setEditingOutputs((prev) => ({ ...prev, [id]: updatedOutput }));
   };
 
@@ -803,7 +797,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
 
                   {isEditMode ? (
                     <div className="p-4 md:p-6">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                         <div>
                           <label className="block text-gray-300 text-sm mb-2">Source Type</label>
                           <select
@@ -1250,7 +1244,7 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
                     </div>
                   ) : (
                     <div className="p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div>
                           <p className="text-gray-400 text-xs sm:text-sm">Source Type</p>
                           <p className="text-white">{output.sourceType || "N/A"}</p>

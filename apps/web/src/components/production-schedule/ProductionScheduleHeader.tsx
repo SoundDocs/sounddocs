@@ -8,8 +8,8 @@ interface ProductionScheduleHeaderProps {
     project_manager: string;
     production_manager: string;
     account_manager: string;
-    set_datetime: string;
-    strike_datetime: string;
+    set_datetime: string | null;
+    strike_datetime: string | null;
   };
   updateField: (field: string, value: string) => void;
 }
@@ -23,7 +23,7 @@ const ProductionScheduleHeader: React.FC<ProductionScheduleHeaderProps> = ({
   };
 
   // Helper to convert ISO string to yyyy-MM-ddTHH:mm format for datetime-local input
-  const formatDateTimeForInput = (isoString: string) => {
+  const formatDateTimeForInput = (isoString: string | null) => {
     if (!isoString) return "";
     try {
       const date = new Date(isoString);

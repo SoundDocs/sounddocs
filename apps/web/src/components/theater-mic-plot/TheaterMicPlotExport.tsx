@@ -1,8 +1,6 @@
-import React, { forwardRef } from "react";
+import { forwardRef } from "react";
 import {
   Drama, // Theater icon
-  Calendar,
-  User,
   Users as CharacterIcon,
   Mic,
   Palette,

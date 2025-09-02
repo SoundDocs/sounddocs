@@ -1,4 +1,4 @@
-import React, { forwardRef } from "react";
+import { forwardRef } from "react";
 import {
   Bookmark,
   // Calendar, MapPin, User, Users, Settings, Music, // Icons related to Info tab removed
