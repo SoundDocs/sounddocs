@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import AcoustIqBanner from "../components/AcoustIqBanner";
 import {
   Info,
   Loader,
@@ -233,6 +234,8 @@ const Dashboard = () => {
             What would you like to manage today?
           </p>
         </div>
+
+        <AcoustIqBanner />
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 md:gap-8 mb-12">
           {featureCards.map((card) => {

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.4.4] - 2025-09-02
+
+### Added
+
+- **AcoustIQ Feature Banner**: Added a prominent banner to the dashboard to feature the new AcoustIQ audio analysis tools.
+
 ## [1.5.4.3] - 2025-09-02
 
 ### Fixed
