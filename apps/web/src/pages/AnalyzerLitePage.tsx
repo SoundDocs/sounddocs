@@ -25,11 +25,11 @@ const AnalyzerLitePage: React.FC = () => {
       <main className="flex-grow container mx-auto px-4 py-12 mt-12">
         <div className="mb-8">
           <button
-            onClick={() => navigate("/analyzer")}
+            onClick={() => navigate(-1)}
             className="inline-flex items-center text-indigo-400 hover:text-indigo-300 transition-colors duration-200 mb-4 group"
           >
             <ArrowLeftCircle className="h-5 w-5 mr-2 transform group-hover:-translate-x-1 transition-transform duration-200" />
-            Back to Analyzer Hub
+            Back to AcoustIQ Hub
           </button>
           <div className="flex items-center mb-4">
             <Mic className="h-8 w-8 text-blue-400 mr-3" />

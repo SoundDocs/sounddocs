@@ -13,7 +13,7 @@ import { TransferFunctionVisualizer } from "@sounddocs/analyzer-lite";
 import { useCaptureAgent } from "../stores/agentStore";
 import { supabase } from "../lib/supabase";
 import { Device, TFData } from "@sounddocs/analyzer-protocol";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { TRACE_COLORS } from "../lib/constants";
 import { EqSetting } from "../lib/dsp";
 
@@ -33,7 +33,6 @@ const AnalyzerProPage: React.FC = () => {
   const { status, lastMessage, sendMessage } = useCaptureAgent();
   const [devices, setDevices] = useState<Device[]>([]);
   const [tfData, setTfData] = useState<TFData | null>(null);
-  const [delayMs, setDelayMs] = useState<number>(0);
   const [sampleRate, setSampleRate] = useState<number>(48000);
   const [delayMode, setDelayMode] = useState<string>("auto");
   const [appliedDelayMs, setAppliedDelayMs] = useState<number>(0);
@@ -158,7 +157,6 @@ const AnalyzerProPage: React.FC = () => {
       } else if (lastMessage.type === "frame") {
         setIsCapturing(true);
         setTfData(lastMessage.tf);
-        setDelayMs(lastMessage.delay_ms);
         setSampleRate(lastMessage.sampleRate);
         setDelayMode(lastMessage.delay_mode);
         setAppliedDelayMs(lastMessage.applied_delay_ms);
@@ -302,11 +300,11 @@ const AnalyzerProPage: React.FC = () => {
       <main className="flex-grow container mx-auto px-4 py-12 mt-12">
         <div className="mb-8">
           <button
-            onClick={() => navigate("/analyzer")}
+            onClick={() => navigate(-1)}
             className="inline-flex items-center text-indigo-400 hover:text-indigo-300 transition-colors duration-200 mb-4 group"
           >
             <ArrowLeftCircle className="h-5 w-5 mr-2 transform group-hover:-translate-x-1 transition-transform duration-200" />
-            Back to Analyzer Hub
+            Back to AcoustIQ Hub
           </button>
           <div className="flex items-center mb-4">
             <Server className="h-8 w-8 text-indigo-400 mr-3" />

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Header from "../components/Header";
@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import autoTable, { RowInput } from "jspdf-autotable";
 import PatchSheetExport from "../components/PatchSheetExport";
 import PrintPatchSheetExport from "../components/PrintPatchSheetExport";
 import ShareModal from "../components/ShareModal";
@@ -360,7 +360,7 @@ const AllPatchSheets = () => {
       // --- PRINT-FRIENDLY EXPORT (jspdf-autotable) ---
       if (exportFormat === "print") {
         const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
-        const brandColor = [45, 55, 72]; // A dark slate for headers
+        const brandColor: [number, number, number] = [45, 55, 72]; // A dark slate for headers
 
         // Helper to format connection details for inputs
         const formatInputDetails = (input: any) => {
@@ -451,7 +451,7 @@ const AllPatchSheets = () => {
         };
 
         // --- Input Table ---
-        const inputTitle = [
+        const inputTitle: RowInput[] = [
           [
             {
               content: "Inputs",
@@ -501,7 +501,7 @@ const AllPatchSheets = () => {
         });
 
         // --- Output Table ---
-        const outputTitle = [
+        const outputTitle: RowInput[] = [
           [
             {
               content: "Outputs",
