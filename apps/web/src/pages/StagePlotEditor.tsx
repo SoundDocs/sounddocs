@@ -31,6 +31,34 @@ type StageDepth = (typeof STAGE_DEPTHS)[number];
 type StageWidth = (typeof STAGE_WIDTHS)[number];
 type StageSize = { depth: StageDepth; width: StageWidth };
 
+const stageSizeToPx = (size: { depth: string; width: string }) => {
+  const key = `${size.depth}-${size.width}`;
+  switch (key) {
+    case "x-small-narrow":
+      return { width: 300, height: 300 };
+    case "x-small-wide":
+      return { width: 500, height: 300 };
+    case "small-narrow":
+      return { width: 400, height: 400 };
+    case "small-wide":
+      return { width: 600, height: 400 };
+    case "medium-narrow":
+      return { width: 500, height: 500 };
+    case "medium-wide":
+      return { width: 800, height: 500 };
+    case "large-narrow":
+      return { width: 600, height: 600 };
+    case "large-wide":
+      return { width: 1000, height: 600 };
+    case "x-large-narrow":
+      return { width: 700, height: 700 };
+    case "x-large-wide":
+      return { width: 1200, height: 700 };
+    default:
+      return { width: 800, height: 500 };
+  }
+};
+
 function isValidStageDepth(maybeDepth: string): maybeDepth is StageDepth {
   return (STAGE_DEPTHS as readonly string[]).includes(maybeDepth);
 }
@@ -96,6 +124,7 @@ const StagePlotEditor = () => {
   const [isSharedEdit, setIsSharedEdit] = useState(false);
   const [shareLink, setShareLink] = useState<any>(null);
 
+  const lastDimsRef = React.useRef(stageSizeToPx(stageSize));
   const canvasRef = useRef<HTMLDivElement>(null);
   const stagePlotRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -278,7 +307,39 @@ const StagePlotEditor = () => {
 
   const handleStageSizeChange = (newSize: StageSize) => {
     if (isViewMode) return;
+
+    const oldDims = stageSizeToPx(stageSize);
+    const newDims = stageSizeToPx(newSize);
+
+    const scaleX = newDims.width / oldDims.width;
+    const scaleY = newDims.height / oldDims.height;
+
+    setElements((prev) =>
+      prev.map((el) => {
+        const newWidth = Math.max(20, Math.round((el.width ?? 0) * scaleX) || (el.width ?? 0));
+        const newHeight = Math.max(20, Math.round((el.height ?? 0) * scaleY) || (el.height ?? 0));
+
+        const newX = Math.min(
+          Math.max(0, Math.round(el.x * scaleX)),
+          newDims.width - (newWidth || 0),
+        );
+        const newY = Math.min(
+          Math.max(0, Math.round(el.y * scaleY)),
+          newDims.height - (newHeight || 0),
+        );
+
+        return {
+          ...el,
+          x: newX,
+          y: newY,
+          width: newWidth || el.width,
+          height: newHeight || el.height,
+        };
+      }),
+    );
+
     setStageSize(newSize);
+    lastDimsRef.current = newDims;
   };
 
   const handleAddElement = (type: string, label: string) => {

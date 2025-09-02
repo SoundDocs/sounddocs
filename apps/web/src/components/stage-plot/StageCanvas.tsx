@@ -175,6 +175,7 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
             transform: `scale(${scale})`,
             transformOrigin: "center center",
             transition: "transform 0.1s ease-out",
+            touchAction: "none",
           }}
           onClick={handleCanvasClick}
         >
@@ -202,6 +203,8 @@ const StageCanvas: React.FC<StageCanvasProps> = ({
               onDuplicate={onElementDuplicate}
               onResize={onElementResize}
               disabled={isViewMode} // Use prop
+              dragScale={scale}
+              isMobile={isMobile}
             />
           ))}
         </div>

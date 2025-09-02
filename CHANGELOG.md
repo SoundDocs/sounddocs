@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.4.3] - 2025-09-02
+
+### Fixed
+
+- **Mobile Drag/Zoom (Stage Plot Editor)**: Implemented a series of fixes to make drag, zoom, and resize functionality reliable on mobile devices.
+  - The `<Draggable>` component now compensates for CSS scaling, preventing jumpy or overshooting drags.
+  - The resize handle now uses pointer events, enabling touch support.
+  - Element positions and dimensions are now proportionally rescaled when the stage size changes, preventing layout breaks.
+- **Stage Size Parsing**: Corrected a bug where parsing `x-large-wide` or `x-large-narrow` stage sizes would fail.
+- **Code Quality**: Removed unused variables and imports across multiple components to resolve linting errors.
+
+### Improved
+
+- **Mobile UX (Stage Plot Editor)**: Added `touch-action: none` to the stage canvas to prevent conflicts between browser gestures and pinch-to-zoom, creating a smoother user experience.
+
 ## [1.5.4.2] - 2025-09-02
 
 ### Changed

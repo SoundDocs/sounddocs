@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import Draggable from "react-draggable";
 import {
   Mic,
@@ -33,6 +33,8 @@ export interface StageElementProps {
   labelVisible?: boolean; // New property
   selected?: boolean;
   disabled?: boolean;
+  dragScale?: number; // NEW: for react-draggable scale compensation
+  isMobile?: boolean; // NEW: coming from StageCanvas
   onClick?: (id: string) => void;
   onDragStop?: (id: string, x: number, y: number) => void;
   onRotate?: (id: string, rotation: number) => void;
@@ -56,6 +58,8 @@ const StageElement: React.FC<StageElementProps> = ({
   labelVisible = true, // Default to true
   selected = false,
   disabled = false,
+  dragScale = 1,
+  isMobile = false,
   onClick,
   onDragStop,
   onRotate,
@@ -67,7 +71,6 @@ const StageElement: React.FC<StageElementProps> = ({
   const [editingLabel, setEditingLabel] = useState(false);
   const [tempLabel, setTempLabel] = useState(label);
   const [isResizing, setIsResizing] = useState(false);
-  const isMobile = window.innerWidth < 768;
 
   const getDefaultDimensions = () => {
     if (
@@ -322,7 +325,6 @@ const StageElement: React.FC<StageElementProps> = ({
   };
 
   const mobileProps = isMobile && !disabled ? { onTouchEnd: handleTap } : {};
-  const isResizable = !disabled;
   const elementVisualStyles = type !== "text" ? getElementStyles() : null;
 
   const getFontSize = () => {
@@ -347,6 +349,7 @@ const StageElement: React.FC<StageElementProps> = ({
       grid={[5, 5]}
       disabled={disabled || isResizing}
       cancel=".resize-handle, input, button, span, textarea"
+      scale={dragScale}
     >
       <div
         className={`absolute ${!disabled ? "cursor-move" : ""} touch-manipulation ${selected ? "z-20" : "z-10"}`}
@@ -512,10 +515,10 @@ const StageElement: React.FC<StageElementProps> = ({
           </div>
         )}
 
-        {selected && isResizable && (
+        {selected && !disabled && (
           <div
             className="resize-handle absolute -right-2 -bottom-2 w-4 h-4 bg-white rounded-full border-2 border-indigo-500 cursor-nwse-resize z-30 touch-manipulation"
-            onMouseDown={(e) => {
+            onPointerDown={(e) => {
               if (disabled || !onResize) return;
               e.stopPropagation();
               setIsResizing(true);
@@ -525,24 +528,25 @@ const StageElement: React.FC<StageElementProps> = ({
               const startWidth = dimensions.width;
               const startHeight = dimensions.height;
 
-              const handleMouseMove = (moveEvent: MouseEvent) => {
+              const handlePointerMove = (moveEvent: PointerEvent) => {
                 const deltaX = moveEvent.clientX - startX;
                 const deltaY = moveEvent.clientY - startY;
 
-                const newWidth = Math.max(20, startWidth + deltaX); // Min width 20
-                const newHeight = Math.max(20, startHeight + deltaY); // Min height 20
+                // Account for canvas scale (dragScale)
+                const newWidth = Math.max(20, startWidth + deltaX / (dragScale || 1));
+                const newHeight = Math.max(20, startHeight + deltaY / (dragScale || 1));
 
-                onResize(id, newWidth, newHeight);
+                onResize?.(id, newWidth, newHeight);
               };
 
-              const handleMouseUp = () => {
-                document.removeEventListener("mousemove", handleMouseMove);
-                document.removeEventListener("mouseup", handleMouseUp);
+              const handlePointerUp = () => {
+                window.removeEventListener("pointermove", handlePointerMove);
+                window.removeEventListener("pointerup", handlePointerUp);
                 handleResizeStop();
               };
 
-              document.addEventListener("mousemove", handleMouseMove);
-              document.addEventListener("mouseup", handleMouseUp);
+              window.addEventListener("pointermove", handlePointerMove);
+              window.addEventListener("pointerup", handlePointerUp, { once: true });
             }}
           />
         )}
