@@ -1,54 +1,27 @@
 {
   "name": "sounddocs",
   "private": true,
-  "version": "1.0.0",
-  "version": "1.3.0",
+  "version": "1.5.4.4",
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "agents/*",
+    "models/*",
+    "tools/*"
+  ],
   "scripts": {
-    "dev": "bash ./bin/injecting-supabase-env vite",
-    "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "local-db": "npx --yes supabase start",
+    "dev": "pnpm --filter @sounddocs/web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "preview": "pnpm --filter @sounddocs/web preview",
     "prepare": "husky"
   },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.49.4",
-    "html2canvas": "^1.4.1",
-    "jspdf": "^2.5.1",
-    "jspdf-autotable": "^3.8.2",
-    "lucide-react": "^0.344.0",
-    "nanoid": "^5.0.6",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-draggable": "^4.4.6",
-    "react-helmet": "^6.1.0",
-    "react-resizable": "^3.0.5",
-    "react-router-dom": "^6.22.3",
-    "uuid": "^11.1.0"
-  },
   "devDependencies": {
-    "@eslint/js": "^9.9.1",
-    "@types/jspdf": "^2.0.0",
-    "@types/react": "^18.3.5",
-    "@types/react-dom": "^18.3.0",
-    "@types/react-helmet": "^6.1.11",
-    "@types/react-resizable": "^3.0.8",
-    "@types/uuid": "^9.0.8",
-    "@vitejs/plugin-react": "^4.3.1",
-    "autoprefixer": "^10.4.18",
-    "eslint": "^9.9.1",
-    "eslint-plugin-react-hooks": "^5.1.0-rc.0",
-    "eslint-plugin-react-refresh": "^0.4.11",
-    "globals": "^15.9.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.1",
-    "postcss": "^8.4.35",
-    "prettier": "3.5.3",
-    "tailwindcss": "^3.4.1",
-    "typescript": "^5.5.3",
-    "typescript-eslint": "^8.3.0",
-    "vite": "^5.4.2"
+    "prettier": "3.5.3"
   },
   "lint-staged": {
     "**/*": "prettier --write --ignore-unknown"

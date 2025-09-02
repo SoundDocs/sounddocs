@@ -1,6 +1,6 @@
 # SoundDocs 🎛️
 
-**Professional Audio Documentation, Simplified.**
+**Professional Event Documentation, Simplified.**
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
@@ -16,101 +16,244 @@ SoundDocs is a modern web application meticulously crafted for audio engineers, 
 
 SoundDocs empowers you to manage event audio documentation efficiently:
 
--   **📝 Patch Sheet Editor:**
-    Design detailed input/output lists, map signal flows, specify equipment, and add critical technical notes. Perfect for FOH, monitors, and broadcast.
--   **🎨 Stage Plot Designer:**
-    Visually construct stage layouts using a library of draggable elements including instruments, microphones, monitors, DI boxes, and risers. Clearly communicate stage needs.
--   **🗓️ Run of Show Creator (with Show Mode):**
-    Develop detailed event timelines, cue sheets, and segment breakdowns. Utilize the "Show Mode" for real-time event tracking and execution.
--   **📊 Production Schedule Manager:**
-    Organize and track all pre-production, setup, rehearsal, show, and strike activities. Ensure your entire team is aligned.
--   **🚀 Smart Export System:**
-    Generate professional, high-quality PDF exports of your documents. Choose between dark or light mode to suit your presentation needs.
--   **🤝 Collaboration Tools:**
-    Share your documents securely via unique links. Facilitate smooth communication with clients, band members, and technical crew.
+- **📝 Patch Sheet Editor:**
+  Design detailed input/output lists, map signal flows, specify equipment, and add critical technical notes. Perfect for FOH, monitors, and broadcast.
+- **🎨 Stage Plot Designer:**
+  Visually construct stage layouts using a library of draggable elements including instruments, microphones, monitors, DI boxes, and risers. Clearly communicate stage needs.
+- **🎤 Mic Plot Designer:**
+  Craft detailed Corporate and Theater mic plots. Manage presenters, actors, wireless assignments, photos, and notes with ease.
+- **📊 Pixel Map Designer:**
+  Design and visualize LED video wall layouts, then export clear, detailed plans for your video team.
+- **🗓️ Run of Show Creator (with Show Mode):**
+  Develop detailed event timelines, cue sheets, and segment breakdowns. Utilize the "Show Mode" for real-time event tracking and execution. Now with sticky headers, auto-scrolling, automatic time calculation, and column color highlighting.
+- **📊 Production Schedule Manager:**
+  Organize and track all pre-production, setup, rehearsal, show, and strike activities. Ensure your entire team is aligned.
+- **🚀 Smart Export System:**
+  Generate professional, high-quality PDF exports of your documents. Choose between full color or print friendly to suit your presentation needs.
+- **🤝 Collaboration Tools:**
+  Share your documents securely via unique links. Facilitate smooth communication with clients, band members, and technical crew.
+- **🎤 AcoustIQ Audio Analyzer:**
+  The first professional, browser-based FFT audio analyzer. A comprehensive audio analysis tool with both a simple browser-based RTA ("Lite") and a powerful dual-channel version ("Pro") that uses a local capture agent. The Pro version is now available with **professional installers** for easy setup. Features include:
+  - Real-time Spectrogram (RTA)
+  - SPL Meter with Calibration
+  - Dual-Channel Transfer Function
+  - Coherence & Phase Measurement
+  - Impulse Response
+  - Save and recall measurements
+  - **One-click installer** for macOS (.pkg) and Windows (.exe)
+
+## 📦 Quick Setup for Audio Analysis
+
+To unlock the full power of AcoustIQ Pro audio analyzer:
+
+1. **Download the installer** from [GitHub Releases](https://github.com/SoundDocs/sounddocs/releases)
+2. **Install the capture agent** with one click
+3. **Visit** [sounddocs.org/analyzer-pro](https://sounddocs.org/analyzer-pro)
+4. **Start analyzing** - automatic connection to your local agent!
+
+No Python installation, no terminal commands, no manual certificate setup required.
 
 ## 🛠️ Tech Stack
 
 ### Frontend
--   **Framework**: React 18 with TypeScript
--   **Build Tool**: Vite
--   **Styling**: Tailwind CSS
--   **Icons**: Lucide React
--   **State Management**: React Context API / Zustand (for more complex states)
--   **Routing**: React Router 6
--   **Exporting**: `html2canvas` for image generation
+
+- **Framework**: React 18 with TypeScript
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **State Management**: React Context API / Zustand (for more complex states)
+- **Routing**: React Router 6
+- **Exporting**: `jspdf` for PDF generation
 
 ### Backend
--   **Authentication**: Supabase Auth
--   **Database**: Supabase (PostgreSQL)
--   **Real-time Features**: Supabase Realtime
--   **Storage**: Supabase Storage (for user uploads, templates)
 
-## 🚀 Get Started / Self-Host
+- **Authentication**: Supabase Auth
+- **Database**: Supabase (PostgreSQL)
+- **Real-time Features**: Supabase Realtime
+- **Storage**: Supabase (PostgreSQL)
 
-### Prerequisites
--   Node.js v18+ (LTS recommended)
--   A Supabase account (the free tier is sufficient to get started)
+## 🚀 Development
 
-### Installation & Setup
-1.  **Clone the Repository:**
+This guide provides instructions for setting up the SoundDocs project for local development.
+
+### Quick Start
+
+For experienced developers, here are the essential commands to get the project running:
+
+1.  **Clone and Checkout `beta` Branch**:
     ```bash
     git clone https://github.com/SoundDocs/sounddocs.git
     cd sounddocs
+    git checkout beta
     ```
-2.  **Install Dependencies:**
+2.  **Install Dependencies**:
     ```bash
-    npm install
+    pnpm install
     ```
-3.  **Environment Variables:**
-    Create a `.env` file in the project root and add your Supabase credentials:
+3.  **Start Local Supabase Services**:
+    ```bash
+    supabase start
+    ```
+4.  **Set Up Web App Environment**:
+    Copy the local Supabase credentials output by the previous command into a new `.env` file in `apps/web`.
+5.  **Generate SSL Certificate**:
+    ```bash
+    cd agents/capture-agent-py
+    python3 generate_cert.py
+    cd ../..
+    ```
+6.  **Start the Web App**:
+    ```bash
+    pnpm dev
+    ```
+7.  **(Optional) Run Capture Agent for Development**:
+    If developing agent-related features, run from source:
+
+    ```bash
+    cd agents/capture-agent-py
+    python -m capture_agent  # or python main.py
+    ```
+
+    **For end users**: Download the professional installer from [GitHub Releases](https://github.com/SoundDocs/sounddocs/releases) instead.
+
+### Detailed Setup Guide
+
+#### Prerequisites
+
+Before you begin, make sure you have the following tools installed:
+
+- **Node.js**: v18+ (LTS recommended).
+- **pnpm**: This project uses `pnpm` for package management. If you don't have it, install it globally:
+  ```bash
+  npm install -g pnpm
+  ```
+- **Docker**: The Supabase CLI uses Docker to run the local development environment. [Install Docker](https://docs.docker.com/get-docker/).
+- **Supabase CLI**: Required for managing the local Supabase stack. Follow the official installation guide for your OS: [Supabase CLI Docs](https://supabase.com/docs/guides/cli).
+- **Python**: v3.11+ is required for capture agent development.
+- **mkcert**: A tool for creating trusted local SSL certificates.
+  - **For end users**: The [professional installers](https://github.com/SoundDocs/sounddocs/releases) handle mkcert setup automatically
+  - **For developers**: Manual installation required:
+    - **macOS**: `brew install mkcert`
+    - **Windows**: `choco install mkcert`
+    - **Linux**: Follow the [mkcert installation guide](https://github.com/FiloSottile/mkcert#installation).
+      After installing, run `mkcert -install` to create a local Certificate Authority.
+
+#### 1. Web App Setup
+
+First, set up the main web application.
+
+1.  **Clone the Repository and Checkout `beta`**:
+    All development should be done on the `beta` branch.
+    ```bash
+    git clone https://github.com/SoundDocs/sounddocs.git
+    cd sounddocs
+    git checkout beta
+    ```
+2.  **Install Dependencies**:
+    ```bash
+    pnpm install
+    ```
+3.  **Start Local Supabase Services**:
+    This command uses Docker to start all the necessary backend services (database, auth, etc.).
+    ```bash
+    supabase start
+    ```
+4.  **Set Up Environment Variables**:
+    After `supabase start` completes, it will output your local credentials (API URL and anon key). Create a new file at `apps/web/.env` and add the credentials to it:
     ```env
-    VITE_SUPABASE_URL=your-supabase-project-url
+    VITE_SUPABASE_URL=http://127.0.0.1:54321
+    VITE_SUPABASE_ANON_KEY=your-local-anon-key-from-the-cli
+    ```
+5.  **Generate SSL Certificate**:
+    The Vite development server requires a trusted SSL certificate to run over HTTPS.
+
+    ```bash
+    cd agents/capture-agent-py
+    python3 generate_cert.py
+    cd ../..
+    ```
+
+    This script uses `mkcert` to generate the necessary certificate files.
+
+6.  **Start the Development Server**:
+    Now you can start the web app.
+    ```bash
+    pnpm dev
+    ```
+    The application will be available at `https://localhost:5173` (or the next available port).
+
+#### 2. (Optional) Capture Agent Development
+
+If you are developing features related to the "AcoustIQ Pro" audio analyzer, you can run the Python-based capture agent from source. The HTTPS dev server is a prerequisite for the secure WebSocket (`wss://`) connection the agent uses.
+
+**Note**: End users should download the [professional installers](https://github.com/SoundDocs/sounddocs/releases) instead of following these development instructions.
+
+1.  **Navigate to the Agent Directory**:
+    In a **new terminal window** (leaving the web app server running), go to the agent's directory:
+    ```bash
+    cd agents/capture-agent-py
+    ```
+2.  **Install Dependencies**:
+    ```bash
+    pip install -e .
+    ```
+3.  **Run the Agent**:
+    Start the agent in development mode:
+
+    ```bash
+    python -m capture_agent
+    # or alternatively:
+    python main.py
+    ```
+
+    The agent will now be running and can communicate with the web app at `wss://localhost:9469`.
+
+#### 2b. Using the Professional Installer (End Users)
+
+For a simpler setup experience:
+
+1. **Download**: Get the installer for your platform from [GitHub Releases](https://github.com/SoundDocs/sounddocs/releases)
+
+   - **macOS**: `SoundDocsAgent-macOS.pkg`
+   - **Windows**: `SoundDocsAgent-Windows.exe`
+
+2. **Install**:
+
+   - **macOS**: Double-click the `.pkg` file and follow the prompts
+   - **Windows**: Right-click the `.exe` file, select "Run as administrator"
+
+3. **Launch**: Find "SoundDocs Capture Agent" in your Applications (macOS) or Start Menu (Windows)
+
+## 🌐 Self-Hosting
+
+To self-host SoundDocs, you will need a remote Supabase project.
+
+1.  **Clone the Repository and Install Dependencies**:
+    Follow steps 1 and 2 from the "Web App Setup" section.
+2.  **Create a Supabase Project**:
+    Go to [Supabase](https://supabase.com/) and create a new project.
+3.  **Set Up Environment Variables**:
+    Create a file at `apps/web/.env` and add your remote Supabase project's credentials:
+    ```env
+    VITE_SUPABASE_URL=your-supabase-project-url (looks like https://(projecturl).supabase.co)
     VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
     ```
-    *You can find these in your Supabase project settings.*
-4.  **Database Migrations:**
-    Apply the necessary database schema. Navigate to the Supabase SQL Editor in your project dashboard and run the migration files located in `/supabase/migrations`.
-5.  **Start the Development Server:**
+    You can find these in your Supabase project's API settings.
+4.  **Apply Database Migrations**:
+    In your Supabase project dashboard, go to the "SQL Editor" and run the contents of the migration files located in the `/supabase/migrations` directory in chronological order.
+5.  **Build and Deploy**:
+    Build the application and deploy the contents of the `apps/web/dist` folder to your preferred hosting provider (e.g., Vercel, Netlify, AWS S3).
     ```bash
-    npm run dev
+    pnpm build
     ```
-    The application will be available at `http://localhost:5173` (or the next available port).
-
-## 📖 How to Use SoundDocs
-
-1.  **Navigate** to the live application (e.g., `http://localhost:5173` if running locally, or https://sounddocs.org).
-2.  **Create an Account / Sign In** using email and password.
-3.  **Choose Document Type:** Click New "Patch Sheet", "Stage Plot", "Run of Show", or "Production Schedule".
-4.  **Build Your Setup:**
-    -   **Patch Sheets:** Add channels, assign inputs/outputs, specify microphones, DIs, processing, and notes.
-    -   **Stage Plots:** Drag and drop elements onto the canvas. Label items, indicate positions, and specify connections.
-    -   **Run of Shows:** Define event segments, cues, timings, and responsible personnel. Use Show Mode during the event.
-    -   **Production Schedules:** Outline tasks, deadlines, and assignees for all event phases.
-5.  **Save & Export:** Your work is auto-saved. When ready, export your document as a PDF, or generate a shareable link.
 
 ## 🤝 Contributing
 
 We welcome contributions from the community! Whether it's bug fixes, feature enhancements, or documentation improvements, your help is appreciated.
 
-Please review our [Contributing Guidelines](CONTRIBUTING.md) (to be created) and Code of Conduct before submitting a pull request. Join our Discord server to discuss ideas and collaborate: [discord.gg/hVk6tctuHM](https://discord.com/invite/NRcRtyxFQa)
+Please review our [Contributing Guidelines](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests.
 
-### Local Development
-
-Getting set up for local development is currently a tad convoluted. There's an issue to make it better.
-
-Assuming you're on a Mac:
-
-- Install either Docker Desktop or OrbStack if you don't have it already
-- Install Homebrew (https://brew.sh/) if you don't have it already
-- Install nvm (brew install nvm) if you don't have it already
-- Install Node.js LTS Iron (nvm install --lts=iron)
-- Clone the codebase (git clone https://github.com/SoundDocs/sounddocs.git)
-- cd into that directory
-- Ensure you're using Node.js LTS Iron (nvm use --lts=iron)
-- Run npm install
-- Start Supabase locally using npm run local-db
-- Start the app locally using npm run dev
+Join our [Discord server](https://discord.com/invite/NRcRtyxFQa) to discuss ideas and collaborate with the community.
 
 ## 📄 License
 
@@ -118,11 +261,15 @@ This project is distributed under the GNU AGPLv3 License. See `LICENSE` file for
 
 ## 🙏 Acknowledgements
 
--   **Supabase Team** for their incredible backend-as-a-service platform.
--   **Lucide Icons** for the clean and versatile icon set.
--   **React Draggable & React Resizable** for interactive UI elements.
--   **html2canvas** for the client-side export functionality.
--   The open-source community for tools and libraries that make projects like SoundDocs possible.
+- **Supabase Team** for their incredible backend-as-a-service platform.
+- **Vite** for the next-generation frontend tooling.
+- **Tailwind CSS** for the utility-first CSS framework that styles the application.
+- **Zustand** for the simple and powerful state management.
+- **Lucide Icons** for the clean and versatile icon set.
+- **React Draggable & React Resizable** for interactive UI elements.
+- **WebSockets** and **SoundDevice** for enabling real-time audio communication.
+- **NumPy** and **SciPy** for the powerful signal processing that drives the audio analysis.
+- The open-source community for the countless tools and libraries that make projects like SoundDocs possible.
 
 ## Star History
 

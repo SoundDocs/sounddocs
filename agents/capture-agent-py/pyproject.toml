@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "capture-agent"
+version = "0.1.11"
+description = "SoundDocs Capture Agent for multi-channel audio analysis."
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+websockets = "^12.0"
+sounddevice = "^0.4.6"
+numpy = "^1.26.4"
+scipy = "^1.13.1"
+pydantic = "^2.7.1"
+cryptography = ">=41,<44"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

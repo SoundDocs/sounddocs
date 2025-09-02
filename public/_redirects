@@ -1,5 +1,0 @@
-# Netlify redirects - Enable client-side routing for SPA
-/*    /index.html   200
-
-# Ensure shared routes are handled correctly
-/shared/*    /index.html   200

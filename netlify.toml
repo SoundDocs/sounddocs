@@ -1,0 +1,15 @@
+# netlify.toml
+
+[build]
+  # This is the command Netlify will run to build your site.
+  command = "pnpm build"
+  
+  # This is the directory that contains the built site.
+  publish = "apps/web/dist"
+
+[build.environment]
+  # Specify the Node.js version to use.
+  NODE_VERSION = "20"
+  
+  # Specify the pnpm version to use.
+  PNPM_VERSION = "10"

@@ -1,0 +1,150 @@
+---
+alwaysApply: true
+---
+---
+alwaysApply: true
+---
+---
+alwaysApply: true
+---
+Cursor Rules for SoundDocs
+
+Purpose
+- Ensure the agent completes exactly the requested task and then stops
+- Require every change to be recorded in CHANGELOG.md with multi-part versioning
+- Keep versioning and changelog format consistent across the monorepo
+
+Task Flow (Single-Task Mode)
+- After completing the user's requested task, stop. Do not proactively continue to a new task or "next steps" unless explicitly asked
+- If blocked by missing info, ask one concise question and pause
+- End each task with a short summary of what changed and its impact
+
+Changelog and Versioning (Mandatory)
+- Every change must:
+  1) Add a release section to CHANGELOG.md (Keep a Changelog format)
+  2) Bump the root package.json version to the exact same version used in the changelog section title
+- Date format: YYYY-MM-DD
+- Sections: Added, Changed, Fixed, Improved, Removed (use only those that apply)
+
+Capture Agent Versioning (Mandatory for capture agent changes)
+- When making changes to anything capture agent related (agents/capture-agent-py/*), also update:
+  1) Version in agents/capture-agent-py/pyproject.toml 
+  2) Version in .github/workflows/build-installers.yml 
+- Use semantic versioning for capture agent: MAJOR.MINOR.PATCH
+- Increment appropriately:
+  - PATCH for bug fixes and minor improvements
+  - MINOR for new features
+  - MAJOR for breaking changes
+
+Version Numbering Scheme
+- Root package.json version is canonical for the repo
+- Use multi-part versions to denote change size:
+  - Minor change: x.y.z.w (four segments). Increment the 4th segment. If the current version has only three segments, append .1
+  - Even smaller/trivial change: x.y.z.w.v (five segments). Increment the 5th segment. If the current version has four segments and the change is trivial, append .1
+- Examples:
+  - 1.5.2.3 -> minor change -> 1.5.2.4
+  - 1.5.2.4 -> trivial change -> 1.5.2.4.1
+  - 1.5.2 -> minor change -> 1.5.2.1
+- For larger features/refactors across packages, bump the 3rd segment (x.y.z) and reset trailing segments as needed (e.g., 1.5.2.4 -> 1.5.3)
+- When unsure, prefer the smaller bump (five-segment trivial)
+
+Implementation Checklist (for every edit)
+- Before making edits: read the current root package.json version and CHANGELOG.md
+- Decide next version per rules above
+- After edits:
+  - Add a new release section to CHANGELOG.md with the decided version and today's date
+  - Summarize changes as concise bullets under Added/Changed/Fixed/Improved/Removed
+  - Update root package.json "version" to match the changelog section
+- Do not complete the task without these two updates
+
+Implementation Checklist (for capture agent changes)
+- Before making edits: read the current capture agent version in pyproject.toml
+- Decide next semantic version per capture agent rules above
+- After edits:
+  - Update version in agents/capture-agent-py/pyproject.toml
+  - Update all version references in .github/workflows/build-installers.yml
+  - Add capture agent version info to CHANGELOG.md release section
+- Do not complete capture agent changes without these version updates
+
+Commit / PR Hygiene
+- Commit message should include the version:
+  - chore(version): vX.Y.Z[.W][.V] – short description
+  - docs(changelog): record changes for vX.Y.Z[.W][.V]
+- PR title should include the new version when appropriate
+
+Monorepo Notes
+- Do not bump versions for workspace packages (apps/*, packages/*, agents/*) unless explicitly requested
+- Root version and CHANGELOG.md track release history for the whole repo
+
+Safety and Etiquette
+- Preserve existing indentation and formatting when editing files
+- Avoid long-running processes; do not start additional tasks unprompted
+- Ask before performing destructive operations
+
+
+Tech Stack and Project Layout
+- Monorepo managed by pnpm workspaces (root `package.json` is canonical)
+- Node.js ESM (`"type": "module"`) with TypeScript across web/packages
+- Apps
+  - `apps/web`: React + TypeScript (Vite), Tailwind CSS, Supabase client
+- Packages
+  - `packages/analyzer-lite`: Browser-only analyzer components/hooks (TS/React)
+  - `packages/analyzer-protocol`: Shared TypeScript protocol/type definitions
+- Agents
+  - `agents/capture-agent-py`: Python capture/analysis agent using `numpy`, `scipy`, and secure WebSocket server
+- Backend/Infra
+  - `supabase/functions`: Edge functions (TypeScript)
+  - `supabase/migrations`: Postgres SQL migrations (timestamped files); never modify past migrations—add new ones
+  - Deployment config: `netlify.toml`, HTTP headers/redirects under `apps/web/public`
+- Tooling
+  - Linting/formatting: root `eslint.config.js`, Prettier 3.x, husky + lint-staged
+  - TypeScript configs: root `tsconfig.json` plus per-package configs
+
+Coding Standards
+- TypeScript
+  - Explicitly annotate exported/public APIs; avoid `any`
+  - Prefer meaningful, descriptive names; use guard clauses and early returns
+  - Handle errors meaningfully; do not swallow exceptions
+- React (apps/web and packages)
+  - Use function components and hooks; keep components focused and readable
+  - Co-locate state in stores under `apps/web/src/stores` when shared across views
+  - Keep JSX clean; avoid deep nesting; prefer small, composable components
+- Styling
+  - Use Tailwind utility classes; avoid inline styles unless necessary
+  - Keep design consistent with existing patterns in `apps/web/src`
+- Python (agents)
+  - Prefer clear, readable code with type hints where practical
+  - Document complex DSP logic with concise docstrings (why over how)
+
+Database and Edge Functions
+- Migrations
+  - Create new SQL files in `supabase/migrations` with proper timestamp naming
+  - Do not edit existing migrations; write forward-only migrations with safe defaults
+  - Include RLS/constraints updates when adding new tables/columns
+- Edge Functions
+  - Implement in `supabase/functions/*` with TypeScript
+  - Keep function interfaces stable and typed; update shared types when needed
+
+Workflow and Commands
+- Use pnpm for all package operations (do not use npm/yarn)
+- Common scripts
+  - `pnpm dev` → run web app locally
+  - `pnpm -r build` → build all workspaces
+  - `pnpm -r lint` and `pnpm -r typecheck` → must pass before marking work complete
+- Prefer small, incremental edits aligned with Single-Task Mode
+
+Versioning Guidance
+- Prefer five-segment trivial bumps for documentation/rules-only changes (e.g., x.y.z.w → x.y.z.w.1)
+- Use four-segment minor bumps for small code changes that don’t warrant a patch-level bump across packages
+- Larger, multi-package features may bump the third segment (x.y.z) and reset trailing segments
+
+Documentation and Communication
+- Summaries at the end of each task should be concise and high-signal
+- When blocked, ask one clear question and pause
+- Avoid generating large code dumps in chat; implement via edits to files
+
+Guardrails
+- Respect existing file indentation (tabs vs spaces) and width
+- Avoid destructive operations and long-running tasks without confirmation
+- Do not proactively start new tasks after completing the current one
+

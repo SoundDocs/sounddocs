@@ -1,0 +1,357 @@
+name: Build Installers
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag to upload assets to (for manual runs)"
+        required: false
+
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          cd agents/capture-agent-py
+          pip install --upgrade pip
+          pip install "cryptography>=41,<44" pyinstaller
+          pip install .
+
+      - name: Build executable
+        run: |
+          cd agents/capture-agent-py
+          pyinstaller --onefile --name sounddocs-capture-agent --add-data "capture_agent:capture_agent" --add-data "generate_cert.py:." main.py
+
+      - name: Install dependencies
+        run: |
+          brew install mkcert
+          brew install librsvg
+
+      - name: Create installer package
+        run: |
+          cd agents/capture-agent-py
+
+          # Create macOS app bundle structure (no loose files)
+          mkdir -p "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/MacOS"
+          mkdir -p "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/Resources"
+
+          # Copy the executable to the app bundle's Resources folder
+          cp dist/sounddocs-capture-agent "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/Resources/"
+          chmod +x "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/Resources/sounddocs-capture-agent"
+
+          # Create the main launch script that opens Terminal
+          cat > "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/MacOS/SoundDocs Capture Agent" << 'EOF'
+          #!/bin/bash
+
+          # Get the path to the app bundle's Resources folder
+          APP_DIR="$(dirname "$0")/../Resources"
+
+          # Create Terminal script that shows all setup progress
+          TEMP_SCRIPT=$(mktemp)
+          cat > "$TEMP_SCRIPT" << 'TERM_EOF'
+          #!/bin/bash
+          set -euo pipefail
+
+          # Set up PATH for GUI launches (includes Homebrew paths)
+          export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+
+          echo "=================================================="
+          echo "🎵 SoundDocs Capture Agent"
+          echo "=================================================="
+          echo ""
+          echo "Setting up professional audio analysis tools..."
+          echo ""
+
+          # Create agent directory
+          cd "$HOME/.sounddocs-agent" || mkdir -p "$HOME/.sounddocs-agent" && cd "$HOME/.sounddocs-agent"
+
+          # --- mkcert setup (user-owned CA + system trust) ---
+          MKCERT_PATH="$(command -v mkcert || true)"
+          if [ -z "$MKCERT_PATH" ]; then
+            echo "'mkcert' not found. Installing with Homebrew..."
+            command -v brew >/dev/null 2>&1 || { echo "Install Homebrew first: https://brew.sh"; exit 1; }
+            brew install mkcert
+            MKCERT_PATH="$(command -v mkcert || true)"
+            [ -n "$MKCERT_PATH" ] || { echo "mkcert install failed"; exit 1; }
+          fi
+
+          # Install CA as USER so files are user-owned
+          "$MKCERT_PATH" -install || true
+
+          CAROOT="$("$MKCERT_PATH" -CAROOT 2>/dev/null || echo "$HOME/Library/Application Support/mkcert")"
+          if [ -d "$CAROOT" ]; then
+            # Ensure readable by the user after any privileged prompts mkcert may have triggered
+            sudo chown -R "$USER":staff "$CAROOT" || true
+            chmod 600 "$CAROOT/rootCA-key.pem" 2>/dev/null || true
+          fi
+
+          # Ensure CA is trusted in System keychain (admin prompt)
+          if ! security find-certificate -a -Z -c mkcert /Library/Keychains/System.keychain >/dev/null 2>&1; then
+            echo "Adding mkcert root to System keychain (you’ll be prompted)…"
+            sudo /usr/bin/security add-trusted-cert -d -r trustAsRoot -k /Library/Keychains/System.keychain "$CAROOT/rootCA.pem"
+          fi
+
+          # Generate localhost leaf certs (as USER)
+          AGENT_DIR="$HOME/.sounddocs-agent"
+          mkdir -p "$AGENT_DIR"
+          "$MKCERT_PATH" -cert-file "$AGENT_DIR/localhost.pem" \
+                         -key-file "$AGENT_DIR/localhost-key.pem" \
+                         localhost 127.0.0.1 ::1
+
+          echo "✅ Setup complete! SSL certificates are now trusted by your browser."
+          echo ""
+          echo "🚀 Starting SoundDocs Capture Agent..."
+          echo "   Connect from: https://sounddocs.org/analyzer-pro"
+          echo ""
+          echo "📊 Agent status and logs will appear below."
+          echo "   Press Ctrl+C to stop the agent."
+          echo "=================================================="
+          echo ""
+
+          # Run the actual agent executable
+          exec "APP_RESOURCES_PATH/sounddocs-capture-agent"
+          TERM_EOF
+
+          # Replace the placeholder with the actual app resources path
+          sed -i '' "s|APP_RESOURCES_PATH|$APP_DIR|g" "$TEMP_SCRIPT"
+          chmod +x "$TEMP_SCRIPT"
+
+          # Open Terminal and run the script
+          osascript << APPLESCRIPT
+          tell application "Terminal"
+            activate
+            do script "$TEMP_SCRIPT"
+          end tell
+          APPLESCRIPT
+
+          # Clean up temp script after a short delay
+          (sleep 2 && rm -f "$TEMP_SCRIPT") &
+          EOF
+
+          chmod +x "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/MacOS/SoundDocs Capture Agent"
+
+          # Convert SVG logo to .icns (macOS icon format)
+          rsvg-convert -w 1024 -h 1024 -f png ../../SoundDocs-logo.svg > logo-1024.png
+          mkdir -p icon.iconset
+          # Create different sizes for iconset
+          sips -z 16 16 logo-1024.png --out icon.iconset/icon_16x16.png
+          sips -z 32 32 logo-1024.png --out icon.iconset/icon_16x16@2x.png
+          sips -z 32 32 logo-1024.png --out icon.iconset/icon_32x32.png
+          sips -z 64 64 logo-1024.png --out icon.iconset/icon_32x32@2x.png
+          sips -z 128 128 logo-1024.png --out icon.iconset/icon_128x128.png
+          sips -z 256 256 logo-1024.png --out icon.iconset/icon_128x128@2x.png
+          sips -z 256 256 logo-1024.png --out icon.iconset/icon_256x256.png
+          sips -z 512 512 logo-1024.png --out icon.iconset/icon_256x256@2x.png
+          sips -z 512 512 logo-1024.png --out icon.iconset/icon_512x512.png
+          sips -z 1024 1024 logo-1024.png --out icon.iconset/icon_512x512@2x.png
+          iconutil -c icns icon.iconset
+          cp icon.icns "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/Resources/"
+
+          # Create Info.plist for the app bundle
+          cat > "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/Info.plist" << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>SoundDocs Capture Agent</string>
+              <key>CFBundleIdentifier</key>
+              <string>org.sounddocs.capture-agent</string>
+              <key>CFBundleName</key>
+              <string>SoundDocs Capture Agent</string>
+              <key>CFBundleDisplayName</key>
+              <string>SoundDocs Capture Agent</string>
+              <key>CFBundleVersion</key>
+              <string>0.1.11</string>
+              <key>CFBundleShortVersionString</key>
+              <string>0.1.11</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleIconFile</key>
+              <string>icon</string>
+              <key>LSUIElement</key>
+              <false/>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+
+          # Build package
+          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.11 --install-location / SoundDocsAgent-macOS.pkg
+
+      - name: Upload macOS installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-installer
+          path: agents/capture-agent-py/SoundDocsAgent-macOS.pkg
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          cd agents/capture-agent-py
+          pip install --upgrade pip
+          pip install "cryptography>=41,<44" pyinstaller
+          pip install .
+
+      - name: Build executable
+        run: |
+          cd agents/capture-agent-py
+          pyinstaller --onefile --name sounddocs-capture-agent --add-data "capture_agent:capture_agent" --add-data "generate_cert.py:." main.py
+
+      - name: Install NSIS
+        run: choco install nsis -y
+
+      - name: Create NSIS installer script
+        run: |
+          cd agents/capture-agent-py
+          cat > installer.nsi << 'EOF'
+          !define APPNAME "SoundDocs Capture Agent"
+          !define APPVERSION "0.1.11"
+          Name "${APPNAME}"
+          OutFile "SoundDocsAgent-Windows.exe"
+          InstallDir "$PROGRAMFILES\SoundDocs"
+          RequestExecutionLevel admin
+
+          Page directory
+          Page instfiles
+
+          Section "Install"
+              SetOutPath $INSTDIR
+              File "dist\sounddocs-capture-agent.exe"
+              
+              ; Create agent directory
+              CreateDirectory "$PROFILE\.sounddocs-agent"
+              
+              ; Create setup helper script
+              FileOpen $0 "$INSTDIR\setup-dependencies.bat" w
+              FileWrite $0 "@echo off$\r$\n"
+              FileWrite $0 "echo Setting up SoundDocs Capture Agent dependencies...$\r$\n"
+              FileWrite $0 "echo Checking for mkcert...$\r$\n"
+              FileWrite $0 "where mkcert >nul 2>&1$\r$\n"
+              FileWrite $0 "if %errorlevel% neq 0 ($\r$\n"
+              FileWrite $0 "  echo Installing mkcert via Chocolatey...$\r$\n"
+              FileWrite $0 "  where choco >nul 2>&1$\r$\n"
+              FileWrite $0 "  if %errorlevel% neq 0 ($\r$\n"
+              FileWrite $0 "    echo Please install Chocolatey first: https://chocolatey.org/install$\r$\n"
+              FileWrite $0 "    pause$\r$\n"
+              FileWrite $0 "    exit /b 1$\r$\n"
+              FileWrite $0 "  )$\r$\n"
+              FileWrite $0 "  choco install mkcert -y$\r$\n"
+              FileWrite $0 ")$\r$\n"
+              FileWrite $0 "echo Setting up mkcert certificate authority...$\r$\n"
+              FileWrite $0 "mkcert -install$\r$\n"
+              FileWrite $0 "echo Generating SSL certificates...$\r$\n"
+              FileWrite $0 "cd /d %USERPROFILE%\.sounddocs-agent$\r$\n"
+              FileWrite $0 "mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1$\r$\n"
+              FileWrite $0 "echo Setup complete!$\r$\n"
+              FileWrite $0 "pause$\r$\n"
+              FileClose $0
+              
+              ; Create launch script
+              FileOpen $1 "$INSTDIR\launch-agent.bat" w
+              FileWrite $1 "@echo off$\r$\n"
+              FileWrite $1 "cd /d %USERPROFILE%\.sounddocs-agent$\r$\n"
+              FileWrite $1 "if not exist localhost.pem ($\r$\n"
+              FileWrite $1 "  echo SSL certificates not found. Running setup...$\r$\n"
+              FileWrite $1 "  call $\"$INSTDIR\setup-dependencies.bat$\"$\r$\n"
+              FileWrite $1 ")$\r$\n"
+              FileWrite $1 "$\"$INSTDIR\sounddocs-capture-agent.exe$\"$\r$\n"
+              FileClose $1
+              
+              ; Create shortcuts
+              CreateDirectory "$SMPROGRAMS\SoundDocs"
+              CreateShortcut "$SMPROGRAMS\SoundDocs\SoundDocs Capture Agent.lnk" "$INSTDIR\launch-agent.bat" "" "$INSTDIR\sounddocs-capture-agent.exe" 0
+              CreateShortcut "$SMPROGRAMS\SoundDocs\Setup Dependencies.lnk" "$INSTDIR\setup-dependencies.bat"
+              CreateShortcut "$DESKTOP\SoundDocs Capture Agent.lnk" "$INSTDIR\launch-agent.bat" "" "$INSTDIR\sounddocs-capture-agent.exe" 0
+          SectionEnd
+          EOF
+        shell: bash
+
+      - name: Build NSIS installer
+        run: |
+          cd agents/capture-agent-py
+          makensis installer.nsi
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: agents/capture-agent-py/SoundDocsAgent-Windows.exe
+
+  upload-to-release:
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+      id-token: write
+    steps:
+      - name: Debug event
+        run: |
+          echo "event_name=${{ github.event_name }}"
+          echo "release tag (if any)=${{ github.event.release.tag_name }}"
+          echo "manual tag (if any)=${{ inputs.tag_name }}"
+
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: List downloaded files
+        run: |
+          ls -la
+          file SoundDocsAgent-macOS.pkg || true
+          file SoundDocsAgent-Windows.exe || true
+
+      # Only upload when it's a real release event
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: |
+            SoundDocsAgent-macOS.pkg
+            SoundDocsAgent-Windows.exe
+          fail_on_unmatched_files: true
+          append_body: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Optional: allow manual testing
+      - name: Upload to Release (manual run)
+        if: github.event_name == 'workflow_dispatch' && inputs.tag_name != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag_name }}
+          files: |
+            SoundDocsAgent-macOS.pkg
+            SoundDocsAgent-Windows.exe
+          fail_on_unmatched_files: true
+          append_body: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+# prettier-ignore-end
