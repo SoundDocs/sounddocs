@@ -100,7 +100,10 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
     pool = deque([np.empty((1024, num_channels), dtype=np.float32) for _ in range(initial_pool_size)])
     pool_miss_count = 0
     last_gc_time = time.monotonic()
-    gc_interval = 30.0  # Run GC hints every 30 seconds
+    gc_interval = 10.0  # Run GC more frequently (every 10 seconds)
+    frames_processed = 0
+    last_dsp_cleanup = time.monotonic()
+    dsp_cleanup_interval = 60.0  # Clear DSP caches every minute
 
     def audio_callback(indata, frames, time_info, status):
         # called on driver thread; never block here
@@ -196,15 +199,38 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
                         pass
                 # If pool is full, let GC collect the buffer
 
-            # Periodic GC hint and pool health check
+            # Periodic GC and memory management
             now = time.monotonic()
+            frames_processed += len(blocks_to_process)
+            
+            # More aggressive garbage collection
             if now - last_gc_time > gc_interval:
-                gc.collect(0)  # Collect only generation 0 (fast)
+                # Collect all generations periodically
+                if frames_processed % 1000 == 0:  # Every ~50 seconds at 20fps
+                    gc.collect()  # Full collection
+                else:
+                    gc.collect(0)  # Quick generation 0 collection
+                
                 last_gc_time = now
+                
+                # Shrink pool if it's too large and underutilized
+                current_pool_size = len(pool)
+                if current_pool_size > initial_pool_size and pool_miss_count == 0:
+                    # Shrink pool by removing excess buffers
+                    while len(pool) > initial_pool_size:
+                        pool.pop()
+                
                 # Log pool health if we've had misses
-                if pool_miss_count > 0:
-                    print(f"Buffer pool health: {len(pool)} buffers, {pool_miss_count} misses since last check")
+                if pool_miss_count > 0 or frames_processed % 1000 == 0:
+                    print(f"Buffer pool: {len(pool)} buffers, {pool_miss_count} misses, {frames_processed} frames")
                     pool_miss_count = 0
+            
+            # Periodic DSP cache cleanup
+            if now - last_dsp_cleanup > dsp_cleanup_interval:
+                dsp.periodic_cleanup()  # Clear excess DSP work arrays
+                last_dsp_cleanup = now
+                # Force a full GC after DSP cleanup
+                gc.collect()
 
             # run analysis only when we've advanced by one hop
             if carry >= hop_size:
@@ -236,6 +262,8 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
         print(f"Error during capture: {e}")
         await send_error(ws, f"Capture failed: {e}")
     finally:
+        # Clean up DSP state and force garbage collection
+        dsp.clear_dsp_caches()
         try:
             if stream is not None:
                 stream.stop()
@@ -273,6 +301,8 @@ async def handler(ws: WebSocketServerProtocol, path: str):
             capture_task.cancel()
             capture_task = None
         connected_clients.remove(ws)
+        # Force garbage collection when client disconnects
+        gc.collect()
 
 async def start_server(host="127.0.0.1", port=9469):
     # Look for certificates in the user's .sounddocs-agent directory
