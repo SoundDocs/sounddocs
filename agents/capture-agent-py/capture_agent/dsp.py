@@ -2,10 +2,11 @@ import numpy as np
 from scipy.signal import welch, csd
 from collections import OrderedDict
 from functools import lru_cache
+import weakref
 from .schema import CaptureConfig, TFData, SPLData
 
 _windows = OrderedDict()
-_MAX_WINDOWS = 32  # small, safe cap; adjust if you really need more
+_MAX_WINDOWS = 16  # Reduced cap for better memory control
 
 def get_window(name, N):
     key = (name, int(N))
@@ -27,6 +28,17 @@ def get_window(name, N):
         _windows.move_to_end(key, last=True)
     return w
 
+# Add cache clearing function
+def clear_dsp_caches():
+    """Clear DSP caches to free memory."""
+    global _windows
+    _windows.clear()
+    _hann_cached.cache_clear()
+    _taper_for_M.cache_clear()
+
+# Reusable FFT buffers for delay calculation
+_fft_buffers = {}
+
 def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: float | None = None) -> float:
     """
     Linear (zero-padded) GCC-PHAT delay. Positive => meas lags ref by +delay.
@@ -44,12 +56,29 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
     # FFT size >= 2n-1 for linear correlation
     N = 1 << int(np.ceil(np.log2(2*n - 1)))
 
-    X = np.fft.rfft(x, n=N)
-    Y = np.fft.rfft(y, n=N)
-    R = np.conj(X) * Y
+    # Reuse FFT buffers if possible
+    global _fft_buffers
+    if N not in _fft_buffers or len(_fft_buffers) > 4:
+        # Clear old buffers if we have too many
+        if len(_fft_buffers) > 4:
+            _fft_buffers.clear()
+        _fft_buffers[N] = {
+            'X': np.empty(N // 2 + 1, dtype=np.complex128),
+            'Y': np.empty(N // 2 + 1, dtype=np.complex128),
+            'R': np.empty(N // 2 + 1, dtype=np.complex128),
+            'cc': np.empty(N, dtype=np.float64)
+        }
+    
+    bufs = _fft_buffers[N]
+    
+    # Use pre-allocated buffers
+    X = np.fft.rfft(x, n=N, out=bufs['X'])
+    Y = np.fft.rfft(y, n=N, out=bufs['Y'])
+    R = bufs['R']
+    np.multiply(np.conj(X), Y, out=R)
     R /= (np.abs(R) + 1e-15)  # PHAT
 
-    cc = np.fft.irfft(R, n=N)
+    cc = np.fft.irfft(R, n=N, out=bufs['cc'])
 
     # keep only the valid linear part (length 2n-1), map to lags [-(n-1) .. +(n-1)]
     cc_lin = np.concatenate((cc[-(n-1):], cc[:n]))
@@ -91,6 +120,8 @@ _delay = {
 
 def reset_dsp_state():
     _delay.update({"mode":"auto","ema_ms":None,"frozen_ms":0.0,"manual_ms":0.0,"last_raw_ms":None})
+    # Clear caches when resetting state
+    clear_dsp_caches()
 
 def delay_freeze(enable: bool, applied_ms: float | None = None):
     if enable:
@@ -211,7 +242,7 @@ def _log_band_edges(freqs: np.ndarray, frac: int = 6) -> tuple[np.ndarray, np.nd
     I1[valid] = i1
     return I0, I1, valid
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=32)  # Reduced from 128
 def _hann_cached(M: int) -> np.ndarray:
     if M <= 1: 
         return np.ones(max(M,1))
@@ -272,7 +303,7 @@ def smooth_constQ_tf_and_coh(
     Hs[~valid] = Hs[valid][0] if np.any(valid) else 0.0
     return Hs, coh_s
 
-@lru_cache(maxsize=64)
+@lru_cache(maxsize=16)  # Reduced from 64
 def _taper_for_M(M: int) -> np.ndarray:
     fade = max(8, M // 64)
     t = np.ones(M, dtype=np.float64)

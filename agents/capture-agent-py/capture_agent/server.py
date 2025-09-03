@@ -3,6 +3,7 @@ import json
 import ssl
 import pathlib
 import time
+import gc
 from typing import Set
 from collections import deque
 import websockets
@@ -93,28 +94,44 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
     aq = asyncio.Queue(maxsize=32)  # async queue for inter-thread handoff
     num_channels = max(config.refChan, config.measChan)
 
-    # Buffer pool to reuse memory blocks
-    pool = deque([np.empty((1024, num_channels), dtype=np.float32) for _ in range(8)])
+    # Dynamic buffer pool with better management
+    initial_pool_size = 16  # Increased from 8
+    max_pool_size = 32  # Cap maximum pool growth
+    pool = deque([np.empty((1024, num_channels), dtype=np.float32) for _ in range(initial_pool_size)])
+    pool_miss_count = 0
+    last_gc_time = time.monotonic()
+    gc_interval = 30.0  # Run GC hints every 30 seconds
 
     def audio_callback(indata, frames, time_info, status):
         # called on driver thread; never block here
+        nonlocal pool_miss_count
         if status:
             print(f"Audio callback status: {status}")
+        
+        buf = None
         try:
             buf = pool.popleft()
             # PortAudio reuses its buffers; copy into our reusable buffer
             np.copyto(buf, indata, casting='no')
         except IndexError:
-            # pool exhausted (GC lag) – fall back to fresh allocation
-            buf = indata.copy() if indata.dtype == np.float32 else indata.astype(np.float32, copy=True)
+            # pool exhausted - track misses
+            pool_miss_count += 1
+            # Create new buffer only if under max size
+            if len(pool) < max_pool_size:
+                buf = indata.copy() if indata.dtype == np.float32 else indata.astype(np.float32, copy=True)
+            else:
+                # Pool at max, drop this frame to prevent unbounded growth
+                return
 
         try:
             loop.call_soon_threadsafe(aq.put_nowait, buf)
         except Exception:
-            # queue full -> drop; never block RT
-            # return buffer to pool immediately to avoid pool shrink
-            try: pool.append(buf)
-            except Exception: pass
+            # queue full -> drop; always return buffer to pool
+            if buf is not None:
+                try:
+                    pool.append(buf)
+                except Exception:
+                    pass
 
     stream = None
     try:
@@ -148,16 +165,20 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
             # wait for at least one block
             block = await aq.get()
 
-            # drain whatever else is queued to catch up
-            blocks = [block]
-            while True:
+            # Process blocks one at a time to avoid memory spikes
+            # Limit how many we drain at once
+            max_drain = 4
+            blocks_to_process = [block]
+            drain_count = 0
+            while drain_count < max_drain:
                 try:
-                    blocks.append(aq.get_nowait())
+                    blocks_to_process.append(aq.get_nowait())
+                    drain_count += 1
                 except asyncio.QueueEmpty:
                     break
 
             # roll each block into the analysis buffer without concatenating
-            for b in blocks:
+            for b in blocks_to_process:
                 Lb = b.shape[0]
                 if Lb >= buffer_len:
                     analysis_buffer[...] = b[-buffer_len:, :]
@@ -167,9 +188,23 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
                     analysis_buffer[-Lb:, :] = b
                     carry += Lb
                 
-                # Return buffer to pool
-                try: pool.append(b)
-                except Exception: pass
+                # Always return buffer to pool
+                if len(pool) < max_pool_size:
+                    try:
+                        pool.append(b)
+                    except Exception:
+                        pass
+                # If pool is full, let GC collect the buffer
+
+            # Periodic GC hint and pool health check
+            now = time.monotonic()
+            if now - last_gc_time > gc_interval:
+                gc.collect(0)  # Collect only generation 0 (fast)
+                last_gc_time = now
+                # Log pool health if we've had misses
+                if pool_miss_count > 0:
+                    print(f"Buffer pool health: {len(pool)} buffers, {pool_miss_count} misses since last check")
+                    pool_miss_count = 0
 
             # run analysis only when we've advanced by one hop
             if carry >= hop_size:

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.4.5] - 2025-09-03
+
+### Fixed
+
+- **Capture Agent Memory Leak**: Fixed critical memory leaks in the acoustIQ capture agent that caused memory usage to increase unbounded over time.
+  - Improved buffer pool management: Increased pool size, added dynamic growth limits, and ensured buffers are always returned to the pool
+  - Optimized DSP caches: Reduced LRU cache sizes, added cache clearing on state reset, and implemented reusable FFT buffers
+  - Limited queue drainage: Process audio blocks in smaller batches to prevent memory spikes
+  - Added periodic garbage collection hints to help Python reclaim memory
+  - The agent now maintains stable memory usage during long capture sessions
+- **Capture Agent Version**: Bumped capture agent version to `0.1.12`
+
 ## [1.5.4.4] - 2025-09-02
 
 ### Added

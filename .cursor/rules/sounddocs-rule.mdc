@@ -55,7 +55,8 @@ Implementation Checklist (for every edit)
   - Add a new release section to CHANGELOG.md with the decided version and today's date
   - Summarize changes as concise bullets under Added/Changed/Fixed/Improved/Removed
   - Update root package.json "version" to match the changelog section
-- Do not complete the task without these two updates
+  - Provide commit summary and description in chat (not in files) for the version bump and changelog update
+- Do not complete the task without these three updates
 
 Implementation Checklist (for capture agent changes)
 - Before making edits: read the current capture agent version in pyproject.toml
@@ -64,6 +65,7 @@ Implementation Checklist (for capture agent changes)
   - Update version in agents/capture-agent-py/pyproject.toml
   - Update all version references in .github/workflows/build-installers.yml
   - Add capture agent version info to CHANGELOG.md release section
+  - Provide commit summary and description in chat (not in files) for the capture agent version updates
 - Do not complete capture agent changes without these version updates
 
 Commit / PR Hygiene
