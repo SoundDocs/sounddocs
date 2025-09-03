@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.5.4.6] - 2025-09-03
 
+### Fixed
+
+- **Capture Agent Memory Release**: Fixed critical memory release issues in the acoustIQ capture agent that prevented proper garbage collection (memory would grow from 80MB to 1.4GB).
+  - Implemented LRU eviction for work arrays dictionary to limit growth to 32 arrays maximum
+  - Optimized data transfer by downsampling arrays before `.tolist()` conversion (reduces from 5000+ to ~500 objects per frame)
+  - Added periodic cleanup function to trim work arrays to 16 most recent entries
+  - Reused pre-allocated arrays for FFT operations in `find_delay_ms` instead of creating new ones
+  - More aggressive garbage collection: every 10 seconds with full collection every 1000 frames
+  - Added DSP cache cleanup every 60 seconds with forced GC after cleanup
+  - Dynamic buffer pool shrinking when underutilized to prevent holding unused memory
+  - Clear all DSP caches when capture stops to immediately release memory
+  - The agent now properly releases memory and maintains stable usage over time
+- **Capture Agent Version**: Bumped capture agent version to `0.1.13`
+
 ## [1.5.4.5] - 2025-09-03
 
 ### Fixed
