@@ -36,9 +36,6 @@ def clear_dsp_caches():
     _hann_cached.cache_clear()
     _taper_for_M.cache_clear()
 
-# Reusable FFT buffers for delay calculation
-_fft_buffers = {}
-
 def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: float | None = None) -> float:
     """
     Linear (zero-padded) GCC-PHAT delay. Positive => meas lags ref by +delay.
@@ -56,29 +53,13 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
     # FFT size >= 2n-1 for linear correlation
     N = 1 << int(np.ceil(np.log2(2*n - 1)))
 
-    # Reuse FFT buffers if possible
-    global _fft_buffers
-    if N not in _fft_buffers or len(_fft_buffers) > 4:
-        # Clear old buffers if we have too many
-        if len(_fft_buffers) > 4:
-            _fft_buffers.clear()
-        _fft_buffers[N] = {
-            'X': np.empty(N // 2 + 1, dtype=np.complex128),
-            'Y': np.empty(N // 2 + 1, dtype=np.complex128),
-            'R': np.empty(N // 2 + 1, dtype=np.complex128),
-            'cc': np.empty(N, dtype=np.float64)
-        }
-    
-    bufs = _fft_buffers[N]
-    
-    # Use pre-allocated buffers
-    X = np.fft.rfft(x, n=N, out=bufs['X'])
-    Y = np.fft.rfft(y, n=N, out=bufs['Y'])
-    R = bufs['R']
-    np.multiply(np.conj(X), Y, out=R)
+    # Compute FFTs (can't use out parameter with rfft)
+    X = np.fft.rfft(x, n=N)
+    Y = np.fft.rfft(y, n=N)
+    R = np.conj(X) * Y
     R /= (np.abs(R) + 1e-15)  # PHAT
 
-    cc = np.fft.irfft(R, n=N, out=bufs['cc'])
+    cc = np.fft.irfft(R, n=N)
 
     # keep only the valid linear part (length 2n-1), map to lags [-(n-1) .. +(n-1)]
     cc_lin = np.concatenate((cc[-(n-1):], cc[:n]))
