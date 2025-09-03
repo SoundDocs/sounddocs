@@ -40,43 +40,15 @@ def clear_dsp_caches():
     _work_arrays.clear()
     gc.collect()
 
-def periodic_cleanup():
-    """Periodic cleanup to prevent memory accumulation."""
-    global _work_arrays
-    # Remove rarely used work arrays (keep only recent 16)
-    if len(_work_arrays) > 16:
-        while len(_work_arrays) > 16:
-            _work_arrays.popitem(last=False)
-
-# Pre-allocated work arrays for DSP operations with LRU eviction
-_work_arrays = OrderedDict()
-_MAX_WORK_ARRAYS = 32  # Limit total work arrays
+# Pre-allocated work arrays for DSP operations
+_work_arrays = {}
 
 def get_work_array(key: str, shape: tuple, dtype=np.float64) -> np.ndarray:
-    """Get a reusable work array with LRU eviction to prevent unbounded growth."""
+    """Get a reusable work array, creating if needed."""
     global _work_arrays
-    
-    # Check if we have the array with correct shape
-    if key in _work_arrays:
-        arr = _work_arrays[key]
-        if arr.shape == shape and arr.dtype == dtype:
-            # Move to end (most recently used)
-            _work_arrays.move_to_end(key, last=True)
-            return arr
-        else:
-            # Wrong shape/dtype, need to recreate
-            del _work_arrays[key]
-    
-    # Create new array
-    arr = np.empty(shape, dtype=dtype)
-    _work_arrays[key] = arr
-    _work_arrays.move_to_end(key, last=True)
-    
-    # Evict least recently used if over limit
-    while len(_work_arrays) > _MAX_WORK_ARRAYS:
-        _work_arrays.popitem(last=False)
-    
-    return arr
+    if key not in _work_arrays or _work_arrays[key].shape != shape:
+        _work_arrays[key] = np.empty(shape, dtype=dtype)
+    return _work_arrays[key]
 
 def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: float | None = None) -> float:
     """
@@ -95,19 +67,13 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
     # FFT size >= 2n-1 for linear correlation
     N = 1 << int(np.ceil(np.log2(2*n - 1)))
 
-    # Reuse work arrays for FFT operations
-    X = get_work_array(f'fft_X_{N}', (N//2 + 1,), dtype=np.complex128)
-    Y = get_work_array(f'fft_Y_{N}', (N//2 + 1,), dtype=np.complex128)
-    R = get_work_array(f'fft_R_{N}', (N//2 + 1,), dtype=np.complex128)
-    cc_work = get_work_array(f'fft_cc_{N}', (N,), dtype=np.float64)
-    
-    # Compute FFTs into pre-allocated arrays
-    X[:] = np.fft.rfft(x, n=N)
-    Y[:] = np.fft.rfft(y, n=N)
-    R[:] = np.conj(X) * Y
+    # Compute FFTs (can't use out parameter with rfft)
+    X = np.fft.rfft(x, n=N)
+    Y = np.fft.rfft(y, n=N)
+    R = np.conj(X) * Y
     R /= (np.abs(R) + 1e-15)  # PHAT
 
-    cc = np.fft.irfft(R, n=N, out=cc_work)
+    cc = np.fft.irfft(R, n=N)
 
     # keep only the valid linear part (length 2n-1), map to lags [-(n-1) .. +(n-1)]
     cc_lin = np.concatenate((cc[-(n-1):], cc[:n]))
@@ -447,31 +413,20 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     ir = np.fft.irfft(H_ir, n=n_ir)
     ir_plot = np.roll(ir, n_ir // 2)
 
-    # Downsample arrays for display to reduce memory overhead
-    # For typical 2049 bins, send every 4th bin (~512 points) for smooth display
-    downsample = 4 if len(freqs) > 1024 else 2 if len(freqs) > 512 else 1
-    
-    # Use slicing to reduce data instead of tolist() on full arrays
     tf_data = TFData(
-        freqs=freqs[::downsample].tolist(),
-        mag_db=mag_db[::downsample].tolist(),
-        phase_deg=phase_deg[::downsample].tolist(),
-        coh=coh[::downsample].tolist(),
-        ir=ir_plot[::downsample*2].tolist(),  # IR can be downsampled more aggressively
+        freqs=freqs.tolist(),
+        mag_db=mag_db.tolist(),
+        phase_deg=phase_deg.tolist(),
+        coh=coh.tolist(),
+        ir=ir_plot.tolist(),
     )
 
     rms = float(np.sqrt(np.mean(y_eff**2))) or eps
     dbfs = 20.0 * np.log10(rms)
     spl_data = SPLData(Leq=dbfs, LZ=dbfs)
     
-    # More aggressive periodic cleanup
-    cleanup_counter = getattr(compute_metrics, '_cleanup_counter', 0)
-    compute_metrics._cleanup_counter = cleanup_counter + 1
-    
-    # Every 50 frames, do cleanup
-    if compute_metrics._cleanup_counter >= 50:
-        compute_metrics._cleanup_counter = 0
-        periodic_cleanup()
+    # Periodic garbage collection to prevent memory growth
+    if np.random.random() < 0.1:  # 10% chance
         gc.collect(0)
 
     return tf_data, spl_data, delay_ms
