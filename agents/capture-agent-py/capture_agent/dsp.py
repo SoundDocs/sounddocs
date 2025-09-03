@@ -99,6 +99,7 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
     X = get_work_array(f'fft_X_{N}', (N//2 + 1,), dtype=np.complex128)
     Y = get_work_array(f'fft_Y_{N}', (N//2 + 1,), dtype=np.complex128)
     R = get_work_array(f'fft_R_{N}', (N//2 + 1,), dtype=np.complex128)
+    cc_work = get_work_array(f'fft_cc_{N}', (N,), dtype=np.float64)
     
     # Compute FFTs into pre-allocated arrays
     X[:] = np.fft.rfft(x, n=N)
@@ -106,8 +107,7 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
     R[:] = np.conj(X) * Y
     R /= (np.abs(R) + 1e-15)  # PHAT
 
-    # Note: irfft doesn't support 'out' parameter, so it allocates its own array
-    cc = np.fft.irfft(R, n=N)
+    cc = np.fft.irfft(R, n=N, out=cc_work)
 
     # keep only the valid linear part (length 2n-1), map to lags [-(n-1) .. +(n-1)]
     cc_lin = np.concatenate((cc[-(n-1):], cc[:n]))
