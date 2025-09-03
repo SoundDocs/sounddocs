@@ -447,46 +447,17 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     ir = np.fft.irfft(H_ir, n=n_ir)
     ir_plot = np.roll(ir, n_ir // 2)
 
-    # Logarithmic downsampling to preserve low-frequency resolution
-    # while reducing memory overhead
-    indices = []
-    for i, f in enumerate(freqs):
-        if f <= 50:
-            # Below 50 Hz: keep every bin
-            indices.append(i)
-        elif f <= 200:
-            # 50-200 Hz: keep every 2nd bin
-            if i % 2 == 0:
-                indices.append(i)
-        elif f <= 1000:
-            # 200-1000 Hz: keep every 3rd bin
-            if i % 3 == 0:
-                indices.append(i)
-        elif f <= 5000:
-            # 1000-5000 Hz: keep every 6th bin
-            if i % 6 == 0:
-                indices.append(i)
-        else:
-            # Above 5000 Hz: keep every 12th bin
-            if i % 12 == 0:
-                indices.append(i)
+    # Downsample arrays for display to reduce memory overhead
+    # For typical 2049 bins, send every 4th bin (~512 points) for smooth display
+    downsample = 4 if len(freqs) > 1024 else 2 if len(freqs) > 512 else 1
     
-    # Ensure we always have the last frequency point
-    if len(indices) > 0 and indices[-1] != len(freqs) - 1:
-        indices.append(len(freqs) - 1)
-    
-    # Apply logarithmic downsampling
-    indices_arr = np.array(indices)
-    
-    # For IR, we can downsample more aggressively
-    ir_indices = indices_arr[::2] if len(indices_arr) > 100 else indices_arr
-    
+    # Use slicing to reduce data instead of tolist() on full arrays
     tf_data = TFData(
-        freqs=freqs[indices_arr].tolist(),
-        mag_db=mag_db[indices_arr].tolist(),
-        phase_deg=phase_deg[indices_arr].tolist(),
-        coh=coh[indices_arr].tolist(),
-        ir=ir_plot[ir_indices].tolist(),
+        freqs=freqs[::downsample].tolist(),
+        mag_db=mag_db[::downsample].tolist(),
+        phase_deg=phase_deg[::downsample].tolist(),
+        coh=coh[::downsample].tolist(),
+        ir=ir_plot[::downsample*2].tolist(),  # IR can be downsampled more aggressively
     )
 
     rms = float(np.sqrt(np.mean(y_eff**2))) or eps
