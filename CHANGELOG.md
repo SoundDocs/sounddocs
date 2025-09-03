@@ -27,14 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Capture Agent Memory Leak**: Fixed critical memory leaks in the acoustIQ capture agent that caused memory usage to increase unbounded over time (was using 389MB+).
-  - Improved buffer pool management: Increased pool size from 8 to 16, added dynamic growth limits (max 32), and ensured buffers are always returned to the pool
-  - Optimized DSP caches: Reduced LRU cache sizes (128→32 for hann, 64→16 for taper), added cache clearing on state reset
-  - Fixed FFT operations: Removed invalid `out` parameter usage with NumPy rfft that was causing crashes
-  - Implemented work array reuse: Pre-allocated arrays for impulse response calculations to avoid repeated allocations
-  - Optimized array type conversions: Use views instead of copies, only convert to float64 when necessary
-  - Limited queue drainage: Process max 4 audio blocks at once to prevent memory spikes
-  - Added periodic garbage collection: 10% chance per frame plus every 30 seconds to help Python reclaim memory
+- **Capture Agent Memory Leak**: Fixed critical memory leaks in the acoustIQ capture agent that caused memory usage to increase unbounded over time.
+  - Improved buffer pool management: Increased pool size, added dynamic growth limits, and ensured buffers are always returned to the pool
+  - Optimized DSP caches: Reduced LRU cache sizes, added cache clearing on state reset, and implemented reusable FFT buffers
+  - Limited queue drainage: Process audio blocks in smaller batches to prevent memory spikes
+  - Added periodic garbage collection hints to help Python reclaim memory
   - The agent now maintains stable memory usage during long capture sessions
 - **Capture Agent Version**: Bumped capture agent version to `0.1.12`
 
