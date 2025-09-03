@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.4.7] - 2025-09-03
+
+### Fixed
+
+- **Capture Agent Coherence Dropout**: Fixed critical issue where coherence graph would drop to zero near 20Hz due to aggressive uniform downsampling introduced in v1.5.4.6
+  - Replaced uniform downsampling (every 4th bin) with logarithmic downsampling that preserves frequency resolution where it matters
+  - Low frequencies (below 50Hz): Keep every bin for critical low-frequency accuracy
+  - Mid frequencies (50-200Hz): Keep every 2nd bin
+  - Upper mid frequencies (200-1000Hz): Keep every 3rd bin
+  - High frequencies (1000-5000Hz): Keep every 6th bin
+  - Very high frequencies (above 5000Hz): Keep every 12th bin
+  - This approach maintains sufficient bin density for the 1/6-octave smoothing algorithm to work correctly across all frequencies
+  - Memory reduction is still achieved (~500-600 points vs 2049) while preserving accurate coherence and smoothing
+- **Capture Agent Version**: Bumped capture agent version to `0.1.14`
+
 ## [1.5.4.6] - 2025-09-03
 
 ### Fixed
