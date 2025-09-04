@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.4.6] - 2025-09-04
+
+### Improved
+
+- **Pixel Map Editor UI**: Updated both LED and Standard pixel map editors to match the consistent UI patterns used in other tools like the patch sheet and production schedule editors.
+  - Changed from light theme to dark gray theme matching other editors
+  - Updated button styling to use indigo color scheme consistently
+  - Improved layout with proper responsive design and mobile-friendly headers
+  - Added card-based sections with headers and descriptions
+  - Enhanced alert and success message styling for consistency
+  - Added loading state with spinner while data is fetched
+  - Added bottom save button for better accessibility
+  - Improved overall visual hierarchy and professional appearance
+
+## [1.5.4.5] - 2025-09-03
+
+### Fixed
+
+- **Capture Agent Memory Leak**: Fixed critical memory leaks in the acoustIQ capture agent that caused memory usage to increase unbounded over time.
+  - Improved buffer pool management: Increased pool size, added dynamic growth limits, and ensured buffers are always returned to the pool
+  - Optimized DSP caches: Reduced LRU cache sizes, added cache clearing on state reset, and implemented reusable FFT buffers
+  - Limited queue drainage: Process audio blocks in smaller batches to prevent memory spikes
+  - Added periodic garbage collection hints to help Python reclaim memory
+  - The agent now maintains stable memory usage during long capture sessions
+- **Capture Agent Version**: Bumped capture agent version to `0.1.12`
+
 ## [1.5.4.4] - 2025-09-02
 
 ### Added

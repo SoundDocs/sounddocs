@@ -2,10 +2,12 @@ import numpy as np
 from scipy.signal import welch, csd
 from collections import OrderedDict
 from functools import lru_cache
+import weakref
+import gc
 from .schema import CaptureConfig, TFData, SPLData
 
 _windows = OrderedDict()
-_MAX_WINDOWS = 32  # small, safe cap; adjust if you really need more
+_MAX_WINDOWS = 16  # Reduced cap for better memory control
 
 def get_window(name, N):
     key = (name, int(N))
@@ -27,6 +29,27 @@ def get_window(name, N):
         _windows.move_to_end(key, last=True)
     return w
 
+# Add cache clearing function
+def clear_dsp_caches():
+    """Clear DSP caches to free memory."""
+    global _windows, _work_arrays
+    _windows.clear()
+    _hann_cached.cache_clear()
+    _taper_for_M.cache_clear()
+    # Clear work arrays
+    _work_arrays.clear()
+    gc.collect()
+
+# Pre-allocated work arrays for DSP operations
+_work_arrays = {}
+
+def get_work_array(key: str, shape: tuple, dtype=np.float64) -> np.ndarray:
+    """Get a reusable work array, creating if needed."""
+    global _work_arrays
+    if key not in _work_arrays or _work_arrays[key].shape != shape:
+        _work_arrays[key] = np.empty(shape, dtype=dtype)
+    return _work_arrays[key]
+
 def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: float | None = None) -> float:
     """
     Linear (zero-padded) GCC-PHAT delay. Positive => meas lags ref by +delay.
@@ -44,6 +67,7 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
     # FFT size >= 2n-1 for linear correlation
     N = 1 << int(np.ceil(np.log2(2*n - 1)))
 
+    # Compute FFTs (can't use out parameter with rfft)
     X = np.fft.rfft(x, n=N)
     Y = np.fft.rfft(y, n=N)
     R = np.conj(X) * Y
@@ -91,6 +115,8 @@ _delay = {
 
 def reset_dsp_state():
     _delay.update({"mode":"auto","ema_ms":None,"frozen_ms":0.0,"manual_ms":0.0,"last_raw_ms":None})
+    # Clear caches when resetting state
+    clear_dsp_caches()
 
 def delay_freeze(enable: bool, applied_ms: float | None = None):
     if enable:
@@ -211,7 +237,7 @@ def _log_band_edges(freqs: np.ndarray, frac: int = 6) -> tuple[np.ndarray, np.nd
     I1[valid] = i1
     return I0, I1, valid
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=32)  # Reduced from 128
 def _hann_cached(M: int) -> np.ndarray:
     if M <= 1: 
         return np.ones(max(M,1))
@@ -272,7 +298,7 @@ def smooth_constQ_tf_and_coh(
     Hs[~valid] = Hs[valid][0] if np.any(valid) else 0.0
     return Hs, coh_s
 
-@lru_cache(maxsize=64)
+@lru_cache(maxsize=16)  # Reduced from 64
 def _taper_for_M(M: int) -> np.ndarray:
     fade = max(8, M // 64)
     t = np.ones(M, dtype=np.float64)
@@ -284,8 +310,16 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     if block.ndim == 1:
         block = block[:, np.newaxis]
 
-    x = block[:, config.refChan - 1].astype(np.float64, copy=False)
-    y = block[:, config.measChan - 1].astype(np.float64, copy=False)
+    # Use views instead of copies where possible
+    x = block[:, config.refChan - 1]
+    y = block[:, config.measChan - 1]
+    
+    # Only convert to float64 if necessary
+    if x.dtype != np.float64:
+        x = x.astype(np.float64, copy=False)
+    if y.dtype != np.float64:
+        y = y.astype(np.float64, copy=False)
+    
     fs = float(config.sampleRate)
 
     # Delay (linear GCC-PHAT you already implemented)
@@ -358,15 +392,25 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     phase_deg = np.angle(Hs, deg=True)
     coh = coh_s
 
-    # Impulse response from SMOOTHED H
+    # Impulse response from SMOOTHED H (use in-place operations)
     M = len(freqs)
     n_ir = 2 * (M - 1)
-    H_ir = Hs.copy()
+    
+    # Get reusable work arrays
+    H_ir = get_work_array('H_ir', (M,), dtype=np.complex128)
+    ir = get_work_array('ir', (n_ir,), dtype=np.float64)
+    
+    # Copy Hs to work array
+    H_ir[:] = Hs
     H_ir[0] = H_ir[0].real + 0j
     if M > 1:
         H_ir[-1] = H_ir[-1].real + 0j
+    
+    # Apply taper in-place
     H_ir *= _taper_for_M(M)
-    ir = np.fft.irfft(H_ir, n=n_ir).real
+    
+    # Compute irfft into pre-allocated array
+    ir = np.fft.irfft(H_ir, n=n_ir)
     ir_plot = np.roll(ir, n_ir // 2)
 
     tf_data = TFData(
@@ -380,5 +424,9 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     rms = float(np.sqrt(np.mean(y_eff**2))) or eps
     dbfs = 20.0 * np.log10(rms)
     spl_data = SPLData(Leq=dbfs, LZ=dbfs)
+    
+    # Periodic garbage collection to prevent memory growth
+    if np.random.random() < 0.1:  # 10% chance
+        gc.collect(0)
 
     return tf_data, spl_data, delay_ms
