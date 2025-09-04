@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.4.6.1] - 2025-09-04
+
+### Fixed
+
+- **Analyzer Page UI**: Fixed a styling issue on the analyzer hub page where the disclaimer overlay would not dim the header and buttons, making them unintentionally interactive. The page content is now properly dimmed when the disclaimer is active.
+
 ## [1.5.4.6] - 2025-09-04
 
 ### Improved
