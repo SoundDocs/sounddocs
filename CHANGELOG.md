@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.4.6] - 2025-09-04
+
+### Improved
+
+- **Pixel Map Editor UI**: Updated both LED and Standard pixel map editors to match the consistent UI patterns used in other tools like the patch sheet and production schedule editors.
+  - Changed from light theme to dark gray theme matching other editors
+  - Updated button styling to use indigo color scheme consistently
+  - Improved layout with proper responsive design and mobile-friendly headers
+  - Added card-based sections with headers and descriptions
+  - Enhanced alert and success message styling for consistency
+  - Added loading state with spinner while data is fetched
+  - Added bottom save button for better accessibility
+  - Improved overall visual hierarchy and professional appearance
+
 ## [1.5.4.5] - 2025-09-03
 
 ### Fixed

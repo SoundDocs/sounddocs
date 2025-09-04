@@ -194,36 +194,38 @@ const StandardPixelMapEditor = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader className="animate-spin h-12 w-12 text-primary" />
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <Loader className="h-12 w-12 text-indigo-500 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Header />
-      <main className="flex-grow container mx-auto px-4 py-8 mt-16">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-gray-900 flex flex-col">
+      <Header dashboard={true} />
+      <main className="flex-grow container mx-auto px-4 py-6 md:py-12 mt-16 md:mt-12">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
+          <div className="flex items-center">
             <button
               onClick={() => navigate(backPath)}
-              className="flex items-center text-textSecondary hover:text-text transition-colors"
+              className="mr-2 md:mr-4 flex items-center text-gray-400 hover:text-white transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-text">Standard Pixel Map Editor</h1>
-              <p className="text-sm text-textSecondary">
+              <h1 className="text-xl md:text-2xl font-bold text-white">
+                Standard Pixel Map Editor
+              </h1>
+              <p className="text-xs sm:text-sm text-gray-400">
                 Create test patterns for projectors and LCDs
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2 sm:ml-auto flex-shrink-0">
             <button
               onClick={handleDownload}
               disabled={downloading}
-              className="inline-flex items-center bg-transparent border border-secondary text-secondary hover:bg-secondary/10 px-4 py-2 rounded-md font-medium transition-colors disabled:opacity-70"
+              className="inline-flex items-center bg-transparent border border-indigo-500 text-indigo-400 hover:bg-indigo-500/10 px-4 py-2 rounded-md font-medium transition-colors disabled:opacity-70"
             >
               {downloading ? (
                 <Loader className="animate-spin h-4 w-4 mr-2" />
@@ -235,7 +237,7 @@ const StandardPixelMapEditor = () => {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="inline-flex items-center bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-md font-medium transition-colors disabled:opacity-70"
+              className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {saving ? (
                 <Loader className="animate-spin h-4 w-4 mr-2" />
@@ -248,49 +250,71 @@ const StandardPixelMapEditor = () => {
         </div>
 
         {saveError && (
-          <div
-            className="bg-error/10 border border-error text-error px-4 py-3 rounded-lg relative mb-4 flex items-center"
-            role="alert"
-          >
-            <AlertCircle className="h-5 w-5 mr-2" />
-            <span className="block sm:inline">{saveError}</span>
+          <div className="bg-red-400/10 border border-red-400 rounded-lg p-4 mb-4 flex items-start">
+            <AlertCircle className="h-5 w-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
+            <p className="text-red-400 text-sm">{saveError}</p>
           </div>
         )}
         {saveSuccess && (
-          <div
-            className="bg-success/10 border border-success text-success px-4 py-3 rounded-lg relative mb-4 flex items-center"
-            role="alert"
-          >
-            <Save className="h-5 w-5 mr-2" />
-            <span className="block sm:inline">Pixel map saved successfully!</span>
+          <div className="bg-green-400/10 border border-green-400 rounded-lg p-4 mb-4 flex items-start">
+            <Save className="h-5 w-5 text-green-400 mr-3 mt-0.5 flex-shrink-0" />
+            <p className="text-green-400 text-sm">Pixel map saved successfully!</p>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1">
-            <PixelMapControls
-              mapData={mapData}
-              setMapData={setMapData}
-              showColorSwatches={showColorSwatches}
-              setShowColorSwatches={setShowColorSwatches}
-              showGrid={showGrid}
-              setShowGrid={setShowGrid}
-              gridColor={gridColor}
-              setGridColor={setGridColor}
-            />
+        <div className="bg-gray-800 rounded-xl shadow-lg overflow-hidden mb-8">
+          <div className="p-4 md:p-6 border-b border-gray-700">
+            <h2 className="text-xl font-medium text-white">Pixel Map Configuration</h2>
+            <p className="text-gray-400 text-sm">
+              Configure your display settings and test patterns
+            </p>
           </div>
-          <div className="lg:col-span-2">
-            <div className="bg-surface p-4 rounded-xl sticky top-24">
-              <div>
-                <StandardPixelMapPreview
-                  {...mapData}
+          <div className="p-4 md:p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-1">
+                <PixelMapControls
+                  mapData={mapData}
+                  setMapData={setMapData}
                   showColorSwatches={showColorSwatches}
+                  setShowColorSwatches={setShowColorSwatches}
                   showGrid={showGrid}
+                  setShowGrid={setShowGrid}
                   gridColor={gridColor}
+                  setGridColor={setGridColor}
                 />
+              </div>
+              <div className="lg:col-span-2">
+                <div className="bg-gray-700/30 p-4 rounded-lg">
+                  <StandardPixelMapPreview
+                    {...mapData}
+                    showColorSwatches={showColorSwatches}
+                    showGrid={showGrid}
+                    gridColor={gridColor}
+                  />
+                </div>
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="flex justify-center py-8">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg text-base"
+          >
+            {saving ? (
+              <>
+                <Loader className="h-5 w-5 mr-2 animate-spin" />
+                Saving Pixel Map...
+              </>
+            ) : (
+              <>
+                <Save className="h-5 w-5 mr-2" />
+                Save Pixel Map
+              </>
+            )}
+          </button>
         </div>
       </main>
       <Footer />
