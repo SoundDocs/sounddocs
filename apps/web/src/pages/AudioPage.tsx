@@ -19,11 +19,8 @@ import {
   X,
   Briefcase,
   Drama,
-  Activity,
+  Radio,
 } from "lucide-react";
-import { DevicePicker, type AudioDevice } from "@sounddocs/analyzer-lite";
-import { useAnalyzerStore } from "../stores/analyzerStore";
-import AudioAnalyzerSection from "../components/analyzer/AudioAnalyzerSection";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -36,7 +33,10 @@ import PrintCorporateMicPlotExport from "../components/PrintCorporateMicPlotExpo
 import TheaterMicPlotExport from "../components/theater-mic-plot/TheaterMicPlotExport";
 import PrintTheaterMicPlotExport from "../components/theater-mic-plot/PrintTheaterMicPlotExport";
 import ExportModal from "../components/ExportModal";
+import CommsPlanExport from "../components/CommsPlanExport";
+import PrintCommsPlanExport from "../components/PrintCommsPlanExport";
 import { ActorEntry } from "../components/theater-mic-plot/ActorEntryCard"; // For TheaterMicPlotFullData
+import { CommsPlan } from "../lib/commsTypes";
 
 interface BaseDocument {
   id: string;
@@ -73,10 +73,10 @@ interface TheaterMicPlotFullData extends MicPlotDocument {
 const AudioPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
   const [patchLists, setPatchLists] = useState<PatchList[]>([]);
   const [stagePlots, setStagePlots] = useState<StagePlot[]>([]);
   const [micPlots, setMicPlots] = useState<MicPlotDocument[]>([]);
+  const [commsPlans, setCommsPlans] = useState<any[]>([]);
 
   const [exportingItemId, setExportingItemId] = useState<string | null>(null); // For patch sheets and stage plots
 
@@ -98,10 +98,14 @@ const AudioPage = () => {
   >(null);
   const [exportingMicPlotItemId, setExportingMicPlotItemId] = useState<string | null>(null); // For mic plots
 
+  const [showCommsPlanExportModal, setShowCommsPlanExportModal] = useState(false);
+  const [exportCommsPlanId, setExportCommsPlanId] = useState<string | null>(null);
+  const [currentExportCommsPlan, setCurrentExportCommsPlan] = useState<CommsPlan | null>(null);
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<{
     id: string;
-    type: "patch" | "stage" | "mic";
+    type: "patch" | "stage" | "mic" | "comms";
     name: string;
     plot_type?: "corporate" | "theater";
   } | null>(null);
@@ -117,6 +121,8 @@ const AudioPage = () => {
   const printCorporateMicPlotExportRef = useRef<HTMLDivElement>(null);
   const theaterMicPlotExportRef = useRef<HTMLDivElement>(null);
   const printTheaterMicPlotExportRef = useRef<HTMLDivElement>(null);
+  const commsPlanExportRef = useRef<HTMLDivElement>(null);
+  const printCommsPlanExportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -125,11 +131,11 @@ const AudioPage = () => {
         if (error) throw error;
 
         if (data.user) {
-          setUser(data.user);
           await Promise.all([
             fetchPatchLists(data.user.id),
             fetchStagePlots(data.user.id),
             fetchMicPlots(data.user.id),
+            fetchCommsPlans(data.user.id),
           ]);
         } else {
           navigate("/login");
@@ -165,11 +171,11 @@ const AudioPage = () => {
     try {
       const { data, error } = await supabase
         .from("stage_plots")
-        .select("id, name, created_at, last_edited")
+        .select("id, name, created_at, last_edited, stage_size, elements")
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      if (data) setStagePlots(data);
+      if (data) setStagePlots(data as StagePlot[]);
     } catch (error) {
       console.error("Error fetching stage plots:", error);
       setSupabaseError("Failed to fetch stage plots.");
@@ -214,6 +220,21 @@ const AudioPage = () => {
     }
   };
 
+  const fetchCommsPlans = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("comms_plans")
+        .select("id, name, created_at, last_edited")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      if (data) setCommsPlans(data);
+    } catch (error) {
+      console.error("Error fetching comms plans:", error);
+      setSupabaseError("Failed to fetch comms plans.");
+    }
+  };
+
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -242,7 +263,7 @@ const AudioPage = () => {
 
   const handleDeleteRequest = (
     id: string,
-    type: "patch" | "stage" | "mic",
+    type: "patch" | "stage" | "mic" | "comms",
     name: string,
     plot_type?: "corporate" | "theater",
   ) => {
@@ -259,7 +280,7 @@ const AudioPage = () => {
       else if (documentToDelete.type === "mic") {
         if (documentToDelete.plot_type === "corporate") tableName = "corporate_mic_plots";
         else if (documentToDelete.plot_type === "theater") tableName = "theater_mic_plots";
-      }
+      } else if (documentToDelete.type === "comms") tableName = "comms_plans";
 
       if (tableName) {
         const { error } = await supabase.from(tableName).delete().eq("id", documentToDelete.id);
@@ -271,6 +292,8 @@ const AudioPage = () => {
           setStagePlots(stagePlots.filter((item) => item.id !== documentToDelete.id));
         } else if (documentToDelete.type === "mic") {
           setMicPlots(micPlots.filter((item) => item.id !== documentToDelete.id));
+        } else if (documentToDelete.type === "comms") {
+          setCommsPlans(commsPlans.filter((item) => item.id !== documentToDelete.id));
         }
       }
     } catch (error) {
@@ -330,6 +353,13 @@ const AudioPage = () => {
       return;
     }
 
+    // Additional check to ensure the component has rendered content
+    if (!targetRef.current.children || targetRef.current.children.length === 0) {
+      console.error("Export component has no content.");
+      setSupabaseError("Export component has no content. Please try again.");
+      return;
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     if (document.fonts && typeof document.fonts.ready === "function") {
@@ -348,7 +378,6 @@ const AudioPage = () => {
         backgroundColor,
         useCORS: true,
         allowTaint: true,
-        letterRendering: true,
         onclone: (clonedDoc) => {
           const styleGlobal = clonedDoc.createElement("style");
           styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
@@ -442,12 +471,12 @@ const AudioPage = () => {
         };
 
         const pageHeader = () => {
-          doc.setFont("helvetica", "bold");
+          doc.setFont("helvetica", "bold" as any);
           doc.setFontSize(16);
           doc.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
           doc.text("SoundDocs", 14, 15);
 
-          doc.setFont("helvetica", "normal");
+          doc.setFont("helvetica", "normal" as any);
           doc.setFontSize(12);
           doc.text(fullPatchSheet.name, doc.internal.pageSize.getWidth() - 14, 15, {
             align: "right",
@@ -467,9 +496,9 @@ const AudioPage = () => {
           doc.setFontSize(8);
           doc.setTextColor(128, 128, 128);
 
-          doc.setFont("helvetica", "bold");
+          doc.setFont("helvetica", "bold" as any);
           doc.text("SoundDocs", 14, pageHeight - 9);
-          doc.setFont("helvetica", "normal");
+          doc.setFont("helvetica", "normal" as any);
           doc.text("| Professional Audio Documentation", 32, pageHeight - 9);
 
           if (pageCount > 2) {
@@ -492,14 +521,23 @@ const AudioPage = () => {
                 fontStyle: "bold",
                 fontSize: 12,
                 fillColor: [255, 255, 255],
-                textColor: brandColor,
+                textColor: brandColor as [number, number, number],
                 cellPadding: { top: 4, bottom: 2 },
               },
             },
           ],
         ];
         const inputHead = [
-          ["Ch", "Name", "Type", "Device", "Connection", "Details", "48V", "Notes"],
+          [
+            { content: "Ch" },
+            { content: "Name" },
+            { content: "Type" },
+            { content: "Device" },
+            { content: "Connection" },
+            { content: "Details" },
+            { content: "48V" },
+            { content: "Notes" },
+          ],
         ];
         const inputBody = (fullPatchSheet.inputs || []).map((input: any) => [
           input.channelNumber,
@@ -513,7 +551,7 @@ const AudioPage = () => {
         ]);
 
         autoTable(doc, {
-          head: inputTitle.concat(inputHead),
+          head: inputTitle.concat(inputHead as any) as any,
           body: inputBody,
           startY: 25,
           didDrawPage: (data) => {
@@ -523,7 +561,7 @@ const AudioPage = () => {
           margin: { top: 22, bottom: 20 },
           styles: { cellPadding: 1.5, fontSize: 7, overflow: "linebreak" },
           headStyles: {
-            fillColor: brandColor,
+            fillColor: brandColor as [number, number, number],
             textColor: 255,
             fontStyle: "bold",
             halign: "center",
@@ -541,13 +579,22 @@ const AudioPage = () => {
                 fontStyle: "bold",
                 fontSize: 12,
                 fillColor: [255, 255, 255],
-                textColor: brandColor,
+                textColor: brandColor as [number, number, number],
                 cellPadding: { top: 4, bottom: 2 },
               },
             },
           ],
         ];
-        const outputHead = [["Ch", "Name", "Source", "Destination", "Details", "Notes"]];
+        const outputHead = [
+          [
+            { content: "Ch" },
+            { content: "Name" },
+            { content: "Source" },
+            { content: "Destination" },
+            { content: "Details" },
+            { content: "Notes" },
+          ],
+        ];
         const outputBody = (fullPatchSheet.outputs || []).map((output: any) => [
           output.channelNumber,
           output.name || "",
@@ -558,7 +605,7 @@ const AudioPage = () => {
         ]);
 
         autoTable(doc, {
-          head: outputTitle.concat(outputHead),
+          head: outputTitle.concat(outputHead as any) as any,
           body: outputBody,
           didDrawPage: (data) => {
             pageHeader();
@@ -567,7 +614,7 @@ const AudioPage = () => {
           margin: { top: 22, bottom: 20 },
           styles: { cellPadding: 1.5, fontSize: 7, overflow: "linebreak" },
           headStyles: {
-            fillColor: brandColor,
+            fillColor: brandColor as [number, number, number],
             textColor: 255,
             fontStyle: "bold",
             halign: "center",
@@ -684,11 +731,11 @@ const AudioPage = () => {
             }
           };
           const pageHeader = () => {
-            doc.setFont("helvetica", "bold");
+            doc.setFont("helvetica", "bold" as any);
             doc.setFontSize(16);
             doc.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
             doc.text("SoundDocs", 14, 15);
-            doc.setFont("helvetica", "normal");
+            doc.setFont("helvetica", "normal" as any);
             doc.setFontSize(12);
             doc.text(fullMicPlot.name, doc.internal.pageSize.getWidth() - 14, 15, {
               align: "right",
@@ -704,9 +751,9 @@ const AudioPage = () => {
             doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
             doc.setFontSize(8);
             doc.setTextColor(128, 128, 128);
-            doc.setFont("helvetica", "bold");
+            doc.setFont("helvetica", "bold" as any);
             doc.text("SoundDocs", 14, pageHeight - 9);
-            doc.setFont("helvetica", "normal");
+            doc.setFont("helvetica", "normal" as any);
             doc.text("| Professional Audio Documentation", 32, pageHeight - 9);
             if (pageCount > 2) {
               doc.text(
@@ -721,17 +768,17 @@ const AudioPage = () => {
           };
           const head = [
             [
-              "Photo",
-              "Presenter",
-              "Session",
-              "Mic Type",
-              "Channel",
-              "TX Pack Loc.",
-              "Backup",
-              "Sound Check",
-              "Pres. Type",
-              "Remote",
-              "Notes",
+              { content: "Photo" },
+              { content: "Presenter" },
+              { content: "Session" },
+              { content: "Mic Type" },
+              { content: "Channel" },
+              { content: "TX Pack Loc." },
+              { content: "Backup" },
+              { content: "Sound Check" },
+              { content: "Pres. Type" },
+              { content: "Remote" },
+              { content: "Notes" },
             ],
           ];
           const body = (fullMicPlot.presenters || []).map((p: any) => [
@@ -757,14 +804,14 @@ const AudioPage = () => {
                   fontStyle: "bold",
                   fontSize: 12,
                   fillColor: [255, 255, 255],
-                  textColor: brandColor,
+                  textColor: brandColor as [number, number, number],
                   cellPadding: { top: 4, bottom: 2 },
                 },
               },
             ],
           ];
           autoTable(doc, {
-            head: presenterTitle.concat(head),
+            head: presenterTitle.concat(head as any) as any,
             body: body,
             startY: 25,
             didDrawPage: (data) => {
@@ -780,7 +827,7 @@ const AudioPage = () => {
               minCellHeight: 18,
             },
             headStyles: {
-              fillColor: brandColor,
+              fillColor: brandColor as [number, number, number],
               textColor: 255,
               fontStyle: "bold",
               halign: "center",
@@ -850,11 +897,11 @@ const AudioPage = () => {
           const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
           const brandColor = [45, 55, 72];
           const pageHeader = () => {
-            doc.setFont("helvetica", "bold");
+            doc.setFont("helvetica", "bold" as any);
             doc.setFontSize(16);
             doc.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
             doc.text("SoundDocs", 14, 15);
-            doc.setFont("helvetica", "normal");
+            doc.setFont("helvetica", "normal" as any);
             doc.setFontSize(12);
             doc.text(fullMicPlot.name, doc.internal.pageSize.getWidth() - 14, 15, {
               align: "right",
@@ -870,9 +917,9 @@ const AudioPage = () => {
             doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
             doc.setFontSize(8);
             doc.setTextColor(128, 128, 128);
-            doc.setFont("helvetica", "bold");
+            doc.setFont("helvetica", "bold" as any);
             doc.text("SoundDocs", 14, pageHeight - 9);
-            doc.setFont("helvetica", "normal");
+            doc.setFont("helvetica", "normal" as any);
             doc.text("| Professional Audio Documentation", 32, pageHeight - 9);
             if (pageCount > 2) {
               doc.text(
@@ -887,15 +934,15 @@ const AudioPage = () => {
           };
           const head = [
             [
-              "Photo",
-              "Actor",
-              "Character(s)",
-              "Channel",
-              "Mic Location",
-              "TX Location",
-              "Backup Mic",
-              "Scenes",
-              "Notes",
+              { content: "Photo" },
+              { content: "Actor" },
+              { content: "Character(s)" },
+              { content: "Channel" },
+              { content: "Mic Location" },
+              { content: "TX Location" },
+              { content: "Backup Mic" },
+              { content: "Scenes" },
+              { content: "Notes" },
             ],
           ];
           const body = (fullMicPlot.actors || []).map((actor: ActorEntry) => {
@@ -922,14 +969,14 @@ const AudioPage = () => {
                   fontStyle: "bold",
                   fontSize: 12,
                   fillColor: [255, 255, 255],
-                  textColor: brandColor,
+                  textColor: brandColor as [number, number, number],
                   cellPadding: { top: 4, bottom: 2 },
                 },
               },
             ],
           ];
           autoTable(doc, {
-            head: actorsTitle.concat(head),
+            head: actorsTitle.concat(head as any) as any,
             body: body,
             startY: 25,
             didDrawPage: (data) => {
@@ -945,7 +992,7 @@ const AudioPage = () => {
               minCellHeight: 18,
             },
             headStyles: {
-              fillColor: brandColor,
+              fillColor: brandColor as [number, number, number],
               textColor: 255,
               fontStyle: "bold",
               halign: "center",
@@ -995,6 +1042,276 @@ const AudioPage = () => {
       setExportingMicPlotItemId(null);
       setExportMicPlotId(null);
       setExportMicPlotActualType(null);
+    }
+  };
+
+  const prepareAndExecuteCommsPlanExport = async (
+    commsPlanId: string,
+    exportFormat: "color" | "print",
+  ) => {
+    setExportingItemId(commsPlanId);
+    setShowCommsPlanExportModal(false);
+
+    try {
+      // Fetch complete comms plan data for export
+      const { data: planData, error: planError } = await supabase
+        .from("comms_plans")
+        .select("*")
+        .eq("id", commsPlanId)
+        .single();
+
+      if (planError) throw planError;
+
+      // Fetch related transceivers
+      const { data: transceiverData, error: transceiverError } = await supabase
+        .from("comms_transceivers")
+        .select("*")
+        .eq("plan_id", commsPlanId);
+
+      if (transceiverError) throw transceiverError;
+
+      // Fetch related beltpacks
+      const { data: beltpackData, error: beltpackError } = await supabase
+        .from("comms_beltpacks")
+        .select("*")
+        .eq("plan_id", commsPlanId);
+
+      if (beltpackError) throw beltpackError;
+
+      // Combine the data
+      const data = {
+        ...planData,
+        transceivers: transceiverData || [],
+        beltpacks: beltpackData || [],
+      };
+
+      if (!planData) throw new Error("Comms plan not found");
+
+      // Transform database data to match expected CommsPlan format
+      const commsPlanData: CommsPlan = {
+        id: data.id,
+        name: data.name,
+        userId: data.user_id,
+        venueGeometry: {
+          width: data.venue_geometry?.width || 100,
+          height: data.venue_geometry?.height || 80,
+          shape: "rectangle" as const,
+        },
+        zones: data.zones || [],
+        transceivers: (data.transceivers || []).map((tx: any) => ({
+          id: tx.id,
+          zoneId: tx.zone_id || "zone-1",
+          systemType: tx.system_type,
+          model: tx.model,
+          x: tx.x,
+          y: tx.y,
+          z: tx.z || 8,
+          label: tx.label,
+          band: tx.band,
+          channels: tx.channel_set,
+          dfsEnabled: tx.dfs_enabled,
+          poeClass: tx.poe_class,
+          coverageRadius: tx.coverage_radius,
+          currentBeltpacks: tx.current_beltpacks || 0,
+          maxBeltpacks: tx.max_beltpacks || 5,
+          overrideFlags: tx.override_flags,
+        })),
+        beltpacks: (data.beltpacks || []).map((bp: any) => ({
+          id: bp.id,
+          label: bp.label,
+          x: bp.x,
+          y: bp.y,
+          transceiverRef: bp.transceiverRef || bp.transceiver_ref,
+          signalStrength: bp.signalStrength || bp.signal_strength || 100,
+          batteryLevel: bp.batteryLevel || bp.battery_level || 100,
+          online: bp.online !== false,
+          channelAssignments: bp.channelAssignments || bp.channel_assignments || [],
+        })),
+        switches: data.switches || [],
+        interopConfigs: data.interop_configs || [],
+        roles: data.roles || [],
+        channels: data.channels || [],
+        createdAt: new Date(data.created_at),
+        lastEdited: data.last_edited ? new Date(data.last_edited) : undefined,
+      };
+
+      if (exportFormat === "color") {
+        setCurrentExportCommsPlan(commsPlanData);
+        // Wait for component to render
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        await exportAsPdf(
+          commsPlanExportRef,
+          commsPlanData.name,
+          "comms-plan-color",
+          "#111827",
+          "Inter",
+        );
+      } else if (exportFormat === "print") {
+        // Print-friendly export using jsPDF directly
+        const doc = new jsPDF("p", "pt", "letter");
+
+        const addPageHeader = (doc: jsPDF, title: string) => {
+          doc.setFontSize(24);
+          doc.setFont("helvetica", "bold");
+          doc.text("SoundDocs", 40, 50);
+          doc.setFontSize(16);
+          doc.setFont("helvetica", "normal");
+          doc.text(title, 40, 75);
+          doc.setDrawColor(221, 221, 221);
+          doc.line(40, 85, doc.internal.pageSize.width - 40, 85);
+        };
+
+        const addPageFooter = (doc: jsPDF) => {
+          const pageCount = doc.internal.pages.length;
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const pageHeight = doc.internal.pageSize.getHeight();
+
+          for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setDrawColor(221, 221, 221);
+            doc.line(40, pageHeight - 35, pageWidth - 40, pageHeight - 35);
+            doc.setFontSize(8);
+            doc.setTextColor(128, 128, 128);
+            doc.setFont("helvetica", "bold");
+            doc.text("SoundDocs", 40, pageHeight - 20);
+            doc.setFont("helvetica", "normal");
+            doc.text("| Professional Audio Documentation", 95, pageHeight - 20);
+            const pageNumText = `Page ${i} of ${pageCount}`;
+            doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: "center" });
+            const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
+            doc.text(dateStr, pageWidth - 40, pageHeight - 20, { align: "right" });
+          }
+        };
+
+        addPageHeader(doc, commsPlanData.name);
+
+        let lastY = 105;
+
+        const createInfoBlock = (title: string, data: [string, string][]) => {
+          if (!data.some((row) => row[1] && row[1] !== "N/A")) return;
+
+          doc.setFontSize(11);
+          doc.setFont("helvetica", "bold");
+          doc.text(title, 40, lastY);
+
+          (doc as any).autoTable({
+            body: data,
+            startY: lastY + 5,
+            theme: "plain",
+            styles: {
+              font: "helvetica",
+              fontSize: 9,
+              cellPadding: { top: 2, right: 5, bottom: 2, left: 0 },
+            },
+            columnStyles: {
+              0: { fontStyle: "bold", cellWidth: 120 },
+            },
+            margin: { left: 40 },
+          });
+          lastY = (doc as any).lastAutoTable.finalY + 15;
+        };
+
+        const eventDetails: [string, string][] = [
+          [
+            "Venue Size:",
+            `${commsPlanData.venueGeometry.width}' × ${commsPlanData.venueGeometry.height}'`,
+          ],
+          ["Zones:", `${commsPlanData.zones.length}`],
+          ["Transceivers:", `${commsPlanData.transceivers.length}`],
+          ["Beltpacks:", `${commsPlanData.beltpacks.length}`],
+        ];
+        createInfoBlock("Venue Overview", eventDetails);
+
+        lastY += 15;
+
+        if (commsPlanData.transceivers && commsPlanData.transceivers.length > 0) {
+          doc.setFontSize(14);
+          doc.setFont("helvetica", "bold");
+          doc.text("Transceivers", 40, lastY);
+          lastY += 20;
+
+          const transceiversHead = [["Label", "Model", "Band", "Coverage", "Connected Beltpacks"]];
+          const transceiversBody = commsPlanData.transceivers.map((tx: any) => {
+            const connectedBeltpacks = commsPlanData.beltpacks.filter(
+              (bp: any) => bp.transceiverRef === tx.id,
+            );
+            return [
+              tx.label,
+              tx.model,
+              tx.band,
+              `${tx.coverageRadius}' radius`,
+              `${connectedBeltpacks.length} / ${tx.maxBeltpacks}`,
+            ];
+          });
+
+          (doc as any).autoTable({
+            head: transceiversHead,
+            body: transceiversBody,
+            startY: lastY,
+            theme: "grid",
+            headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: "bold" },
+            styles: {
+              font: "helvetica",
+              fontSize: 9,
+              cellPadding: 5,
+              lineColor: [221, 221, 221],
+              lineWidth: 0.5,
+            },
+            alternateRowStyles: { fillColor: [248, 249, 250] },
+            margin: { left: 40, right: 40 },
+          });
+          lastY = (doc as any).lastAutoTable.finalY + 30;
+        }
+
+        if (commsPlanData.beltpacks && commsPlanData.beltpacks.length > 0) {
+          doc.setFontSize(14);
+          doc.setFont("helvetica", "bold");
+          doc.text("Beltpacks", 40, lastY);
+          lastY += 20;
+
+          const beltpacksHead = [["Label", "Connected To", "Channel Assignments"]];
+          const beltpacksBody = commsPlanData.beltpacks.map((bp: any) => {
+            const transceiver = commsPlanData.transceivers.find(
+              (tx: any) => tx.id === bp.transceiverRef,
+            );
+            const assignments =
+              bp.channelAssignments && bp.channelAssignments.length > 0
+                ? bp.channelAssignments
+                    .map((ca: any) => `${ca.channel}:${ca.assignment}`)
+                    .join(", ")
+                : "No assignments";
+
+            return [bp.label, transceiver ? transceiver.label : "Not Connected", assignments];
+          });
+
+          (doc as any).autoTable({
+            head: beltpacksHead,
+            body: beltpacksBody,
+            startY: lastY,
+            theme: "grid",
+            headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: "bold" },
+            styles: {
+              font: "helvetica",
+              fontSize: 9,
+              cellPadding: 5,
+              lineColor: [221, 221, 221],
+              lineWidth: 0.5,
+            },
+            alternateRowStyles: { fillColor: [248, 249, 250] },
+            margin: { left: 40, right: 40 },
+          });
+        }
+
+        addPageFooter(doc);
+        doc.save(`${commsPlanData.name.replace(/\s+/g, "-").toLowerCase()}-comms-plan-print.pdf`);
+      }
+    } catch (err) {
+      console.error("Error preparing comms plan export:", err);
+      setSupabaseError("Failed to prepare comms plan for export. Please try again.");
+    } finally {
+      setCurrentExportCommsPlan(null);
+      setExportingItemId(null);
+      setExportCommsPlanId(null);
     }
   };
 
@@ -1216,10 +1533,10 @@ const AudioPage = () => {
           </div>
         </div>
 
-        {/* Cards Section - Mic Plots */}
-        <div className="flex justify-center mb-12">
+        {/* Cards Section - Mic Plots and Comms Plans */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
           {/* My Mic Plots Card */}
-          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 w-full md:w-1/2">
+          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h2 className="text-xl font-semibold text-white mb-2">My Mic Plots</h2>
@@ -1307,6 +1624,96 @@ const AudioPage = () => {
               </div>
             </div>
           </div>
+
+          {/* My Comms Plans Card */}
+          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-2">My Comms Plans</h2>
+                <p className="text-gray-400">Design and manage your RF comms systems</p>
+              </div>
+              <Radio className="h-8 w-8 text-indigo-400" />
+            </div>
+            <div className="space-y-4">
+              {commsPlans.length > 0 ? (
+                <div className="space-y-3">
+                  {commsPlans.slice(0, 3).map((plan) => (
+                    <div
+                      key={plan.id}
+                      className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
+                    >
+                      <div>
+                        <h3 className="text-white font-medium">{plan.name}</h3>
+                        <p className="text-gray-400 text-sm">
+                          {plan.last_edited
+                            ? `Edited ${new Date(plan.last_edited).toLocaleDateString()}`
+                            : `Created ${new Date(plan.created_at).toLocaleDateString()}`}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Download"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExportCommsPlanId(plan.id);
+                            setShowCommsPlanExportModal(true);
+                          }}
+                          disabled={exportingItemId === plan.id}
+                        >
+                          {exportingItemId === plan.id ? (
+                            <Loader className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Download className="h-5 w-5" />
+                          )}
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Edit"
+                          onClick={() =>
+                            navigate(`/comms-planner/${plan.id}`, { state: { from: "/audio" } })
+                          }
+                        >
+                          <Edit className="h-5 w-5" />
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-red-400"
+                          title="Delete"
+                          onClick={() => handleDeleteRequest(plan.id, "comms", plan.name)}
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 bg-gray-700 rounded-lg text-center">
+                  <p className="text-gray-300 mb-4">You haven't created any comms plans yet</p>
+                </div>
+              )}
+              <div className="pt-3 text-center">
+                <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
+                  <button
+                    className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                    onClick={() => navigate("/comms-planner/new", { state: { from: "/audio" } })}
+                  >
+                    <PlusCircle className="h-5 w-5 mr-2" />
+                    New Comms Plan
+                  </button>
+                  {commsPlans.length > 0 && (
+                    <button
+                      className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                      onClick={() => navigate("/all-comms-plans")}
+                    >
+                      <List className="h-5 w-5 mr-2" />
+                      View All {commsPlans.length > 0 && `(${commsPlans.length})`}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
 
@@ -1363,6 +1770,24 @@ const AudioPage = () => {
         isExporting={!!exportingMicPlotItemId}
       />
 
+      <ExportModal
+        isOpen={showCommsPlanExportModal}
+        onClose={() => {
+          if (!exportingItemId) {
+            setShowCommsPlanExportModal(false);
+            setExportCommsPlanId(null);
+          }
+        }}
+        onExportColor={() =>
+          exportCommsPlanId && prepareAndExecuteCommsPlanExport(exportCommsPlanId, "color")
+        }
+        onExportPrintFriendly={() =>
+          exportCommsPlanId && prepareAndExecuteCommsPlanExport(exportCommsPlanId, "print")
+        }
+        title="Comms Plan"
+        isExporting={!!(exportingItemId && exportCommsPlanId)}
+      />
+
       {currentExportPatchSheet && (
         <>
           <PatchSheetExport ref={patchSheetExportRef} patchSheet={currentExportPatchSheet} />
@@ -1403,6 +1828,13 @@ const AudioPage = () => {
             ref={printTheaterMicPlotExportRef}
             micPlot={currentExportingMicPlotData as TheaterMicPlotFullData}
           />
+        </>
+      )}
+
+      {currentExportCommsPlan && (
+        <>
+          <CommsPlanExport ref={commsPlanExportRef} commsPlan={currentExportCommsPlan} />
+          <PrintCommsPlanExport ref={printCommsPlanExportRef} commsPlan={currentExportCommsPlan} />
         </>
       )}
 
