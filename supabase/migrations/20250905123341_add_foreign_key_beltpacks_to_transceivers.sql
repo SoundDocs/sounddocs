@@ -7,7 +7,13 @@ FOREIGN KEY ("transceiverRef") REFERENCES comms_transceivers(id) ON DELETE SET N
 CREATE INDEX idx_comms_beltpacks_transceiver_ref ON comms_beltpacks("transceiverRef");
 
 -- Update RLS policy to ensure proper access control
-DROP POLICY "Allow all access to comms_beltpacks based on plan" ON comms_beltpacks;
-CREATE POLICY "Allow all access to comms_beltpacks based on plan" ON comms_beltpacks FOR ALL USING (
-    (SELECT auth.uid() FROM comms_plans WHERE comms_plans.id = plan_id) = auth.uid()
+DROP POLICY IF EXISTS "Allow access to comms_beltpacks for plan owners" ON comms_beltpacks;
+CREATE POLICY "Allow access to comms_beltpacks for plan owners" ON comms_beltpacks FOR ALL USING (
+  auth.uid() IS NOT NULL AND
+  EXISTS (
+    SELECT 1
+    FROM comms_plans p
+    WHERE p.id = plan_id
+      AND p.user_id = auth.uid()
+  )
 );

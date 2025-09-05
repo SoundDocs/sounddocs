@@ -317,21 +317,34 @@ const AllCommsPlans = () => {
           doc.setFont("helvetica", "bold");
           doc.text(title, 40, lastY);
 
-          (doc as any).autoTable({
-            body: data,
-            startY: lastY + 5,
-            theme: "plain",
-            styles: {
-              font: "helvetica",
-              fontSize: 9,
-              cellPadding: { top: 2, right: 5, bottom: 2, left: 0 },
-            },
-            columnStyles: {
-              0: { fontStyle: "bold", cellWidth: 120 },
-            },
-            margin: { left: 40 },
-          });
-          lastY = (doc as any).lastAutoTable.finalY + 15;
+          const hasAutoTable = typeof (doc as any).autoTable === "function";
+          if (hasAutoTable) {
+            (doc as any).autoTable({
+              body: data,
+              startY: lastY + 5,
+              theme: "plain",
+              styles: {
+                font: "helvetica",
+                fontSize: 9,
+                cellPadding: { top: 2, right: 5, bottom: 2, left: 0 },
+              },
+              columnStyles: { 0: { fontStyle: "bold", cellWidth: 120 } },
+              margin: { left: 40 },
+            });
+            lastY = (doc as any).lastAutoTable.finalY + 15;
+          } else {
+            // Fallback simple list
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            let y = lastY + 18;
+            data.forEach(([k, v]) => {
+              if (v && v !== "N/A") {
+                doc.text(`${k}: ${v}`, 40, y);
+                y += 12;
+              }
+            });
+            lastY = y + 10;
+          }
         };
 
         const eventDetails: [string, string][] = [

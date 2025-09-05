@@ -5,8 +5,6 @@ import {
   Music,
   Bookmark,
   Calendar,
-  Mic,
-  ChevronsRight,
   Github,
   Heart,
   ListChecks, // Added for Run of Show example

@@ -360,7 +360,9 @@ const AudioPage = () => {
       return;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Ensure render flush before capture
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    await new Promise((resolve) => setTimeout(resolve, 150));
 
     if (document.fonts && typeof document.fonts.ready === "function") {
       try {

@@ -31,8 +31,18 @@ CREATE TABLE comms_transceivers (
     coverage_radius NUMERIC
 );
 ALTER TABLE comms_transceivers ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all access to comms_transceivers based on plan" ON comms_transceivers FOR ALL USING (
-    (SELECT auth.uid() FROM comms_plans WHERE comms_plans.id = plan_id) = auth.uid()
+DROP POLICY IF EXISTS "Allow all access to comms_transceivers based on plan" ON comms_transceivers;
+DROP POLICY IF EXISTS "Allow insert transceivers for own plans" ON comms_transceivers;
+
+-- Allow access to transceivers for authenticated users who own the plan
+CREATE POLICY "Allow access to comms_transceivers for plan owners" ON comms_transceivers FOR ALL USING (
+  auth.uid() IS NOT NULL AND
+  EXISTS (
+    SELECT 1
+    FROM comms_plans p
+    WHERE p.id = plan_id
+      AND p.user_id = auth.uid()
+  )
 );
 
 -- Table for network switch configurations
@@ -45,8 +55,14 @@ CREATE TABLE comms_network_configs (
     ports_config JSONB
 );
 ALTER TABLE comms_network_configs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all access to comms_network_configs based on plan" ON comms_network_configs FOR ALL USING (
-    (SELECT auth.uid() FROM comms_plans WHERE comms_plans.id = plan_id) = auth.uid()
+CREATE POLICY "Allow access to comms_network_configs for plan owners" ON comms_network_configs FOR ALL USING (
+  auth.uid() IS NOT NULL AND
+  EXISTS (
+    SELECT 1
+    FROM comms_plans p
+    WHERE p.id = plan_id
+      AND p.user_id = auth.uid()
+  )
 );
 
 -- Table for interop configurations
@@ -57,8 +73,14 @@ CREATE TABLE comms_interop_configs (
     config_json JSONB -- Dante ports, OMNEO settings, etc.
 );
 ALTER TABLE comms_interop_configs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all access to comms_interop_configs based on plan" ON comms_interop_configs FOR ALL USING (
-    (SELECT auth.uid() FROM comms_plans WHERE comms_plans.id = plan_id) = auth.uid()
+CREATE POLICY "Allow access to comms_interop_configs for plan owners" ON comms_interop_configs FOR ALL USING (
+  auth.uid() IS NOT NULL AND
+  EXISTS (
+    SELECT 1
+    FROM comms_plans p
+    WHERE p.id = plan_id
+      AND p.user_id = auth.uid()
+  )
 );
 
 -- Table for roles and channel assignments
@@ -71,6 +93,12 @@ CREATE TABLE comms_roles_channels (
     gpio_config JSONB
 );
 ALTER TABLE comms_roles_channels ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all access to comms_roles_channels based on plan" ON comms_roles_channels FOR ALL USING (
-    (SELECT auth.uid() FROM comms_plans WHERE comms_plans.id = plan_id) = auth.uid()
+CREATE POLICY "Allow access to comms_roles_channels for plan owners" ON comms_roles_channels FOR ALL USING (
+  auth.uid() IS NOT NULL AND
+  EXISTS (
+    SELECT 1
+    FROM comms_plans p
+    WHERE p.id = plan_id
+      AND p.user_id = auth.uid()
+  )
 );

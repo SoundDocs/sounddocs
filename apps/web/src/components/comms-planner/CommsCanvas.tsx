@@ -57,8 +57,22 @@ const CommsCanvas: React.FC<CommsCanvasProps> = ({
   const handleWheel = (e: React.WheelEvent) => {
     if (!(e.ctrlKey || e.metaKey)) return;
     e.preventDefault();
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
     const delta = -e.deltaY * 0.001;
-    setView((v) => ({ ...v, zoom: Math.max(0.2, Math.min(5, v.zoom * (1 + delta))) }));
+    setView((v) => {
+      const oldZoom = v.zoom;
+      const newZoom = Math.max(0.2, Math.min(5, oldZoom * (1 + delta)));
+      if (newZoom === oldZoom) return v;
+      // compute world coordinates pre-zoom
+      const worldX = (mouseX - v.x) / oldZoom;
+      const worldY = (mouseY - v.y) / oldZoom;
+      // adjust view so the same world point remains under cursor
+      const newX = mouseX - worldX * newZoom;
+      const newY = mouseY - worldY * newZoom;
+      return { ...v, zoom: newZoom, x: newX, y: newY };
+    });
   };
 
   // Keyboard handlers for spacebar and arrow keys
@@ -212,6 +226,7 @@ const CommsCanvas: React.FC<CommsCanvasProps> = ({
     const dpr = window.devicePixelRatio || 1;
     canvas.width = canvasSize.width * dpr;
     canvas.height = canvasSize.height * dpr;
+    ctx.save();
     ctx.scale(dpr, dpr);
 
     if (showGrid) {
@@ -314,7 +329,7 @@ const CommsCanvas: React.FC<CommsCanvasProps> = ({
           ctx.fill();
 
           // dashed border
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // reset to draw border in screen space
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // reset to dpr scaling
           ctx.setLineDash([4, 4]);
           ctx.strokeStyle = "rgba(255,255,255,0.3)";
           ctx.lineWidth = 1;
@@ -499,6 +514,9 @@ const CommsCanvas: React.FC<CommsCanvasProps> = ({
         ctx.drawImage(off, 0, 0);
       }
     }
+
+    // Restore the initial canvas state
+    ctx.restore();
   }, [
     canvasSize,
     scale,

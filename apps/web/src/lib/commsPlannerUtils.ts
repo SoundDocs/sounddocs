@@ -40,12 +40,19 @@ export const getCommsPlan = async (planId: string) => {
 
   if (beltpackError) throw new Error(beltpackError.message);
 
-  const elements = (transceiverData || []).map((el) => ({
-    ...el,
-    systemType: el.system_type,
-    channels: el.channel_set,
-    coverageRadius: el.coverage_radius,
-  }));
+  const elements = (transceiverData || []).map((el) => {
+    const modelDefaults = MODEL_DEFAULTS[el.model as keyof typeof MODEL_DEFAULTS];
+    return {
+      ...el,
+      systemType: el.system_type,
+      channels: el.channel_set,
+      // Derive values from model, with database overrides
+      band: el.band || modelDefaults?.band || "1.9GHz",
+      poeClass: el.poe_class ?? modelDefaults?.poeClass ?? 3,
+      coverageRadius: el.coverage_radius ?? modelDefaults?.coverageRadiusFt ?? 150,
+      maxBeltpacks: modelDefaults?.maxBeltpacks ?? 5,
+    };
+  });
 
   const beltpacks = beltpackData || [];
 
@@ -91,21 +98,25 @@ export const saveCommsPlan = async (planId: string | null) => {
   if (!currentPlanId) throw new Error("Failed to get plan ID");
 
   // Upsert transceivers
-  const transceiversPayload = state.elements.map((el) => ({
-    id: el.id,
-    plan_id: currentPlanId!,
-    system_type: el.systemType,
-    model: el.model,
-    x: el.x,
-    y: el.y,
-    z: el.z,
-    label: el.label,
-    band: el.band,
-    channel_set: el.channels,
-    dfs_enabled: el.dfsEnabled,
-    poe_class: el.poeClass,
-    coverage_radius: el.coverageRadius,
-  }));
+  const transceiversPayload = state.elements.map((el) => {
+    const modelDefaults = MODEL_DEFAULTS[el.model as keyof typeof MODEL_DEFAULTS];
+    return {
+      id: el.id,
+      plan_id: currentPlanId!,
+      system_type: el.systemType,
+      model: el.model,
+      x: el.x,
+      y: el.y,
+      z: el.z,
+      label: el.label,
+      band: el.band, // Keep existing band value for now
+      channel_set: el.channels,
+      dfs_enabled: el.dfsEnabled,
+      // Derive from model defaults instead of storing UI values
+      poe_class: modelDefaults?.poeClass ?? 3,
+      coverage_radius: modelDefaults?.coverageRadiusFt ?? 150,
+    };
+  });
 
   const { error: deleteTransceiversError } = await supabase
     .from("comms_transceivers")

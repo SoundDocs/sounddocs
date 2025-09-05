@@ -194,10 +194,7 @@ const CommsPlannerEditor = () => {
     currentBeltpacks.forEach((bp) => {
       const bestOption = getBestTransceiverForBeltpack(bp, transceivers);
       if (bestOption) {
-        const maxCapacity =
-          bestOption.transceiver.maxBeltpacks ??
-          MODEL_DEFAULTS[bestOption.transceiver.model!]?.maxBeltpacks ??
-          5;
+        const maxCapacity = bestOption.transceiver.maxBeltpacks ?? 5;
         if (transceiverLoads[bestOption.transceiver.id].length < maxCapacity) {
           assignments[bp.id] = bestOption.transceiver.id;
           transceiverLoads[bestOption.transceiver.id].push(bp.id);
@@ -235,8 +232,7 @@ const CommsPlannerEditor = () => {
 
       // Try to displace lower-signal beltpacks to make room for higher-signal ones
       for (const transceiver of transceivers) {
-        const maxCapacity =
-          transceiver.maxBeltpacks ?? MODEL_DEFAULTS[transceiver.model!]?.maxBeltpacks ?? 5;
+        const maxCapacity = transceiver.maxBeltpacks ?? 5;
         const currentLoad = transceiverLoads[transceiver.id];
 
         if (currentLoad.length >= maxCapacity) {
@@ -267,10 +263,7 @@ const CommsPlannerEditor = () => {
               const bestAlt = getBestTransceiverForBeltpack(weakestBp, altTransceivers);
 
               if (bestAlt && bestAlt.signalStrength > weakestSignal) {
-                const altMaxCapacity =
-                  bestAlt.transceiver.maxBeltpacks ??
-                  MODEL_DEFAULTS[bestAlt.transceiver.model!]?.maxBeltpacks ??
-                  5;
+                const altMaxCapacity = bestAlt.transceiver.maxBeltpacks ?? 5;
                 if (transceiverLoads[bestAlt.transceiver.id].length < altMaxCapacity) {
                   // Move the beltpack to the better transceiver
                   transceiverLoads[transceiver.id] = currentLoad.filter((id) => id !== weakestBpId);
@@ -325,8 +318,23 @@ const CommsPlannerEditor = () => {
   };
 
   const handleDeleteElement = (id: string) => {
-    removeElement(id);
-    removeBeltpack(id);
+    const isElement = elements.some((el) => el.id === id);
+    const isBeltpack = beltpacks.some((bp) => bp.id === id);
+
+    if (isElement) {
+      // Remove the element
+      removeElement(id);
+      // Detach any beltpacks referencing this transceiver
+      const updatedBeltpacks = beltpacks.map((bp) =>
+        bp.transceiverRef === id
+          ? { ...bp, transceiverRef: undefined, signalStrength: 0, online: false }
+          : bp,
+      );
+      setBeltpacks(updatedBeltpacks);
+    } else if (isBeltpack) {
+      removeBeltpack(id);
+    }
+
     setSelectedElementId(null);
   };
 

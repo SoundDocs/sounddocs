@@ -37,6 +37,8 @@ const CommsBeltpack: React.FC<CommsBeltpackProps> = ({
   onClick,
   onDragStop,
 }) => {
+  const nodeRef = React.useRef<HTMLDivElement>(null);
+
   const handleDragStop = (_e: any, data: any) => {
     if (onDragStop) onDragStop(id, data.x, data.y);
   };
@@ -67,8 +69,9 @@ const CommsBeltpack: React.FC<CommsBeltpackProps> = ({
   };
 
   return (
-    <Draggable position={{ x, y }} onStop={handleDragStop} bounds="parent">
+    <Draggable nodeRef={nodeRef} position={{ x, y }} onStop={handleDragStop} bounds="parent">
       <div
+        ref={nodeRef}
         className="absolute cursor-move"
         onClick={handleClick}
         onKeyDown={handleKeyDown}
