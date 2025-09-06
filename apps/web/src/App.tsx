@@ -1,5 +1,5 @@
-import React, { useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import { useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./lib/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -58,6 +58,8 @@ import PixelMapEditorSelection from "./pages/PixelMapEditorSelection";
 import StandardPixelMapEditor from "./pages/StandardPixelMapEditor";
 import LedPixelMapEditor from "./pages/LedPixelMapEditor"; // Import the new editor
 import AllPixelMaps from "./pages/AllPixelMaps";
+import AllCommsPlans from "./pages/AllCommsPlans";
+import CommsPlannerEditor from "./pages/CommsPlannerEditor";
 
 function App() {
   useEffect(() => {
@@ -350,6 +352,24 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AllTheaterMicPlots />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Comms Planner Routes */}
+            <Route
+              path="/comms-planner/:id"
+              element={
+                <ProtectedRoute>
+                  <CommsPlannerEditor />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/all-comms-plans"
+              element={
+                <ProtectedRoute>
+                  <AllCommsPlans />
                 </ProtectedRoute>
               }
             />

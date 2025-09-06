@@ -24,6 +24,8 @@ SoundDocs empowers you to manage event audio documentation efficiently:
   Craft detailed Corporate and Theater mic plots. Manage presenters, actors, wireless assignments, photos, and notes with ease.
 - **📊 Pixel Map Designer:**
   Design and visualize LED video wall layouts, then export clear, detailed plans for your video team.
+- **📻 Comms Planner:**
+  Complete wireless communications planning system with visual canvas, transceiver management, beltpack assignments, and professional frequency coordination for live events.
 - **🗓️ Run of Show Creator (with Show Mode):**
   Develop detailed event timelines, cue sheets, and segment breakdowns. Utilize the "Show Mode" for real-time event tracking and execution. Now with sticky headers, auto-scrolling, automatic time calculation, and column color highlighting.
 - **📊 Production Schedule Manager:**

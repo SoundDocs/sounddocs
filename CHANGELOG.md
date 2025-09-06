@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.5] - 2025-09-05
+
+### Added
+
+- **Comms Planner**: Complete wireless communications planning system for events
+  - **Visual Comms Canvas**: Interactive drag-and-drop canvas for designing wireless communication setups
+  - **Transceiver Management**: Create and manage wireless transceiver base stations with frequency bands, labels, and channel assignments
+  - **Beltpack Management**: Manage wireless beltpack units with channel assignments and user assignments
+  - **Comprehensive Export**: Generate detailed PDF exports with transceiver layouts, beltpack assignments, and frequency coordination details
+  - **Database Integration**: Full persistence with Supabase backend supporting sharing and versioning
+  - **Professional Workflows**: Designed specifically for live event production with industry-standard practices
+
+### Improved
+
+- **Comms Planning Workflows**: Streamlined wireless communication planning with professional-grade tools and visual design capabilities
+
 ## [1.5.4.6.1] - 2025-09-04
 
 ### Fixed

@@ -2,7 +2,6 @@ import React from "react";
 import {
   ClipboardList,
   Layout,
-  Share2,
   Download,
   Zap,
   Headphones,
@@ -12,6 +11,7 @@ import {
   Settings2, // For Audio-Specific Tools or Customization
   Mic, // For Mic Plots
   Grid, // For Pixel Maps
+  Radio, // For Comms Planner
 } from "lucide-react";
 
 interface FeatureProps {
@@ -59,6 +59,12 @@ const Features: React.FC = () => {
         "Design and visualize LED video wall layouts, then export clear, detailed plans for your video team.",
     },
     {
+      icon: <Radio className="h-6 w-6" />,
+      title: "Comms Planner",
+      description:
+        "Design wireless communication setups with visual canvas, transceiver management, beltpack assignments, and professional frequency coordination.",
+    },
+    {
       icon: <ListChecks className="h-6 w-6" />,
       title: "Run of Show Creator",
       description:
@@ -75,12 +81,6 @@ const Features: React.FC = () => {
       title: "AcoustIQ Audio Analyzer",
       description:
         "The first professional, browser-based FFT audio analyzer. Features RTA, SPL, and dual-channel transfer function capabilities.",
-    },
-    {
-      icon: <Share2 className="h-6 w-6" />,
-      title: "Easy Sharing & Export",
-      description:
-        "Generate professional PDFs. Share securely via links with venues, artists, and production teams.",
     },
   ];
 
