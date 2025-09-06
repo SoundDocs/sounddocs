@@ -428,12 +428,7 @@ const CommsCanvas: React.FC<CommsCanvasProps> = ({
             cyFt,
             dRef,
             n,
-            tint:
-              el.systemType === "FSII" || el.systemType === "FSII-Base"
-                ? "fsii"
-                : el.systemType === "Edge"
-                  ? "edge"
-                  : "bolero",
+            tint: el.systemType === "FSII" ? "fsii" : el.systemType === "Edge" ? "edge" : "bolero",
           };
         });
 
@@ -714,10 +709,27 @@ const CommsCanvas: React.FC<CommsCanvasProps> = ({
                 }
               </div>
               <div>
-                Total capacity: {elements.reduce((sum, e) => sum + (e.maxBeltpacks || 0), 0)} BP
+                Total capacity:{" "}
+                {elements
+                  .filter(
+                    (e) =>
+                      e.systemType !== "Arcadia" &&
+                      e.systemType !== "ODIN" &&
+                      e.systemType !== "FSII-Base",
+                  )
+                  .reduce((sum, e) => sum + (e.maxBeltpacks || 0), 0)}{" "}
+                BP
               </div>
               <div>
-                Active BPs: {elements.reduce((sum, e) => sum + (e.currentBeltpacks || 0), 0)}
+                Active BPs:{" "}
+                {elements
+                  .filter(
+                    (e) =>
+                      e.systemType !== "Arcadia" &&
+                      e.systemType !== "ODIN" &&
+                      e.systemType !== "FSII-Base",
+                  )
+                  .reduce((sum, e) => sum + (e.currentBeltpacks || 0), 0)}
               </div>
             </div>
           </div>

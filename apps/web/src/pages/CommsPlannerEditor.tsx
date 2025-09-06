@@ -978,7 +978,16 @@ const CommsPlannerEditor = () => {
           <div className="flex gap-6 text-sm">
             <div className="flex items-center gap-2">
               <span className="text-gray-400">Transceivers:</span>
-              <span className="text-white font-medium">{elements.length}</span>
+              <span className="text-white font-medium">
+                {
+                  elements.filter(
+                    (e) =>
+                      e.systemType !== "Arcadia" &&
+                      e.systemType !== "ODIN" &&
+                      e.systemType !== "FSII-Base",
+                  ).length
+                }
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-gray-400">PoE Load:</span>
@@ -1165,18 +1174,29 @@ const CommsPlannerEditor = () => {
                   <span>Total Antennas:</span>
                   <span className="text-white">
                     {
-                      elements.filter((e) => e.systemType !== "Arcadia" && e.systemType !== "ODIN")
-                        .length
+                      elements.filter(
+                        (e) =>
+                          e.systemType !== "Arcadia" &&
+                          e.systemType !== "ODIN" &&
+                          e.systemType !== "FSII-Base",
+                      ).length
                     }
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Max Capacity:</span>
                   <span className="text-white">
-                    {elements.reduce((sum, e) => {
-                      const maxBeltpacks = e.model ? MODEL_DEFAULTS[e.model].maxBeltpacks : 5;
-                      return sum + maxBeltpacks;
-                    }, 0)}{" "}
+                    {elements
+                      .filter(
+                        (e) =>
+                          e.systemType !== "Arcadia" &&
+                          e.systemType !== "ODIN" &&
+                          e.systemType !== "FSII-Base",
+                      )
+                      .reduce((sum, e) => {
+                        const maxBeltpacks = e.model ? MODEL_DEFAULTS[e.model].maxBeltpacks : 5;
+                        return sum + maxBeltpacks;
+                      }, 0)}{" "}
                     BP
                   </span>
                 </div>

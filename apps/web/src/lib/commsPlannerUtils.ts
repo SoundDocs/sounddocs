@@ -59,6 +59,14 @@ export const getCommsPlan = async (planId: string) => {
   return { ...planData, elements, beltpacks };
 };
 
+// Helper function to get existing IDs from server for a specific table and plan
+const getExistingIds = async (tableName: string, planId: string): Promise<string[]> => {
+  const { data, error } = await supabase.from(tableName).select("id").eq("plan_id", planId);
+
+  if (error) throw new Error(`Error fetching ${tableName} IDs: ${error.message}`);
+  return (data || []).map((item) => item.id);
+};
+
 export const saveCommsPlan = async (planId: string | null) => {
   const state = useCommsPlannerStore.getState();
   const {
@@ -97,9 +105,11 @@ export const saveCommsPlan = async (planId: string | null) => {
 
   if (!currentPlanId) throw new Error("Failed to get plan ID");
 
-  // Upsert transceivers
+  // Safe upsert for transceivers with diff-based deletes
   const transceiversPayload = state.elements.map((el) => {
     const modelDefaults = MODEL_DEFAULTS[el.model as keyof typeof MODEL_DEFAULTS];
+    const poeClass = el.poeClass ?? modelDefaults?.poeClass ?? 3;
+    const coverageRadius = el.coverageRadius ?? modelDefaults?.coverageRadiusFt ?? 150;
     return {
       id: el.id,
       plan_id: currentPlanId!,
@@ -109,31 +119,39 @@ export const saveCommsPlan = async (planId: string | null) => {
       y: el.y,
       z: el.z,
       label: el.label,
-      band: el.band, // Keep existing band value for now
+      band: el.band,
       channel_set: el.channels,
       dfs_enabled: el.dfsEnabled,
-      // Derive from model defaults instead of storing UI values
-      poe_class: modelDefaults?.poeClass ?? 3,
-      coverage_radius: modelDefaults?.coverageRadiusFt ?? 150,
+      poe_class: poeClass,
+      coverage_radius: coverageRadius,
     };
   });
 
-  const { error: deleteTransceiversError } = await supabase
-    .from("comms_transceivers")
-    .delete()
-    .eq("plan_id", currentPlanId);
-  if (deleteTransceiversError)
-    throw new Error(`Error clearing old transceivers: ${deleteTransceiversError.message}`);
+  // Get existing transceiver IDs from server
+  const serverTransceiverIds = await getExistingIds("comms_transceivers", currentPlanId);
+  const clientTransceiverIds = new Set(transceiversPayload.map((t) => t.id));
 
+  // Upsert transceivers (insert new, update existing)
   if (transceiversPayload.length > 0) {
-    const { error: insertTransceiversError } = await supabase
+    const { error: upsertTransceiversError } = await supabase
       .from("comms_transceivers")
-      .insert(transceiversPayload);
-    if (insertTransceiversError)
-      throw new Error(`Error inserting transceivers: ${insertTransceiversError.message}`);
+      .upsert(transceiversPayload, { onConflict: "id" });
+    if (upsertTransceiversError)
+      throw new Error(`Error upserting transceivers: ${upsertTransceiversError.message}`);
   }
 
-  // Upsert beltpacks
+  // Delete transceivers that were removed in the UI
+  const transceiversToDelete = serverTransceiverIds.filter((id) => !clientTransceiverIds.has(id));
+  if (transceiversToDelete.length > 0) {
+    const { error: deleteTransceiversError } = await supabase
+      .from("comms_transceivers")
+      .delete()
+      .in("id", transceiversToDelete);
+    if (deleteTransceiversError)
+      throw new Error(`Error deleting removed transceivers: ${deleteTransceiversError.message}`);
+  }
+
+  // Safe upsert for beltpacks with diff-based deletes
   const beltpacksPayload: BeltpackPayload[] = state.beltpacks.map((bp) => ({
     id: bp.id,
     plan_id: currentPlanId!,
@@ -144,19 +162,28 @@ export const saveCommsPlan = async (planId: string | null) => {
     transceiverRef: bp.transceiverRef,
   }));
 
-  const { error: deleteBeltpacksError } = await supabase
-    .from("comms_beltpacks")
-    .delete()
-    .eq("plan_id", currentPlanId);
-  if (deleteBeltpacksError)
-    throw new Error(`Error clearing old beltpacks: ${deleteBeltpacksError.message}`);
+  // Get existing beltpack IDs from server
+  const serverBeltpackIds = await getExistingIds("comms_beltpacks", currentPlanId);
+  const clientBeltpackIds = new Set(beltpacksPayload.map((bp) => bp.id));
 
+  // Upsert beltpacks (insert new, update existing)
   if (beltpacksPayload.length > 0) {
-    const { error: insertBeltpacksError } = await supabase
+    const { error: upsertBeltpacksError } = await supabase
       .from("comms_beltpacks")
-      .insert(beltpacksPayload);
-    if (insertBeltpacksError)
-      throw new Error(`Error inserting beltpacks: ${insertBeltpacksError.message}`);
+      .upsert(beltpacksPayload, { onConflict: "id" });
+    if (upsertBeltpacksError)
+      throw new Error(`Error upserting beltpacks: ${upsertBeltpacksError.message}`);
+  }
+
+  // Delete beltpacks that were removed in the UI
+  const beltpacksToDelete = serverBeltpackIds.filter((id) => !clientBeltpackIds.has(id));
+  if (beltpacksToDelete.length > 0) {
+    const { error: deleteBeltpacksError } = await supabase
+      .from("comms_beltpacks")
+      .delete()
+      .in("id", beltpacksToDelete);
+    if (deleteBeltpacksError)
+      throw new Error(`Error deleting removed beltpacks: ${deleteBeltpacksError.message}`);
   }
 
   return currentPlanId;
