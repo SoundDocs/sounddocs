@@ -5,7 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.5.5.1] - 2025-09-08
+
+### Fixed
+
+- **Critical Memory Leaks**: Eliminated unbounded memory growth in capture agent DSP operations
+  - **FFT Memory Optimization**: Implemented pyFFTW with precomputed plans and reusable work arrays to prevent memory leaks during FFT operations
+  - **Work Array Management**: Enhanced caching system with dtype-aware keys to prevent buffer type mismatches and memory waste
+  - **Array Zeroing Optimization**: Replaced inefficient `np.copyto()` calls with direct `fill()` method for better performance
+  - **FFT Plan Caching**: Added LRU-based FFT plan management to prevent plan accumulation and memory leaks
+  - **Deterministic Cleanup**: Improved periodic cleanup routines for work arrays and FFT plans
+
+### Improved
+
+- **DSP Performance**: Switched to pyFFTW backend for optimal FFT performance with intelligent plan reuse
+- **Memory Efficiency**: Enhanced work array reuse and reduced temporary allocations during signal processing
 
 ## [1.5.5] - 2025-09-05
 
