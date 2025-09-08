@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.fft
 from scipy.signal import welch, csd
 from collections import OrderedDict
 from functools import lru_cache
@@ -112,20 +113,20 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
     Y = get_work_array('fft_Y', (fft_size,), dtype=np.complex128)
 
     # Compute FFTs with out parameter for memory efficiency
-    np.fft.rfft(x, n=N, out=X)
-    np.fft.rfft(y, n=N, out=Y)
+    scipy.fft.rfft(x, n=N, out=X)
+    scipy.fft.rfft(y, n=N, out=Y)
     R = np.conj(X) * Y
     R /= (np.abs(R) + 1e-15)  # PHAT
 
     # Use work array for irfft
     cc = get_work_array('cc', (N,), dtype=np.float64)
-    np.fft.irfft(R, n=N, out=cc)
+    scipy.fft.irfft(R, n=N, out=cc)
 
     # keep only the valid linear part (length 2n-1), map to lags [-(n-1) .. +(n-1)]
     # Use work array instead of np.concatenate
     cc_lin = get_work_array('cc_lin', (2*n-1,), dtype=np.float64)
-    cc_lin[:n] = cc[-(n-1):]
-    cc_lin[n:] = cc[:n-1]
+    cc_lin[:n-1] = cc[-(n-1):]
+    cc_lin[n-1:] = cc[:n]
     lags = np.arange(-(n-1), n, dtype=np.int64)
 
     # optional search limit
@@ -358,6 +359,7 @@ def _taper_for_M(M: int) -> np.ndarray:
     return t
 
 def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, SPLData, float]:
+    global _cleanup_counter
     if block.ndim == 1:
         block = block[:, np.newaxis]
 
