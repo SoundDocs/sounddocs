@@ -107,39 +107,31 @@ def get_work_array(key: str, shape: tuple, dtype=np.float64) -> np.ndarray:
 
 
 def get_fft_plan(n: int, direction: str = 'forward', dtype=np.float64):
-    """Get a cached FFT plan for improved performance."""
+    """Get a cached FFT plan along with its IO arrays."""
     if not _PYFFTW_AVAILABLE:
         return None
 
     plan_key = (n, direction, dtype)
 
     if plan_key not in _fft_plans:
-        # Create new plan if we haven't exceeded the limit
         if len(_fft_plans) >= MAX_FFT_PLANS:
-            # Remove oldest plan
-            oldest_key = min(_fft_plans.keys(),
-                           key=lambda k: _fft_plans[k][1])  # [1] is access time
+            oldest_key = min(_fft_plans.keys(), key=lambda k: _fft_plans[k][2])  # access time at idx 2
             _fft_plans.pop(oldest_key, None)
 
-        # Create input/output arrays for plan
         if direction == 'forward':
-            input_array = pyfftw.empty_aligned(n, dtype=dtype)
-            output_array = pyfftw.empty_aligned(n//2 + 1, dtype=np.complex128)
-            plan = pyfftw.FFTW(input_array, output_array, direction='FFTW_FORWARD',
-                             flags=('FFTW_MEASURE',))
-        else:  # inverse
-            input_array = pyfftw.empty_aligned(n//2 + 1, dtype=np.complex128)
-            output_array = pyfftw.empty_aligned(n, dtype=dtype)
-            plan = pyfftw.FFTW(input_array, output_array, direction='FFTW_BACKWARD',
-                             flags=('FFTW_MEASURE',))
+            in_arr = pyfftw.empty_aligned(n, dtype=dtype)
+            out_arr = pyfftw.empty_aligned(n // 2 + 1, dtype=np.complex128)
+            plan = pyfftw.FFTW(in_arr, out_arr, direction='FFTW_FORWARD', flags=('FFTW_MEASURE',))
+        else:
+            in_arr = pyfftw.empty_aligned(n // 2 + 1, dtype=np.complex128)
+            out_arr = pyfftw.empty_aligned(n, dtype=dtype)
+            plan = pyfftw.FFTW(in_arr, out_arr, direction='FFTW_BACKWARD', flags=('FFTW_MEASURE',))
 
-        _fft_plans[plan_key] = (plan, time.time())
+        _fft_plans[plan_key] = (plan, in_arr, out_arr, time.time())
 
-    # Update access time
-    plan, _ = _fft_plans[plan_key]
-    _fft_plans[plan_key] = (plan, time.time())
-
-    return plan
+    plan, in_arr, out_arr, _ = _fft_plans[plan_key]
+    _fft_plans[plan_key] = (plan, in_arr, out_arr, time.time())
+    return plan, in_arr, out_arr
 
 def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: float | None = None) -> float:
     """
