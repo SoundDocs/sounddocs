@@ -109,29 +109,40 @@ def get_work_array(key: str, shape: tuple, dtype=np.float64) -> np.ndarray:
 def get_fft_plan(n: int, direction: str = 'forward', dtype=np.float64):
     """Get a cached FFT plan along with its IO arrays."""
     if not _PYFFTW_AVAILABLE:
-        return (None, None, None)  # Return consistent 3-tuple
+        return (None, None, None)
 
-    plan_key = (n, direction, dtype)
+    direction = direction.lower()
+    if direction not in ('forward', 'inverse', 'backward'):
+        raise ValueError(f"Invalid FFT direction: {direction}")
+
+    # For rfft/irfft we require real dtype input and complex output (and vice versa)
+    if direction in ('forward',):
+        if not np.issubdtype(dtype, np.floating):
+            raise TypeError(f"Forward FFT expects real input dtype, got {dtype}")
+    else:
+        # inverse/backward expects complex input and real output; we fix in_arr dtype below
+        if not np.issubdtype(dtype, np.floating):
+            raise TypeError(f"Inverse FFT expects real output dtype, got {dtype}")
+
+    plan_key = (n, 'forward' if direction == 'forward' else 'inverse', dtype)
 
     if plan_key not in _fft_plans:
         if len(_fft_plans) >= MAX_FFT_PLANS:
-            # Fix: access time is at index 3 (was index 2)
             oldest_key = min(_fft_plans.keys(), key=lambda k: _fft_plans[k][3])
             _fft_plans.pop(oldest_key, None)
 
         if direction == 'forward':
             in_arr = pyfftw.empty_aligned(n, dtype=dtype)
             out_arr = pyfftw.empty_aligned(n // 2 + 1, dtype=np.complex128)
-            plan = pyfftw.FFTW(in_arr, out_arr, direction='FFTW_FORWARD', flags=('FFTW_MEASURE',))
+            plan = pyfftw.FFTW(in_arr, out_arr, direction='FFTW_FORWARD', flags=('FFTW_MEASURE',), inplace=False)
         else:
             in_arr = pyfftw.empty_aligned(n // 2 + 1, dtype=np.complex128)
             out_arr = pyfftw.empty_aligned(n, dtype=dtype)
-            plan = pyfftw.FFTW(in_arr, out_arr, direction='FFTW_BACKWARD', flags=('FFTW_MEASURE',))
+            plan = pyfftw.FFTW(in_arr, out_arr, direction='FFTW_BACKWARD', flags=('FFTW_MEASURE',), inplace=False)
 
         _fft_plans[plan_key] = (plan, in_arr, out_arr, time.time())
 
     plan, in_arr, out_arr, _ = _fft_plans[plan_key]
-    # Update access time at index 3
     _fft_plans[plan_key] = (plan, in_arr, out_arr, time.time())
     return plan, in_arr, out_arr
 
@@ -175,13 +186,13 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
             try:
                 # Process x
                 in_arr[:] = xN
-                plan()  # Correct invocation
-                X[:] = out_arr
+                plan()
+                X[:] = out_arr.copy()  # copy to avoid later overwrite
                 # Process y
                 in_arr[:] = yN
-                plan()  # Correct invocation
-                Y[:] = out_arr
-            except Exception:  # Fallback on pyFFTW error
+                plan()
+                Y[:] = out_arr.copy()  # copy to avoid later overwrite
+            except Exception:
                 X[:] = fftw.rfft(xN, n=N)
                 Y[:] = fftw.rfft(yN, n=N)
     else:
@@ -196,15 +207,18 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
 
     # Use pyFFTW for optimal performance with preallocated arrays
     if _PYFFTW_AVAILABLE:
-        plan, in_arr, out_arr = get_fft_plan(N, 'inverse', np.complex128)  # R is complex128
+        plan, in_arr, out_arr = get_fft_plan(N, 'inverse', np.float64)
         if plan is None:
             cc[:] = fftw.irfft(R, n=N)
         else:
             try:
                 in_arr[:] = R
-                plan()  # Correct invocation
-                cc[:] = out_arr
-            except Exception:  # Fallback on pyFFTW error
+                plan()
+                # out_arr should be length N; copy to avoid later overwrites
+                cc[:len(out_arr)] = out_arr
+                if len(out_arr) < N:
+                    cc[len(out_arr):] = 0.0
+            except Exception:
                 cc[:] = fftw.irfft(R, n=N)
     else:
         # Fallback to scipy.fft
