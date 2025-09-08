@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.5.2] - 2025-09-08
+
+### Fixed
+
+- **pyFFTW Implementation**: Resolved critical runtime errors in FFT operations
+  - **FFT Plan Management**: Fixed tuple unpacking errors and attribute access issues in pyFFTW plan caching
+  - **Array Buffer Handling**: Corrected improper use of plan input/output arrays, preventing "'tuple' object has no attribute 'input_array'" errors
+  - **Plan Caching**: Fixed access time indexing in LRU eviction algorithm (index 3 instead of 2)
+  - **Graceful Fallbacks**: Enhanced error handling for cases where pyFFTW plans return None values
+  - **Memory Safety**: Improved buffer reuse patterns to prevent data corruption between FFT operations
+
+### Improved
+
+- **FFT Performance**: Optimized pyFFTW plan execution with proper inplace=False usage for thread safety
+- **Code Reliability**: Enhanced robustness of DSP operations with better error handling and fallback mechanisms
+
 ## [1.5.5.1] - 2025-09-08
 
 ### Fixed
