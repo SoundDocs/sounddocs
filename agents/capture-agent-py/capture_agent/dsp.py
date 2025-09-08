@@ -134,11 +134,11 @@ def get_fft_plan(n: int, direction: str = 'forward', dtype=np.float64):
         if direction == 'forward':
             in_arr = pyfftw.empty_aligned(n, dtype=dtype)
             out_arr = pyfftw.empty_aligned(n // 2 + 1, dtype=np.complex128)
-            plan = pyfftw.FFTW(in_arr, out_arr, direction='FFTW_FORWARD', flags=('FFTW_MEASURE',), inplace=False)
+            plan = pyfftw.FFTW(in_arr, out_arr, direction='FFTW_FORWARD', flags=('FFTW_MEASURE',))
         else:
             in_arr = pyfftw.empty_aligned(n // 2 + 1, dtype=np.complex128)
             out_arr = pyfftw.empty_aligned(n, dtype=dtype)
-            plan = pyfftw.FFTW(in_arr, out_arr, direction='FFTW_BACKWARD', flags=('FFTW_MEASURE',), inplace=False)
+            plan = pyfftw.FFTW(in_arr, out_arr, direction='FFTW_BACKWARD', flags=('FFTW_MEASURE',))
 
         _fft_plans[plan_key] = (plan, in_arr, out_arr, time.time())
 
