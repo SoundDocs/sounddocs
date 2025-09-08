@@ -9,19 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Capture Agent Memory Leaks**: Fixed critical memory leaks in the capture agent that caused unbounded memory growth during operation.
-  - **Work Arrays Management**: Added size limits (16 max) and LRU eviction for reusable NumPy arrays with access time tracking
-  - **Buffer Pool Cleanup**: Added comprehensive cleanup of audio buffer pools when capture stops
-  - **Deterministic Garbage Collection**: Replaced random GC calls with periodic cleanup every 100 frames
-  - **FFT Memory Optimization**: Reduced FFT memory usage by reusing work arrays for forward/inverse transforms
-  - **Array Operation Optimization**: Replaced `np.concatenate` and `np.zeros_like` with reusable work arrays
-  - **Memory Monitoring**: Added optional memory usage logging with psutil for debugging
-  - **Capture Agent Version**: Updated to v0.1.13 with memory leak fixes
+- **Critical Memory Leaks**: Eliminated unbounded memory growth in capture agent DSP operations
+  - **FFT Memory Optimization**: Implemented pyFFTW with precomputed plans and reusable work arrays to prevent memory leaks during FFT operations
+  - **Work Array Management**: Enhanced caching system with dtype-aware keys to prevent buffer type mismatches and memory waste
+  - **Array Zeroing Optimization**: Replaced inefficient `np.copyto()` calls with direct `fill()` method for better performance
+  - **FFT Plan Caching**: Added LRU-based FFT plan management to prevent plan accumulation and memory leaks
+  - **Deterministic Cleanup**: Improved periodic cleanup routines for work arrays and FFT plans
 
 ### Improved
 
-- **DSP Performance**: Optimized NumPy array operations to reduce memory allocations during signal processing
-- **Resource Management**: Better cleanup of DSP caches and work arrays to prevent memory accumulation
+- **DSP Performance**: Switched to pyFFTW backend for optimal FFT performance with intelligent plan reuse
+- **Memory Efficiency**: Enhanced work array reuse and reduced temporary allocations during signal processing
 
 ## [1.5.5] - 2025-09-05
 

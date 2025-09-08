@@ -1,6 +1,12 @@
 import numpy as np
-import scipy.fft
 from scipy.signal import welch, csd
+try:
+    import pyfftw
+    import pyfftw.interfaces.numpy_fft as fftw
+    _PYFFTW_AVAILABLE = True
+except ImportError:
+    _PYFFTW_AVAILABLE = False
+    import scipy.fft as fftw
 from collections import OrderedDict
 from functools import lru_cache
 import weakref
@@ -53,13 +59,15 @@ def log_memory_usage():
 
 def clear_dsp_caches():
     """Clear DSP caches to free memory."""
-    global _windows, _work_arrays, _work_array_access_times
+    global _windows, _work_arrays, _work_array_access_times, _fft_plans
     _windows.clear()
     _hann_cached.cache_clear()
     _taper_for_M.cache_clear()
     # Clear work arrays
     _work_arrays.clear()
     _work_array_access_times.clear()
+    # Clear FFT plans
+    _fft_plans.clear()
     gc.collect()
     log_memory_usage()
 
@@ -70,9 +78,16 @@ MAX_WORK_ARRAYS = 16
 _cleanup_counter = 0
 CLEANUP_INTERVAL = 100  # Every 100 frames
 
+# FFT plan caching for pyFFTW performance
+_fft_plans = {}
+MAX_FFT_PLANS = 8
+
 def get_work_array(key: str, shape: tuple, dtype=np.float64) -> np.ndarray:
     """Get a reusable work array with size limits and access tracking."""
     global _work_arrays, _work_array_access_times
+
+    # Include dtype in cache key to prevent type mismatches
+    cache_key = (key, shape, dtype)
 
     # Clean up old arrays periodically if over limit
     if len(_work_arrays) > MAX_WORK_ARRAYS:
@@ -84,11 +99,47 @@ def get_work_array(key: str, shape: tuple, dtype=np.float64) -> np.ndarray:
             _work_arrays.pop(old_key, None)
             _work_array_access_times.pop(old_key, None)
 
-    if key not in _work_arrays or _work_arrays[key].shape != shape:
-        _work_arrays[key] = np.empty(shape, dtype=dtype)
+    if cache_key not in _work_arrays:
+        _work_arrays[cache_key] = np.empty(shape, dtype=dtype)
 
-    _work_array_access_times[key] = time.time()
-    return _work_arrays[key]
+    _work_array_access_times[cache_key] = time.time()
+    return _work_arrays[cache_key]
+
+
+def get_fft_plan(n: int, direction: str = 'forward', dtype=np.float64):
+    """Get a cached FFT plan for improved performance."""
+    if not _PYFFTW_AVAILABLE:
+        return None
+
+    plan_key = (n, direction, dtype)
+
+    if plan_key not in _fft_plans:
+        # Create new plan if we haven't exceeded the limit
+        if len(_fft_plans) >= MAX_FFT_PLANS:
+            # Remove oldest plan
+            oldest_key = min(_fft_plans.keys(),
+                           key=lambda k: _fft_plans[k][1])  # [1] is access time
+            _fft_plans.pop(oldest_key, None)
+
+        # Create input/output arrays for plan
+        if direction == 'forward':
+            input_array = pyfftw.empty_aligned(n, dtype=dtype)
+            output_array = pyfftw.empty_aligned(n//2 + 1, dtype=np.complex128)
+            plan = pyfftw.FFTW(input_array, output_array, direction='FFTW_FORWARD',
+                             flags=('FFTW_MEASURE',))
+        else:  # inverse
+            input_array = pyfftw.empty_aligned(n//2 + 1, dtype=np.complex128)
+            output_array = pyfftw.empty_aligned(n, dtype=dtype)
+            plan = pyfftw.FFTW(input_array, output_array, direction='FFTW_BACKWARD',
+                             flags=('FFTW_MEASURE',))
+
+        _fft_plans[plan_key] = (plan, time.time())
+
+    # Update access time
+    plan, _ = _fft_plans[plan_key]
+    _fft_plans[plan_key] = (plan, time.time())
+
+    return plan
 
 def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: float | None = None) -> float:
     """
@@ -112,15 +163,41 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
     X = get_work_array('fft_X', (fft_size,), dtype=np.complex128)
     Y = get_work_array('fft_Y', (fft_size,), dtype=np.complex128)
 
-    # Compute FFTs with out parameter for memory efficiency
-    scipy.fft.rfft(x, n=N, out=X)
-    scipy.fft.rfft(y, n=N, out=Y)
+    # Use pyFFTW for optimal performance with preallocated arrays
+    if _PYFFTW_AVAILABLE:
+        # Get or create FFT plans for this size
+        rfft_plan = get_fft_plan(N, 'forward', x.dtype)
+
+        # Execute forward FFTs using precomputed plans
+        rfft_plan.input_array[:] = x
+        rfft_plan()
+        X[:] = rfft_plan.output_array
+
+        rfft_plan.input_array[:] = y
+        rfft_plan()
+        Y[:] = rfft_plan.output_array
+    else:
+        # Fallback to scipy.fft
+        X[:] = fftw.rfft(x, n=N)
+        Y[:] = fftw.rfft(y, n=N)
     R = np.conj(X) * Y
     R /= (np.abs(R) + 1e-15)  # PHAT
 
     # Use work array for irfft
     cc = get_work_array('cc', (N,), dtype=np.float64)
-    scipy.fft.irfft(R, n=N, out=cc)
+
+    # Use pyFFTW for optimal performance with preallocated arrays
+    if _PYFFTW_AVAILABLE:
+        # Get or create inverse FFT plan
+        irfft_plan = get_fft_plan(N, 'inverse', cc.dtype)
+
+        # Execute inverse FFT using precomputed plan
+        irfft_plan.input_array[:] = R
+        irfft_plan()
+        cc[:] = irfft_plan.output_array
+    else:
+        # Fallback to scipy.fft
+        cc[:] = fftw.irfft(R, n=N)
 
     # keep only the valid linear part (length 2n-1), map to lags [-(n-1) .. +(n-1)]
     # Use work array instead of np.concatenate
@@ -238,7 +315,7 @@ def _align_by_integer_delay_pad(x: np.ndarray, y: np.ndarray, delay_ms: float, f
 
     # Use work array instead of np.zeros_like
     y_shift = get_work_array('y_shift', y.shape, dtype=y.dtype)
-    np.copyto(y_shift, 0)  # Fill with zeros
+    y_shift.fill(0)  # Fill with zeros (more efficient than np.copyto)
     N = y.size
 
     if D_int > 0:
