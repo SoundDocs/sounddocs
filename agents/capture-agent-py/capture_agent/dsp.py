@@ -109,13 +109,14 @@ def get_work_array(key: str, shape: tuple, dtype=np.float64) -> np.ndarray:
 def get_fft_plan(n: int, direction: str = 'forward', dtype=np.float64):
     """Get a cached FFT plan along with its IO arrays."""
     if not _PYFFTW_AVAILABLE:
-        return None
+        return (None, None, None)  # Return consistent 3-tuple
 
     plan_key = (n, direction, dtype)
 
     if plan_key not in _fft_plans:
         if len(_fft_plans) >= MAX_FFT_PLANS:
-            oldest_key = min(_fft_plans.keys(), key=lambda k: _fft_plans[k][2])  # access time at idx 2
+            # Fix: access time is at index 3 (was index 2)
+            oldest_key = min(_fft_plans.keys(), key=lambda k: _fft_plans[k][3])
             _fft_plans.pop(oldest_key, None)
 
         if direction == 'forward':
@@ -130,6 +131,7 @@ def get_fft_plan(n: int, direction: str = 'forward', dtype=np.float64):
         _fft_plans[plan_key] = (plan, in_arr, out_arr, time.time())
 
     plan, in_arr, out_arr, _ = _fft_plans[plan_key]
+    # Update access time at index 3
     _fft_plans[plan_key] = (plan, in_arr, out_arr, time.time())
     return plan, in_arr, out_arr
 
@@ -160,21 +162,24 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
         # Ensure inputs match planned length N (zero-pad or truncate)
         xN = get_work_array('xN', (N,), dtype=x.dtype)
         yN = get_work_array('yN', (N,), dtype=y.dtype)
-        xN.fill(0)
-        yN.fill(0)
+        xN.fill(0); yN.fill(0)
         ncopy = min(len(x), N)
         xN[:ncopy] = x[:ncopy]
         yN[:ncopy] = y[:ncopy]
 
-        rfft_plan = get_fft_plan(N, 'forward', xN.dtype)
-
-        rfft_plan.input_array[:] = xN
-        rfft_plan()
-        X[:] = rfft_plan.output_array
-
-        rfft_plan.input_array[:] = yN
-        rfft_plan()
-        Y[:] = rfft_plan.output_array
+        plan, in_arr, out_arr = get_fft_plan(N, 'forward', xN.dtype)
+        if plan is None:
+            X[:] = fftw.rfft(x, n=N)
+            Y[:] = fftw.rfft(y, n=N)
+        else:
+            # Process x
+            in_arr[:] = xN
+            plan(inplace=False)
+            X[:] = out_arr
+            # Process y
+            in_arr[:] = yN
+            plan(inplace=False)
+            Y[:] = out_arr
     else:
         # Fallback to scipy.fft
         X[:] = fftw.rfft(x, n=N)
@@ -187,13 +192,13 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
 
     # Use pyFFTW for optimal performance with preallocated arrays
     if _PYFFTW_AVAILABLE:
-        # Get or create inverse FFT plan
-        irfft_plan = get_fft_plan(N, 'inverse', cc.dtype)
-
-        # Execute inverse FFT using precomputed plan
-        irfft_plan.input_array[:] = R
-        irfft_plan()
-        cc[:] = irfft_plan.output_array
+        plan, in_arr, out_arr = get_fft_plan(N, 'inverse', cc.dtype)
+        if plan is None:
+            cc[:] = fftw.irfft(R, n=N)
+        else:
+            in_arr[:] = R
+            plan(inplace=False)
+            cc[:] = out_arr
     else:
         # Fallback to scipy.fft
         cc[:] = fftw.irfft(R, n=N)
