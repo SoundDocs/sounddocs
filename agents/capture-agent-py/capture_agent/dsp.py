@@ -169,21 +169,25 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
 
         plan, in_arr, out_arr = get_fft_plan(N, 'forward', xN.dtype)
         if plan is None:
-            X[:] = fftw.rfft(x, n=N)
-            Y[:] = fftw.rfft(y, n=N)
+            X[:] = fftw.rfft(xN, n=N)
+            Y[:] = fftw.rfft(yN, n=N)
         else:
-            # Process x
-            in_arr[:] = xN
-            plan(inplace=False)
-            X[:] = out_arr
-            # Process y
-            in_arr[:] = yN
-            plan(inplace=False)
-            Y[:] = out_arr
+            try:
+                # Process x
+                in_arr[:] = xN
+                plan()  # Correct invocation
+                X[:] = out_arr
+                # Process y
+                in_arr[:] = yN
+                plan()  # Correct invocation
+                Y[:] = out_arr
+            except Exception:  # Fallback on pyFFTW error
+                X[:] = fftw.rfft(xN, n=N)
+                Y[:] = fftw.rfft(yN, n=N)
     else:
         # Fallback to scipy.fft
-        X[:] = fftw.rfft(x, n=N)
-        Y[:] = fftw.rfft(y, n=N)
+        X[:] = fftw.rfft(xN, n=N)
+        Y[:] = fftw.rfft(yN, n=N)
     R = np.conj(X) * Y
     R /= (np.abs(R) + 1e-15)  # PHAT
 
@@ -192,13 +196,16 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
 
     # Use pyFFTW for optimal performance with preallocated arrays
     if _PYFFTW_AVAILABLE:
-        plan, in_arr, out_arr = get_fft_plan(N, 'inverse', cc.dtype)
+        plan, in_arr, out_arr = get_fft_plan(N, 'inverse', np.complex128)  # R is complex128
         if plan is None:
             cc[:] = fftw.irfft(R, n=N)
         else:
-            in_arr[:] = R
-            plan(inplace=False)
-            cc[:] = out_arr
+            try:
+                in_arr[:] = R
+                plan()  # Correct invocation
+                cc[:] = out_arr
+            except Exception:  # Fallback on pyFFTW error
+                cc[:] = fftw.irfft(R, n=N)
     else:
         # Fallback to scipy.fft
         cc[:] = fftw.irfft(R, n=N)
