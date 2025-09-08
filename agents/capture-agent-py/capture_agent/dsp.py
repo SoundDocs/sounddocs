@@ -4,6 +4,13 @@ from collections import OrderedDict
 from functools import lru_cache
 import weakref
 import gc
+import time
+try:
+    import psutil
+    import os
+    _MEMORY_MONITORING_AVAILABLE = True
+except ImportError:
+    _MEMORY_MONITORING_AVAILABLE = False
 from .schema import CaptureConfig, TFData, SPLData
 
 _windows = OrderedDict()
@@ -30,24 +37,56 @@ def get_window(name, N):
     return w
 
 # Add cache clearing function
+def log_memory_usage():
+    """Log current memory usage if psutil is available."""
+    if not _MEMORY_MONITORING_AVAILABLE:
+        return
+
+    try:
+        process = psutil.Process(os.getpid())
+        memory_info = process.memory_info()
+        memory_mb = memory_info.rss / 1024 / 1024
+        print(f"DSP Memory: {memory_mb:.1f} MB, Work arrays: {len(_work_arrays)}")
+    except Exception as e:
+        print(f"Memory monitoring error: {e}")
+
 def clear_dsp_caches():
     """Clear DSP caches to free memory."""
-    global _windows, _work_arrays
+    global _windows, _work_arrays, _work_array_access_times
     _windows.clear()
     _hann_cached.cache_clear()
     _taper_for_M.cache_clear()
     # Clear work arrays
     _work_arrays.clear()
+    _work_array_access_times.clear()
     gc.collect()
+    log_memory_usage()
 
 # Pre-allocated work arrays for DSP operations
 _work_arrays = {}
+_work_array_access_times = {}
+MAX_WORK_ARRAYS = 16
+_cleanup_counter = 0
+CLEANUP_INTERVAL = 100  # Every 100 frames
 
 def get_work_array(key: str, shape: tuple, dtype=np.float64) -> np.ndarray:
-    """Get a reusable work array, creating if needed."""
-    global _work_arrays
+    """Get a reusable work array with size limits and access tracking."""
+    global _work_arrays, _work_array_access_times
+
+    # Clean up old arrays periodically if over limit
+    if len(_work_arrays) > MAX_WORK_ARRAYS:
+        # Remove least recently used arrays
+        sorted_keys = sorted(_work_array_access_times.keys(),
+                           key=lambda k: _work_array_access_times[k])
+        keys_to_remove = sorted_keys[:len(_work_arrays) - MAX_WORK_ARRAYS]
+        for old_key in keys_to_remove:
+            _work_arrays.pop(old_key, None)
+            _work_array_access_times.pop(old_key, None)
+
     if key not in _work_arrays or _work_arrays[key].shape != shape:
         _work_arrays[key] = np.empty(shape, dtype=dtype)
+
+    _work_array_access_times[key] = time.time()
     return _work_arrays[key]
 
 def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: float | None = None) -> float:
@@ -67,16 +106,26 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
     # FFT size >= 2n-1 for linear correlation
     N = 1 << int(np.ceil(np.log2(2*n - 1)))
 
-    # Compute FFTs (can't use out parameter with rfft)
-    X = np.fft.rfft(x, n=N)
-    Y = np.fft.rfft(y, n=N)
+    # Use reusable FFT work arrays
+    fft_size = N // 2 + 1  # rfft output size
+    X = get_work_array('fft_X', (fft_size,), dtype=np.complex128)
+    Y = get_work_array('fft_Y', (fft_size,), dtype=np.complex128)
+
+    # Compute FFTs with out parameter for memory efficiency
+    np.fft.rfft(x, n=N, out=X)
+    np.fft.rfft(y, n=N, out=Y)
     R = np.conj(X) * Y
     R /= (np.abs(R) + 1e-15)  # PHAT
 
-    cc = np.fft.irfft(R, n=N)
+    # Use work array for irfft
+    cc = get_work_array('cc', (N,), dtype=np.float64)
+    np.fft.irfft(R, n=N, out=cc)
 
     # keep only the valid linear part (length 2n-1), map to lags [-(n-1) .. +(n-1)]
-    cc_lin = np.concatenate((cc[-(n-1):], cc[:n]))
+    # Use work array instead of np.concatenate
+    cc_lin = get_work_array('cc_lin', (2*n-1,), dtype=np.float64)
+    cc_lin[:n] = cc[-(n-1):]
+    cc_lin[n:] = cc[:n-1]
     lags = np.arange(-(n-1), n, dtype=np.int64)
 
     # optional search limit
@@ -186,7 +235,9 @@ def _align_by_integer_delay_pad(x: np.ndarray, y: np.ndarray, delay_ms: float, f
     D_int = int(np.round(D))          # integer samples
     frac = D - D_int                  # fractional remainder (in samples)
 
-    y_shift = np.zeros_like(y)
+    # Use work array instead of np.zeros_like
+    y_shift = get_work_array('y_shift', y.shape, dtype=y.dtype)
+    np.copyto(y_shift, 0)  # Fill with zeros
     N = y.size
 
     if D_int > 0:
@@ -425,8 +476,22 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     dbfs = 20.0 * np.log10(rms)
     spl_data = SPLData(Leq=dbfs, LZ=dbfs)
     
-    # Periodic garbage collection to prevent memory growth
-    if np.random.random() < 0.1:  # 10% chance
-        gc.collect(0)
+    # Periodic cleanup instead of random GC
+    _cleanup_counter += 1
+    if _cleanup_counter >= CLEANUP_INTERVAL:
+        _cleanup_counter = 0
+        # Clear unused work arrays
+        current_keys = set(_work_arrays.keys())
+        if len(current_keys) > MAX_WORK_ARRAYS // 2:
+            # Keep only most recently used
+            recent_keys = sorted(_work_array_access_times.keys(),
+                               key=lambda k: _work_array_access_times[k],
+                               reverse=True)[:MAX_WORK_ARRAYS // 2]
+            for key in current_keys - set(recent_keys):
+                _work_arrays.pop(key, None)
+                _work_array_access_times.pop(key, None)
+
+        gc.collect(0)  # Fast generation 0 collection
+        log_memory_usage()  # Log memory usage during cleanup
 
     return tf_data, spl_data, delay_ms

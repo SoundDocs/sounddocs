@@ -67,6 +67,7 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
             await send_error(ws, "Capture is already in progress.")
             return
         dsp.reset_dsp_state()
+        dsp.clear_dsp_caches()  # Ensure clean start
         config = CaptureConfig(**message.dict())
         capture_task = asyncio.create_task(run_capture(ws, config))
 
@@ -236,6 +237,15 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
         print(f"Error during capture: {e}")
         await send_error(ws, f"Capture failed: {e}")
     finally:
+        # Clean up buffer pool and DSP caches
+        pool.clear()
+        dsp.clear_dsp_caches()
+
+        # Force comprehensive garbage collection
+        gc.collect()
+        gc.collect(1)  # Also collect generation 1
+        gc.collect(2)  # And generation 2
+
         try:
             if stream is not None:
                 stream.stop()
