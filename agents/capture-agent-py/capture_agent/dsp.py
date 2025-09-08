@@ -165,15 +165,22 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
 
     # Use pyFFTW for optimal performance with preallocated arrays
     if _PYFFTW_AVAILABLE:
-        # Get or create FFT plans for this size
-        rfft_plan = get_fft_plan(N, 'forward', x.dtype)
+        # Ensure inputs match planned length N (zero-pad or truncate)
+        xN = get_work_array('xN', (N,), dtype=x.dtype)
+        yN = get_work_array('yN', (N,), dtype=y.dtype)
+        xN.fill(0)
+        yN.fill(0)
+        ncopy = min(len(x), N)
+        xN[:ncopy] = x[:ncopy]
+        yN[:ncopy] = y[:ncopy]
 
-        # Execute forward FFTs using precomputed plans
-        rfft_plan.input_array[:] = x
+        rfft_plan = get_fft_plan(N, 'forward', xN.dtype)
+
+        rfft_plan.input_array[:] = xN
         rfft_plan()
         X[:] = rfft_plan.output_array
 
-        rfft_plan.input_array[:] = y
+        rfft_plan.input_array[:] = yN
         rfft_plan()
         Y[:] = rfft_plan.output_array
     else:
