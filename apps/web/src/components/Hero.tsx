@@ -5,12 +5,12 @@ import {
   Music,
   Bookmark,
   Calendar,
-  Mic,
-  ChevronsRight,
   Github,
   Heart,
   ListChecks, // Added for Run of Show example
   CalendarClock, // Added for Production Schedule example
+  Radio, // Added for Comms Planner
+  FileText, // Added for Patch Sheets
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -137,10 +137,10 @@ const Hero: React.FC = () => {
             {/* Simplified representation of different document types */}
             <div className="space-y-4">
               <div className="bg-gray-850 rounded-lg p-3 border border-gray-700/50 flex items-center">
-                <Mic className="text-indigo-400 mr-3 h-5 w-5 flex-shrink-0" />
+                <FileText className="text-indigo-400 mr-3 h-5 w-5 flex-shrink-0" />
                 <div>
-                  <h3 className="text-white font-semibold text-sm">Detailed Patch Sheets</h3>
-                  <p className="text-gray-400 text-xs">Input/output mapping, mics, notes.</p>
+                  <h3 className="text-white font-semibold text-sm">Patch Sheets</h3>
+                  <p className="text-gray-400 text-xs">Input/output mapping, equipment lists.</p>
                 </div>
               </div>
               <div className="bg-gray-850 rounded-lg p-3 border border-gray-700/50 flex items-center">
@@ -163,6 +163,15 @@ const Hero: React.FC = () => {
                 <div>
                   <h3 className="text-white font-semibold text-sm">Production Schedules</h3>
                   <p className="text-gray-400 text-xs">Task management, deadlines.</p>
+                </div>
+              </div>
+              <div className="bg-gray-850 rounded-lg p-3 border border-gray-700/50 flex items-center">
+                <Radio className="text-indigo-400 mr-3 h-5 w-5 flex-shrink-0" />
+                <div>
+                  <h3 className="text-white font-semibold text-sm">Comms Planner</h3>
+                  <p className="text-gray-400 text-xs">
+                    Wireless communication setups, frequency coordination.
+                  </p>
                 </div>
               </div>
               <div className="bg-gray-850 rounded-lg p-3 border border-gray-700/50 flex items-center">

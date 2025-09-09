@@ -5,7 +5,119 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.5.6] - 2025-01-12
+
+### Added
+
+- **Math Traces**: Complete mathematical operations system for measurements
+
+  - **Advanced Averaging**: Coherence-weighted averaging for improved measurement quality
+  - **Complex Arithmetic**: Proper handling of magnitude and phase data with phase unwrapping
+  - **Multiple Operations**: Support for average, sum, and subtract operations on measurement traces
+  - **Quality-Based Processing**: Measurements with higher coherence contribute more to averages
+  - **Real-Time Processing**: Dynamic computation of math traces as measurements are selected
+
+- **Math Trace Management UI**:
+
+  - **Math Trace Modal**: Dedicated interface for creating and managing mathematical operations
+  - **Operation Selection**: Choose between average, sum, and subtract operations
+  - **Measurement Selection**: Multi-select interface for choosing source measurements
+  - **Visual Integration**: Math traces appear in measurement lists with calculator icon
+  - **Real-Time Updates**: Changes to source measurements automatically update math traces
+
+- **Database Schema**: New `math_measurements` table for persistent storage
+  - **Full CRUD Operations**: Create, read, update, and delete math trace definitions
+  - **User-Specific Storage**: Measurements are associated with user accounts
+  - **Relationship Management**: Links to source measurement IDs for dynamic updates
+
+### Improved
+
+- **Analyzer Pro Page**: Enhanced measurement visualization and management
+
+  - **Math Trace Integration**: Math traces appear alongside regular measurements
+  - **Color Coding**: Distinct visual identification of math traces
+  - **Performance**: Optimized rendering of complex measurement datasets
+
+- **Chart Visualization**: Improved chart rendering and legend display
+
+  - **Phase Legend Colors**: Fixed color display in phase graph legends on main analyzer page
+  - **Coherence Visualization**: Enhanced coherence-based coloring in charts
+  - **Legend Consistency**: Proper color swatches across all chart types
+
+- **Signal Processing**: Advanced DSP algorithms for measurement mathematics
+  - **Phase Unwrapping**: Robust handling of phase discontinuities in complex arithmetic
+  - **Frequency Validation**: Automatic validation of measurement compatibility
+  - **Error Handling**: Comprehensive error handling for edge cases
+
+### Fixed
+
+- **Chart Legend Colors**: Resolved empty color boxes in phase graph legends
+- **Measurement Compatibility**: Fixed frequency bin validation for math operations
+- **Phase Processing**: Corrected phase unwrapping for accurate complex arithmetic
+- **Production Schedule Print Export**: Fixed day headers and time ordering issues
+  - **Day Headers**: Changed from row separators to proper section headers for detailed schedule items
+  - **Time Ordering**: Preserved manual reordering by removing forced sorting, matching interactive version behavior
+
+### Technical Enhancements
+
+- **Type Safety**: Updated TypeScript interfaces for math trace support
+- **Component Architecture**: New reusable UI components for math operations
+- **Performance Optimization**: Efficient algorithms for real-time math trace computation
+- **Memory Management**: Proper cleanup and resource management in DSP operations
+
+## [1.5.5.2] - 2025-09-08
+
+### Fixed
+
+- **pyFFTW Implementation**: Resolved critical runtime errors in FFT operations
+  - **FFT Plan Management**: Fixed tuple unpacking errors and attribute access issues in pyFFTW plan caching
+  - **Array Buffer Handling**: Corrected improper use of plan input/output arrays, preventing "'tuple' object has no attribute 'input_array'" errors
+  - **Plan Caching**: Fixed access time indexing in LRU eviction algorithm (index 3 instead of 2)
+  - **Graceful Fallbacks**: Enhanced error handling for cases where pyFFTW plans return None values
+  - **Memory Safety**: Improved buffer reuse patterns to prevent data corruption between FFT operations
+
+### Improved
+
+- **FFT Performance**: Optimized pyFFTW plan execution with proper inplace=False usage for thread safety
+- **Code Reliability**: Enhanced robustness of DSP operations with better error handling and fallback mechanisms
+
+## [1.5.5.1] - 2025-09-08
+
+### Fixed
+
+- **Critical Memory Leaks**: Eliminated unbounded memory growth in capture agent DSP operations
+  - **FFT Memory Optimization**: Implemented pyFFTW with precomputed plans and reusable work arrays to prevent memory leaks during FFT operations
+  - **Work Array Management**: Enhanced caching system with dtype-aware keys to prevent buffer type mismatches and memory waste
+  - **Array Zeroing Optimization**: Replaced inefficient `np.copyto()` calls with direct `fill()` method for better performance
+  - **FFT Plan Caching**: Added LRU-based FFT plan management to prevent plan accumulation and memory leaks
+  - **Deterministic Cleanup**: Improved periodic cleanup routines for work arrays and FFT plans
+
+### Improved
+
+- **DSP Performance**: Switched to pyFFTW backend for optimal FFT performance with intelligent plan reuse
+- **Memory Efficiency**: Enhanced work array reuse and reduced temporary allocations during signal processing
+
+## [1.5.5] - 2025-09-05
+
+### Added
+
+- **Comms Planner**: Complete wireless communications planning system for events
+  - **Visual Comms Canvas**: Interactive drag-and-drop canvas for designing wireless communication setups
+  - **Transceiver Management**: Create and manage wireless transceiver base stations with frequency bands, labels, and channel assignments
+  - **Beltpack Management**: Manage wireless beltpack units with channel assignments and user assignments
+  - **Comprehensive Export**: Generate detailed PDF exports with transceiver layouts, beltpack assignments, and frequency coordination details
+  - **Database Integration**: Full persistence with Supabase backend supporting sharing and versioning
+  - **Professional Workflows**: Designed specifically for live event production with industry-standard practices
+
+### Improved
+
+- **Comms Planning Workflows**: Streamlined wireless communication planning with professional-grade tools and visual design capabilities
+
+## [1.5.4.6.1] - 2025-09-04
+
+### Fixed
+
+- **Analyzer Page UI**: Fixed a styling issue on the analyzer hub page where the disclaimer overlay would not dim the header and buttons, making them unintentionally interactive. The page content is now properly dimmed when the disclaimer is active.
 
 ## [1.5.4.6] - 2025-09-04
 

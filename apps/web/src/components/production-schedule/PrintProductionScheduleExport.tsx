@@ -140,11 +140,10 @@ const PrintProductionScheduleExport = forwardRef<
       if (!groups[dateStr]) groups[dateStr] = [];
       groups[dateStr].push(item);
     });
-    for (const dateKey in groups) {
-      groups[dateKey].sort((a, b) =>
-        (a.start_time || "00:00").localeCompare(b.start_time || "00:00"),
-      );
-    }
+
+    // Items within each group will maintain their order from the detailedItems array
+    // to preserve manual reordering (same as the regular version)
+
     const sortedGroups = Object.entries(groups).sort(([dateA], [dateB]) => {
       if (dateA === "No Date Assigned") return 1;
       if (dateB === "No Date Assigned") return -1;
@@ -155,7 +154,7 @@ const PrintProductionScheduleExport = forwardRef<
       }
     });
     console.log(
-      "[PrintExport] groupAndSortDetailedItems output (grouped and sorted):",
+      "[PrintExport] groupAndSortDetailedItems output (grouped, preserving manual order):",
       JSON.parse(JSON.stringify(sortedGroups)),
     );
     return sortedGroups;
@@ -416,14 +415,14 @@ const PrintProductionScheduleExport = forwardRef<
       )}
 
       {groupedDetailedScheduleItems.length > 0 && (
-        <div style={{ marginBottom: "20px", pageBreakInside: "avoid" }}>
+        <div style={{ marginBottom: "20px" }}>
           <h3
             style={{
               fontSize: "16px",
               fontWeight: "bold",
               borderBottom: "1px solid #eee",
               paddingBottom: "8px",
-              marginBottom: "10px",
+              marginBottom: "15px",
             }}
           >
             <ListChecks
@@ -432,69 +431,99 @@ const PrintProductionScheduleExport = forwardRef<
             />{" "}
             Detailed Production Schedule
           </h3>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
-            <thead>
-              <tr style={{ backgroundColor: "#f0f0f0", borderBottom: "1px solid #ccc" }}>
-                <th style={{ padding: "6px", textAlign: "left", fontWeight: "bold", width: "8%" }}>
-                  Start
-                </th>
-                <th style={{ padding: "6px", textAlign: "left", fontWeight: "bold", width: "8%" }}>
-                  End
-                </th>
-                <th style={{ padding: "6px", textAlign: "left", fontWeight: "bold", width: "30%" }}>
-                  Activity
-                </th>
-                <th style={{ padding: "6px", textAlign: "left", fontWeight: "bold", width: "30%" }}>
-                  Notes
-                </th>
-                <th style={{ padding: "6px", textAlign: "left", fontWeight: "bold", width: "24%" }}>
-                  Crew
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {groupedDetailedScheduleItems.map(([dateKey, itemsInGroup], groupIndex) => {
-                console.log(
-                  `[PrintExport] Rendering group ${groupIndex} for date: ${dateKey}, items count: ${itemsInGroup.length}`,
-                );
-                return (
-                  <React.Fragment key={dateKey}>
-                    <tr
-                      style={{
-                        backgroundColor: "#e2e8f0",
-                        borderTop: "1px solid #ccc",
-                        borderBottom: "1px solid #ccc",
-                      }}
-                    >
-                      <td
-                        colSpan={5}
+
+          {groupedDetailedScheduleItems.map(([dateKey, itemsInGroup], groupIndex) => {
+            console.log(
+              `[PrintExport] Rendering group ${groupIndex} for date: ${dateKey}, items count: ${itemsInGroup.length}`,
+            );
+            return (
+              <div key={dateKey} style={{ marginBottom: "20px", pageBreakInside: "avoid" }}>
+                <h4
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                    backgroundColor: "#e2e8f0",
+                    padding: "8px 12px",
+                    margin: "0 0 8px 0",
+                    borderRadius: "4px",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <CalendarDays
+                    size={16}
+                    style={{
+                      display: "inline-block",
+                      marginRight: "8px",
+                      verticalAlign: "middle",
+                    }}
+                  />
+                  <span>
+                    {formatDate(dateKey, {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </span>
+                </h4>
+
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+                  <thead>
+                    <tr style={{ backgroundColor: "#f0f0f0", borderBottom: "1px solid #ccc" }}>
+                      <th
                         style={{
-                          padding: "6px 8px",
-                          fontWeight: "bold",
+                          padding: "6px",
                           textAlign: "left",
-                          whiteSpace: "nowrap",
+                          fontWeight: "bold",
+                          width: "8%",
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center" }}>
-                          <CalendarDays
-                            size={14}
-                            style={{
-                              display: "inline-block",
-                              marginRight: "6px",
-                              verticalAlign: "middle",
-                            }}
-                          />
-                          <span>
-                            {formatDate(dateKey, {
-                              weekday: "long",
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric",
-                            })}
-                          </span>
-                        </div>
-                      </td>
+                        Start
+                      </th>
+                      <th
+                        style={{
+                          padding: "6px",
+                          textAlign: "left",
+                          fontWeight: "bold",
+                          width: "8%",
+                        }}
+                      >
+                        End
+                      </th>
+                      <th
+                        style={{
+                          padding: "6px",
+                          textAlign: "left",
+                          fontWeight: "bold",
+                          width: "30%",
+                        }}
+                      >
+                        Activity
+                      </th>
+                      <th
+                        style={{
+                          padding: "6px",
+                          textAlign: "left",
+                          fontWeight: "bold",
+                          width: "30%",
+                        }}
+                      >
+                        Notes
+                      </th>
+                      <th
+                        style={{
+                          padding: "6px",
+                          textAlign: "left",
+                          fontWeight: "bold",
+                          width: "24%",
+                        }}
+                      >
+                        Crew
+                      </th>
                     </tr>
+                  </thead>
+                  <tbody>
                     {itemsInGroup.map((item, index) => {
                       console.log(
                         `[PrintExport] Rendering item ${index} in group ${groupIndex}:`,
@@ -548,11 +577,11 @@ const PrintProductionScheduleExport = forwardRef<
                         </tr>
                       );
                     })}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
+                  </tbody>
+                </table>
+              </div>
+            );
+          })}
         </div>
       )}
 
