@@ -332,18 +332,32 @@ export function applyEq(
 /**
  * Unwraps phase to remove discontinuities of ±180° (±π radians).
  * This ensures continuous phase for complex arithmetic operations.
+ * Uses cumulative offset approach to handle large discontinuities properly.
  */
 function unwrapPhase(phaseDeg: number[]): number[] {
-  const unwrapped = [...phaseDeg];
+  if (phaseDeg.length === 0) return [];
+
+  const unwrapped = new Array(phaseDeg.length);
+  unwrapped[0] = phaseDeg[0];
+
+  let cumulativeOffset = 0;
   const threshold = 180.0; // degrees
 
-  for (let i = 1; i < unwrapped.length; i++) {
-    const diff = unwrapped[i] - unwrapped[i - 1];
-    if (diff > threshold) {
-      unwrapped[i] -= 360.0;
-    } else if (diff < -threshold) {
-      unwrapped[i] += 360.0;
+  for (let i = 1; i < phaseDeg.length; i++) {
+    let diff = phaseDeg[i] - phaseDeg[i - 1];
+
+    // Handle large jumps that might span multiple 360° cycles
+    while (Math.abs(diff) > threshold) {
+      if (diff > threshold) {
+        cumulativeOffset -= 360.0;
+        diff -= 360.0;
+      } else if (diff < -threshold) {
+        cumulativeOffset += 360.0;
+        diff += 360.0;
+      }
     }
+
+    unwrapped[i] = phaseDeg[i] + cumulativeOffset;
   }
 
   return unwrapped;
@@ -376,20 +390,16 @@ function dbToComplex(magDb: number, phaseDeg: number): { re: number; im: number 
 function complexToDb(re: number, im: number): { magDb: number; phaseDeg: number } {
   const magSquared = re * re + im * im;
 
-  // Handle very small magnitudes
-  if (magSquared < 1e-24) {
+  // Handle very small magnitudes with stricter threshold
+  if (magSquared <= 1e-30) {
     return { magDb: -200, phaseDeg: 0 };
   }
 
   const magLinear = Math.sqrt(magSquared);
-  const magDb = 20 * Math.log10(magLinear);
+  const magDb = 20 * Math.log10(Math.max(magLinear, 1e-15));
 
   // Handle phase calculation more robustly
-  let phaseRad = Math.atan2(im, re);
-  if (!isFinite(phaseRad)) {
-    phaseRad = 0;
-  }
-
+  const phaseRad = Math.atan2(im, re);
   const phaseDeg = phaseRad * (180 / Math.PI);
 
   return { magDb, phaseDeg };
@@ -504,65 +514,41 @@ export function calculateMathTrace(
       }
 
       if (operation === "average") {
-        // Coherence-weighted averaging for improved quality
+        // Proper coherence-weighted complex vector averaging
+        let sumRe = 0;
+        let sumIm = 0;
         let totalWeight = 0;
-        let weightedMagSum = 0;
-        let weightedPhaseSum = 0;
         let validMeasurements = 0;
 
-        // Calculate weights and weighted sums for each source
+        // Calculate coherence weights and perform complex vector summation
         processedSources.forEach((source) => {
-          // Get coherence value, use minimum weight for poor measurements
-          const coherence = Math.max(source.coh[i] || 0, 0.1); // Minimum weight of 0.1
+          // Get coherence value with minimum weight for stability
+          const coherence = Math.max(source.coh[i] || 0, 0.1);
           const weight = coherence;
 
-          // Convert magnitude to linear scale for weighted geometric mean
-          const magLinear = Math.pow(10, source.mag_db[i] / 20);
+          // Convert to complex number using original (unwrapped) phase
+          const complex = dbToComplex(source.mag_db[i], source.phase_deg[i]);
 
-          // Handle zero/negative magnitudes
-          if (magLinear > 0) {
-            // For geometric mean, we sum log(magnitude) * weight
-            weightedMagSum += Math.log(magLinear) * weight;
-            totalWeight += weight;
-            validMeasurements++;
-          }
-
-          // Weighted phase sum (arithmetic mean for phase)
-          weightedPhaseSum += source.phase_deg[i] * weight;
+          // Accumulate weighted complex components
+          sumRe += complex.re * weight;
+          sumIm += complex.im * weight;
+          totalWeight += weight;
+          validMeasurements++;
         });
 
         if (totalWeight > 0 && validMeasurements > 0) {
-          // Calculate weighted geometric mean for magnitude
-          const weightedGeoMeanMag = Math.exp(weightedMagSum / totalWeight);
-          const geoMeanMagDb = 20 * Math.log10(Math.max(weightedGeoMeanMag, 1e-12));
-
-          // Calculate weighted arithmetic mean for phase
-          const avgPhase = weightedPhaseSum / totalWeight;
-
-          // Convert back to complex number
-          const avgMagLinear = Math.pow(10, geoMeanMagDb / 20);
-          finalRe = avgMagLinear * Math.cos((avgPhase * Math.PI) / 180);
-          finalIm = avgMagLinear * Math.sin((avgPhase * Math.PI) / 180);
+          // Calculate weighted complex average
+          finalRe = sumRe / totalWeight;
+          finalIm = sumIm / totalWeight;
         } else {
-          // Fallback to simple average if no valid weights
-          const magnitudes = processedSources.map((s) => Math.pow(10, s.mag_db[i] / 20));
-          const validMagnitudes = magnitudes.filter((m) => m > 0);
-          if (validMagnitudes.length > 0) {
-            const product = validMagnitudes.reduce((acc, mag) => acc * mag, 1);
-            const geoMeanMag = Math.pow(product, 1 / validMagnitudes.length);
-            const geoMeanMagDb = 20 * Math.log10(Math.max(geoMeanMag, 1e-12));
-
-            const phases = processedSources.map((s) => s.phase_deg[i]);
-            const avgPhase = phases.reduce((sum, phase) => sum + phase, 0) / sources.length;
-
-            const avgMagLinear = Math.pow(10, geoMeanMagDb / 20);
-            finalRe = avgMagLinear * Math.cos((avgPhase * Math.PI) / 180);
-            finalIm = avgMagLinear * Math.sin((avgPhase * Math.PI) / 180);
-          } else {
-            // All magnitudes are zero/invalid
-            finalRe = 0;
-            finalIm = 0;
-          }
+          // Fallback: simple arithmetic mean of complex vectors
+          processedSources.forEach((source) => {
+            const complex = dbToComplex(source.mag_db[i], source.phase_deg[i]);
+            sumRe += complex.re;
+            sumIm += complex.im;
+          });
+          finalRe = sumRe / sources.length;
+          finalIm = sumIm / sources.length;
         }
       } else {
         // Sum operation (unchanged)

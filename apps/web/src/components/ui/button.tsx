@@ -36,11 +36,24 @@ export interface ButtonProps
   asChild?: boolean;
 }
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+const Button = React.forwardRef<HTMLElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
+    const buttonClasses = cn(buttonVariants({ variant, size, className }));
+
+    if (asChild) {
+      const rest = { ...props } as React.HTMLAttributes<HTMLElement>;
+      // Remove button-specific props that don't apply to other elements
+      delete (rest as any).type;
+      return <Comp className={buttonClasses} ref={ref as React.Ref<any>} {...rest} />;
+    }
+
     return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+      <button
+        className={buttonClasses}
+        ref={ref as React.Ref<HTMLButtonElement>}
+        {...(props as React.ButtonHTMLAttributes<HTMLButtonElement>)}
+      />
     );
   },
 );
