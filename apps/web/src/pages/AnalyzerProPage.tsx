@@ -252,51 +252,37 @@ const AnalyzerProPage: React.FC = () => {
 
   const handleDeleteMeasurement = async (id: string) => {
     try {
-      // Check if it's a math trace or a regular measurement
-      if (mathTraces.some((t) => t.id === id)) {
+      const isMath = mathTraces.some((t) => t.id === id);
+      if (isMath) {
         const { error } = await supabase.from("math_measurements").delete().match({ id });
         if (error) throw error;
         setMathTraces((prev) => prev.filter((t) => t.id !== id));
       } else {
-        // Delete the regular measurement first
+        // Determine dependent traces before any deletion
+        const dependentTraces = mathTraces.filter((t) => t.source_measurement_ids.includes(id));
+        if (dependentTraces.length > 0) {
+          const shouldDelete = window.confirm(
+            `This measurement is referenced by ${dependentTraces.length} math trace(s). ` +
+              `Deleting it will also remove these math traces. Continue?`,
+          );
+          if (!shouldDelete) return;
+        }
+
+        // Proceed with deletion(s)
         const { error } = await supabase.from("tf_measurements").delete().match({ id });
         if (error) throw error;
         setSavedMeasurements((prev) => prev.filter((m) => m.id !== id));
 
-        // Find and handle math traces that reference the deleted measurement
-        const dependentTraces = mathTraces.filter((t) => t.source_measurement_ids.includes(id));
-
         if (dependentTraces.length > 0) {
-          // Show warning to user about cascade deletion
-          const shouldDeleteDependents = window.confirm(
-            `This measurement is referenced by ${dependentTraces.length} math trace(s). ` +
-              `Deleting it will also remove these math traces. Continue?`,
-          );
-
-          if (shouldDeleteDependents) {
-            // Delete dependent math traces from database
-            const dependentIds = dependentTraces.map((t) => t.id);
-            const { error: deleteError } = await supabase
-              .from("math_measurements")
-              .delete()
-              .in("id", dependentIds);
-
-            if (deleteError) {
-              console.error("Error deleting dependent math traces:", deleteError);
-            } else {
-              // Update local state
-              setMathTraces((prev) => prev.filter((t) => !dependentIds.includes(t.id)));
-            }
-          } else {
-            // User cancelled, so we need to restore the deleted measurement
-            // This is complex, so we'll just refresh the data
-            await fetchMeasurements();
-            return;
-          }
+          const dependentIds = dependentTraces.map((t) => t.id);
+          const { error: deleteError } = await supabase
+            .from("math_measurements")
+            .delete()
+            .in("id", dependentIds);
+          if (deleteError) console.error("Error deleting dependent math traces:", deleteError);
+          setMathTraces((prev) => prev.filter((t) => !dependentIds.includes(t.id)));
         }
       }
-
-      // Refresh data to ensure consistency
       await fetchMeasurements();
     } catch (error) {
       console.error("Error deleting measurement:", error);

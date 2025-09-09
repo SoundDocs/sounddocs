@@ -332,31 +332,21 @@ export function applyEq(
 /**
  * Unwraps phase to remove discontinuities of ±180° (±π radians).
  * This ensures continuous phase for complex arithmetic operations.
- * Uses cumulative offset approach to handle large discontinuities properly.
+ * Uses modulo arithmetic for robust handling of large discontinuities.
  */
 function unwrapPhase(phaseDeg: number[]): number[] {
   if (phaseDeg.length === 0) return [];
 
-  const unwrapped = new Array(phaseDeg.length);
+  const unwrapped = new Array<number>(phaseDeg.length);
   unwrapped[0] = phaseDeg[0];
 
   let cumulativeOffset = 0;
-  const threshold = 180.0; // degrees
 
   for (let i = 1; i < phaseDeg.length; i++) {
-    let diff = phaseDeg[i] - phaseDeg[i - 1];
-
-    // Handle large jumps that might span multiple 360° cycles
-    while (Math.abs(diff) > threshold) {
-      if (diff > threshold) {
-        cumulativeOffset -= 360.0;
-        diff -= 360.0;
-      } else if (diff < -threshold) {
-        cumulativeOffset += 360.0;
-        diff += 360.0;
-      }
-    }
-
+    const diff = phaseDeg[i] - phaseDeg[i - 1];
+    // Normalize diff to (-180, 180] using modulo arithmetic to avoid loops
+    const normalizedDiff = ((((diff + 180) % 360) + 360) % 360) - 180;
+    cumulativeOffset += diff - normalizedDiff;
     unwrapped[i] = phaseDeg[i] + cumulativeOffset;
   }
 
