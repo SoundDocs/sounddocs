@@ -100,6 +100,13 @@ const Features: React.FC = () => {
             run of shows, production schedules, and now, the first professional, browser-based FFT
             audio analyzer.
           </p>
+
+          {/* Free Forever Notice */}
+          <div className="mt-8">
+            <p className="text-indigo-400 font-medium text-base">
+              100% FREE FOREVER • Every feature, every tool, every update - completely free
+            </p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
