@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { AppConfig } from "../config";
 
 const Hero: React.FC = () => {
   const [user, setUser] = useState<any>(null);
@@ -59,12 +60,12 @@ const Hero: React.FC = () => {
               and more for live events and studio sessions.
             </p>
 
-            {/* Forever Free Notice */}
-            <div className="mt-6">
-              <p className="text-indigo-400 font-medium text-base">
-                100% FREE FOREVER • No paywalls • No subscriptions • Open source forever
-              </p>
-            </div>
+            {/* Pricing Notice */}
+            {AppConfig.pricing.isFree && (
+              <div className="mt-6">
+                <p className="text-indigo-400 font-medium text-base">{AppConfig.pricing.tagline}</p>
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
               {user ? (

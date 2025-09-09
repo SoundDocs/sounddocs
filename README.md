@@ -8,11 +8,11 @@
 [![Vite](https://img.shields.io/badge/Vite-5.x-purple.svg)](https://vitejs.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-Backend-green.svg)](https://supabase.com/)
 
-## 🎵 **100% FREE FOREVER** - No Paywalls, No Subscriptions, No Premium Features
+## 🎵 **Free and Open Source**
 
 SoundDocs is a modern web application meticulously crafted for audio engineers, production managers, and event technicians. Streamline your workflow by creating comprehensive patch lists, intuitive stage plots, detailed run of shows, and production schedules with ease. Now featuring advanced measurement mathematics for professional audio analysis. Share your setups seamlessly with venues, artists, and production teams.
 
-**Everything stays free forever - guaranteed by our open source GPL v3 license.**
+SoundDocs is provided free of charge and is open source under the AGPL v3 license.
 
 ![SoundDocs Hero Preview](https://i.postimg.cc/bJdc5Hmz/Screenshot-2025-06-05-at-19-21-01.png)
 
