@@ -188,6 +188,8 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
       datasets.push({
         label: trace.label,
         data: phase, // Note: offset logic will be added later
+        borderColor: trace.color || "#F472B6",
+        backgroundColor: trace.color || "#F472B6",
         borderWidth: 1,
         segment: {
           borderColor: (context: any) => {

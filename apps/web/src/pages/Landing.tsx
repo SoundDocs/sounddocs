@@ -18,11 +18,11 @@ const Landing: React.FC = () => {
         <title>SoundDocs | Pro Audio & Event Production Documentation</title>
         <meta
           name="description"
-          content="The ultimate tool for event professionals to create, organize, and share patch lists, stage plots, run of shows, production schedules, and more for live events and studio sessions. Now featuring the first professional, browser-based FFT audio analyzer."
+          content="Professional audio & event documentation platform featuring advanced math traces for measurement analysis. Create patch lists, stage plots, run of shows, and analyze audio with the first browser-based FFT analyzer supporting coherence-weighted averaging and transfer function mathematics."
         />
         <meta
           name="keywords"
-          content="audio analyzer, acoustiq, rta, spl meter, transfer function, event production, pixel map, LED wall designer, video mapping, audio documentation, video documentation, lighting documentation, production schedule, run of show, stage plot, patch list, mic plot, corporate mic plot, theater mic plot, wireless mic management, audio engineer, video technician, lighting designer, production management, input list, output list, sound documentation, video signal flow, lighting plot, DMX chart, audio production software, stage layout tool, concert planning, FOH, monitor engineer tools, event timeline, cue sheet, typical rates, technical formulas, audio formulas, video formulas, lighting formulas, reference guides, pinouts, frequency bands, decibel chart, industry glossaries"
+          content="audio analyzer, acoustiq, rta, spl meter, transfer function, math traces, measurement averaging, coherence weighting, frequency analysis, event production, pixel map, LED wall designer, video mapping, audio documentation, video documentation, lighting documentation, production schedule, run of show, stage plot, patch list, mic plot, corporate mic plot, theater mic plot, wireless mic management, audio engineer, video technician, lighting designer, production management, input list, output list, sound documentation, video signal flow, lighting plot, DMX chart, audio production software, stage layout tool, concert planning, FOH, monitor engineer tools, event timeline, cue sheet, typical rates, technical formulas, audio formulas, video formulas, lighting formulas, reference guides, pinouts, frequency bands, decibel chart, industry glossaries, measurement mathematics, transfer function analysis, room averaging, system optimization"
         />
       </Helmet>
       <Header />
