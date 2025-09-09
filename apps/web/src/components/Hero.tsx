@@ -56,8 +56,15 @@ const Hero: React.FC = () => {
                 {" "}
                 patch lists, stage plots, run of shows, production schedules,{" "}
               </span>
-              and more for live events and studio sessions. 100% free and open source.
+              and more for live events and studio sessions.
             </p>
+
+            {/* Forever Free Notice */}
+            <div className="mt-6">
+              <p className="text-indigo-400 font-medium text-base">
+                100% FREE FOREVER • No paywalls • No subscriptions • Open source forever
+              </p>
+            </div>
 
             <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
               {user ? (
