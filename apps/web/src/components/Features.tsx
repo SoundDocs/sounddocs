@@ -80,7 +80,7 @@ const Features: React.FC = () => {
       icon: <Headphones className="h-6 w-6" />,
       title: "AcoustIQ Audio Analyzer",
       description:
-        "The first professional, browser-based FFT audio analyzer. Features RTA, SPL, and dual-channel transfer function capabilities.",
+        "Professional browser-based FFT analyzer with advanced math traces. Features RTA, SPL, dual-channel transfer functions, coherence-weighted averaging, and measurement mathematics for room analysis and system optimization.",
     },
   ];
 

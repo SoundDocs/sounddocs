@@ -211,6 +211,7 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
         dataset.segment = undefined;
       }
       dataset.borderColor = color;
+      dataset.backgroundColor = color;
       return dataset;
     };
 

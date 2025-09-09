@@ -1,14 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { X, Trash2, Eye, EyeOff, Search } from "lucide-react";
+import { X, Trash2, Eye, EyeOff, Search, Calculator } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { TFData } from "@sounddocs/analyzer-protocol";
-
-interface Measurement {
-  id: string;
-  name: string;
-  created_at: string;
-  tf_data: TFData;
-}
+import { Measurement } from "../../lib/types";
 
 interface SavedMeasurementsModalProps {
   isOpen: boolean;
@@ -18,6 +11,7 @@ interface SavedMeasurementsModalProps {
   onToggleVisibility: (id: string) => void;
   onDelete: (id: string) => void;
   onRefresh: () => void;
+  onManageMath: () => void;
 }
 
 const SavedMeasurementsModal: React.FC<SavedMeasurementsModalProps> = ({
@@ -28,6 +22,7 @@ const SavedMeasurementsModal: React.FC<SavedMeasurementsModalProps> = ({
   onToggleVisibility,
   onDelete,
   onRefresh,
+  onManageMath,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -76,9 +71,14 @@ const SavedMeasurementsModal: React.FC<SavedMeasurementsModalProps> = ({
                 key={m.id}
                 className="bg-gray-700 p-3 rounded-md flex justify-between items-center"
               >
-                <div>
-                  <p className="font-semibold text-white">{m.name}</p>
-                  <p className="text-sm text-gray-400">{new Date(m.created_at).toLocaleString()}</p>
+                <div className="flex items-center space-x-2">
+                  {m.isMathTrace && <Calculator className="h-5 w-5 text-cyan-400" />}
+                  <div>
+                    <p className="font-semibold text-white">{m.name}</p>
+                    <p className="text-sm text-gray-400">
+                      {m.isMathTrace ? "Math Trace" : new Date(m.created_at).toLocaleString()}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center space-x-2">
                   <button
@@ -102,7 +102,13 @@ const SavedMeasurementsModal: React.FC<SavedMeasurementsModalProps> = ({
             ))}
           </ul>
         </main>
-        <footer className="p-4 border-t border-gray-700 flex justify-end">
+        <footer className="p-4 border-t border-gray-700 flex justify-between">
+          <button
+            onClick={onManageMath}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded transition-colors duration-200"
+          >
+            Manage Math Traces
+          </button>
           <button
             onClick={onClose}
             className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition-colors duration-200"

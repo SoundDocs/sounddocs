@@ -8,7 +8,7 @@
 [![Vite](https://img.shields.io/badge/Vite-5.x-purple.svg)](https://vitejs.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-Backend-green.svg)](https://supabase.com/)
 
-SoundDocs is a modern web application meticulously crafted for audio engineers, production managers, and event technicians. Streamline your workflow by creating comprehensive patch lists, intuitive stage plots, detailed run of shows, and production schedules with ease. Share your setups seamlessly with venues, artists, and production teams.
+SoundDocs is a modern web application meticulously crafted for audio engineers, production managers, and event technicians. Streamline your workflow by creating comprehensive patch lists, intuitive stage plots, detailed run of shows, and production schedules with ease. Now featuring advanced measurement mathematics for professional audio analysis. Share your setups seamlessly with venues, artists, and production teams.
 
 ![SoundDocs Hero Preview](https://i.postimg.cc/bJdc5Hmz/Screenshot-2025-06-05-at-19-21-01.png)
 
@@ -35,10 +35,12 @@ SoundDocs empowers you to manage event audio documentation efficiently:
 - **🤝 Collaboration Tools:**
   Share your documents securely via unique links. Facilitate smooth communication with clients, band members, and technical crew.
 - **🎤 AcoustIQ Audio Analyzer:**
-  The first professional, browser-based FFT audio analyzer. A comprehensive audio analysis tool with both a simple browser-based RTA ("Lite") and a powerful dual-channel version ("Pro") that uses a local capture agent. The Pro version is now available with **professional installers** for easy setup. Features include:
+  The first professional, browser-based FFT audio analyzer with advanced measurement mathematics. A comprehensive audio analysis tool with both a simple browser-based RTA ("Lite") and a powerful dual-channel version ("Pro") that uses a local capture agent. The Pro version is now available with **professional installers** for easy setup. Features include:
   - Real-time Spectrogram (RTA)
   - SPL Meter with Calibration
   - Dual-Channel Transfer Function
+  - **Measurement Mathematics**: Sum, average, and subtract operations on frequency domain data
+  - **Quality-Based Processing**: Automatic weighting by measurement coherence and reliability
   - Coherence & Phase Measurement
   - Impulse Response
   - Save and recall measurements

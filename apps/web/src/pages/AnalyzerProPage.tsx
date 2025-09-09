@@ -9,23 +9,21 @@ import AgentUpdateNotification from "../components/analyzer/AgentUpdateNotificat
 import ProSettings from "../components/analyzer/ProSettings";
 import SavedMeasurementsModal from "../components/analyzer/SavedMeasurementsModal";
 import ChartDetailModal from "../components/analyzer/ChartDetailModal";
+import MathTraceModal from "../components/analyzer/MathTraceModal";
 import { TransferFunctionVisualizer } from "@sounddocs/analyzer-lite";
 import { useCaptureAgent } from "../stores/agentStore";
 import { supabase } from "../lib/supabase";
 import { Device, TFData } from "@sounddocs/analyzer-protocol";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { TRACE_COLORS } from "../lib/constants";
-import { EqSetting } from "../lib/dsp";
+import { EqSetting, calculateMathTrace } from "../lib/dsp";
+import { Measurement } from "../lib/types";
 
-interface Measurement {
+interface MathTrace {
   id: string;
   name: string;
-  created_at: string;
-  tf_data: TFData;
-  color?: string;
-  sample_rate: number;
-  eq_settings?: EqSetting[];
-  phase_flipped?: boolean;
+  operation: "average" | "sum" | "subtract";
+  source_measurement_ids: string[];
 }
 
 const AnalyzerProPage: React.FC = () => {
@@ -39,6 +37,7 @@ const AnalyzerProPage: React.FC = () => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMathModalOpen, setIsMathModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedChart, setSelectedChart] = useState<
     "magnitude" | "phase" | "impulse" | "coherence"
@@ -50,6 +49,8 @@ const AnalyzerProPage: React.FC = () => {
     [id: string]: { gain: number; delay: number; phaseFlipped: boolean };
   }>({});
   const [agentVersion, setAgentVersion] = useState<string | undefined>();
+  const [mathTraces, setMathTraces] = useState<MathTrace[]>([]);
+  const [computedMathTraces, setComputedMathTraces] = useState<Measurement[]>([]);
 
   const handleEqChange = async (id: string, eq_settings: EqSetting[]) => {
     // Update local state immediately for responsiveness
@@ -143,6 +144,39 @@ const AnalyzerProPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const measurementsById = new Map(savedMeasurements.map((m) => [m.id, m]));
+    const computed = mathTraces.map((trace): Measurement | null => {
+      const sourceMeasurements = trace.source_measurement_ids
+        .map((id) => measurementsById.get(id))
+        .filter((m): m is Measurement => !!m);
+
+      if (sourceMeasurements.length !== trace.source_measurement_ids.length) {
+        console.warn(`Could not find all source measurements for math trace ${trace.name}`);
+        return null;
+      }
+
+      const tf_data = calculateMathTrace(
+        sourceMeasurements.map((m) => m.tf_data),
+        trace.operation,
+      );
+
+      return {
+        id: trace.id,
+        name: trace.name,
+        created_at: new Date().toISOString(), // This is transient, so timestamp is for rendering key
+        tf_data,
+        sample_rate: sourceMeasurements[0]?.sample_rate || 48000, // Assume same sample rate
+        color:
+          TRACE_COLORS[
+            (savedMeasurements.length + mathTraces.indexOf(trace)) % TRACE_COLORS.length
+          ],
+        isMathTrace: true,
+      };
+    });
+    setComputedMathTraces(computed.filter((t): t is Measurement => t !== null));
+  }, [mathTraces, savedMeasurements]);
+
+  useEffect(() => {
     if (status === "connected") {
       sendMessage({ type: "list_devices" });
     }
@@ -202,6 +236,15 @@ const AnalyzerProPage: React.FC = () => {
         };
       });
       setMeasurementAdjustments(initialAdjustments);
+
+      // Fetch math traces
+      const { data: mathData, error: mathError } = await supabase
+        .from("math_measurements")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (mathError) throw mathError;
+      setMathTraces(mathData || []);
     } catch (error) {
       console.error("Error fetching measurements:", error);
     }
@@ -209,11 +252,48 @@ const AnalyzerProPage: React.FC = () => {
 
   const handleDeleteMeasurement = async (id: string) => {
     try {
-      const { error } = await supabase.from("tf_measurements").delete().match({ id });
-      if (error) throw error;
-      setSavedMeasurements(savedMeasurements.filter((m) => m.id !== id));
+      // Check if it's a math trace or a regular measurement
+      if (mathTraces.some((t) => t.id === id)) {
+        const { error } = await supabase.from("math_measurements").delete().match({ id });
+        if (error) throw error;
+        setMathTraces(mathTraces.filter((t) => t.id !== id));
+      } else {
+        const { error } = await supabase.from("tf_measurements").delete().match({ id });
+        if (error) throw error;
+        setSavedMeasurements(savedMeasurements.filter((m) => m.id !== id));
+      }
     } catch (error) {
       console.error("Error deleting measurement:", error);
+    }
+  };
+
+  const handleSaveMathTrace = async (trace: Omit<MathTrace, "id"> & { id?: string }) => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not logged in");
+
+      const payload = {
+        ...trace,
+        user_id: user.id,
+      };
+
+      if (trace.id) {
+        // Update
+        const { error } = await supabase
+          .from("math_measurements")
+          .update(payload)
+          .match({ id: trace.id });
+        if (error) throw error;
+      } else {
+        // Insert
+        const { error } = await supabase.from("math_measurements").insert(payload);
+        if (error) throw error;
+      }
+      fetchMeasurements();
+    } catch (error) {
+      console.error("Error saving math trace:", error);
     }
   };
 
@@ -380,7 +460,7 @@ const AnalyzerProPage: React.FC = () => {
           <TransferFunctionVisualizer
             tfData={tfData}
             sampleRate={sampleRate}
-            saved={savedMeasurements
+            saved={[...savedMeasurements, ...computedMathTraces]
               .filter((m) => visibleIds.has(m.id))
               .map((m) => {
                 const adjustments = measurementAdjustments[m.id] || {
@@ -409,11 +489,21 @@ const AnalyzerProPage: React.FC = () => {
       <SavedMeasurementsModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        measurements={savedMeasurements}
+        measurements={[...savedMeasurements, ...computedMathTraces]}
         visibleIds={visibleIds}
         onToggleVisibility={toggleMeasurementVisibility}
         onDelete={handleDeleteMeasurement}
         onRefresh={fetchMeasurements}
+        onManageMath={() => setIsMathModalOpen(true)}
+      />
+
+      <MathTraceModal
+        isOpen={isMathModalOpen}
+        onClose={() => setIsMathModalOpen(false)}
+        allMeasurements={savedMeasurements}
+        mathTraces={mathTraces}
+        onSave={handleSaveMathTrace}
+        onDelete={handleDeleteMeasurement}
       />
 
       <ChartDetailModal
@@ -424,7 +514,7 @@ const AnalyzerProPage: React.FC = () => {
         }}
         initialChart={selectedChart}
         liveData={tfData}
-        savedMeasurements={savedMeasurements}
+        savedMeasurements={[...savedMeasurements, ...computedMathTraces]}
         visibleIds={visibleIds}
         onToggleVisibility={toggleMeasurementVisibility}
         onDelete={handleDeleteMeasurement}

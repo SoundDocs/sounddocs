@@ -5,6 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.6] - 2025-01-12
+
+### Added
+
+- **Math Traces**: Complete mathematical operations system for measurements
+
+  - **Advanced Averaging**: Coherence-weighted averaging for improved measurement quality
+  - **Complex Arithmetic**: Proper handling of magnitude and phase data with phase unwrapping
+  - **Multiple Operations**: Support for average, sum, and subtract operations on measurement traces
+  - **Quality-Based Processing**: Measurements with higher coherence contribute more to averages
+  - **Real-Time Processing**: Dynamic computation of math traces as measurements are selected
+
+- **Math Trace Management UI**:
+
+  - **Math Trace Modal**: Dedicated interface for creating and managing mathematical operations
+  - **Operation Selection**: Choose between average, sum, and subtract operations
+  - **Measurement Selection**: Multi-select interface for choosing source measurements
+  - **Visual Integration**: Math traces appear in measurement lists with calculator icon
+  - **Real-Time Updates**: Changes to source measurements automatically update math traces
+
+- **Database Schema**: New `math_measurements` table for persistent storage
+  - **Full CRUD Operations**: Create, read, update, and delete math trace definitions
+  - **User-Specific Storage**: Measurements are associated with user accounts
+  - **Relationship Management**: Links to source measurement IDs for dynamic updates
+
+### Improved
+
+- **Analyzer Pro Page**: Enhanced measurement visualization and management
+
+  - **Math Trace Integration**: Math traces appear alongside regular measurements
+  - **Color Coding**: Distinct visual identification of math traces
+  - **Performance**: Optimized rendering of complex measurement datasets
+
+- **Chart Visualization**: Improved chart rendering and legend display
+
+  - **Phase Legend Colors**: Fixed color display in phase graph legends on main analyzer page
+  - **Coherence Visualization**: Enhanced coherence-based coloring in charts
+  - **Legend Consistency**: Proper color swatches across all chart types
+
+- **Signal Processing**: Advanced DSP algorithms for measurement mathematics
+  - **Phase Unwrapping**: Robust handling of phase discontinuities in complex arithmetic
+  - **Frequency Validation**: Automatic validation of measurement compatibility
+  - **Error Handling**: Comprehensive error handling for edge cases
+
+### Fixed
+
+- **Chart Legend Colors**: Resolved empty color boxes in phase graph legends
+- **Measurement Compatibility**: Fixed frequency bin validation for math operations
+- **Phase Processing**: Corrected phase unwrapping for accurate complex arithmetic
+- **Production Schedule Print Export**: Fixed day headers and time ordering issues
+  - **Day Headers**: Changed from row separators to proper section headers for detailed schedule items
+  - **Time Ordering**: Preserved manual reordering by removing forced sorting, matching interactive version behavior
+
+### Technical Enhancements
+
+- **Type Safety**: Updated TypeScript interfaces for math trace support
+- **Component Architecture**: New reusable UI components for math operations
+- **Performance Optimization**: Efficient algorithms for real-time math trace computation
+- **Memory Management**: Proper cleanup and resource management in DSP operations
+
 ## [1.5.5.2] - 2025-09-08
 
 ### Fixed
