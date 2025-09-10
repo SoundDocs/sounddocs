@@ -51,10 +51,10 @@ jobs:
         uses: tj-actions/changed-files@v44
         with:
           files: |
-            **/*.{ts,tsx}
-            **/*.{js,jsx}
-            **/*.py
-            **/*.sql
+            apps/web/src/**/*.{ts,tsx}
+            apps/web/src/**/*.{js,jsx}
+            agents/**/*.{py}
+            supabase/migrations/**/*.{sql}
 
       - name: Debug changed files outputs
         run: |
@@ -104,10 +104,10 @@ jobs:
             echo "🔧 Running TypeScript check on changed files..."
             echo "📝 Changed TypeScript files: ${{ steps.changed-files.outputs.ts }}"
 
-            echo "${{ steps.changed-files.outputs.ts }}" | tr ' ' '\n' | xargs npx tsc --noEmit --project tsconfig.app.json
+            echo "${{ steps.changed-files.outputs.ts }}" | tr ' ' '\n' | xargs ../../node_modules/.bin/tsc --noEmit --project tsconfig.app.json
           else
             echo "⚠️  No specific TS files detected, running full TypeScript check..."
-            npx tsc --noEmit --project tsconfig.app.json
+            ../../node_modules/.bin/tsc --noEmit --project tsconfig.app.json
           fi
 
       - name: Run Python linting on changed files
