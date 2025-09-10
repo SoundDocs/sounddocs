@@ -12,8 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Comprehensive CI/CD Pipeline**: Implemented automated testing and linting for PRs on main and beta branches
   - **GitHub Actions Workflow**: Created `.github/workflows/ci.yml` for automated quality checks
   - **Multi-Language Linting**: Added ESLint for TypeScript, Ruff for Python, and SQLFluff for SQL
-  - **Incremental Code Quality**: Configured lint-staged to only check new/changed code, preventing legacy code debt from blocking progress
-  - **Strict New-Code Enforcement**: Set `--max-warnings=0` to prevent any new lint issues from landing
+  - **Legacy Code Protection**: Configured lint-staged to only check staged/changed files, protecting legacy code from CI failures
+  - **New Code Quality Enforcement**: Strict linting with `--max-warnings=0` ensures new code meets high quality standards
+  - **Staged-File-Only Approach**: CI only validates what developers are actually committing, not entire codebase
 
 - **Python Linting Setup**: Added comprehensive Ruff configuration for capture agent
   - **Comprehensive Rule Set**: Enabled 50+ linting rules covering code quality, security, and best practices
@@ -30,18 +31,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Pre-commit Hooks**: Enhanced lint-staged configuration with comprehensive file type coverage
   - **Fast Feedback**: Only lints changed files during development for quick iteration
 
-- **CodeRabbit Integration**: Updated CONTRIBUTING.md with CodeRabbit documentation
-  - **Automatic PR Descriptions**: Documented how CodeRabbit generates comprehensive PR descriptions
+- **Qodo Integration**: Updated CONTRIBUTING.md with Qodo documentation
+  - **Automatic PR Descriptions**: Documented how Qodo generates comprehensive PR descriptions
   - **AI-Powered Code Reviews**: Added information about intelligent code review features
   - **Simplified PR Process**: Updated guidelines to reflect that only titles are required for PRs
-  - **Review Management**: Documented CodeRabbit's role in managing review workflows
+  - **Review Management**: Documented Qodo's role in managing review workflows
 
 ### Technical Enhancements
 
-- **Dependency Management**: Added `ruff` and `sqlfluff` as dev dependencies
+- **TypeScript Strict Mode**: Re-enabled strict TypeScript checking for new/changed files while protecting legacy code
+- **Staged-File-Only Type Checking**: Integrated TypeScript checking into lint-staged for targeted validation
+- **Python Tooling**: Configured Ruff and SQLFluff via pip for CI environment (not as npm dependencies)
 - **Performance Optimization**: Enabled caching for all linters to improve CI performance
 - **Monorepo Support**: Configured linting to work across the entire monorepo structure
-- **Legacy Code Protection**: Implemented approach that preserves existing code while enforcing quality on new changes
+- **Legacy Code Protection**: Implemented staged-file approach that preserves existing code while enforcing quality on new changes
 
 ## [1.5.6] - 2025-01-12
 
