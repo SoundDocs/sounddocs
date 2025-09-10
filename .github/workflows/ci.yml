@@ -56,54 +56,100 @@ jobs:
             **/*.py
             **/*.sql
 
-      - name: Run ESLint on changed files
-        if: steps.changed-files.outputs.any_changed == 'true' && (steps.changed-files.outputs.ts_any_changed == 'true' || steps.changed-files.outputs.js_any_changed == 'true')
+      - name: Debug changed files outputs
         run: |
-          echo "🧹 Running ESLint on changed files..."
-          echo "📝 Changed TS/TSX files: ${{ steps.changed-files.outputs.ts }}"
-          echo "📝 Changed JS/JSX files: ${{ steps.changed-files.outputs.js }}"
+          echo "=== DEBUG: tj-actions/changed-files outputs ==="
+          echo "All changed files: ${{ steps.changed-files.outputs.all_changed_files }}"
+          echo "All changed files count: ${{ steps.changed-files.outputs.all_changed_files_count }}"
+          echo "Any changed: ${{ steps.changed-files.outputs.any_changed }}"
+          echo ""
+          echo "TypeScript files: ${{ steps.changed-files.outputs.ts }}"
+          echo "TypeScript files count: ${{ steps.changed-files.outputs.ts_files_count }}"
+          echo "TypeScript any changed: ${{ steps.changed-files.outputs.ts_any_changed }}"
+          echo ""
+          echo "JavaScript files: ${{ steps.changed-files.outputs.js }}"
+          echo "JavaScript files count: ${{ steps.changed-files.outputs.js_files_count }}"
+          echo "JavaScript any changed: ${{ steps.changed-files.outputs.js_any_changed }}"
+          echo ""
+          echo "Python files: ${{ steps.changed-files.outputs.py }}"
+          echo "Python files count: ${{ steps.changed-files.outputs.py_files_count }}"
+          echo "Python any changed: ${{ steps.changed-files.outputs.py_any_changed }}"
+          echo ""
+          echo "SQL files: ${{ steps.changed-files.outputs.sql }}"
+          echo "SQL files count: ${{ steps.changed-files.outputs.sql_files_count }}"
+          echo "SQL any changed: ${{ steps.changed-files.outputs.sql_any_changed }}"
+          echo "==============================================="
 
-          # Create a combined list of changed TS/JS files
-          CHANGED_FILES="${{ steps.changed-files.outputs.ts }} ${{ steps.changed-files.outputs.js }}"
+      - name: Run ESLint on changed files
+        if: always()  # Always run to ensure linting happens
+        run: |
+          if [ -n "${{ steps.changed-files.outputs.ts }}" ] || [ -n "${{ steps.changed-files.outputs.js }}" ]; then
+            echo "🧹 Running ESLint on changed files..."
+            echo "📝 Changed TS/TSX files: ${{ steps.changed-files.outputs.ts }}"
+            echo "📝 Changed JS/JSX files: ${{ steps.changed-files.outputs.js }}"
 
-          if [ -n "$CHANGED_FILES" ]; then
+            # Create a combined list of changed TS/JS files
+            CHANGED_FILES="${{ steps.changed-files.outputs.ts }} ${{ steps.changed-files.outputs.js }}"
             echo "$CHANGED_FILES" | tr ' ' '\n' | xargs npx eslint --max-warnings 0
+          else
+            echo "⚠️  No specific TS/JS files detected, running full ESLint on web app..."
+            npx eslint --max-warnings 0 --ext .ts,.tsx,.js,.jsx apps/web/src
           fi
 
       - name: Run TypeScript check on changed files
-        if: steps.changed-files.outputs.ts_any_changed == 'true'
+        if: always()  # Always run to ensure type checking happens
         run: |
-          echo "🔧 Running TypeScript check on changed files..."
-          echo "📝 Changed TypeScript files: ${{ steps.changed-files.outputs.ts }}"
-
           cd apps/web
-          echo "${{ steps.changed-files.outputs.ts }}" | tr ' ' '\n' | xargs npx tsc --noEmit --project tsconfig.app.json
+          if [ -n "${{ steps.changed-files.outputs.ts }}" ]; then
+            echo "🔧 Running TypeScript check on changed files..."
+            echo "📝 Changed TypeScript files: ${{ steps.changed-files.outputs.ts }}"
+
+            echo "${{ steps.changed-files.outputs.ts }}" | tr ' ' '\n' | xargs npx tsc --noEmit --project tsconfig.app.json
+          else
+            echo "⚠️  No specific TS files detected, running full TypeScript check..."
+            npx tsc --noEmit --project tsconfig.app.json
+          fi
 
       - name: Run Python linting on changed files
-        if: steps.changed-files.outputs.py_any_changed == 'true'
+        if: always()  # Always run to ensure Python linting happens
         run: |
-          echo "🐍 Running Python linting on changed files..."
-          echo "📝 Changed Python files: ${{ steps.changed-files.outputs.py }}"
+          if [ -n "${{ steps.changed-files.outputs.py }}" ]; then
+            echo "🐍 Running Python linting on changed files..."
+            echo "📝 Changed Python files: ${{ steps.changed-files.outputs.py }}"
 
-          echo "${{ steps.changed-files.outputs.py }}" | tr ' ' '\n' | xargs ruff check --max-warnings=0
+            echo "${{ steps.changed-files.outputs.py }}" | tr ' ' '\n' | xargs ruff check --max-warnings=0
+          else
+            echo "✅ No Python files changed - skipping Python linting"
+          fi
 
       - name: Run SQL linting on changed files
-        if: steps.changed-files.outputs.sql_any_changed == 'true'
+        if: always()  # Always run to ensure SQL linting happens
         run: |
-          echo "🗄️ Running SQL linting on changed files..."
-          echo "📝 Changed SQL files: ${{ steps.changed-files.outputs.sql }}"
+          if [ -n "${{ steps.changed-files.outputs.sql }}" ]; then
+            echo "🗄️ Running SQL linting on changed files..."
+            echo "📝 Changed SQL files: ${{ steps.changed-files.outputs.sql }}"
 
-          echo "${{ steps.changed-files.outputs.sql }}" | tr ' ' '\n' | xargs sqlfluff fix --dialect postgres
+            echo "${{ steps.changed-files.outputs.sql }}" | tr ' ' '\n' | xargs sqlfluff fix --dialect postgres
+          else
+            echo "✅ No SQL files changed - skipping SQL linting"
+          fi
 
       - name: Code quality summary
         if: always()
         run: |
           echo "🎯 Code Quality Check Summary:"
-          echo "📊 Total changed files: ${{ steps.changed-files.outputs.any_changed }}"
-          echo "🔧 TypeScript files checked: ${{ steps.changed-files.outputs.ts_any_changed }}"
-          echo "🧹 JavaScript files linted: ${{ steps.changed-files.outputs.js_any_changed }}"
-          echo "🐍 Python files linted: ${{ steps.changed-files.outputs.py_any_changed }}"
-          echo "🗄️ SQL files linted: ${{ steps.changed-files.outputs.sql_any_changed }}"
+          echo "📊 Total changed files: ${{ steps.changed-files.outputs.all_changed_files_count }}"
+          echo "🔧 TypeScript files processed: ${{ steps.changed-files.outputs.ts_files_count }}"
+          echo "🧹 JavaScript files processed: ${{ steps.changed-files.outputs.js_files_count }}"
+          echo "🐍 Python files processed: ${{ steps.changed-files.outputs.py_files_count }}"
+          echo "🗄️ SQL files processed: ${{ steps.changed-files.outputs.sql_files_count }}"
+          echo ""
+          echo "📝 Files processed:"
+          echo "  TS/TSX: ${{ steps.changed-files.outputs.ts }}"
+          echo "  JS/JSX: ${{ steps.changed-files.outputs.js }}"
+          echo "  Python: ${{ steps.changed-files.outputs.py }}"
+          echo "  SQL: ${{ steps.changed-files.outputs.sql }}"
+          echo ""
           echo "✅ All code quality checks completed successfully!"
 
       - name: Run build
