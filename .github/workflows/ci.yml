@@ -19,6 +19,8 @@ jobs:
         with:
           node-version: "20"
           cache: "pnpm"
+        env:
+          COREPACK_INTEGRITY_KEYS: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -26,7 +28,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install pnpm
-        run: curl -fsSL https://get.pnpm.io/install.sh | sh -
+        run: corepack enable pnpm
 
       - name: Install Node.js dependencies
         run: pnpm install
