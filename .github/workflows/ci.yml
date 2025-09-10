@@ -46,8 +46,62 @@ jobs:
           pnpm install
           pip install ruff sqlfluff
 
-      - name: Run linting and type checking (staged files only)
-        run: pnpm lint-staged --verbose
+      - name: Run linting and type checking on changed files
+        run: |
+          echo "🔍 Analyzing changed files..."
+
+          # Ensure we have a base ref for comparison
+          BASE_REF=${{ github.base_ref }}
+          if [ -z "$BASE_REF" ]; then
+            echo "⚠️  No base ref found, using main as default"
+            BASE_REF="main"
+          fi
+
+          echo "📋 Comparing against branch: origin/$BASE_REF"
+
+          # Get changed TypeScript/JavaScript files
+          CHANGED_TS_FILES=$(git diff --name-only origin/$BASE_REF...HEAD -- '**/*.{ts,tsx}' 2>/dev/null | tr '\n' ' ' || true)
+          CHANGED_JS_FILES=$(git diff --name-only origin/$BASE_REF...HEAD -- '**/*.{js,jsx}' 2>/dev/null | tr '\n' ' ' || true)
+
+          echo "📝 Changed TypeScript files: ${CHANGED_TS_FILES:-none}"
+          echo "📝 Changed JavaScript files: ${CHANGED_JS_FILES:-none}"
+
+          # Lint changed files with eslint-changed-files
+          if [ -n "$CHANGED_TS_FILES" ] || [ -n "$CHANGED_JS_FILES" ]; then
+            echo "🧹 Running ESLint on changed files..."
+            npx eslint-changed-files --branch origin/$BASE_REF --ext .ts,.tsx,.js,.jsx --max-warnings 0
+          else
+            echo "✅ No TypeScript/JavaScript files changed - skipping ESLint"
+          fi
+
+          # Type check changed TypeScript files
+          if [ -n "$CHANGED_TS_FILES" ]; then
+            echo "🔧 Running TypeScript check on changed files..."
+            cd apps/web
+            echo "$CHANGED_TS_FILES" | xargs npx tsc --noEmit --project tsconfig.app.json
+          else
+            echo "✅ No TypeScript files changed - skipping TypeScript check"
+          fi
+
+          # Lint changed Python files
+          CHANGED_PY_FILES=$(git diff --name-only origin/$BASE_REF...HEAD -- '**/*.py' 2>/dev/null | tr '\n' ' ' || true)
+          if [ -n "$CHANGED_PY_FILES" ]; then
+            echo "🐍 Running Python linting on changed files..."
+            echo "$CHANGED_PY_FILES" | xargs ruff check --max-warnings=0
+          else
+            echo "✅ No Python files changed - skipping Python linting"
+          fi
+
+          # Lint changed SQL files
+          CHANGED_SQL_FILES=$(git diff --name-only origin/$BASE_REF...HEAD -- '**/*.sql' 2>/dev/null | tr '\n' ' ' || true)
+          if [ -n "$CHANGED_SQL_FILES" ]; then
+            echo "🗄️ Running SQL linting on changed files..."
+            echo "$CHANGED_SQL_FILES" | xargs sqlfluff fix --dialect postgres
+          else
+            echo "✅ No SQL files changed - skipping SQL linting"
+          fi
+
+          echo "🎉 Code quality checks completed successfully!"
 
       - name: Run build
         run: pnpm build
