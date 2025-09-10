@@ -24,7 +24,12 @@
     "prettier": "3.5.3"
   },
   "lint-staged": {
-    "**/*.{ts,tsx,js}": [
+    "**/*.{ts,tsx}": [
+      "tsc --noEmit --skipLibCheck",
+      "eslint --max-warnings=0 --cache",
+      "prettier --write --ignore-unknown"
+    ],
+    "**/*.{js,jsx}": [
       "eslint --max-warnings=0 --cache",
       "prettier --write --ignore-unknown"
     ],

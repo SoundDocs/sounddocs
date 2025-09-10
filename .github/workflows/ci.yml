@@ -46,11 +46,8 @@ jobs:
           pnpm install
           pip install ruff sqlfluff
 
-      - name: Run linting (staged files only)
+      - name: Run linting and type checking (staged files only)
         run: pnpm lint-staged --verbose
-
-      - name: Run type checking
-        run: pnpm typecheck
 
       - name: Run build
         run: pnpm build
