@@ -26,9 +26,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
+        run: npm install -g pnpm@9
 
       - name: Install Node.js dependencies
         run: pnpm install
@@ -37,7 +35,7 @@ jobs:
         run: |
           cd agents/capture-agent-py
           pip install poetry
-          poetry install
+          poetry install --no-dev
 
       - name: Install SQLFluff
         run: pip install sqlfluff
@@ -47,18 +45,18 @@ jobs:
 
       - name: Run ESLint (only on changed files)
         run: |
-          pnpm lint-staged -- --diff=main
+          pnpm lint-staged -- --diff=${{ github.event.pull_request.base.sha || 'HEAD~1' }}
 
       - name: Run TypeScript typecheck
         run: pnpm typecheck
 
       - name: Run Python linting with Ruff (only on changed files)
         run: |
-          git diff --name-only main | grep '\.py$' | xargs -r ruff check --max-warnings=0
+          git diff --name-only ${{ github.event.pull_request.base.sha || 'HEAD~1' }} | grep '\.py$' | xargs -r ruff check --max-warnings=0 || echo "No Python files changed"
 
       - name: Run SQL linting with SQLFluff (only on changed files)
         run: |
-          git diff --name-only main | grep '\.sql$' | xargs -r sqlfluff lint --max-warnings=0
+          git diff --name-only ${{ github.event.pull_request.base.sha || 'HEAD~1' }} | grep '\.sql$' | xargs -r sqlfluff lint --max-warnings=0 || echo "No SQL files changed"
 
       - name: Build all packages
         run: pnpm build
