@@ -1,7 +1,7 @@
 {
   "name": "sounddocs",
   "private": true,
-  "version": "1.5.6.1",
+  "version": "1.5.6.1.1",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -25,12 +25,12 @@
   },
   "lint-staged": {
     "**/*.{ts,tsx}": [
-      "tsc --noEmit --skipLibCheck",
-      "eslint --max-warnings=0 --cache",
+      "cd apps/web && tsc --noEmit --project tsconfig.app.json",
+      "cd apps/web && eslint --max-warnings=0 --cache",
       "prettier --write --ignore-unknown"
     ],
     "**/*.{js,jsx}": [
-      "eslint --max-warnings=0 --cache",
+      "cd apps/web && eslint --max-warnings=0 --cache",
       "prettier --write --ignore-unknown"
     ],
     "**/*.{py}": "ruff check --fix --max-warnings=0",
