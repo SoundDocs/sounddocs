@@ -26,7 +26,22 @@ We love pull requests! Here's a quick guide on how to submit one:
 4.  **Ensure your code lints**. Run `pnpm lint` to check for any issues.
 5.  **Write clear, concise commit messages**. We follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification.
 6.  **Push your branch** and open a pull request to the `beta` branch.
-7.  **Provide a clear description** of the problem and solution in your pull request. Include the relevant issue number if applicable.
+7.  **Provide a clear title** for your pull request. CodeRabbit will automatically generate a description, code review, and suggestions based on your changes.
+
+### Code Reviews with CodeRabbit
+
+This repository uses **CodeRabbit** for automated code reviews and PR management:
+
+- **Automatic PR Descriptions**: CodeRabbit analyzes your code changes and generates comprehensive PR descriptions automatically
+- **AI-Powered Code Reviews**: CodeRabbit provides intelligent code review comments focusing on:
+  - Code quality and best practices
+  - Potential bugs and security issues
+  - Performance optimizations
+  - Documentation improvements
+- **PR Suggestions**: CodeRabbit offers actionable suggestions to improve your code
+- **Review Management**: CodeRabbit helps manage the review process and ensures code standards are maintained
+
+**Note**: Since CodeRabbit handles PR descriptions automatically, you only need to provide a clear, descriptive title for your pull requests.
 
 ## Styleguides
 

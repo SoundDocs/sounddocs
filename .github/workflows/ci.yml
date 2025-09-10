@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, beta]
+  push:
+    branches: [main, beta]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pnpm install
+          pip install ruff sqlfluff
+
+      - name: Run ESLint (new files only via lint-staged)
+        run: pnpm lint-staged --verbose
+
+      - name: Run Python linting
+        run: ruff check agents/capture-agent-py/
+
+      - name: Run SQL linting
+        run: sqlfluff lint supabase/migrations/
+
+      - name: Run type checking
+        run: pnpm typecheck
+
+      - name: Run build
+        run: pnpm build

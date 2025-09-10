@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.6.1] - 2025-09-10
+
+### Added
+
+- **Comprehensive CI/CD Pipeline**: Implemented automated testing and linting for PRs on main and beta branches
+  - **GitHub Actions Workflow**: Created `.github/workflows/ci.yml` for automated quality checks
+  - **Multi-Language Linting**: Added ESLint for TypeScript, Ruff for Python, and SQLFluff for SQL
+  - **Incremental Code Quality**: Configured lint-staged to only check new/changed code, preventing legacy code debt from blocking progress
+  - **Strict New-Code Enforcement**: Set `--max-warnings=0` to prevent any new lint issues from landing
+
+- **Python Linting Setup**: Added comprehensive Ruff configuration for capture agent
+  - **Comprehensive Rule Set**: Enabled 50+ linting rules covering code quality, security, and best practices
+  - **Agent-Specific Configuration**: Created `agents/capture-agent-py/pyproject.toml` with Python 3.11 target and tailored rules
+  - **Test File Exclusions**: Configured appropriate rule exclusions for test files
+
+- **SQL Linting Setup**: Added SQLFluff configuration for database migrations
+  - **PostgreSQL Dialect**: Configured for Supabase PostgreSQL migrations
+  - **Reasonable Exclusions**: Excluded overly strict rules while maintaining code quality
+  - **Caching Support**: Added `.sqlfluff` config file with proper dialect and line length settings
+
+- **Enhanced Development Workflow**: Improved developer experience with automated quality checks
+  - **Caching Support**: Added `.eslintcache` to `.gitignore` for faster ESLint runs
+  - **Pre-commit Hooks**: Enhanced lint-staged configuration with comprehensive file type coverage
+  - **Fast Feedback**: Only lints changed files during development for quick iteration
+
+- **CodeRabbit Integration**: Updated CONTRIBUTING.md with CodeRabbit documentation
+  - **Automatic PR Descriptions**: Documented how CodeRabbit generates comprehensive PR descriptions
+  - **AI-Powered Code Reviews**: Added information about intelligent code review features
+  - **Simplified PR Process**: Updated guidelines to reflect that only titles are required for PRs
+  - **Review Management**: Documented CodeRabbit's role in managing review workflows
+
+### Technical Enhancements
+
+- **Dependency Management**: Added `ruff` and `sqlfluff` as dev dependencies
+- **Performance Optimization**: Enabled caching for all linters to improve CI performance
+- **Monorepo Support**: Configured linting to work across the entire monorepo structure
+- **Legacy Code Protection**: Implemented approach that preserves existing code while enforcing quality on new changes
+
 ## [1.5.6] - 2025-01-12
 
 ### Added

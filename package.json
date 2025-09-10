@@ -1,7 +1,7 @@
 {
   "name": "sounddocs",
   "private": true,
-  "version": "1.5.6",
+  "version": "1.5.6.1",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -21,9 +21,16 @@
   "devDependencies": {
     "husky": "^9.1.7",
     "lint-staged": "^15.5.1",
-    "prettier": "3.5.3"
+    "prettier": "3.5.3",
+    "ruff": "^0.1.0",
+    "sqlfluff": "^3.0.0"
   },
   "lint-staged": {
-    "**/*": "prettier --write --ignore-unknown"
+    "**/*.{ts,tsx,js}": [
+      "eslint --max-warnings=0 --cache",
+      "prettier --write --ignore-unknown"
+    ],
+    "**/*.{py}": "ruff check --fix --max-warnings=0",
+    "**/*.sql": "sqlfluff fix --dialect postgres"
   }
 }

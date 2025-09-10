@@ -26,3 +26,6 @@ dist-ssr
 
 # Supabase cruft
 supabase/.temp
+
+# ESLint cache
+.eslintcache
