@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, splitVendorChunkPlugin } from "vite";
 import react from "@vitejs/plugin-react";
 import fs from "fs";
 import path from "path";
@@ -35,7 +35,7 @@ export default defineConfig(({ command }) => {
   }
 
   return {
-    plugins: [react()],
+    plugins: [react(), splitVendorChunkPlugin()],
     optimizeDeps: {
       exclude: ["lucide-react"],
     },
@@ -50,6 +50,21 @@ export default defineConfig(({ command }) => {
       rollupOptions: {
         external: [],
         output: {
+          manualChunks: {
+            // Split React and core libraries
+            react: ["react", "react-dom"],
+            // Split UI library chunks
+            radix: [
+              "@radix-ui/react-slot",
+              "@radix-ui/react-popover",
+              "@radix-ui/react-dialog",
+              "@radix-ui/react-dropdown-menu",
+            ],
+            // Split heavy utility libraries
+            utils: ["lodash", "date-fns", "clsx", "tailwind-merge"],
+            // Split charting/analysis libraries
+            charts: ["recharts", "d3"],
+          },
           // Ensure worklet files are treated as assets
           assetFileNames: (assetInfo) => {
             if (assetInfo.name && assetInfo.name.includes("RtaWorkletProcessor")) {
@@ -59,6 +74,8 @@ export default defineConfig(({ command }) => {
           },
         },
       },
+      // Increase chunk size warning limit to reduce noise
+      chunkSizeWarningLimit: 900,
     },
   };
 });

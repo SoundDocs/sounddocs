@@ -6,12 +6,18 @@ on:
   push:
     branches: [main, beta]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history so base commit exists for diffing
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -40,6 +46,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
@@ -51,23 +58,26 @@ jobs:
         run: |
           echo "🔍 Detecting changed files..."
 
-          # Get the correct base commit for comparison
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE_COMMIT=${{ github.event.pull_request.base.sha }}
-            echo "📋 PR detected - comparing against: $BASE_COMMIT"
-          elif [ "${{ github.event_name }}" = "push" ]; then
-            BASE_COMMIT=HEAD~1
-            echo "📋 Push detected - comparing against: $BASE_COMMIT"
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            DIFF_RANGE="$BASE_SHA...$HEAD_SHA"  # PRs: compare from branch point
+            echo "📋 PR detected - comparing: $DIFF_RANGE"
           else
-            BASE_COMMIT=main
-            echo "📋 Default - comparing against: $BASE_COMMIT"
+            DIFF_RANGE="HEAD~1..HEAD"           # pushes: last commit vs previous
+            echo "📋 Push detected - comparing: $DIFF_RANGE"
           fi
 
-          # Get changed files by type using git diff
-          TS_FILES=$(git diff --name-only $BASE_COMMIT..HEAD -- '**/*.{ts,tsx}' | tr '\n' ' ' || true)
-          JS_FILES=$(git diff --name-only $BASE_COMMIT..HEAD -- '**/*.{js,jsx}' | tr '\n' ' ' || true)
-          PY_FILES=$(git diff --name-only $BASE_COMMIT..HEAD -- '**/*.py' | tr '\n' ' ' || true)
-          SQL_FILES=$(git diff --name-only $BASE_COMMIT..HEAD -- '**/*.sql' | tr '\n' ' ' || true)
+          # Ensure we have the SHAs locally (defensive)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --no-tags --prune --depth=50 origin $BASE_SHA $HEAD_SHA || true
+          fi
+
+          # Get changed files by type using proper git pathspecs
+          TS_FILES=$(git diff --name-only "$DIFF_RANGE" -- ':(glob)**/*.ts' ':(glob)**/*.tsx' | tr '\n' ' ' || true)
+          JS_FILES=$(git diff --name-only "$DIFF_RANGE" -- ':(glob)**/*.js' ':(glob)**/*.jsx' | tr '\n' ' ' || true)
+          PY_FILES=$(git diff --name-only "$DIFF_RANGE" -- ':(glob)**/*.py' | tr '\n' ' ' || true)
+          SQL_FILES=$(git diff --name-only "$DIFF_RANGE" -- ':(glob)**/*.sql' | tr '\n' ' ' || true)
 
           # Debug output
           echo "📝 TypeScript files: ${TS_FILES:-none}"
@@ -88,9 +98,9 @@ jobs:
           [ -n "$SQL_FILES" ] && echo "has_sql=true" >> $GITHUB_OUTPUT || echo "has_sql=false" >> $GITHUB_OUTPUT
 
       - name: Run ESLint on changed files
-        if: steps.get-files.outputs.has_ts == 'true' || steps.get-files.outputs.has_js == 'true'
+        if: always()  # Always run to ensure linting happens
         run: |
-          if [ -n "${{ steps.get-files.outputs.ts_files }}" ] || [ -n "${{ steps.get-files.outputs.js_files }}" ]; then
+          if [ "${{ steps.get-files.outputs.has_ts }}" = "true" ] || [ "${{ steps.get-files.outputs.has_js }}" = "true" ]; then
             echo "🧹 Running ESLint on changed files..."
             echo "📝 Changed TS/TSX files: ${{ steps.get-files.outputs.ts_files }}"
             echo "📝 Changed JS/JSX files: ${{ steps.get-files.outputs.js_files }}"
@@ -99,46 +109,48 @@ jobs:
             CHANGED_FILES="${{ steps.get-files.outputs.ts_files }} ${{ steps.get-files.outputs.js_files }}"
             echo "$CHANGED_FILES" | tr ' ' '\n' | xargs npx eslint --max-warnings 0
           else
-            echo "⚠️  No specific TS/JS files detected, running full ESLint on web app..."
+            echo "⚠️  No specific TS/JS files detected or diff failed — running full ESLint on web app..."
             npx eslint --max-warnings 0 --ext .ts,.tsx,.js,.jsx apps/web/src
           fi
 
       - name: Run TypeScript check on changed files
-        if: steps.get-files.outputs.has_ts == 'true'
+        if: always()  # Always run to ensure type checking happens
         run: |
           cd apps/web
-          if [ -n "${{ steps.get-files.outputs.ts_files }}" ]; then
+          if [ "${{ steps.get-files.outputs.has_ts }}" = "true" ] && [ -n "${{ steps.get-files.outputs.ts_files }}" ]; then
             echo "🔧 Running TypeScript check on changed files..."
             echo "📝 Changed TypeScript files: ${{ steps.get-files.outputs.ts_files }}"
 
             echo "${{ steps.get-files.outputs.ts_files }}" | tr ' ' '\n' | xargs ../../../node_modules/.bin/tsc --noEmit --project tsconfig.app.json
           else
-            echo "⚠️  No specific TS files detected, running full TypeScript check..."
+            echo "⚠️  No specific TS files detected or diff failed — running full TypeScript check..."
             ../../../node_modules/.bin/tsc --noEmit --project tsconfig.app.json
           fi
 
       - name: Run Python linting on changed files
-        if: steps.get-files.outputs.has_py == 'true'
+        if: always()  # Always run to ensure Python linting happens
         run: |
-          if [ -n "${{ steps.get-files.outputs.py_files }}" ]; then
+          if [ "${{ steps.get-files.outputs.has_py }}" = "true" ] && [ -n "${{ steps.get-files.outputs.py_files }}" ]; then
             echo "🐍 Running Python linting on changed files..."
             echo "📝 Changed Python files: ${{ steps.get-files.outputs.py_files }}"
 
             echo "${{ steps.get-files.outputs.py_files }}" | tr ' ' '\n' | xargs ruff check --max-warnings=0
           else
-            echo "✅ No Python files changed - skipping Python linting"
+            echo "⚠️  No Python files detected or diff failed — running full Python linting..."
+            ruff check agents/ --max-warnings=0 || true  # Allow failures for legacy code
           fi
 
       - name: Run SQL linting on changed files
-        if: steps.get-files.outputs.has_sql == 'true'
+        if: always()  # Always run to ensure SQL linting happens
         run: |
-          if [ -n "${{ steps.get-files.outputs.sql_files }}" ]; then
+          if [ "${{ steps.get-files.outputs.has_sql }}" = "true" ] && [ -n "${{ steps.get-files.outputs.sql_files }}" ]; then
             echo "🗄️ Running SQL linting on changed files..."
             echo "📝 Changed SQL files: ${{ steps.get-files.outputs.sql_files }}"
 
             echo "${{ steps.get-files.outputs.sql_files }}" | tr ' ' '\n' | xargs sqlfluff fix --dialect postgres
           else
-            echo "✅ No SQL files changed - skipping SQL linting"
+            echo "⚠️  No SQL files detected or diff failed — running full SQL linting..."
+            sqlfluff lint supabase/migrations/ --dialect postgres || true  # Allow failures for legacy code
           fi
 
       - name: Code quality summary
