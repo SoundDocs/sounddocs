@@ -66,10 +66,10 @@ jobs:
           echo "📝 Changed TypeScript files: ${CHANGED_TS_FILES:-none}"
           echo "📝 Changed JavaScript files: ${CHANGED_JS_FILES:-none}"
 
-          # Lint changed files with eslint-changed-files
+          # Lint changed files with git-changed-files
           if [ -n "$CHANGED_TS_FILES" ] || [ -n "$CHANGED_JS_FILES" ]; then
             echo "🧹 Running ESLint on changed files..."
-            npx eslint-changed-files --branch origin/$BASE_REF --ext .ts,.tsx,.js,.jsx --max-warnings 0
+            npx git-changed-files --branch origin/$BASE_REF --ext .ts,.tsx,.js,.jsx --max-warnings 0
           else
             echo "✅ No TypeScript/JavaScript files changed - skipping ESLint"
           fi
