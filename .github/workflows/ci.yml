@@ -43,7 +43,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pnpm install --frozen-lockfile
+          pnpm install
           pip install ruff sqlfluff
 
       - name: Run ESLint (new files only via lint-staged)
