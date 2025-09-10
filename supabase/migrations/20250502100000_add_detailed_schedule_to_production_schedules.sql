@@ -1,6 +1,6 @@
 -- Add detailed_schedule_items column to production_schedules table
 ALTER TABLE production_schedules
-ADD COLUMN IF NOT EXISTS detailed_schedule_items JSONB DEFAULT '[]'::jsonb;
+ADD COLUMN IF NOT EXISTS detailed_schedule_items JSONB DEFAULT '[]'::JSONB;
 
 -- Ensure the RLS policies and trigger are still in place or re-apply if necessary
 

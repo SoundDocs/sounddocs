@@ -43,97 +43,101 @@
     */
 
     -- Update RLS for shared_links
-    DROP POLICY IF EXISTS "Users can view their own shared links" ON public.shared_links;
-    CREATE POLICY "Users can view own or claimed shared links"
-      ON public.shared_links
-      FOR SELECT
-      TO authenticated
-      USING (
-        (auth.uid() = user_id) OR
-        EXISTS (
-          SELECT 1
-          FROM public.user_claimed_shares ucs
-          WHERE ucs.shared_link_id = public.shared_links.id AND ucs.user_id = auth.uid()
-        )
-      );
+DROP POLICY IF EXISTS "Users can view their own shared links" ON public.shared_links;
+CREATE POLICY "Users can view own or claimed shared links"
+ON public.shared_links
+FOR SELECT
+TO authenticated
+USING (
+    (auth.uid() = user_id)
+    OR EXISTS (
+        SELECT 1
+        FROM public.user_claimed_shares AS ucs
+        WHERE ucs.shared_link_id = public.shared_links.id AND ucs.user_id = auth.uid()
+    )
+);
 
-    -- Update RLS for patch_sheets
-    DROP POLICY IF EXISTS "Users can view their own patch sheets" ON public.patch_sheets;
-    CREATE POLICY "Users can view own or claimed patch sheets"
-      ON public.patch_sheets
-      FOR SELECT
-      TO authenticated
-      USING (
-        (auth.uid() = user_id) OR
-        EXISTS (
-          SELECT 1
-          FROM public.shared_links sl
-          JOIN public.user_claimed_shares ucs ON sl.id = ucs.shared_link_id
-          WHERE sl.resource_id = public.patch_sheets.id
+-- Update RLS for patch_sheets
+DROP POLICY IF EXISTS "Users can view their own patch sheets" ON public.patch_sheets;
+CREATE POLICY "Users can view own or claimed patch sheets"
+ON public.patch_sheets
+FOR SELECT
+TO authenticated
+USING (
+    (auth.uid() = user_id)
+    OR EXISTS (
+        SELECT 1
+        FROM public.shared_links AS sl
+        INNER JOIN public.user_claimed_shares AS ucs ON sl.id = ucs.shared_link_id
+        WHERE
+            sl.resource_id = public.patch_sheets.id
             AND sl.resource_type = 'patch_sheet'
             AND ucs.user_id = auth.uid()
-        )
-      );
+    )
+);
 
-    -- Update RLS for stage_plots
-    -- Assuming a similar naming convention for the old policy.
-    -- If your stage_plots table or its RLS policy doesn't exist or is named differently, 
-    -- this DROP might not affect anything, or you might need to adjust the name.
-    DROP POLICY IF EXISTS "Users can view their own stage plots" ON public.stage_plots;
-    CREATE POLICY "Users can view own or claimed stage plots"
-      ON public.stage_plots
-      FOR SELECT
-      TO authenticated
-      USING (
-        (auth.uid() = user_id) OR
-        EXISTS (
-          SELECT 1
-          FROM public.shared_links sl
-          JOIN public.user_claimed_shares ucs ON sl.id = ucs.shared_link_id
-          WHERE sl.resource_id = public.stage_plots.id
+-- Update RLS for stage_plots
+-- Assuming a similar naming convention for the old policy.
+-- If your stage_plots table or its RLS policy doesn't exist or is named differently, 
+-- this DROP might not affect anything, or you might need to adjust the name.
+DROP POLICY IF EXISTS "Users can view their own stage plots" ON public.stage_plots;
+CREATE POLICY "Users can view own or claimed stage plots"
+ON public.stage_plots
+FOR SELECT
+TO authenticated
+USING (
+    (auth.uid() = user_id)
+    OR EXISTS (
+        SELECT 1
+        FROM public.shared_links AS sl
+        INNER JOIN public.user_claimed_shares AS ucs ON sl.id = ucs.shared_link_id
+        WHERE
+            sl.resource_id = public.stage_plots.id
             AND sl.resource_type = 'stage_plot'
             AND ucs.user_id = auth.uid()
-        )
-      );
+    )
+);
 
-    -- Update RLS for run_of_shows
-    DROP POLICY IF EXISTS "Users can view their own run of shows" ON public.run_of_shows;
-    CREATE POLICY "Users can view own or claimed run of shows"
-      ON public.run_of_shows
-      FOR SELECT
-      TO authenticated
-      USING (
-        (auth.uid() = user_id) OR
-        EXISTS (
-          SELECT 1
-          FROM public.shared_links sl
-          JOIN public.user_claimed_shares ucs ON sl.id = ucs.shared_link_id
-          WHERE sl.resource_id = public.run_of_shows.id
+-- Update RLS for run_of_shows
+DROP POLICY IF EXISTS "Users can view their own run of shows" ON public.run_of_shows;
+CREATE POLICY "Users can view own or claimed run of shows"
+ON public.run_of_shows
+FOR SELECT
+TO authenticated
+USING (
+    (auth.uid() = user_id)
+    OR EXISTS (
+        SELECT 1
+        FROM public.shared_links AS sl
+        INNER JOIN public.user_claimed_shares AS ucs ON sl.id = ucs.shared_link_id
+        WHERE
+            sl.resource_id = public.run_of_shows.id
             AND sl.resource_type = 'run_of_show'
             AND ucs.user_id = auth.uid()
-        )
-      );
+    )
+);
 
-    -- Update RLS for production_schedules
-    DROP POLICY IF EXISTS "Users can view their own production schedules" ON public.production_schedules;
-    CREATE POLICY "Users can view own or claimed production schedules"
-      ON public.production_schedules
-      FOR SELECT
-      TO authenticated
-      USING (
-        (auth.uid() = user_id) OR
-        EXISTS (
-          SELECT 1
-          FROM public.shared_links sl
-          JOIN public.user_claimed_shares ucs ON sl.id = ucs.shared_link_id
-          WHERE sl.resource_id = public.production_schedules.id
+-- Update RLS for production_schedules
+DROP POLICY IF EXISTS "Users can view their own production schedules" ON public.production_schedules;
+CREATE POLICY "Users can view own or claimed production schedules"
+ON public.production_schedules
+FOR SELECT
+TO authenticated
+USING (
+    (auth.uid() = user_id)
+    OR EXISTS (
+        SELECT 1
+        FROM public.shared_links AS sl
+        INNER JOIN public.user_claimed_shares AS ucs ON sl.id = ucs.shared_link_id
+        WHERE
+            sl.resource_id = public.production_schedules.id
             AND sl.resource_type = 'production_schedule'
             AND ucs.user_id = auth.uid()
-        )
-      );
+    )
+);
 
-    COMMENT ON POLICY "Users can view own or claimed shared links" ON public.shared_links IS 'Allows users to view shared_links they own or have claimed.';
-    COMMENT ON POLICY "Users can view own or claimed patch sheets" ON public.patch_sheets IS 'Allows users to view patch_sheets they own or are shared with them via a claimed link.';
-    COMMENT ON POLICY "Users can view own or claimed stage plots" ON public.stage_plots IS 'Allows users to view stage_plots they own or are shared with them via a claimed link.';
-    COMMENT ON POLICY "Users can view own or claimed run of shows" ON public.run_of_shows IS 'Allows users to view run_of_shows they own or are shared with them via a claimed link.';
-    COMMENT ON POLICY "Users can view own or claimed production schedules" ON public.production_schedules IS 'Allows users to view production_schedules they own or are shared with them via a claimed link.';
+COMMENT ON POLICY "Users can view own or claimed shared links" ON public.shared_links IS 'Allows users to view shared_links they own or have claimed.';
+COMMENT ON POLICY "Users can view own or claimed patch sheets" ON public.patch_sheets IS 'Allows users to view patch_sheets they own or are shared with them via a claimed link.';
+COMMENT ON POLICY "Users can view own or claimed stage plots" ON public.stage_plots IS 'Allows users to view stage_plots they own or are shared with them via a claimed link.';
+COMMENT ON POLICY "Users can view own or claimed run of shows" ON public.run_of_shows IS 'Allows users to view run_of_shows they own or are shared with them via a claimed link.';
+COMMENT ON POLICY "Users can view own or claimed production schedules" ON public.production_schedules IS 'Allows users to view production_schedules they own or are shared with them via a claimed link.';

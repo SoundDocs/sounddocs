@@ -1,5 +1,7 @@
 import asyncio
+
 from .server import start_server
+
 
 def main():
     """Main entry point for the capture agent."""

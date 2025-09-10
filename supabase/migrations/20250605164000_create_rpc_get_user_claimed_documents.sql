@@ -30,20 +30,20 @@
           *   The `COALESCE` function is used to pick the first non-null name from the joined resource tables.
     */
 
-    CREATE OR REPLACE FUNCTION get_user_claimed_documents()
-    RETURNS TABLE (
-      claimed_share_id UUID,
-      shared_link_id UUID,
-      resource_id UUID,
-      resource_type TEXT,
-      link_type TEXT,
-      resource_name TEXT,
-      claimed_at TIMESTAMPTZ,
-      share_code TEXT,
-      original_owner_id UUID
-    )
-    LANGUAGE plpgsql
-    AS $$
+CREATE OR REPLACE FUNCTION get_user_claimed_documents()
+RETURNS TABLE (
+    claimed_share_id UUID,
+    shared_link_id UUID,
+    resource_id UUID,
+    resource_type TEXT,
+    link_type TEXT,
+    resource_name TEXT,
+    claimed_at TIMESTAMPTZ,
+    share_code TEXT,
+    original_owner_id UUID
+)
+LANGUAGE plpgsql
+AS $$
     BEGIN
       RETURN QUERY
       SELECT
@@ -81,4 +81,4 @@
     END;
     $$;
 
-    COMMENT ON FUNCTION get_user_claimed_documents() IS 'Retrieves a list of documents claimed by the current user, along with their details from shared_links and resource tables.';
+COMMENT ON FUNCTION get_user_claimed_documents() IS 'Retrieves a list of documents claimed by the current user, along with their details from shared_links and resource tables.';

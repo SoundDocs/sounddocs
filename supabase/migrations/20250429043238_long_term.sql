@@ -19,71 +19,71 @@ DROP POLICY IF EXISTS "Shared stage plots with edit links can be updated by anyo
 
 -- Allow anonymous users to view shared patch sheets
 CREATE POLICY "Shared patch sheets can be viewed by anyone"
-  ON public.patch_sheets
-  FOR SELECT
-  TO anon
-  USING (
+ON public.patch_sheets
+FOR SELECT
+TO anon
+USING (
     EXISTS (
-      SELECT 1 FROM shared_links
-      WHERE 
-        shared_links.resource_id = patch_sheets.id AND
-        shared_links.resource_type = 'patch_sheet' AND
-        (shared_links.expires_at IS NULL OR shared_links.expires_at > now())
+        SELECT 1 FROM shared_links
+        WHERE 
+            shared_links.resource_id = patch_sheets.id
+            AND shared_links.resource_type = 'patch_sheet'
+            AND (shared_links.expires_at IS NULL OR shared_links.expires_at > now())
     )
-  );
+);
 
 -- Allow anonymous users to update patch sheets with edit links
 CREATE POLICY "Shared patch sheets with edit links can be updated by anyone"
-  ON public.patch_sheets
-  FOR UPDATE
-  TO anon
-  USING (
+ON public.patch_sheets
+FOR UPDATE
+TO anon
+USING (
     EXISTS (
-      SELECT 1 FROM shared_links
-      WHERE 
-        shared_links.resource_id = patch_sheets.id AND
-        shared_links.resource_type = 'patch_sheet' AND
-        shared_links.link_type = 'edit' AND
-        (shared_links.expires_at IS NULL OR shared_links.expires_at > now())
+        SELECT 1 FROM shared_links
+        WHERE 
+            shared_links.resource_id = patch_sheets.id
+            AND shared_links.resource_type = 'patch_sheet'
+            AND shared_links.link_type = 'edit'
+            AND (shared_links.expires_at IS NULL OR shared_links.expires_at > now())
     )
-  );
+);
 
 -- Allow anonymous users to view shared stage plots
 CREATE POLICY "Shared stage plots can be viewed by anyone"
-  ON public.stage_plots
-  FOR SELECT
-  TO anon
-  USING (
+ON public.stage_plots
+FOR SELECT
+TO anon
+USING (
     EXISTS (
-      SELECT 1 FROM shared_links
-      WHERE 
-        shared_links.resource_id = stage_plots.id AND
-        shared_links.resource_type = 'stage_plot' AND
-        (shared_links.expires_at IS NULL OR shared_links.expires_at > now())
+        SELECT 1 FROM shared_links
+        WHERE 
+            shared_links.resource_id = stage_plots.id
+            AND shared_links.resource_type = 'stage_plot'
+            AND (shared_links.expires_at IS NULL OR shared_links.expires_at > now())
     )
-  );
+);
 
 -- Allow anonymous users to update stage plots with edit links
 CREATE POLICY "Shared stage plots with edit links can be updated by anyone"
-  ON public.stage_plots
-  FOR UPDATE
-  TO anon
-  USING (
+ON public.stage_plots
+FOR UPDATE
+TO anon
+USING (
     EXISTS (
-      SELECT 1 FROM shared_links
-      WHERE 
-        shared_links.resource_id = stage_plots.id AND
-        shared_links.resource_type = 'stage_plot' AND
-        shared_links.link_type = 'edit' AND
-        (shared_links.expires_at IS NULL OR shared_links.expires_at > now())
+        SELECT 1 FROM shared_links
+        WHERE 
+            shared_links.resource_id = stage_plots.id
+            AND shared_links.resource_type = 'stage_plot'
+            AND shared_links.link_type = 'edit'
+            AND (shared_links.expires_at IS NULL OR shared_links.expires_at > now())
     )
-  );
+);
 
 -- Create a function to check if a share link is valid
 CREATE OR REPLACE FUNCTION is_valid_share_link(
-  p_resource_id UUID, 
-  p_resource_type TEXT,
-  p_link_type TEXT DEFAULT NULL
+    p_resource_id UUID, 
+    p_resource_type TEXT,
+    p_link_type TEXT DEFAULT NULL
 ) 
 RETURNS BOOLEAN AS $$
 BEGIN

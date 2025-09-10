@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, beta]
+  push:
+    branches: [main, beta]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install Node.js dependencies
+        run: pnpm install
+
+      - name: Install Python dependencies for capture agent
+        run: |
+          cd agents/capture-agent-py
+          pip install poetry
+          poetry install
+
+      - name: Install SQLFluff
+        run: pip install sqlfluff
+
+      - name: Install Ruff
+        run: pip install ruff
+
+      - name: Run ESLint (only on changed files)
+        run: |
+          pnpm lint-staged -- --diff=main
+
+      - name: Run TypeScript typecheck
+        run: pnpm typecheck
+
+      - name: Run Python linting with Ruff (only on changed files)
+        run: |
+          git diff --name-only main | grep '\.py$' | xargs -r ruff check --max-warnings=0
+
+      - name: Run SQL linting with SQLFluff (only on changed files)
+        run: |
+          git diff --name-only main | grep '\.sql$' | xargs -r sqlfluff lint --max-warnings=0
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Run tests
+        run: pnpm test

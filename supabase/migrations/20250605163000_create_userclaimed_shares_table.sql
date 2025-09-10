@@ -20,11 +20,11 @@
 
 -- Create the user_claimed_shares table
 CREATE TABLE IF NOT EXISTS user_claimed_shares (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  shared_link_id uuid NOT NULL REFERENCES public.shared_links(id) ON DELETE CASCADE,
-  claimed_at timestamptz DEFAULT now(),
-  CONSTRAINT user_claimed_shares_user_id_shared_link_id_key UNIQUE (user_id, shared_link_id)
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    shared_link_id uuid NOT NULL REFERENCES public.shared_links(id) ON DELETE CASCADE,
+    claimed_at timestamptz DEFAULT now(),
+    CONSTRAINT user_claimed_shares_user_id_shared_link_id_key UNIQUE (user_id, shared_link_id)
 );
 
 -- Enable Row Level Security
@@ -32,22 +32,22 @@ ALTER TABLE public.user_claimed_shares ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
 CREATE POLICY "Users can view their own claimed shares"
-  ON public.user_claimed_shares
-  FOR SELECT
-  TO authenticated
-  USING (auth.uid() = user_id);
+ON public.user_claimed_shares
+FOR SELECT
+TO authenticated
+USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can insert their own claimed shares"
-  ON public.user_claimed_shares
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (auth.uid() = user_id);
+ON public.user_claimed_shares
+FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users can delete their own claimed shares"
-  ON public.user_claimed_shares
-  FOR DELETE
-  TO authenticated
-  USING (auth.uid() = user_id);
+ON public.user_claimed_shares
+FOR DELETE
+TO authenticated
+USING (auth.uid() = user_id);
 
 -- Add comments to the table and columns for better understanding
 COMMENT ON TABLE public.user_claimed_shares IS 'Stores associations between users and shared links they have claimed.';

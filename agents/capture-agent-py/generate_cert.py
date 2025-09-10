@@ -1,7 +1,8 @@
-import subprocess
 import pathlib
-import sys
 import shutil
+import subprocess
+import sys
+
 
 def check_mkcert_installed():
     """Checks if mkcert is installed and in the system's PATH."""
@@ -61,7 +62,7 @@ def generate_certificate():
         return
 
     print("Generating mkcert-signed certificate for localhost...")
-    
+
     try:
         subprocess.run(
             [

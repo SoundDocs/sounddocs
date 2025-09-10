@@ -44,123 +44,131 @@
 
 -- RLS UPDATE Policy for patch_sheets
 CREATE POLICY "Users can update own or claimed editable patch sheets"
-  ON public.patch_sheets
-  FOR UPDATE
-  TO authenticated
-  USING (
-    (auth.uid() = user_id) OR
-    EXISTS (
-      SELECT 1
-      FROM public.shared_links sl
-      JOIN public.user_claimed_shares ucs ON sl.id = ucs.shared_link_id
-      WHERE sl.resource_id = public.patch_sheets.id
-        AND sl.resource_type = 'patch_sheet'
-        AND sl.link_type = 'edit' -- Critical check for edit permission
-        AND ucs.user_id = auth.uid()
+ON public.patch_sheets
+FOR UPDATE
+TO authenticated
+USING (
+    (auth.uid() = user_id)
+    OR EXISTS (
+        SELECT 1
+        FROM public.shared_links AS sl
+        INNER JOIN public.user_claimed_shares AS ucs ON sl.id = ucs.shared_link_id
+        WHERE
+            sl.resource_id = public.patch_sheets.id
+            AND sl.resource_type = 'patch_sheet'
+            AND sl.link_type = 'edit' -- Critical check for edit permission
+            AND ucs.user_id = auth.uid()
     )
-  )
-  WITH CHECK (
-    (auth.uid() = user_id) OR
-    EXISTS (
-      SELECT 1
-      FROM public.shared_links sl
-      JOIN public.user_claimed_shares ucs ON sl.id = ucs.shared_link_id
-      WHERE sl.resource_id = public.patch_sheets.id
-        AND sl.resource_type = 'patch_sheet'
-        AND sl.link_type = 'edit'
-        AND ucs.user_id = auth.uid()
+)
+WITH CHECK (
+    (auth.uid() = user_id)
+    OR EXISTS (
+        SELECT 1
+        FROM public.shared_links AS sl
+        INNER JOIN public.user_claimed_shares AS ucs ON sl.id = ucs.shared_link_id
+        WHERE
+            sl.resource_id = public.patch_sheets.id
+            AND sl.resource_type = 'patch_sheet'
+            AND sl.link_type = 'edit'
+            AND ucs.user_id = auth.uid()
     )
-  );
+);
 
 -- RLS UPDATE Policy for stage_plots
 CREATE POLICY "Users can update own or claimed editable stage plots"
-  ON public.stage_plots
-  FOR UPDATE
-  TO authenticated
-  USING (
-    (auth.uid() = user_id) OR
-    EXISTS (
-      SELECT 1
-      FROM public.shared_links sl
-      JOIN public.user_claimed_shares ucs ON sl.id = ucs.shared_link_id
-      WHERE sl.resource_id = public.stage_plots.id
-        AND sl.resource_type = 'stage_plot'
-        AND sl.link_type = 'edit'
-        AND ucs.user_id = auth.uid()
+ON public.stage_plots
+FOR UPDATE
+TO authenticated
+USING (
+    (auth.uid() = user_id)
+    OR EXISTS (
+        SELECT 1
+        FROM public.shared_links AS sl
+        INNER JOIN public.user_claimed_shares AS ucs ON sl.id = ucs.shared_link_id
+        WHERE
+            sl.resource_id = public.stage_plots.id
+            AND sl.resource_type = 'stage_plot'
+            AND sl.link_type = 'edit'
+            AND ucs.user_id = auth.uid()
     )
-  )
-  WITH CHECK (
-    (auth.uid() = user_id) OR
-    EXISTS (
-      SELECT 1
-      FROM public.shared_links sl
-      JOIN public.user_claimed_shares ucs ON sl.id = ucs.shared_link_id
-      WHERE sl.resource_id = public.stage_plots.id
-        AND sl.resource_type = 'stage_plot'
-        AND sl.link_type = 'edit'
-        AND ucs.user_id = auth.uid()
+)
+WITH CHECK (
+    (auth.uid() = user_id)
+    OR EXISTS (
+        SELECT 1
+        FROM public.shared_links AS sl
+        INNER JOIN public.user_claimed_shares AS ucs ON sl.id = ucs.shared_link_id
+        WHERE
+            sl.resource_id = public.stage_plots.id
+            AND sl.resource_type = 'stage_plot'
+            AND sl.link_type = 'edit'
+            AND ucs.user_id = auth.uid()
     )
-  );
+);
 
 -- RLS UPDATE Policy for run_of_shows
 CREATE POLICY "Users can update own or claimed editable run of shows"
-  ON public.run_of_shows
-  FOR UPDATE
-  TO authenticated
-  USING (
-    (auth.uid() = user_id) OR
-    EXISTS (
-      SELECT 1
-      FROM public.shared_links sl
-      JOIN public.user_claimed_shares ucs ON sl.id = ucs.shared_link_id
-      WHERE sl.resource_id = public.run_of_shows.id
-        AND sl.resource_type = 'run_of_show'
-        AND sl.link_type = 'edit'
-        AND ucs.user_id = auth.uid()
+ON public.run_of_shows
+FOR UPDATE
+TO authenticated
+USING (
+    (auth.uid() = user_id)
+    OR EXISTS (
+        SELECT 1
+        FROM public.shared_links AS sl
+        INNER JOIN public.user_claimed_shares AS ucs ON sl.id = ucs.shared_link_id
+        WHERE
+            sl.resource_id = public.run_of_shows.id
+            AND sl.resource_type = 'run_of_show'
+            AND sl.link_type = 'edit'
+            AND ucs.user_id = auth.uid()
     )
-  )
-  WITH CHECK (
-    (auth.uid() = user_id) OR
-    EXISTS (
-      SELECT 1
-      FROM public.shared_links sl
-      JOIN public.user_claimed_shares ucs ON sl.id = ucs.shared_link_id
-      WHERE sl.resource_id = public.run_of_shows.id
-        AND sl.resource_type = 'run_of_show'
-        AND sl.link_type = 'edit'
-        AND ucs.user_id = auth.uid()
+)
+WITH CHECK (
+    (auth.uid() = user_id)
+    OR EXISTS (
+        SELECT 1
+        FROM public.shared_links AS sl
+        INNER JOIN public.user_claimed_shares AS ucs ON sl.id = ucs.shared_link_id
+        WHERE
+            sl.resource_id = public.run_of_shows.id
+            AND sl.resource_type = 'run_of_show'
+            AND sl.link_type = 'edit'
+            AND ucs.user_id = auth.uid()
     )
-  );
+);
 
 -- RLS UPDATE Policy for production_schedules
 CREATE POLICY "Users can update own or claimed editable production schedules"
-  ON public.production_schedules
-  FOR UPDATE
-  TO authenticated
-  USING (
-    (auth.uid() = user_id) OR
-    EXISTS (
-      SELECT 1
-      FROM public.shared_links sl
-      JOIN public.user_claimed_shares ucs ON sl.id = ucs.shared_link_id
-      WHERE sl.resource_id = public.production_schedules.id
-        AND sl.resource_type = 'production_schedule'
-        AND sl.link_type = 'edit'
-        AND ucs.user_id = auth.uid()
+ON public.production_schedules
+FOR UPDATE
+TO authenticated
+USING (
+    (auth.uid() = user_id)
+    OR EXISTS (
+        SELECT 1
+        FROM public.shared_links AS sl
+        INNER JOIN public.user_claimed_shares AS ucs ON sl.id = ucs.shared_link_id
+        WHERE
+            sl.resource_id = public.production_schedules.id
+            AND sl.resource_type = 'production_schedule'
+            AND sl.link_type = 'edit'
+            AND ucs.user_id = auth.uid()
     )
-  )
-  WITH CHECK (
-    (auth.uid() = user_id) OR
-    EXISTS (
-      SELECT 1
-      FROM public.shared_links sl
-      JOIN public.user_claimed_shares ucs ON sl.id = ucs.shared_link_id
-      WHERE sl.resource_id = public.production_schedules.id
-        AND sl.resource_type = 'production_schedule'
-        AND sl.link_type = 'edit'
-        AND ucs.user_id = auth.uid()
+)
+WITH CHECK (
+    (auth.uid() = user_id)
+    OR EXISTS (
+        SELECT 1
+        FROM public.shared_links AS sl
+        INNER JOIN public.user_claimed_shares AS ucs ON sl.id = ucs.shared_link_id
+        WHERE
+            sl.resource_id = public.production_schedules.id
+            AND sl.resource_type = 'production_schedule'
+            AND sl.link_type = 'edit'
+            AND ucs.user_id = auth.uid()
     )
-  );
+);
 
 COMMENT ON POLICY "Users can update own or claimed editable patch sheets" ON public.patch_sheets IS 'Allows users to update patch_sheets they own or are shared with them via a claimed editable link.';
 COMMENT ON POLICY "Users can update own or claimed editable stage plots" ON public.stage_plots IS 'Allows users to update stage_plots they own or are shared with them via a claimed editable link.';

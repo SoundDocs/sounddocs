@@ -12,31 +12,33 @@ CHECK (resource_type IN ('patch_sheet', 'stage_plot', 'production_schedule'));
 
 -- Allow anonymous users to view shared production schedules
 CREATE POLICY "Shared production schedules can be viewed by anyone"
-  ON public.production_schedules
-  FOR SELECT
-  TO anon
-  USING (
+ON public.production_schedules
+FOR SELECT
+TO anon
+USING (
     EXISTS (
-      SELECT 1
-      FROM public.shared_links sl
-      WHERE sl.resource_id = public.production_schedules.id
-        AND sl.resource_type = 'production_schedule'
-        AND (sl.expires_at IS NULL OR sl.expires_at > now())
+        SELECT 1
+        FROM public.shared_links AS sl
+        WHERE
+            sl.resource_id = public.production_schedules.id
+            AND sl.resource_type = 'production_schedule'
+            AND (sl.expires_at IS NULL OR sl.expires_at > now())
     )
-  );
+);
 
 -- Allow anonymous users to update production schedules with edit links (if/when edit is implemented)
 CREATE POLICY "Shared production schedules with edit links can be updated by anyone"
-  ON public.production_schedules
-  FOR UPDATE
-  TO anon
-  USING (
+ON public.production_schedules
+FOR UPDATE
+TO anon
+USING (
     EXISTS (
-      SELECT 1
-      FROM public.shared_links sl
-      WHERE sl.resource_id = public.production_schedules.id
-        AND sl.resource_type = 'production_schedule'
-        AND sl.link_type = 'edit'
-        AND (sl.expires_at IS NULL OR sl.expires_at > now())
+        SELECT 1
+        FROM public.shared_links AS sl
+        WHERE
+            sl.resource_id = public.production_schedules.id
+            AND sl.resource_type = 'production_schedule'
+            AND sl.link_type = 'edit'
+            AND (sl.expires_at IS NULL OR sl.expires_at > now())
     )
-  );
+);

@@ -12,20 +12,20 @@
 
 -- Create a function to get a resource by share code
 CREATE OR REPLACE FUNCTION get_resource_by_share_code(
-  p_share_code TEXT,
-  p_resource_type TEXT DEFAULT NULL
+    p_share_code TEXT,
+    p_resource_type TEXT DEFAULT NULL
 )
 RETURNS TABLE (
-  id UUID,
-  resource_id UUID,
-  resource_type TEXT,
-  link_type TEXT,
-  share_code TEXT,
-  expires_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ,
-  last_accessed TIMESTAMPTZ,
-  access_count INTEGER
-) LANGUAGE SQL SECURITY DEFINER AS $$
+    id UUID,
+    resource_id UUID,
+    resource_type TEXT,
+    link_type TEXT,
+    share_code TEXT,
+    expires_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ,
+    last_accessed TIMESTAMPTZ,
+    access_count INTEGER
+) LANGUAGE sql SECURITY DEFINER AS $$
   SELECT 
     id, 
     resource_id, 
@@ -46,9 +46,9 @@ $$;
 
 -- Ensure handle_share_access function is optimized
 CREATE OR REPLACE FUNCTION handle_share_access(
-  p_resource_id UUID, 
-  p_resource_type TEXT,
-  p_require_edit BOOLEAN DEFAULT FALSE
+    p_resource_id UUID, 
+    p_resource_type TEXT,
+    p_require_edit BOOLEAN DEFAULT FALSE
 ) 
 RETURNS BOOLEAN AS $$
 DECLARE

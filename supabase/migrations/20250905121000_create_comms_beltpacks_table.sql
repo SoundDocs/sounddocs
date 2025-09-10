@@ -11,11 +11,12 @@ CREATE TABLE comms_beltpacks (
 );
 ALTER TABLE comms_beltpacks ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow access to comms_beltpacks for plan owners" ON comms_beltpacks FOR ALL USING (
-  auth.uid() IS NOT NULL AND
-  EXISTS (
-    SELECT 1
-    FROM comms_plans p
-    WHERE p.id = plan_id
-      AND p.user_id = auth.uid()
-  )
+    auth.uid() IS NOT NULL
+    AND EXISTS (
+        SELECT 1
+        FROM comms_plans AS p
+        WHERE
+            p.id = p.plan_id
+            AND p.user_id = auth.uid()
+    )
 );

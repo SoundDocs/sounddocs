@@ -1,9 +1,12 @@
-import sounddevice as sd
-import numpy as np
-from typing import List, Dict, Any, Generator
-from .schema import Device, CaptureConfig
+from collections.abc import Generator
 
-def list_devices() -> List[Device]:
+import numpy as np
+import sounddevice as sd
+
+from .schema import CaptureConfig, Device
+
+
+def list_devices() -> list[Device]:
     """Queries sounddevice for available audio devices."""
     devices = sd.query_devices()
     device_list = []

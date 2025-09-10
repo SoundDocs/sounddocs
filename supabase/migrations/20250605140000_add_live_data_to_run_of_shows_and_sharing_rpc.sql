@@ -27,7 +27,7 @@
     */
 
     -- Add live_show_data column to run_of_shows table
-    DO $$
+DO $$
     BEGIN
       IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns
@@ -37,23 +37,23 @@
       END IF;
     END $$;
 
-    -- Create or replace the function to get public run of show data by share code
-    CREATE OR REPLACE FUNCTION get_public_run_of_show_by_share_code(p_share_code TEXT)
-    RETURNS TABLE (
-      id UUID,
-      name TEXT,
-      items JSONB, -- Sanitized items
-      custom_column_definitions JSONB,
-      created_at TIMESTAMPTZ,
-      last_edited TIMESTAMPTZ,
-      live_show_data JSONB,
-      resource_id TEXT, -- from shared_links, for client-side reference
-      resource_type TEXT, -- from shared_links
-      link_id UUID -- id of the shared_links entry
-    )
-    SECURITY DEFINER
-    SET search_path = public -- Ensure the function operates in the public schema context
-    AS $$
+-- Create or replace the function to get public run of show data by share code
+CREATE OR REPLACE FUNCTION get_public_run_of_show_by_share_code(p_share_code TEXT)
+RETURNS TABLE (
+    id UUID,
+    name TEXT,
+    items JSONB, -- Sanitized items
+    custom_column_definitions JSONB,
+    created_at TIMESTAMPTZ,
+    last_edited TIMESTAMPTZ,
+    live_show_data JSONB,
+    resource_id TEXT, -- from shared_links, for client-side reference
+    resource_type TEXT, -- from shared_links
+    link_id UUID -- id of the shared_links entry
+)
+SECURITY DEFINER
+SET search_path = public -- Ensure the function operates in the public schema context
+AS $$
     DECLARE
       v_link RECORD;
       v_run_of_show RECORD;
@@ -127,6 +127,6 @@
     END;
     $$ LANGUAGE plpgsql;
 
-    -- Grant execute permission on the function to relevant roles
-    GRANT EXECUTE ON FUNCTION get_public_run_of_show_by_share_code(TEXT) TO anon;
-    GRANT EXECUTE ON FUNCTION get_public_run_of_show_by_share_code(TEXT) TO authenticated;
+-- Grant execute permission on the function to relevant roles
+GRANT EXECUTE ON FUNCTION get_public_run_of_show_by_share_code(TEXT) TO anon;
+GRANT EXECUTE ON FUNCTION get_public_run_of_show_by_share_code(TEXT) TO authenticated;

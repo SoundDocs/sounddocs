@@ -11,4 +11,4 @@
 */
 
 ALTER TABLE run_of_shows 
-ADD COLUMN IF NOT EXISTS default_column_colors JSONB DEFAULT '{}'::jsonb;
+ADD COLUMN IF NOT EXISTS default_column_colors JSONB DEFAULT '{}'::JSONB;

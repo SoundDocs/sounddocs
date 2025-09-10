@@ -5,6 +5,62 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.6.1] - 2025-09-10
+
+### Added
+
+- **Automated CI/CD Pipeline**: Implemented comprehensive GitHub Actions workflow for automated testing and linting
+
+  - Runs on pull requests to `main` and `beta` branches
+  - Includes ESLint, TypeScript type checking, and build verification
+  - Matrix jobs for different parts of the monorepo (web app, packages, agents)
+  - Automated dependency installation and caching for faster builds
+
+- **Pre-commit Quality Gates**: Enhanced lint-staged configuration with husky integration
+
+  - Only lints changed files to maintain fast development workflow
+  - Configured to work with legacy codebase (disabled strict rules for existing code)
+  - Focuses on new code quality while allowing incremental tech debt cleanup
+
+- **Python Linting Infrastructure**: Set up Ruff linting for capture agent
+
+  - Added Ruff configuration with sensible defaults for Python 3.11
+  - Integrated with lint-staged for pre-commit hooks
+  - Configured to work with Poetry dependency management
+
+- **SQL Linting Infrastructure**: Added SQLFluff configuration for database migrations
+  - PostgreSQL dialect support for Supabase migrations
+  - Integrated with pre-commit hooks via lint-staged
+  - Focused on syntax and basic formatting rules
+
+### Improved
+
+- **Legacy Code Compatibility**: Modified ESLint configuration to be more lenient with existing code
+
+  - Disabled strict rules (`no-explicit-any`, `no-unused-vars`, `exhaustive-deps`) for legacy code
+  - Set reasonable warning limits to prevent blocking development
+  - Maintains code quality for new contributions while respecting existing patterns
+
+- **Monorepo Development Workflow**: Enhanced development experience across the workspace
+  - Added missing ESLint dependencies to root package.json
+  - Configured proper TypeScript and React plugin support
+  - Improved dependency management for consistent linting across packages
+
+### Technical Enhancements
+
+- **GitHub Actions Setup**: Complete CI/CD infrastructure with:
+
+  - Ubuntu-based runners for consistent builds
+  - Node.js 20 and Python 3.11 environments
+  - Parallel job execution for faster feedback
+  - Proper artifact caching and dependency management
+
+- **Linting Configuration**: Strategic approach to legacy codebases:
+  - Baseline approach that ignores existing issues
+  - Pre-commit hooks only check changed files
+  - Incremental tech debt reduction strategy
+  - Balanced between code quality and development velocity
+
 ## [1.5.6] - 2025-01-12
 
 ### Added

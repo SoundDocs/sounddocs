@@ -1,34 +1,30 @@
 import asyncio
-import json
-import ssl
-import pathlib
-import time
 import gc
-from typing import Set
+import json
+import pathlib
+import ssl
+import time
 from collections import deque
-import websockets
-from websockets.server import WebSocketServerProtocol
+
 import numpy as np
 import sounddevice as sd
+import websockets
+from websockets.server import WebSocketServerProtocol
 
-from . import __version__
-from . import audio
-from . import dsp
+from . import __version__, audio, dsp
 from .schema import (
     CaptureConfig,
-    ClientMessage,
     DevicesMessage,
     ErrorMessage,
     FrameMessage,
     HelloAckMessage,
     IncomingMessage,
-    StartCaptureMessage,
     StoppedMessage,
     VersionMessage,
 )
 
 # --- State Management ---
-connected_clients: Set[WebSocketServerProtocol] = set()
+connected_clients: set[WebSocketServerProtocol] = set()
 capture_task = None
 
 ALLOWED_ORIGINS = ["https://sounddocs.org", "https://beta.sounddocs.org", "http://localhost:5173", "https://localhost:5173"]
@@ -108,7 +104,7 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
         nonlocal pool_miss_count
         if status:
             print(f"Audio callback status: {status}")
-        
+
         buf = None
         try:
             buf = pool.popleft()
@@ -188,7 +184,7 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
                     analysis_buffer[:-Lb, :] = analysis_buffer[Lb:, :]
                     analysis_buffer[-Lb:, :] = b
                     carry += Lb
-                
+
                 # Always return buffer to pool
                 if len(pool) < max_pool_size:
                     try:
@@ -299,12 +295,12 @@ async def start_server(host="127.0.0.1", port=9469):
             f"  {key_path}\n"
             f"Please run the setup process to generate certificates."
         )
-    
+
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ssl_context.load_cert_chain(cert_path, key_path)
 
     async with websockets.serve(
-        handler, host, port, ssl=ssl_context, 
+        handler, host, port, ssl=ssl_context,
         max_size=8*1024*1024, max_queue=2, compression=None
     ):
         print(f"Secure WebSocket server started at wss://{host}:{port}")

@@ -36,13 +36,14 @@ DROP POLICY IF EXISTS "Allow insert transceivers for own plans" ON comms_transce
 
 -- Allow access to transceivers for authenticated users who own the plan
 CREATE POLICY "Allow access to comms_transceivers for plan owners" ON comms_transceivers FOR ALL USING (
-  auth.uid() IS NOT NULL AND
-  EXISTS (
-    SELECT 1
-    FROM comms_plans p
-    WHERE p.id = plan_id
-      AND p.user_id = auth.uid()
-  )
+    auth.uid() IS NOT null
+    AND EXISTS (
+        SELECT 1
+        FROM comms_plans AS p
+        WHERE
+            p.id = p.plan_id
+            AND p.user_id = auth.uid()
+    )
 );
 
 -- Table for network switch configurations
@@ -56,13 +57,14 @@ CREATE TABLE comms_network_configs (
 );
 ALTER TABLE comms_network_configs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow access to comms_network_configs for plan owners" ON comms_network_configs FOR ALL USING (
-  auth.uid() IS NOT NULL AND
-  EXISTS (
-    SELECT 1
-    FROM comms_plans p
-    WHERE p.id = plan_id
-      AND p.user_id = auth.uid()
-  )
+    auth.uid() IS NOT null
+    AND EXISTS (
+        SELECT 1
+        FROM comms_plans AS p
+        WHERE
+            p.id = p.plan_id
+            AND p.user_id = auth.uid()
+    )
 );
 
 -- Table for interop configurations
@@ -74,13 +76,14 @@ CREATE TABLE comms_interop_configs (
 );
 ALTER TABLE comms_interop_configs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow access to comms_interop_configs for plan owners" ON comms_interop_configs FOR ALL USING (
-  auth.uid() IS NOT NULL AND
-  EXISTS (
-    SELECT 1
-    FROM comms_plans p
-    WHERE p.id = plan_id
-      AND p.user_id = auth.uid()
-  )
+    auth.uid() IS NOT null
+    AND EXISTS (
+        SELECT 1
+        FROM comms_plans AS p
+        WHERE
+            p.id = p.plan_id
+            AND p.user_id = auth.uid()
+    )
 );
 
 -- Table for roles and channel assignments
@@ -94,11 +97,12 @@ CREATE TABLE comms_roles_channels (
 );
 ALTER TABLE comms_roles_channels ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow access to comms_roles_channels for plan owners" ON comms_roles_channels FOR ALL USING (
-  auth.uid() IS NOT NULL AND
-  EXISTS (
-    SELECT 1
-    FROM comms_plans p
-    WHERE p.id = plan_id
-      AND p.user_id = auth.uid()
-  )
+    auth.uid() IS NOT null
+    AND EXISTS (
+        SELECT 1
+        FROM comms_plans AS p
+        WHERE
+            p.id = p.plan_id
+            AND p.user_id = auth.uid()
+    )
 );

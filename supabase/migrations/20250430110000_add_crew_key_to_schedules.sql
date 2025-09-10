@@ -1,6 +1,6 @@
 -- Add crew_key column to production_schedules table
 ALTER TABLE production_schedules
-ADD COLUMN crew_key JSONB DEFAULT '[]'::jsonb;
+ADD COLUMN crew_key JSONB DEFAULT '[]'::JSONB;
 
 -- No need to re-run the last_edited trigger function if it's already correct.
 -- If you need to update it for any reason, you would drop and recreate.

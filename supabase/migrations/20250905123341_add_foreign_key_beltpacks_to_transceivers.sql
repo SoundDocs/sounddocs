@@ -9,11 +9,12 @@ CREATE INDEX idx_comms_beltpacks_transceiver_ref ON comms_beltpacks("transceiver
 -- Update RLS policy to ensure proper access control
 DROP POLICY IF EXISTS "Allow access to comms_beltpacks for plan owners" ON comms_beltpacks;
 CREATE POLICY "Allow access to comms_beltpacks for plan owners" ON comms_beltpacks FOR ALL USING (
-  auth.uid() IS NOT NULL AND
-  EXISTS (
-    SELECT 1
-    FROM comms_plans p
-    WHERE p.id = plan_id
-      AND p.user_id = auth.uid()
-  )
+    auth.uid() IS NOT NULL
+    AND EXISTS (
+        SELECT 1
+        FROM comms_plans AS p
+        WHERE
+            p.id = p.plan_id
+            AND p.user_id = auth.uid()
+    )
 );

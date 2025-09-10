@@ -1,6 +1,6 @@
 -- Add labor_schedule_items column to production_schedules table
 ALTER TABLE production_schedules
-ADD COLUMN IF NOT EXISTS labor_schedule_items JSONB DEFAULT '[]'::jsonb;
+ADD COLUMN IF NOT EXISTS labor_schedule_items JSONB DEFAULT '[]'::JSONB;
 
 -- Ensure the RLS policies and trigger are still in place or re-apply if necessary
 -- (Usually, ALTER TABLE doesn't remove them, but good to be mindful)

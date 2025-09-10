@@ -4,7 +4,7 @@
 CREATE TABLE leq_measurements (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-    measured_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    measured_at TIMESTAMPTZ DEFAULT now() NOT NULL,
     leq_value DECIMAL(5,1) NOT NULL, -- LEQ value in dB (e.g., 85.5)
     duration_seconds INTEGER DEFAULT 1800 NOT NULL, -- Measurement duration (30 minutes for LEQ)
     calibration_offset DECIMAL(4,1) DEFAULT 0.0 NOT NULL, -- Applied calibration offset in dB
@@ -12,8 +12,8 @@ CREATE TABLE leq_measurements (
     session_id UUID DEFAULT gen_random_uuid() NOT NULL, -- Groups measurements from same session
     location TEXT, -- Optional location description
     notes TEXT, -- Optional user notes about the measurement
-    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
 -- Add indexes for performance
@@ -30,37 +30,37 @@ ALTER TABLE leq_measurements ENABLE ROW LEVEL SECURITY;
 
 -- SELECT Policy: Users can only view their own measurements
 CREATE POLICY "Users can view own LEQ measurements" ON leq_measurements
-    FOR SELECT 
-    USING (auth.uid() = user_id);
+FOR SELECT 
+USING (auth.uid() = user_id);
 
 -- INSERT Policy: Users can only create measurements for themselves
 CREATE POLICY "Users can insert own LEQ measurements" ON leq_measurements
-    FOR INSERT 
-    WITH CHECK (auth.uid() = user_id);
+FOR INSERT 
+WITH CHECK (auth.uid() = user_id);
 
 -- UPDATE Policy: Users can only modify their own measurements
 CREATE POLICY "Users can update own LEQ measurements" ON leq_measurements
-    FOR UPDATE 
-    USING (auth.uid() = user_id) 
-    WITH CHECK (auth.uid() = user_id);
+FOR UPDATE 
+USING (auth.uid() = user_id) 
+WITH CHECK (auth.uid() = user_id);
 
 -- DELETE Policy: Users can only delete their own measurements
 CREATE POLICY "Users can delete own LEQ measurements" ON leq_measurements
-    FOR DELETE 
-    USING (auth.uid() = user_id);
+FOR DELETE 
+USING (auth.uid() = user_id);
 
 -- Additional security: Ensure no anonymous access
 CREATE POLICY "Deny anonymous access" ON leq_measurements
-    FOR ALL
-    TO anon
-    USING (false);
+FOR ALL
+TO anon
+USING (false);
 
 -- Ensure only authenticated users can access the table
 CREATE POLICY "Authenticated users only" ON leq_measurements
-    FOR ALL
-    TO authenticated
-    USING (auth.uid() IS NOT NULL AND auth.uid() = user_id)
-    WITH CHECK (auth.uid() IS NOT NULL AND auth.uid() = user_id);
+FOR ALL
+TO authenticated
+USING (auth.uid() IS NOT null AND auth.uid() = user_id)
+WITH CHECK (auth.uid() IS NOT null AND auth.uid() = user_id);
 
 -- Create updated_at trigger
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -69,35 +69,35 @@ BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER update_leq_measurements_updated_at 
-    BEFORE UPDATE ON leq_measurements 
-    FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+BEFORE UPDATE ON leq_measurements 
+FOR EACH ROW 
+EXECUTE FUNCTION update_updated_at_column();
 
 -- Create view for LEQ statistics and compliance monitoring
 CREATE VIEW leq_statistics AS
 SELECT 
     user_id,
-    DATE_TRUNC('day', measured_at) as measurement_date,
-    COUNT(*) as measurement_count,
-    AVG(leq_value) as avg_leq,
-    MAX(leq_value) as max_leq,
-    MIN(leq_value) as min_leq,
-    STDDEV(leq_value) as leq_stddev,
+    date_trunc('day', measured_at) AS measurement_date,
+    count(*) AS measurement_count,
+    avg(leq_value) AS avg_leq,
+    max(leq_value) AS max_leq,
+    min(leq_value) AS min_leq,
+    stddev(leq_value) AS leq_stddev,
     -- OSHA compliance indicators (8-hour TWA)
-    COUNT(*) FILTER (WHERE leq_value >= 90.0) as over_90db_count,
-    COUNT(*) FILTER (WHERE leq_value >= 85.0) as over_85db_count,
+    count(*) FILTER (WHERE leq_value >= 90.0) AS over_90db_count,
+    count(*) FILTER (WHERE leq_value >= 85.0) AS over_85db_count,
     -- Calculate time-weighted average for compliance
     CASE 
-        WHEN COUNT(*) > 0 THEN
-            10 * LOG(AVG(POWER(10, leq_value / 10)))
-        ELSE NULL
-    END as twa_leq
+        WHEN count(*) > 0
+            THEN
+                10 * log(avg(power(10, leq_value / 10)))
+    END AS twa_leq
 FROM leq_measurements
-WHERE measured_at >= CURRENT_DATE - INTERVAL '30 days' -- Last 30 days
-GROUP BY user_id, DATE_TRUNC('day', measured_at);
+WHERE measured_at >= current_date - INTERVAL '30 days' -- Last 30 days
+GROUP BY user_id, date_trunc('day', measured_at);
 
 -- Grant access to the view
 GRANT SELECT ON leq_statistics TO authenticated;
@@ -111,9 +111,9 @@ CREATE OR REPLACE FUNCTION insert_leq_measurement(
     p_duration_seconds INTEGER DEFAULT 1800,
     p_calibration_offset DECIMAL DEFAULT 0.0,
     p_sample_rate INTEGER DEFAULT 48000,
-    p_session_id UUID DEFAULT NULL,
-    p_location TEXT DEFAULT NULL,
-    p_notes TEXT DEFAULT NULL
+    p_session_id UUID DEFAULT null,
+    p_location TEXT DEFAULT null,
+    p_notes TEXT DEFAULT null
 )
 RETURNS UUID AS $$
 DECLARE

@@ -11,13 +11,13 @@
 */
 
 CREATE TABLE IF NOT EXISTS cj_location (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  location_name text NOT NULL,
-  description text,
-  start_date timestamptz NOT NULL,
-  end_date timestamptz NOT NULL,
-  created_at timestamptz DEFAULT now() NOT NULL,
-  CONSTRAINT end_date_after_start_date CHECK (end_date > start_date)
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    location_name text NOT NULL,
+    description text,
+    start_date timestamptz NOT NULL,
+    end_date timestamptz NOT NULL,
+    created_at timestamptz DEFAULT now() NOT NULL,
+    CONSTRAINT end_date_after_start_date CHECK (end_date > start_date)
 );
 
 ALTER TABLE cj_location ENABLE ROW LEVEL SECURITY;

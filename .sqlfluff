@@ -1,0 +1,13 @@
+[sqlfluff]
+dialect = postgres
+exclude_rules = L034,L036,L039,L044
+max_line_length = 120
+
+[sqlfluff:rules:L010]
+capitalisation_policy = lower
+
+[sqlfluff:rules:L014]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:L030]
+capitalisation_policy = lower

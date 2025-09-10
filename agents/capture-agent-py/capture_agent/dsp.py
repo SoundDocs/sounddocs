@@ -1,5 +1,6 @@
 import numpy as np
-from scipy.signal import welch, csd
+from scipy.signal import csd, welch
+
 try:
     import pyfftw
     import pyfftw.interfaces.numpy_fft as fftw
@@ -7,18 +8,19 @@ try:
 except ImportError:
     _PYFFTW_AVAILABLE = False
     import scipy.fft as fftw
-from collections import OrderedDict
-from functools import lru_cache
-import weakref
 import gc
 import time
+from collections import OrderedDict
+from functools import lru_cache
+
 try:
-    import psutil
     import os
+
+    import psutil
     _MEMORY_MONITORING_AVAILABLE = True
 except ImportError:
     _MEMORY_MONITORING_AVAILABLE = False
-from .schema import CaptureConfig, TFData, SPLData
+from .schema import CaptureConfig, SPLData, TFData
 
 _windows = OrderedDict()
 _MAX_WINDOWS = 16  # Reduced cap for better memory control
@@ -393,7 +395,7 @@ def _log_band_edges(freqs: np.ndarray, frac: int = 6) -> tuple[np.ndarray, np.nd
 
 @lru_cache(maxsize=32)  # Reduced from 128
 def _hann_cached(M: int) -> np.ndarray:
-    if M <= 1: 
+    if M <= 1:
         return np.ones(max(M,1))
     n = np.arange(M)
     return 0.5 - 0.5*np.cos(2*np.pi*n/(M-1))
@@ -468,13 +470,13 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     # Use views instead of copies where possible
     x = block[:, config.refChan - 1]
     y = block[:, config.measChan - 1]
-    
+
     # Only convert to float64 if necessary
     if x.dtype != np.float64:
         x = x.astype(np.float64, copy=False)
     if y.dtype != np.float64:
         y = y.astype(np.float64, copy=False)
-    
+
     fs = float(config.sampleRate)
 
     # Delay (linear GCC-PHAT you already implemented)
@@ -550,20 +552,20 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     # Impulse response from SMOOTHED H (use in-place operations)
     M = len(freqs)
     n_ir = 2 * (M - 1)
-    
+
     # Get reusable work arrays
     H_ir = get_work_array('H_ir', (M,), dtype=np.complex128)
     ir = get_work_array('ir', (n_ir,), dtype=np.float64)
-    
+
     # Copy Hs to work array
     H_ir[:] = Hs
     H_ir[0] = H_ir[0].real + 0j
     if M > 1:
         H_ir[-1] = H_ir[-1].real + 0j
-    
+
     # Apply taper in-place
     H_ir *= _taper_for_M(M)
-    
+
     # Compute irfft into pre-allocated array
     ir = np.fft.irfft(H_ir, n=n_ir)
     ir_plot = np.roll(ir, n_ir // 2)
@@ -579,7 +581,7 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     rms = float(np.sqrt(np.mean(y_eff**2))) or eps
     dbfs = 20.0 * np.log10(rms)
     spl_data = SPLData(Leq=dbfs, LZ=dbfs)
-    
+
     # Periodic cleanup instead of random GC
     _cleanup_counter += 1
     if _cleanup_counter >= CLEANUP_INTERVAL:

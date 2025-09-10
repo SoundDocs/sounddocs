@@ -26,7 +26,39 @@ We love pull requests! Here's a quick guide on how to submit one:
 4.  **Ensure your code lints**. Run `pnpm lint` to check for any issues.
 5.  **Write clear, concise commit messages**. We follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification.
 6.  **Push your branch** and open a pull request to the `beta` branch.
-7.  **Provide a clear description** of the problem and solution in your pull request. Include the relevant issue number if applicable.
+7.  **Create a pull request** - CodeRabbit will automatically generate a comprehensive description based on your changes. You only need to provide a clear, concise title for your PR.
+8.  **Ensure PR passes all tests** - Pull requests must pass all automated tests and linting checks before they can be merged. Contributors are responsible for fixing any errors or failed tests before their PR is merged.
+
+## CodeRabbit AI Assistant
+
+This repository uses [CodeRabbit](https://coderabbit.ai/) to enhance the pull request process:
+
+### 🤖 **Automated PR Descriptions**
+
+- CodeRabbit automatically analyzes your code changes and generates comprehensive PR descriptions
+- No need to write detailed descriptions - just provide a clear title
+- AI-generated descriptions include context, impact analysis, and implementation details
+
+### 🔍 **Intelligent Code Reviews**
+
+- CodeRabbit performs automated code reviews on all pull requests
+- Identifies potential issues, bugs, and improvement opportunities
+- Provides actionable feedback and suggestions for code quality
+
+### 💡 **Smart PR Suggestions**
+
+- Offers intelligent suggestions for code improvements
+- Helps maintain consistency across the codebase
+- Provides context-aware recommendations based on the existing codebase
+
+### 📝 **How It Works**
+
+1. **You create a PR** with just a clear title
+2. **CodeRabbit analyzes** your changes and generates a detailed description
+3. **CodeRabbit reviews** your code and provides feedback
+4. **You can accept/reject** CodeRabbit's suggestions as needed
+
+This AI-assisted workflow ensures high-quality contributions while reducing the manual effort required for comprehensive PR documentation and reviews.
 
 ## Styleguides
 

@@ -38,41 +38,41 @@
         - Create an index on `user_id` for efficient querying of user-specific mic plots.
     */
 
-    CREATE TABLE IF NOT EXISTS corporate_mic_plots (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-      name TEXT NOT NULL DEFAULT 'Untitled Corporate Mic Plot',
-      created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-      last_edited TIMESTAMPTZ DEFAULT now() NOT NULL,
-      presenters JSONB DEFAULT '[]'::jsonb,
-      CONSTRAINT user_id_fk FOREIGN KEY (user_id) REFERENCES auth.users (id)
-    );
+CREATE TABLE IF NOT EXISTS corporate_mic_plots (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    name text NOT NULL DEFAULT 'Untitled Corporate Mic Plot',
+    created_at timestamptz DEFAULT now() NOT NULL,
+    last_edited timestamptz DEFAULT now() NOT NULL,
+    presenters jsonb DEFAULT '[]'::jsonb,
+    CONSTRAINT user_id_fk FOREIGN KEY (user_id) REFERENCES auth.users (id)
+);
 
-    CREATE INDEX IF NOT EXISTS idx_corporate_mic_plots_user_id ON corporate_mic_plots(user_id);
+CREATE INDEX IF NOT EXISTS idx_corporate_mic_plots_user_id ON corporate_mic_plots(user_id);
 
-    ALTER TABLE corporate_mic_plots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE corporate_mic_plots ENABLE ROW LEVEL SECURITY;
 
-    CREATE POLICY "Users can create their own corporate mic plots"
-      ON corporate_mic_plots
-      FOR INSERT
-      TO authenticated
-      WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can create their own corporate mic plots"
+ON corporate_mic_plots
+FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = user_id);
 
-    CREATE POLICY "Users can view their own corporate mic plots"
-      ON corporate_mic_plots
-      FOR SELECT
-      TO authenticated
-      USING (auth.uid() = user_id);
+CREATE POLICY "Users can view their own corporate mic plots"
+ON corporate_mic_plots
+FOR SELECT
+TO authenticated
+USING (auth.uid() = user_id);
 
-    CREATE POLICY "Users can update their own corporate mic plots"
-      ON corporate_mic_plots
-      FOR UPDATE
-      TO authenticated
-      USING (auth.uid() = user_id)
-      WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own corporate mic plots"
+ON corporate_mic_plots
+FOR UPDATE
+TO authenticated
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
 
-    CREATE POLICY "Users can delete their own corporate mic plots"
-      ON corporate_mic_plots
-      FOR DELETE
-      TO authenticated
-      USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own corporate mic plots"
+ON corporate_mic_plots
+FOR DELETE
+TO authenticated
+USING (auth.uid() = user_id);

@@ -8,7 +8,7 @@ ADD COLUMN IF NOT EXISTS background_image_scale DOUBLE PRECISION DEFAULT 1.0;
 -- This helps maintain consistency for older stage plots.
 UPDATE stage_plots
 SET
-  background_image_x = COALESCE(background_image_x, 0),
-  background_image_y = COALESCE(background_image_y, 0),
-  background_image_scale = COALESCE(background_image_scale, 1.0)
+    background_image_x = COALESCE(background_image_x, 0),
+    background_image_y = COALESCE(background_image_y, 0),
+    background_image_scale = COALESCE(background_image_scale, 1.0)
 WHERE "backgroundImage" IS NOT NULL;

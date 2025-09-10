@@ -1,5 +1,7 @@
+from typing import Literal, Union
+
 from pydantic import BaseModel, Field
-from typing import List, Literal, Union
+
 
 # Shared data structures
 class Device(BaseModel):
@@ -9,11 +11,11 @@ class Device(BaseModel):
     outputs: int
 
 class TFData(BaseModel):
-    freqs: List[float]
-    mag_db: List[float]
-    phase_deg: List[float]
-    coh: List[float]
-    ir: List[float]
+    freqs: list[float]
+    mag_db: list[float]
+    phase_deg: list[float]
+    coh: list[float]
+    ir: list[float]
 
 class SPLData(BaseModel):
     Leq: float
@@ -29,7 +31,7 @@ class CaptureConfig(BaseModel):
     blockSize: int
     refChan: int
     measChan: int
-    
+
     # FFT & Averaging
     nfft: int
     avg: AvgType
@@ -80,7 +82,7 @@ class HelloAckMessage(BaseModel):
 
 class DevicesMessage(BaseModel):
     type: Literal["devices"]
-    items: List[Device]
+    items: list[Device]
 
 class FrameMessage(BaseModel):
     type: Literal["frame"]

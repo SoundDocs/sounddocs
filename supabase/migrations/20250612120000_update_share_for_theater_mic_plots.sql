@@ -29,14 +29,14 @@
 -- 1. Update shared_links_resource_type_check constraint
 ALTER TABLE public.shared_links DROP CONSTRAINT IF EXISTS shared_links_resource_type_check;
 ALTER TABLE public.shared_links ADD CONSTRAINT shared_links_resource_type_check
-  CHECK (resource_type IN (
+CHECK (resource_type IN (
     'patch_sheet',
     'stage_plot',
     'production_schedule',
     'run_of_show',
     'corporate_mic_plot',
     'theater_mic_plot' -- Added new type
-  ));
+));
 
 -- 2. Theater Mic Plots RLS Policies
 ALTER TABLE public.theater_mic_plots ENABLE ROW LEVEL SECURITY;
@@ -53,87 +53,95 @@ DROP POLICY IF EXISTS "Public can select theater mic plots via valid view share 
 
 -- Owner Policies
 CREATE POLICY "Owners can select their own theater mic plots"
-  ON public.theater_mic_plots FOR SELECT
-  TO authenticated
-  USING (auth.uid() = user_id);
+ON public.theater_mic_plots FOR SELECT
+TO authenticated
+USING (auth.uid() = user_id);
 
 CREATE POLICY "Owners can insert their own theater mic plots"
-  ON public.theater_mic_plots FOR INSERT
-  TO authenticated
-  WITH CHECK (auth.uid() = user_id);
+ON public.theater_mic_plots FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Owners can update their own theater mic plots"
-  ON public.theater_mic_plots FOR UPDATE
-  TO authenticated
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+ON public.theater_mic_plots FOR UPDATE
+TO authenticated
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Owners can delete their own theater mic plots"
-  ON public.theater_mic_plots FOR DELETE
-  TO authenticated
-  USING (auth.uid() = user_id);
+ON public.theater_mic_plots FOR DELETE
+TO authenticated
+USING (auth.uid() = user_id);
 
 -- Shared Access Policies
 CREATE POLICY "Users can select theater mic plots shared with them for viewing"
-  ON public.theater_mic_plots FOR SELECT
-  TO authenticated
-  USING (
+ON public.theater_mic_plots FOR SELECT
+TO authenticated
+USING (
     EXISTS (
-      SELECT 1
-      FROM shared_links sl
-      LEFT JOIN user_claimed_shares ucs ON sl.id = ucs.shared_link_id AND ucs.user_id = auth.uid()
-      WHERE sl.resource_id = theater_mic_plots.id
-        AND sl.resource_type = 'theater_mic_plot'
-        AND (sl.link_type = 'view' OR sl.link_type = 'edit')
-        AND (sl.expires_at IS NULL OR sl.expires_at > now())
-        AND ( -- Either claimed by the user OR it's a link that doesn't strictly require claiming for view (depends on app logic)
-              ucs.id IS NOT NULL OR 
-              NOT EXISTS (SELECT 1 FROM user_claimed_shares ucs_check WHERE ucs_check.shared_link_id = sl.id) -- if no one claimed it, it's open if link is valid
+        SELECT 1
+        FROM shared_links AS sl
+        LEFT JOIN user_claimed_shares AS ucs ON sl.id = ucs.shared_link_id AND ucs.user_id = auth.uid()
+        WHERE
+            sl.resource_id = theater_mic_plots.id
+            AND sl.resource_type = 'theater_mic_plot'
+            AND (sl.link_type = 'view' OR sl.link_type = 'edit')
+            AND (sl.expires_at IS NULL OR sl.expires_at > now())
+            AND ( -- Either claimed by the user OR it's a link that doesn't strictly require claiming for view (depends on app logic)
+                ucs.id IS NOT NULL
+                -- if no one claimed it, it's open if link is valid
+                OR NOT EXISTS (
+                    SELECT 1 FROM user_claimed_shares AS ucs_check
+                    WHERE ucs_check.shared_link_id = sl.id
+                )
             ) 
     )
-  );
+);
 
 CREATE POLICY "Users can update theater mic plots shared with them for editing"
-  ON public.theater_mic_plots FOR UPDATE
-  TO authenticated
-  USING (
+ON public.theater_mic_plots FOR UPDATE
+TO authenticated
+USING (
     EXISTS (
-      SELECT 1
-      FROM shared_links sl
-      JOIN user_claimed_shares ucs ON sl.id = ucs.shared_link_id -- Must be claimed for edit
-      WHERE sl.resource_id = theater_mic_plots.id
-        AND sl.resource_type = 'theater_mic_plot'
-        AND sl.link_type = 'edit'
-        AND ucs.user_id = auth.uid()
-        AND (sl.expires_at IS NULL OR sl.expires_at > now())
+        SELECT 1
+        FROM shared_links AS sl
+        INNER JOIN user_claimed_shares AS ucs ON sl.id = ucs.shared_link_id -- Must be claimed for edit
+        WHERE
+            sl.resource_id = theater_mic_plots.id
+            AND sl.resource_type = 'theater_mic_plot'
+            AND sl.link_type = 'edit'
+            AND ucs.user_id = auth.uid()
+            AND (sl.expires_at IS NULL OR sl.expires_at > now())
     )
-  )
-  WITH CHECK (
+)
+WITH CHECK (
     EXISTS (
-      SELECT 1
-      FROM shared_links sl
-      JOIN user_claimed_shares ucs ON sl.id = ucs.shared_link_id
-      WHERE sl.resource_id = theater_mic_plots.id
-        AND sl.resource_type = 'theater_mic_plot'
-        AND sl.link_type = 'edit'
-        AND ucs.user_id = auth.uid()
-        AND (sl.expires_at IS NULL OR sl.expires_at > now())
+        SELECT 1
+        FROM shared_links AS sl
+        INNER JOIN user_claimed_shares AS ucs ON sl.id = ucs.shared_link_id
+        WHERE
+            sl.resource_id = theater_mic_plots.id
+            AND sl.resource_type = 'theater_mic_plot'
+            AND sl.link_type = 'edit'
+            AND ucs.user_id = auth.uid()
+            AND (sl.expires_at IS NULL OR sl.expires_at > now())
     )
-  );
+);
   
 -- Public view access for shared links (used by shared view pages before login/claiming)
 CREATE POLICY "Public can select theater mic plots via valid view share code"
-  ON public.theater_mic_plots FOR SELECT
-  TO public, authenticated -- Changed from 'anon' to 'public' which is more standard, or use 'anon, authenticated'
-  USING (
+ON public.theater_mic_plots FOR SELECT
+TO public, authenticated -- Changed from 'anon' to 'public' which is more standard, or use 'anon, authenticated'
+USING (
     EXISTS (
-      SELECT 1
-      FROM public.shared_links sl
-      WHERE sl.resource_id = theater_mic_plots.id
-        AND sl.resource_type = 'theater_mic_plot'
-        AND (sl.link_type = 'view' OR sl.link_type = 'edit') -- Allow viewing if edit link is used for view page
-        AND (sl.expires_at IS NULL OR sl.expires_at > now())
-        -- This policy doesn't check user_claimed_shares, it's for direct access via share_code
-        -- The RPC get_shared_link_by_code should handle share_code validation
+        SELECT 1
+        FROM public.shared_links AS sl
+        WHERE
+            sl.resource_id = theater_mic_plots.id
+            AND sl.resource_type = 'theater_mic_plot'
+            AND (sl.link_type = 'view' OR sl.link_type = 'edit') -- Allow viewing if edit link is used for view page
+            AND (sl.expires_at IS NULL OR sl.expires_at > now())
+    -- This policy doesn't check user_claimed_shares, it's for direct access via share_code
+    -- The RPC get_shared_link_by_code should handle share_code validation
     )
-  );
+);

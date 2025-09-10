@@ -225,7 +225,6 @@ const AllRunOfShows: React.FC = () => {
         throw new Error("Could not fetch original run of show data for duplication.");
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id, created_at, last_edited, user_id, live_show_data, ...restOfRunOfShow } =
         fullRunOfShow;
 

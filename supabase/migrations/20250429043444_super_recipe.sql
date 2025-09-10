@@ -14,9 +14,9 @@
 
 -- Create a secure function for validating share links
 CREATE OR REPLACE FUNCTION handle_share_access(
-  p_resource_id UUID, 
-  p_resource_type TEXT,
-  p_require_edit BOOLEAN DEFAULT FALSE
+    p_resource_id UUID, 
+    p_resource_type TEXT,
+    p_require_edit BOOLEAN DEFAULT FALSE
 ) 
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -47,28 +47,28 @@ DROP POLICY IF EXISTS "Shared stage plots with edit links can be updated by anyo
 
 -- Allow anonymous users to view shared patch sheets
 CREATE POLICY "Shared patch sheets can be viewed by anyone"
-  ON public.patch_sheets
-  FOR SELECT
-  TO anon
-  USING (handle_share_access(id, 'patch_sheet', FALSE));
+ON public.patch_sheets
+FOR SELECT
+TO anon
+USING (handle_share_access(id, 'patch_sheet', FALSE));
 
 -- Allow anonymous users to update patch sheets with edit links
 CREATE POLICY "Shared patch sheets with edit links can be updated by anyone"
-  ON public.patch_sheets
-  FOR UPDATE
-  TO anon
-  USING (handle_share_access(id, 'patch_sheet', TRUE));
+ON public.patch_sheets
+FOR UPDATE
+TO anon
+USING (handle_share_access(id, 'patch_sheet', TRUE));
 
 -- Allow anonymous users to view shared stage plots
 CREATE POLICY "Shared stage plots can be viewed by anyone"
-  ON public.stage_plots
-  FOR SELECT
-  TO anon
-  USING (handle_share_access(id, 'stage_plot', FALSE));
+ON public.stage_plots
+FOR SELECT
+TO anon
+USING (handle_share_access(id, 'stage_plot', FALSE));
 
 -- Allow anonymous users to update stage plots with edit links
 CREATE POLICY "Shared stage plots with edit links can be updated by anyone"
-  ON public.stage_plots
-  FOR UPDATE
-  TO anon
-  USING (handle_share_access(id, 'stage_plot', TRUE));
+ON public.stage_plots
+FOR UPDATE
+TO anon
+USING (handle_share_access(id, 'stage_plot', TRUE));
