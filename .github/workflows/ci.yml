@@ -64,10 +64,10 @@ jobs:
           fi
 
           # Get changed files by type using git diff
-          TS_FILES=$(git diff --name-only $BASE_COMMIT...HEAD -- '**/*.{ts,tsx}' | tr '\n' ' ' || true)
-          JS_FILES=$(git diff --name-only $BASE_COMMIT...HEAD -- '**/*.{js,jsx}' | tr '\n' ' ' || true)
-          PY_FILES=$(git diff --name-only $BASE_COMMIT...HEAD -- '**/*.py' | tr '\n' ' ' || true)
-          SQL_FILES=$(git diff --name-only $BASE_COMMIT...HEAD -- '**/*.sql' | tr '\n' ' ' || true)
+          TS_FILES=$(git diff --name-only $BASE_COMMIT..HEAD -- '**/*.{ts,tsx}' | tr '\n' ' ' || true)
+          JS_FILES=$(git diff --name-only $BASE_COMMIT..HEAD -- '**/*.{js,jsx}' | tr '\n' ' ' || true)
+          PY_FILES=$(git diff --name-only $BASE_COMMIT..HEAD -- '**/*.py' | tr '\n' ' ' || true)
+          SQL_FILES=$(git diff --name-only $BASE_COMMIT..HEAD -- '**/*.sql' | tr '\n' ' ' || true)
 
           # Debug output
           echo "📝 TypeScript files: ${TS_FILES:-none}"
