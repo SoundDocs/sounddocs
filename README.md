@@ -50,17 +50,6 @@ SoundDocs empowers you to manage event audio documentation efficiently:
   - Save and recall measurements
   - **One-click installer** for macOS (.pkg) and Windows (.exe)
 
-## 📦 Quick Setup for Audio Analysis
-
-To unlock the full power of AcoustIQ Pro audio analyzer:
-
-1. **Download the installer** from [GitHub Releases](https://github.com/SoundDocs/sounddocs/releases)
-2. **Install the capture agent** with one click
-3. **Visit** [sounddocs.org/analyzer-pro](https://sounddocs.org/analyzer-pro)
-4. **Start analyzing** - automatic connection to your local agent!
-
-No Python installation, no terminal commands, no manual certificate setup required.
-
 ## 🛠️ Tech Stack
 
 ### Frontend
@@ -216,21 +205,32 @@ If you are developing features related to the "AcoustIQ Pro" audio analyzer, you
 
     The agent will now be running and can communicate with the web app at `wss://localhost:9469`.
 
-#### 2b. Using the Professional Installer (End Users)
+#### 2b. Building the Capture Agent from Source
 
-For a simpler setup experience:
+These instructions are for developers who want to compile the capture agent from local source code. This process uses your local files and does **not** download any code from GitHub.
 
-1. **Download**: Get the installer for your platform from [GitHub Releases](https://github.com/SoundDocs/sounddocs/releases)
+##### Prerequisites
 
-   - **macOS**: `SoundDocsAgent-macOS.pkg`
-   - **Windows**: `SoundDocsAgent-Windows.exe`
+- Python 3.11+
 
-2. **Install**:
+##### 1. Install Dependencies
 
-   - **macOS**: Double-click the `.pkg` file and follow the prompts
-   - **Windows**: Right-click the `.exe` file, select "Run as administrator"
+Navigate to the agent's directory and install all required dependencies, including the `pyinstaller` packaging tool.
 
-3. **Launch**: Find "SoundDocs Capture Agent" in your Applications (macOS) or Start Menu (Windows)
+```bash
+cd agents/capture-agent-py
+pip install -e . "cryptography>=41,<44" pyinstaller
+```
+
+##### 2. Build the Executable
+
+Run the `pyinstaller` command to build the standalone executable.
+
+```bash
+pyinstaller --onefile --name sounddocs-capture-agent --add-data "capture_agent:capture_agent" --add-data "generate_cert.py:." main.py
+```
+
+The compiled application will be located in the `dist` directory.
 
 ## 🌐 Self-Hosting
 

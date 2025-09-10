@@ -9,6 +9,7 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
+    "noImplicitAny": true,
     "noFallthroughCasesInSwitch": true,
     "moduleResolution": "bundler",
     "isolatedModules": true,
