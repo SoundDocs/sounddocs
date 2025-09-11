@@ -7,6 +7,21 @@ settings:
 importers:
   .:
     devDependencies:
+      "@eslint/js":
+        specifier: ^9.33.0
+        version: 9.33.0
+      eslint:
+        specifier: ^9.33.0
+        version: 9.33.0(jiti@1.21.7)
+      eslint-plugin-react-hooks:
+        specifier: ^5.2.0
+        version: 5.2.0(eslint@9.33.0(jiti@1.21.7))
+      eslint-plugin-react-refresh:
+        specifier: ^0.4.20
+        version: 0.4.20(eslint@9.33.0(jiti@1.21.7))
+      globals:
+        specifier: ^15.15.0
+        version: 15.15.0
       husky:
         specifier: ^9.1.7
         version: 9.1.7
@@ -16,6 +31,12 @@ importers:
       prettier:
         specifier: 3.5.3
         version: 3.5.3
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
+      typescript-eslint:
+        specifier: ^8.39.1
+        version: 8.39.1(eslint@9.33.0(jiti@1.21.7))(typescript@5.9.2)
 
   apps/web:
     dependencies:
