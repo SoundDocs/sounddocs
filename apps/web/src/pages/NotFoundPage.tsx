@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Home, Compass, ArrowLeft } from "lucide-react";
+import { Compass, ArrowLeft } from "lucide-react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 

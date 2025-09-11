@@ -1,0 +1,391 @@
+name: PR Checks (Changed Files Only)
+
+on:
+  pull_request:
+    branches: [main, beta]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  # Determine what files have changed
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      typescript: ${{ steps.filter.outputs.typescript }}
+      python: ${{ steps.filter.outputs.python }}
+      sql: ${{ steps.filter.outputs.sql }}
+      typescript_files: ${{ steps.filter.outputs.typescript_files }}
+      python_files: ${{ steps.filter.outputs.python_files }}
+      sql_files: ${{ steps.filter.outputs.sql_files }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v45
+        with:
+          separator: ","
+          files_yaml: |
+            typescript:
+              - '**/*.ts'
+              - '**/*.tsx'
+              - '**/*.js'
+              - '**/*.jsx'
+            python:
+              - '**/*.py'
+            sql:
+              - '**/*.sql'
+
+      - name: Set outputs
+        id: filter
+        run: |
+          # Check if we have changed files for each category
+          if [ "${{ steps.changed-files.outputs.typescript_any_changed }}" == "true" ]; then
+            echo "typescript=true" >> $GITHUB_OUTPUT
+            echo "typescript_files=${{ steps.changed-files.outputs.typescript_all_changed_files }}" >> $GITHUB_OUTPUT
+          else
+            echo "typescript=false" >> $GITHUB_OUTPUT
+            echo "typescript_files=" >> $GITHUB_OUTPUT
+          fi
+
+          if [ "${{ steps.changed-files.outputs.python_any_changed }}" == "true" ]; then
+            echo "python=true" >> $GITHUB_OUTPUT
+            echo "python_files=${{ steps.changed-files.outputs.python_all_changed_files }}" >> $GITHUB_OUTPUT
+          else
+            echo "python=false" >> $GITHUB_OUTPUT
+            echo "python_files=" >> $GITHUB_OUTPUT
+          fi
+
+          if [ "${{ steps.changed-files.outputs.sql_any_changed }}" == "true" ]; then
+            echo "sql=true" >> $GITHUB_OUTPUT
+            echo "sql_files=${{ steps.changed-files.outputs.sql_all_changed_files }}" >> $GITHUB_OUTPUT
+          else
+            echo "sql=false" >> $GITHUB_OUTPUT
+            echo "sql_files=" >> $GITHUB_OUTPUT
+          fi
+
+  # TypeScript/JavaScript checks
+  typescript-checks:
+    needs: changes
+    if: needs.changes.outputs.typescript == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: ESLint on changed files
+        run: |
+          # Convert comma-separated list to space-separated for ESLint
+          FILES="${{ needs.changes.outputs.typescript_files }}"
+          FILES_ARRAY=$(echo "$FILES" | tr ',' ' ')
+
+          echo "Running ESLint on changed files:"
+          echo "$FILES_ARRAY" | tr ' ' '\n'
+
+          # Run ESLint only on changed files
+          # Note: ESLint might need context from imported files, but will only report errors in specified files
+          npx eslint $FILES_ARRAY --max-warnings 0 || EXIT_CODE=$?
+
+          # If ESLint found issues, fail the check
+          if [ "${EXIT_CODE:-0}" -ne 0 ]; then
+            echo "❌ ESLint found issues in changed files"
+            exit 1
+          else
+            echo "✅ ESLint checks passed"
+          fi
+
+      - name: TypeScript type check on changed files
+        run: |
+          # For TypeScript, we need to compile the whole project but only report errors in changed files
+          FILES="${{ needs.changes.outputs.typescript_files }}"
+
+          echo "Running TypeScript type check..."
+
+          # Run tsc on the entire project (for proper type resolution)
+          # but filter output to only show errors from changed files
+          npx tsc --noEmit --pretty | grep -E "($(echo "$FILES" | tr ',' '|'))" || true
+
+          # Alternative approach: Check if tsc has any errors at all
+          # This is stricter but ensures type safety
+          if ! npx tsc --noEmit; then
+            echo "❌ TypeScript type check failed"
+            echo "Note: Showing all errors for context, but only changed files matter for this PR"
+            exit 1
+          else
+            echo "✅ TypeScript type check passed"
+          fi
+
+      - name: Prettier format check on changed files
+        run: |
+          FILES="${{ needs.changes.outputs.typescript_files }}"
+          FILES_ARRAY=$(echo "$FILES" | tr ',' ' ')
+
+          echo "Checking Prettier formatting on changed files:"
+          echo "$FILES_ARRAY" | tr ' ' '\n'
+
+          # Check if files are properly formatted
+          npx prettier --check $FILES_ARRAY || EXIT_CODE=$?
+
+          if [ "${EXIT_CODE:-0}" -ne 0 ]; then
+            echo "❌ Some files are not properly formatted"
+            echo "Run 'pnpm prettier --write <files>' to fix formatting"
+            exit 1
+          else
+            echo "✅ Prettier formatting check passed"
+          fi
+
+  # Python checks
+  python-checks:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Ruff linting on changed files
+        run: |
+          FILES="${{ needs.changes.outputs.python_files }}"
+          FILES_ARRAY=$(echo "$FILES" | tr ',' ' ')
+
+          echo "Running Ruff linting on changed Python files:"
+          echo "$FILES_ARRAY" | tr ' ' '\n'
+
+          # Run ruff check on changed files
+          ruff check $FILES_ARRAY || EXIT_CODE=$?
+
+          if [ "${EXIT_CODE:-0}" -ne 0 ]; then
+            echo "❌ Ruff found linting issues"
+            exit 1
+          else
+            echo "✅ Ruff linting passed"
+          fi
+
+      - name: Ruff format check on changed files
+        run: |
+          FILES="${{ needs.changes.outputs.python_files }}"
+          FILES_ARRAY=$(echo "$FILES" | tr ',' ' ')
+
+          echo "Checking Python formatting with Ruff:"
+
+          # Check formatting
+          ruff format --check $FILES_ARRAY || EXIT_CODE=$?
+
+          if [ "${EXIT_CODE:-0}" -ne 0 ]; then
+            echo "❌ Some Python files are not properly formatted"
+            echo "Run 'ruff format <files>' to fix formatting"
+            exit 1
+          else
+            echo "✅ Python formatting check passed"
+          fi
+
+      - name: Type checking with mypy (optional)
+        continue-on-error: true # Make this non-blocking initially
+        run: |
+          pip install mypy types-websockets types-numpy
+
+          FILES="${{ needs.changes.outputs.python_files }}"
+          FILES_ARRAY=$(echo "$FILES" | tr ',' ' ')
+
+          echo "Running mypy type checking (non-blocking):"
+
+          # Run mypy on changed files
+          # Note: May need to install type stubs for dependencies
+          mypy $FILES_ARRAY --ignore-missing-imports || true
+
+          echo "ℹ️  MyPy check is currently non-blocking. Consider making it required in the future."
+
+  # SQL checks
+  sql-checks:
+    needs: changes
+    if: needs.changes.outputs.sql == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install sqlfluff
+        run: pip install sqlfluff
+
+      - name: Create sqlfluff config
+        run: |
+          # Create a basic sqlfluff configuration for PostgreSQL
+          cat > .sqlfluff << 'EOF'
+          [sqlfluff]
+          dialect = postgres
+          templater = raw
+          max_line_length = 120
+          indent_unit = space
+          indent_size = 2
+
+          [sqlfluff:rules]
+          # Disable some rules that might be too strict for migrations
+          exclude_rules = L031,L034
+
+          [sqlfluff:rules:L010]
+          # Keywords should be upper case
+          capitalisation_policy = upper
+
+          [sqlfluff:rules:L014]
+          # Unquoted identifiers should be lower case
+          unquoted_identifiers_policy = lower
+
+          [sqlfluff:rules:L016]
+          # Line length
+          max_line_length = 120
+
+          [sqlfluff:rules:L030]
+          # Function names should be lower case
+          capitalisation_policy = lower
+          EOF
+
+      - name: SQLFluff linting on changed files
+        run: |
+          FILES="${{ needs.changes.outputs.sql_files }}"
+          FILES_ARRAY=$(echo "$FILES" | tr ',' ' ')
+
+          echo "Running SQLFluff on changed SQL files:"
+          echo "$FILES_ARRAY" | tr ' ' '\n'
+
+          # Run sqlfluff lint on changed files
+          sqlfluff lint $FILES_ARRAY --format github-annotation || EXIT_CODE=$?
+
+          # SQLFluff returns different exit codes:
+          # 0 = success, no issues
+          # 1 = linting errors found
+          # 2 = errors in sqlfluff configuration
+
+          if [ "${EXIT_CODE:-0}" -eq 2 ]; then
+            echo "❌ SQLFluff configuration error"
+            exit 1
+          elif [ "${EXIT_CODE:-0}" -eq 1 ]; then
+            echo "⚠️  SQLFluff found linting issues"
+            echo "Run 'sqlfluff fix <files>' to auto-fix some issues"
+            # For now, make SQL linting non-blocking for existing migrations
+            echo "ℹ️  SQL linting is currently non-blocking for migration files"
+            exit 0
+          else
+            echo "✅ SQLFluff linting passed"
+          fi
+
+      - name: Check for common SQL issues
+        run: |
+          FILES="${{ needs.changes.outputs.sql_files }}"
+          FILES_ARRAY=$(echo "$FILES" | tr ',' ' ')
+
+          echo "Checking for common SQL issues..."
+
+          # Check for potentially dangerous operations in migrations
+          for file in $FILES_ARRAY; do
+            echo "Checking $file..."
+            
+            # Skip if not a migration file
+            if [[ ! "$file" =~ supabase/migrations/.* ]]; then
+              continue
+            fi
+            
+            # Check for DROP operations without IF EXISTS
+            if grep -i "DROP TABLE\|DROP INDEX\|DROP VIEW" "$file" | grep -v -i "IF EXISTS" > /dev/null; then
+              echo "⚠️  Warning: Found DROP statement without IF EXISTS in $file"
+              echo "   Consider using 'DROP ... IF EXISTS' for safer migrations"
+            fi
+            
+            # Check for missing semicolons at end of statements
+            if [ "$(tail -c 1 "$file")" != ";" ] && [ "$(tail -c 1 "$file")" != $'\n' ]; then
+              echo "⚠️  Warning: $file might be missing a final semicolon"
+            fi
+            
+            # Check for ALTER TABLE without proper constraints
+            if grep -i "ALTER TABLE.*ADD COLUMN" "$file" | grep -i "NOT NULL" | grep -v -i "DEFAULT" > /dev/null; then
+              echo "⚠️  Warning: Found NOT NULL column addition without DEFAULT in $file"
+              echo "   This will fail if the table has existing rows"
+            fi
+          done
+
+          echo "✅ SQL safety checks complete"
+
+  # Summary job to ensure all checks pass
+  pr-checks-summary:
+    runs-on: ubuntu-latest
+    needs: [changes, typescript-checks, python-checks, sql-checks]
+    if: always()
+    steps:
+      - name: Summary
+        run: |
+          echo "## PR Checks Summary"
+          echo ""
+
+          # Check TypeScript
+          if [ "${{ needs.changes.outputs.typescript }}" == "true" ]; then
+            if [ "${{ needs.typescript-checks.result }}" == "success" ]; then
+              echo "✅ TypeScript checks: PASSED"
+            elif [ "${{ needs.typescript-checks.result }}" == "skipped" ]; then
+              echo "⏭️  TypeScript checks: SKIPPED (no changes)"
+            else
+              echo "❌ TypeScript checks: FAILED"
+            fi
+          else
+            echo "⏭️  TypeScript checks: No files changed"
+          fi
+
+          # Check Python
+          if [ "${{ needs.changes.outputs.python }}" == "true" ]; then
+            if [ "${{ needs.python-checks.result }}" == "success" ]; then
+              echo "✅ Python checks: PASSED"
+            elif [ "${{ needs.python-checks.result }}" == "skipped" ]; then
+              echo "⏭️  Python checks: SKIPPED (no changes)"
+            else
+              echo "❌ Python checks: FAILED"
+            fi
+          else
+            echo "⏭️  Python checks: No files changed"
+          fi
+
+          # Check SQL
+          if [ "${{ needs.changes.outputs.sql }}" == "true" ]; then
+            if [ "${{ needs.sql-checks.result }}" == "success" ]; then
+              echo "✅ SQL checks: PASSED"
+            elif [ "${{ needs.sql-checks.result }}" == "skipped" ]; then
+              echo "⏭️  SQL checks: SKIPPED (no changes)"
+            else
+              echo "❌ SQL checks: FAILED"
+            fi
+          else
+            echo "⏭️  SQL checks: No files changed"
+          fi
+
+          # Overall status
+          echo ""
+          if [ "${{ needs.typescript-checks.result }}" == "failure" ] || \
+             [ "${{ needs.python-checks.result }}" == "failure" ] || \
+             [ "${{ needs.sql-checks.result }}" == "failure" ]; then
+            echo "❌ **Overall Status: FAILED**"
+            echo "Please fix the issues above before merging."
+            exit 1
+          else
+            echo "✅ **Overall Status: PASSED**"
+            echo "All checks on changed files have passed!"
+          fi
