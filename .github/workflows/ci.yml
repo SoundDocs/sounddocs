@@ -11,6 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Quick selective checks for PRs and feature branches
   lint-and-test:
     runs-on: ubuntu-latest
 
@@ -74,8 +75,9 @@ jobs:
           fi
 
           # Get changed files by type using proper git pathspecs
-          TS_FILES=$(git diff --name-only "$DIFF_RANGE" -- ':(glob)**/*.ts' ':(glob)**/*.tsx' | tr '\n' ' ' || true)
-          JS_FILES=$(git diff --name-only "$DIFF_RANGE" -- ':(glob)**/*.js' ':(glob)**/*.jsx' | tr '\n' ' ' || true)
+          # TS/JS: Limit to source files only (exclude configs like vite.config.ts)
+          TS_FILES=$(git diff --name-only "$DIFF_RANGE" -- ':(glob)apps/web/src/**/*.{ts,tsx}' | tr '\n' ' ' || true)
+          JS_FILES=$(git diff --name-only "$DIFF_RANGE" -- ':(glob)apps/web/src/**/*.{js,jsx}' | tr '\n' ' ' || true)
           PY_FILES=$(git diff --name-only "$DIFF_RANGE" -- ':(glob)**/*.py' | tr '\n' ' ' || true)
           SQL_FILES=$(git diff --name-only "$DIFF_RANGE" -- ':(glob)**/*.sql' | tr '\n' ' ' || true)
 
@@ -103,9 +105,12 @@ jobs:
           CHANGED_FILES="${{ steps.get-files.outputs.ts_files }} ${{ steps.get-files.outputs.js_files }}"
           echo "$CHANGED_FILES" | tr ' ' '\n' | xargs -r npx --no-install eslint --max-warnings 0
 
-      - name: Run TypeScript check (project)
+      - name: Type-check changed TS files
         if: steps.get-files.outputs.has_ts == 'true'
-        run: pnpm exec tsc --noEmit -p apps/web/tsconfig.app.json
+        run: |
+          echo "${{ steps.get-files.outputs.ts_files }}" \
+            | tr ' ' '\n' \
+            | xargs -r pnpm dlx tsc-files --noEmit -p apps/web/tsconfig.app.json --pretty false
 
       - name: Run Python linting on changed files
         if: steps.get-files.outputs.has_py == 'true'
@@ -124,19 +129,59 @@ jobs:
       - name: Code quality summary
         if: always()
         run: |
-          echo "🎯 Code Quality Check Summary:"
-          echo "📊 TypeScript checks run: ${{ steps.get-files.outputs.has_ts == 'true' && 'Yes (project)' || 'No' }}"
-          echo "🧹 ESLint checks run: ${{ steps.get-files.outputs.has_ts == 'true' || steps.get-files.outputs.has_js == 'true' && 'Yes (changed files)' || 'No' }}"
-          echo "🐍 Python linting run: ${{ steps.get-files.outputs.has_py == 'true' && 'Yes (changed files)' || 'No' }}"
-          echo "🗄️ SQL linting run: ${{ steps.get-files.outputs.has_sql == 'true' && 'Yes (changed files)' || 'No' }}"
+          echo "🎯 Code Quality Check Summary (Selective):"
+          echo "📊 TypeScript checks: ${{ steps.get-files.outputs.has_ts == 'true' && 'Yes (changed source files only)' || 'No' }}"
+          echo "🧹 ESLint checks: ${{ steps.get-files.outputs.has_ts == 'true' || steps.get-files.outputs.has_js == 'true' && 'Yes (changed files only)' || 'No' }}"
+          echo "🐍 Python linting: ${{ steps.get-files.outputs.has_py == 'true' && 'Yes (changed files only)' || 'No' }}"
+          echo "🗄️ SQL linting: ${{ steps.get-files.outputs.has_sql == 'true' && 'Yes (changed files only)' || 'No' }}"
           echo ""
-          echo "📝 Files detected:"
+          echo "📝 Source files detected (configs excluded):"
           echo "  TS/TSX: ${{ steps.get-files.outputs.ts_files }}"
           echo "  JS/JSX: ${{ steps.get-files.outputs.js_files }}"
           echo "  Python: ${{ steps.get-files.outputs.py_files }}"
           echo "  SQL: ${{ steps.get-files.outputs.sql_files }}"
           echo ""
-          echo "✅ Code quality checks completed!"
+          echo "✅ Selective code quality checks completed!"
+          echo "ℹ️  Full TypeScript check runs on main/beta pushes to catch cross-file breakages"
 
       - name: Run build
         run: pnpm build
+
+  # Full TypeScript check to catch cross-file breakages (main/beta only)
+  full-typescript-check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/beta')
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Full TypeScript check (catches cross-file breakages)
+        run: pnpm exec tsc --noEmit -p apps/web/tsconfig.app.json
