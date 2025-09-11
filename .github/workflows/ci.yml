@@ -98,77 +98,45 @@ jobs:
           [ -n "$SQL_FILES" ] && echo "has_sql=true" >> $GITHUB_OUTPUT || echo "has_sql=false" >> $GITHUB_OUTPUT
 
       - name: Run ESLint on changed files
-        if: always()  # Always run to ensure linting happens
+        if: steps.get-files.outputs.has_ts == 'true' || steps.get-files.outputs.has_js == 'true'
         run: |
-          if [ "${{ steps.get-files.outputs.has_ts }}" = "true" ] || [ "${{ steps.get-files.outputs.has_js }}" = "true" ]; then
-            echo "🧹 Running ESLint on changed files..."
-            echo "📝 Changed TS/TSX files: ${{ steps.get-files.outputs.ts_files }}"
-            echo "📝 Changed JS/JSX files: ${{ steps.get-files.outputs.js_files }}"
+          CHANGED_FILES="${{ steps.get-files.outputs.ts_files }} ${{ steps.get-files.outputs.js_files }}"
+          echo "$CHANGED_FILES" | tr ' ' '\n' | xargs -r npx --no-install eslint --max-warnings 0
 
-            # Create a combined list of changed TS/JS files
-            CHANGED_FILES="${{ steps.get-files.outputs.ts_files }} ${{ steps.get-files.outputs.js_files }}"
-            echo "$CHANGED_FILES" | tr ' ' '\n' | xargs npx eslint --max-warnings 0
-          else
-            echo "⚠️  No specific TS/JS files detected or diff failed — running full ESLint on web app..."
-            npx eslint --max-warnings 0 --ext .ts,.tsx,.js,.jsx apps/web/src
-          fi
-
-      - name: Run TypeScript check on changed files
-        if: always()  # Always run to ensure type checking happens
-        run: |
-          cd apps/web
-          if [ "${{ steps.get-files.outputs.has_ts }}" = "true" ] && [ -n "${{ steps.get-files.outputs.ts_files }}" ]; then
-            echo "🔧 Running TypeScript check on changed files..."
-            echo "📝 Changed TypeScript files: ${{ steps.get-files.outputs.ts_files }}"
-
-            echo "${{ steps.get-files.outputs.ts_files }}" | tr ' ' '\n' | xargs ../../../node_modules/.bin/tsc --noEmit --project tsconfig.app.json
-          else
-            echo "⚠️  No specific TS files detected or diff failed — running full TypeScript check..."
-            ../../../node_modules/.bin/tsc --noEmit --project tsconfig.app.json
-          fi
+      - name: Run TypeScript check (project)
+        if: steps.get-files.outputs.has_ts == 'true'
+        run: pnpm exec tsc --noEmit -p apps/web/tsconfig.app.json
 
       - name: Run Python linting on changed files
-        if: always()  # Always run to ensure Python linting happens
+        if: steps.get-files.outputs.has_py == 'true'
         run: |
-          if [ "${{ steps.get-files.outputs.has_py }}" = "true" ] && [ -n "${{ steps.get-files.outputs.py_files }}" ]; then
-            echo "🐍 Running Python linting on changed files..."
-            echo "📝 Changed Python files: ${{ steps.get-files.outputs.py_files }}"
-
-            echo "${{ steps.get-files.outputs.py_files }}" | tr ' ' '\n' | xargs ruff check --max-warnings=0
-          else
-            echo "⚠️  No Python files detected or diff failed — running full Python linting..."
-            ruff check agents/ --max-warnings=0 || true  # Allow failures for legacy code
-          fi
+          echo "${{ steps.get-files.outputs.py_files }}" | tr ' ' '\n' | xargs -r ruff check
 
       - name: Run SQL linting on changed files
-        if: always()  # Always run to ensure SQL linting happens
+        if: steps.get-files.outputs.has_sql == 'true'
         run: |
-          if [ "${{ steps.get-files.outputs.has_sql }}" = "true" ] && [ -n "${{ steps.get-files.outputs.sql_files }}" ]; then
-            echo "🗄️ Running SQL linting on changed files..."
-            echo "📝 Changed SQL files: ${{ steps.get-files.outputs.sql_files }}"
+          echo "${{ steps.get-files.outputs.sql_files }}" | tr ' ' '\n' | xargs -r sqlfluff lint --dialect postgres
 
-            echo "${{ steps.get-files.outputs.sql_files }}" | tr ' ' '\n' | xargs sqlfluff fix --dialect postgres
-          else
-            echo "⚠️  No SQL files detected or diff failed — running full SQL linting..."
-            sqlfluff lint supabase/migrations/ --dialect postgres || true  # Allow failures for legacy code
-          fi
+      - name: No code-quality checks needed
+        if: steps.get-files.outputs.has_ts != 'true' && steps.get-files.outputs.has_js != 'true' && steps.get-files.outputs.has_py != 'true' && steps.get-files.outputs.has_sql != 'true'
+        run: echo "✅ No changed TS/JS/Py/SQL files — skipping code-quality steps."
 
       - name: Code quality summary
         if: always()
         run: |
           echo "🎯 Code Quality Check Summary:"
-          echo "📊 TypeScript files processed: ${{ steps.get-files.outputs.has_ts == 'true' && 'Yes' || 'No' }}"
-          echo "🧹 JavaScript files processed: ${{ steps.get-files.outputs.has_js == 'true' && 'Yes' || 'No' }}"
-          echo "🐍 Python files processed: ${{ steps.get-files.outputs.has_py == 'true' && 'Yes' || 'No' }}"
-          echo "🗄️ SQL files processed: ${{ steps.get-files.outputs.has_sql == 'true' && 'Yes' || 'No' }}"
+          echo "📊 TypeScript checks run: ${{ steps.get-files.outputs.has_ts == 'true' && 'Yes (project)' || 'No' }}"
+          echo "🧹 ESLint checks run: ${{ steps.get-files.outputs.has_ts == 'true' || steps.get-files.outputs.has_js == 'true' && 'Yes (changed files)' || 'No' }}"
+          echo "🐍 Python linting run: ${{ steps.get-files.outputs.has_py == 'true' && 'Yes (changed files)' || 'No' }}"
+          echo "🗄️ SQL linting run: ${{ steps.get-files.outputs.has_sql == 'true' && 'Yes (changed files)' || 'No' }}"
           echo ""
-          echo "📝 Files processed:"
+          echo "📝 Files detected:"
           echo "  TS/TSX: ${{ steps.get-files.outputs.ts_files }}"
           echo "  JS/JSX: ${{ steps.get-files.outputs.js_files }}"
           echo "  Python: ${{ steps.get-files.outputs.py_files }}"
           echo "  SQL: ${{ steps.get-files.outputs.sql_files }}"
           echo ""
-          echo "✅ All code quality checks completed successfully!"
+          echo "✅ Code quality checks completed!"
 
       - name: Run build
         run: pnpm build
