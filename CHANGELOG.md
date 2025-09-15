@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.6.3] - 2025-09-15
+
+### Fixed
+
+- **Production Schedule Print Export**: Fixed issues with print-friendly PDF exports for production schedules
+  - Added date headers to group schedule items by day with clear visual separation
+  - Fixed sorting to ensure dates are in chronological order
+  - Preserved user-defined order of items within each date group
+  - Applied same improvements to both detailed schedule and labor schedule sections
+  - Removed redundant date columns from tables since dates are now shown in headers
+  - Ensured consistent formatting between AllProductionSchedules and ProductionPage exports
+
+### Improved
+
+- **Production Schedule Export Layout**: Enhanced readability of print exports
+  - Added light blue-gray background for date headers
+  - Improved table column widths for better content distribution
+  - Consistent formatting between detailed schedule and labor schedule sections
+
 ## [1.5.6.2] - 2025-09-11
 
 ### Added
