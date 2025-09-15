@@ -9,7 +9,8 @@ import ShareModal from "../components/ShareModal";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import { ScheduleForExport, DetailedScheduleItem } from "./ProductionScheduleEditor";
+import { ScheduleForExport } from "../lib/types";
+import { DetailedScheduleItem } from "../components/production-schedule/ProductionScheduleDetail";
 import { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -104,8 +105,7 @@ const transformToScheduleForExport = (
     detailed_schedule_items:
       fullSchedule.detailed_schedule_items?.map((item) => ({
         ...item,
-        assigned_crew_ids:
-          item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : []),
+        assigned_crew_ids: item.assigned_crew_ids || [],
       })) || [],
     labor_schedule_items: fullSchedule.labor_schedule_items?.map((item) => ({ ...item })) || [],
   };
@@ -469,45 +469,99 @@ const AllProductionSchedules: React.FC = () => {
           pdf.text("Detailed Production Schedule", 40, lastY);
           lastY += 20;
 
-          const detailedScheduleHead = [["Date", "Start", "End", "Activity", "Notes", "Crew"]];
-          const detailedScheduleBody = scheduleData.detailed_schedule_items.map((item) => {
-            const crewNames = item.assigned_crew_ids
-              .map((id) => scheduleData.crew_key.find((c) => c.id === id)?.name)
-              .filter(Boolean)
-              .join(", ");
-            return [
-              item.date
-                ? new Date(item.date + "T00:00:00Z").toLocaleDateString("en-US", {
-                    month: "2-digit",
-                    day: "2-digit",
-                    timeZone: "UTC",
-                  })
-                : "N/A",
-              item.start_time || "N/A",
-              item.end_time || "N/A",
-              item.activity || "",
-              item.notes || "",
-              crewNames || "N/A",
-            ];
+          // Group items by date while preserving user-defined order within each group
+          const groupedItems: Record<string, typeof scheduleData.detailed_schedule_items> = {};
+          scheduleData.detailed_schedule_items.forEach((item) => {
+            const dateKey = item.date || "No Date Assigned";
+            if (!groupedItems[dateKey]) {
+              groupedItems[dateKey] = [];
+            }
+            groupedItems[dateKey].push(item);
           });
 
-          (pdf as any).autoTable({
-            head: detailedScheduleHead,
-            body: detailedScheduleBody,
-            startY: lastY,
-            theme: "grid",
-            headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: "bold" },
-            styles: {
-              font: "helvetica",
-              fontSize: 9,
-              cellPadding: 5,
-              lineColor: [221, 221, 221],
-              lineWidth: 0.5,
-            },
-            alternateRowStyles: { fillColor: [248, 249, 250] },
-            margin: { left: 40, right: 40 },
+          // Sort groups by date (earliest first)
+          const sortedGroups = Object.entries(groupedItems).sort(([dateA], [dateB]) => {
+            if (dateA === "No Date Assigned") return 1;
+            if (dateB === "No Date Assigned") return -1;
+            try {
+              return (
+                new Date(dateA + "T00:00:00Z").getTime() - new Date(dateB + "T00:00:00Z").getTime()
+              );
+            } catch (e) {
+              return 0;
+            }
           });
-          lastY = (pdf as any).lastAutoTable.finalY + 30;
+
+          // Render each date group with its own header and table
+          sortedGroups.forEach(([dateKey, items]) => {
+            // Add date header
+            pdf.setFontSize(11);
+            pdf.setFont("helvetica", "bold");
+            pdf.setFillColor(226, 232, 240); // Light blue-gray background
+            pdf.rect(40, lastY - 5, pdf.internal.pageSize.width - 80, 20, "F");
+            pdf.setTextColor(0, 0, 0);
+
+            const dateDisplay =
+              dateKey === "No Date Assigned"
+                ? "No Date Assigned"
+                : new Date(dateKey + "T00:00:00Z").toLocaleDateString("en-US", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    timeZone: "UTC",
+                  });
+            pdf.text(dateDisplay, 50, lastY + 5);
+            lastY += 20;
+
+            // Create table for this date group (without date column)
+            const detailedScheduleHead = [["Start", "End", "Activity", "Notes", "Crew"]];
+            const detailedScheduleBody = items.map((item) => {
+              const crewNames = item.assigned_crew_ids
+                .map((id) => scheduleData.crew_key.find((c) => c.id === id)?.name)
+                .filter(Boolean)
+                .join(", ");
+              return [
+                item.start_time || "-",
+                item.end_time || "-",
+                item.activity || "",
+                item.notes || "",
+                crewNames || "-",
+              ];
+            });
+
+            (pdf as any).autoTable({
+              head: detailedScheduleHead,
+              body: detailedScheduleBody,
+              startY: lastY,
+              theme: "grid",
+              headStyles: {
+                fillColor: [30, 30, 30],
+                textColor: 255,
+                fontStyle: "bold",
+                fontSize: 9,
+              },
+              styles: {
+                font: "helvetica",
+                fontSize: 9,
+                cellPadding: 5,
+                lineColor: [221, 221, 221],
+                lineWidth: 0.5,
+              },
+              columnStyles: {
+                0: { cellWidth: 50 }, // Start time
+                1: { cellWidth: 50 }, // End time
+                2: { cellWidth: 150 }, // Activity
+                3: { cellWidth: 180 }, // Notes
+                4: { cellWidth: 100 }, // Crew
+              },
+              alternateRowStyles: { fillColor: [248, 249, 250] },
+              margin: { left: 40, right: 40 },
+            });
+            lastY = (pdf as any).lastAutoTable.finalY + 15;
+          });
+
+          lastY += 15; // Extra space after all detailed schedule items
         }
 
         // --- Labor Schedule Table ---
@@ -517,37 +571,103 @@ const AllProductionSchedules: React.FC = () => {
           pdf.text("Labor Schedule", 40, lastY);
           lastY += 20;
 
-          const laborScheduleHead = [["Name", "Position", "Date", "Time In", "Time Out", "Notes"]];
-          const laborScheduleBody = scheduleData.labor_schedule_items.map((item) => [
-            item.name || "",
-            item.position || "",
-            item.date
-              ? new Date(item.date + "T00:00:00Z").toLocaleDateString("en-US", {
-                  month: "2-digit",
-                  day: "2-digit",
-                  timeZone: "UTC",
-                })
-              : "N/A",
-            item.time_in || "N/A",
-            item.time_out || "N/A",
-            item.notes || "",
-          ]);
+          // Sort labor items by date and time
+          const sortedLaborItems = [...scheduleData.labor_schedule_items].sort((a, b) => {
+            const dateA = a.date || "";
+            const dateB = b.date || "";
+            if (dateA < dateB) return -1;
+            if (dateA > dateB) return 1;
+            const timeInA = a.time_in || "";
+            const timeInB = b.time_in || "";
+            if (timeInA < timeInB) return -1;
+            if (timeInA > timeInB) return 1;
+            return (a.name || "").localeCompare(b.name || "");
+          });
 
-          (pdf as any).autoTable({
-            head: laborScheduleHead,
-            body: laborScheduleBody,
-            startY: lastY,
-            theme: "grid",
-            headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: "bold" },
-            styles: {
-              font: "helvetica",
-              fontSize: 9,
-              cellPadding: 5,
-              lineColor: [221, 221, 221],
-              lineWidth: 0.5,
-            },
-            alternateRowStyles: { fillColor: [248, 249, 250] },
-            margin: { left: 40, right: 40 },
+          // Group items by date
+          const laborGroupedItems: Record<string, typeof sortedLaborItems> = {};
+          sortedLaborItems.forEach((item) => {
+            const dateKey = item.date || "No Date Assigned";
+            if (!laborGroupedItems[dateKey]) {
+              laborGroupedItems[dateKey] = [];
+            }
+            laborGroupedItems[dateKey].push(item);
+          });
+
+          // Sort groups by date
+          const sortedLaborGroups = Object.entries(laborGroupedItems).sort(([dateA], [dateB]) => {
+            if (dateA === "No Date Assigned") return 1;
+            if (dateB === "No Date Assigned") return -1;
+            try {
+              return (
+                new Date(dateA + "T00:00:00Z").getTime() - new Date(dateB + "T00:00:00Z").getTime()
+              );
+            } catch (e) {
+              return 0;
+            }
+          });
+
+          // Render each date group with its own header and table
+          sortedLaborGroups.forEach(([dateKey, items]) => {
+            // Add date header
+            pdf.setFontSize(11);
+            pdf.setFont("helvetica", "bold");
+            pdf.setFillColor(226, 232, 240); // Light blue-gray background
+            pdf.rect(40, lastY - 5, pdf.internal.pageSize.width - 80, 20, "F");
+            pdf.setTextColor(0, 0, 0);
+
+            const dateDisplay =
+              dateKey === "No Date Assigned"
+                ? "No Date Assigned"
+                : new Date(dateKey + "T00:00:00Z").toLocaleDateString("en-US", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    timeZone: "UTC",
+                  });
+            pdf.text(dateDisplay, 50, lastY + 5);
+            lastY += 20;
+
+            // Create table for this date group (without date column)
+            const laborScheduleHead = [["Name", "Position", "Time In", "Time Out", "Notes"]];
+            const laborScheduleBody = items.map((item) => [
+              item.name || "",
+              item.position || "",
+              item.time_in || "-",
+              item.time_out || "-",
+              item.notes || "",
+            ]);
+
+            (pdf as any).autoTable({
+              head: laborScheduleHead,
+              body: laborScheduleBody,
+              startY: lastY,
+              theme: "grid",
+              headStyles: {
+                fillColor: [30, 30, 30],
+                textColor: 255,
+                fontStyle: "bold",
+                fontSize: 9,
+              },
+              styles: {
+                font: "helvetica",
+                fontSize: 9,
+                cellPadding: 5,
+                lineColor: [221, 221, 221],
+                lineWidth: 0.5,
+              },
+              columnStyles: {
+                0: { cellWidth: 120 }, // Name
+                1: { cellWidth: 120 }, // Position
+                2: { cellWidth: 60 }, // Time In
+                3: { cellWidth: 60 }, // Time Out
+                4: { cellWidth: 170 }, // Notes
+              },
+              alternateRowStyles: { fillColor: [248, 249, 250] },
+              margin: { left: 40, right: 40 },
+            });
+            lastY = (pdf as any).lastAutoTable.finalY + 15;
           });
         }
 

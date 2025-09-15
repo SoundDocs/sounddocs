@@ -82,8 +82,7 @@ const transformToScheduleForExport = (
     detailed_schedule_items:
       fullSchedule.detailed_schedule_items?.map((item) => ({
         ...item,
-        assigned_crew_ids:
-          item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : []),
+        assigned_crew_ids: item.assigned_crew_ids || [],
       })) || [],
     labor_schedule_items: fullSchedule.labor_schedule_items?.map((item) => ({ ...item })) || [],
   };
