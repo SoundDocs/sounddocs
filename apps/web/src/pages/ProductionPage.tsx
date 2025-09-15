@@ -140,7 +140,7 @@ const transformToScheduleForExport = (
 const ProductionPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [_user, setUser] = useState<unknown>(null);
+  const [, setUser] = useState<unknown>(null);
   const [productionSchedules, setProductionSchedules] = useState<ProductionScheduleSummary[]>([]);
   const [runOfShows, setRunOfShows] = useState<RunOfShowSummary[]>([]);
 
@@ -518,7 +518,7 @@ const ProductionPage = () => {
                   new Date(dateA + "T00:00:00Z").getTime() -
                   new Date(dateB + "T00:00:00Z").getTime()
                 );
-              } catch (e) {
+              } catch {
                 return 0;
               }
             });
@@ -639,7 +639,7 @@ const ProductionPage = () => {
                   new Date(dateA + "T00:00:00Z").getTime() -
                   new Date(dateB + "T00:00:00Z").getTime()
                 );
-              } catch (e) {
+              } catch {
                 return 0;
               }
             });
@@ -812,7 +812,13 @@ const ProductionPage = () => {
           const customCols = fullData.custom_column_definitions || [];
           const head = [defaultCols.map((c) => c.label).concat(customCols.map((c) => c.name))];
 
-          const body: any[] = [];
+          const body: Array<
+            Array<
+              | string
+              | number
+              | { content: string; colSpan?: number; styles?: Record<string, unknown> }
+            >
+          > = [];
 
           fullData.items.forEach((item) => {
             if (item.type === "header") {
@@ -835,7 +841,7 @@ const ProductionPage = () => {
             }
           });
 
-          (pdf as any).autoTable({
+          (pdf as unknown as { autoTable: (opts: unknown) => void }).autoTable({
             head: head,
             body: body,
             startY: 95,
@@ -850,7 +856,11 @@ const ProductionPage = () => {
             },
             alternateRowStyles: { fillColor: [248, 249, 250] },
             margin: { left: 40, right: 40 },
-            didParseCell: (data: any) => {
+            didParseCell: (data: {
+              section: string;
+              row: { index: number };
+              cell: { styles: { fillColor?: unknown; textColor?: unknown } };
+            }) => {
               if (data.section === "body") {
                 const item = fullData.items[data.row.index];
                 if (item && item.type !== "header" && item.highlightColor) {

@@ -259,7 +259,18 @@ const AllProductionSchedules: React.FC = () => {
         throw new Error("Could not fetch original schedule data for duplication.");
       }
 
-      const { id, created_at, last_edited, user_id, ...restOfSchedule } = fullSchedule;
+      const {
+        id: _id,
+        created_at: _createdAt,
+        last_edited: _lastEdited,
+        user_id: _userId,
+        ...restOfSchedule
+      } = fullSchedule;
+      // mark omitted fields as used to satisfy no-unused-vars while excluding them from insert
+      void _id;
+      void _createdAt;
+      void _lastEdited;
+      void _userId;
 
       const newScheduleData = {
         ...restOfSchedule,
@@ -498,7 +509,7 @@ const AllProductionSchedules: React.FC = () => {
               return (
                 new Date(dateA + "T00:00:00Z").getTime() - new Date(dateB + "T00:00:00Z").getTime()
               );
-            } catch (e) {
+            } catch {
               return 0;
             }
           });
@@ -619,7 +630,7 @@ const AllProductionSchedules: React.FC = () => {
               return (
                 new Date(dateA + "T00:00:00Z").getTime() - new Date(dateB + "T00:00:00Z").getTime()
               );
-            } catch (e) {
+            } catch {
               return 0;
             }
           });

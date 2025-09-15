@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+// import { supabase } from "../lib/supabase";
 import { getSharedResource, SharedLink } from "../lib/shareUtils";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
