@@ -71,7 +71,7 @@ const parseDateTime = (dateTimeStr: string | null | undefined) => {
       time: d.toTimeString().split(" ")[0].substring(0, 5),
       full: dateTimeStr,
     };
-  } catch (e) {
+  } catch {
     return { date: dateTimeStr, time: undefined, full: dateTimeStr };
   }
 };
@@ -116,7 +116,7 @@ const AllProductionSchedules: React.FC = () => {
   const [schedules, setSchedules] = useState<ProductionScheduleSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string } | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [scheduleToDelete, setScheduleToDelete] = useState<ProductionScheduleSummary | null>(null);
 
@@ -156,8 +156,10 @@ const AllProductionSchedules: React.FC = () => {
 
         if (dbError) throw dbError;
         setSchedules(data || []);
-      } catch (err: any) {
-        setError(err.message || "Failed to fetch production schedules.");
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Failed to fetch production schedules.";
+        setError(message);
         console.error("Error fetching production schedules:", err);
       } finally {
         setLoading(false);
@@ -210,8 +212,9 @@ const AllProductionSchedules: React.FC = () => {
 
       if (deleteError) throw deleteError;
       setSchedules(schedules.filter((s) => s.id !== scheduleToDelete.id));
-    } catch (err: any) {
-      setError(err.message || "Failed to delete production schedule.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to delete production schedule.";
+      setError(message);
       console.error("Error deleting production schedule:", err);
     } finally {
       setShowDeleteConfirm(false);
@@ -277,8 +280,10 @@ const AllProductionSchedules: React.FC = () => {
       if (newSchedule) {
         setSchedules((prevSchedules) => [newSchedule, ...prevSchedules]);
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to duplicate production schedule.");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to duplicate production schedule.";
+      setError(message);
       console.error("Error duplicating production schedule:", err);
     } finally {
       setDuplicatingId(null);
@@ -409,7 +414,12 @@ const AllProductionSchedules: React.FC = () => {
           pdf.setFont("helvetica", "bold");
           pdf.text(title, 40, lastY);
 
-          (pdf as any).autoTable({
+          (
+            pdf as unknown as {
+              autoTable: (opts: unknown) => void;
+              lastAutoTable: { finalY: number };
+            }
+          ).autoTable({
             body: data,
             startY: lastY + 5,
             theme: "plain",
@@ -423,7 +433,8 @@ const AllProductionSchedules: React.FC = () => {
             },
             margin: { left: 40 },
           });
-          lastY = (pdf as any).lastAutoTable.finalY + 15;
+          lastY =
+            (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
         };
 
         const eventDetails: [string, string][] = [
@@ -530,7 +541,12 @@ const AllProductionSchedules: React.FC = () => {
               ];
             });
 
-            (pdf as any).autoTable({
+            (
+              pdf as unknown as {
+                autoTable: (opts: unknown) => void;
+                lastAutoTable: { finalY: number };
+              }
+            ).autoTable({
               head: detailedScheduleHead,
               body: detailedScheduleBody,
               startY: lastY,
@@ -558,7 +574,8 @@ const AllProductionSchedules: React.FC = () => {
               alternateRowStyles: { fillColor: [248, 249, 250] },
               margin: { left: 40, right: 40 },
             });
-            lastY = (pdf as any).lastAutoTable.finalY + 15;
+            lastY =
+              (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
           });
 
           lastY += 15; // Extra space after all detailed schedule items
@@ -639,7 +656,12 @@ const AllProductionSchedules: React.FC = () => {
               item.notes || "",
             ]);
 
-            (pdf as any).autoTable({
+            (
+              pdf as unknown as {
+                autoTable: (opts: unknown) => void;
+                lastAutoTable: { finalY: number };
+              }
+            ).autoTable({
               head: laborScheduleHead,
               body: laborScheduleBody,
               startY: lastY,
@@ -667,7 +689,8 @@ const AllProductionSchedules: React.FC = () => {
               alternateRowStyles: { fillColor: [248, 249, 250] },
               margin: { left: 40, right: 40 },
             });
-            lastY = (pdf as any).lastAutoTable.finalY + 15;
+            lastY =
+              (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
           });
         }
 

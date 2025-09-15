@@ -83,7 +83,7 @@ const isColorLight = (hexColor?: string): boolean => {
     const b = parseInt(color.substring(4, 6), 16);
     const hsp = Math.sqrt(0.299 * (r * r) + 0.587 * (g * g) + 0.114 * (b * b));
     return hsp > 127.5;
-  } catch (e) {
+  } catch {
     return true;
   }
 };
@@ -98,7 +98,7 @@ const parseDateTime = (dateTimeStr: string | null | undefined) => {
       time: d.toTimeString().split(" ")[0].substring(0, 5),
       full: dateTimeStr,
     };
-  } catch (e) {
+  } catch {
     return { date: dateTimeStr, time: undefined, full: dateTimeStr };
   }
 };
@@ -140,7 +140,7 @@ const transformToScheduleForExport = (
 const ProductionPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [_user, setUser] = useState<any>(null);
+  const [_user, setUser] = useState<unknown>(null);
   const [productionSchedules, setProductionSchedules] = useState<ProductionScheduleSummary[]>([]);
   const [runOfShows, setRunOfShows] = useState<RunOfShowSummary[]>([]);
 
@@ -328,8 +328,9 @@ const ProductionPage = () => {
           styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
           clonedDoc.head.appendChild(styleGlobal);
           clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
-          Array.from(clonedDoc.querySelectorAll("*")).forEach((el: any) => {
-            if (el.style) {
+          Array.from(clonedDoc.querySelectorAll("*")).forEach((node) => {
+            const el = node as HTMLElement;
+            if (el && el.style) {
               el.style.fontFamily = `${font}, sans-serif`;
               el.style.verticalAlign = "baseline";
             }
@@ -433,7 +434,12 @@ const ProductionPage = () => {
             pdf.setFont("helvetica", "bold");
             pdf.text(title, 40, lastY);
 
-            (pdf as any).autoTable({
+            (
+              pdf as unknown as {
+                autoTable: (opts: unknown) => void;
+                lastAutoTable: { finalY: number };
+              }
+            ).autoTable({
               body: data,
               startY: lastY + 5,
               theme: "plain",
@@ -447,7 +453,8 @@ const ProductionPage = () => {
               },
               margin: { left: 40 },
             });
-            lastY = (pdf as any).lastAutoTable.finalY + 15;
+            lastY =
+              (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
           };
 
           const eventDetails: [string, string][] = [
@@ -554,7 +561,12 @@ const ProductionPage = () => {
                 ];
               });
 
-              (pdf as any).autoTable({
+              (
+                pdf as unknown as {
+                  autoTable: (opts: unknown) => void;
+                  lastAutoTable: { finalY: number };
+                }
+              ).autoTable({
                 head: detailedScheduleHead,
                 body: detailedScheduleBody,
                 startY: lastY,
@@ -582,7 +594,8 @@ const ProductionPage = () => {
                 alternateRowStyles: { fillColor: [248, 249, 250] },
                 margin: { left: 40, right: 40 },
               });
-              lastY = (pdf as any).lastAutoTable.finalY + 15;
+              lastY =
+                (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
             });
 
             lastY += 15; // Extra space after all detailed schedule items
@@ -663,7 +676,12 @@ const ProductionPage = () => {
                 item.notes || "",
               ]);
 
-              (pdf as any).autoTable({
+              (
+                pdf as unknown as {
+                  autoTable: (opts: unknown) => void;
+                  lastAutoTable: { finalY: number };
+                }
+              ).autoTable({
                 head: laborScheduleHead,
                 body: laborScheduleBody,
                 startY: lastY,
@@ -691,7 +709,8 @@ const ProductionPage = () => {
                 alternateRowStyles: { fillColor: [248, 249, 250] },
                 margin: { left: 40, right: 40 },
               });
-              lastY = (pdf as any).lastAutoTable.finalY + 15;
+              lastY =
+                (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15;
             });
           }
 

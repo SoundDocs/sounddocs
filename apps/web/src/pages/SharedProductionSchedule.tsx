@@ -5,7 +5,8 @@ import { getSharedResource, SharedLink } from "../lib/shareUtils";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import ProductionScheduleExport from "../components/production-schedule/ProductionScheduleExport";
-import { ScheduleForExport, DetailedScheduleItem } from "./ProductionScheduleEditor";
+import { ScheduleForExport } from "../lib/types";
+import { DetailedScheduleItem } from "../components/production-schedule/ProductionScheduleDetail";
 import { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor";
 import { Loader, AlertTriangle, Share2 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
@@ -45,7 +46,7 @@ const parseDateTime = (dateTimeStr: string | null | undefined) => {
       time: d.toTimeString().split(" ")[0].substring(0, 5),
       full: dateTimeStr,
     };
-  } catch (e) {
+  } catch {
     return { date: dateTimeStr, time: undefined, full: dateTimeStr };
   }
 };
@@ -134,13 +135,17 @@ const SharedProductionSchedule: React.FC = () => {
 
         setSchedule(transformedSchedule);
         setShareLinkInfo(shareLink);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("[SharedProductionSchedule] Error fetching shared production schedule:", err);
-        setError(
-          err.message ||
-            "Failed to load shared production schedule. Please check the console for more details.",
-        );
-        if (err.message === "Share link has expired" || err.message === "Share link not found") {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Failed to load shared production schedule. Please check the console for more details.";
+        setError(message);
+        if (
+          err instanceof Error &&
+          (err.message === "Share link has expired" || err.message === "Share link not found")
+        ) {
           // Optionally redirect or show specific UI for these cases
         }
       } finally {
