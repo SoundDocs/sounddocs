@@ -327,7 +327,7 @@ const AllTheaterMicPlots = () => {
           doc.setFont("helvetica", "bold");
           doc.text("SoundDocs", 14, pageHeight - 9);
           doc.setFont("helvetica", "normal");
-          doc.text("| Professional Audio Documentation", 32, pageHeight - 9);
+          doc.text("| Professional Event Documentation", 32, pageHeight - 9);
 
           if (pageCount > 2) {
             doc.text(`Page ${data.pageNumber} of ${pageCount - 1}`, pageWidth / 2, pageHeight - 9, {

@@ -501,7 +501,7 @@ const AudioPage = () => {
           doc.setFont("helvetica", "bold" as any);
           doc.text("SoundDocs", 14, pageHeight - 9);
           doc.setFont("helvetica", "normal" as any);
-          doc.text("| Professional Audio Documentation", 32, pageHeight - 9);
+          doc.text("| Professional Event Documentation", 32, pageHeight - 9);
 
           if (pageCount > 2) {
             doc.text(`Page ${data.pageNumber} of ${pageCount - 1}`, pageWidth / 2, pageHeight - 9, {
@@ -756,7 +756,7 @@ const AudioPage = () => {
             doc.setFont("helvetica", "bold" as any);
             doc.text("SoundDocs", 14, pageHeight - 9);
             doc.setFont("helvetica", "normal" as any);
-            doc.text("| Professional Audio Documentation", 32, pageHeight - 9);
+            doc.text("| Professional Event Documentation", 32, pageHeight - 9);
             if (pageCount > 2) {
               doc.text(
                 `Page ${data.pageNumber} of ${pageCount - 1}`,
@@ -922,7 +922,7 @@ const AudioPage = () => {
             doc.setFont("helvetica", "bold" as any);
             doc.text("SoundDocs", 14, pageHeight - 9);
             doc.setFont("helvetica", "normal" as any);
-            doc.text("| Professional Audio Documentation", 32, pageHeight - 9);
+            doc.text("| Professional Event Documentation", 32, pageHeight - 9);
             if (pageCount > 2) {
               doc.text(
                 `Page ${data.pageNumber} of ${pageCount - 1}`,
@@ -1177,7 +1177,7 @@ const AudioPage = () => {
             doc.setFont("helvetica", "bold");
             doc.text("SoundDocs", 40, pageHeight - 20);
             doc.setFont("helvetica", "normal");
-            doc.text("| Professional Audio Documentation", 95, pageHeight - 20);
+            doc.text("| Professional Event Documentation", 95, pageHeight - 20);
             const pageNumText = `Page ${i} of ${pageCount}`;
             doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: "center" });
             const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;

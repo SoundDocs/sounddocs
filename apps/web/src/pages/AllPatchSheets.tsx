@@ -435,7 +435,7 @@ const AllPatchSheets = () => {
           doc.setFont("helvetica", "bold");
           doc.text("SoundDocs", 14, pageHeight - 9);
           doc.setFont("helvetica", "normal");
-          doc.text("| Professional Audio Documentation", 32, pageHeight - 9);
+          doc.text("| Professional Event Documentation", 32, pageHeight - 9);
 
           // Center: Page number
           if (pageCount > 2) {

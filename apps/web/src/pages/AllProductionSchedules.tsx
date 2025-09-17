@@ -402,7 +402,7 @@ const AllProductionSchedules: React.FC = () => {
             doc.text("SoundDocs", 40, pageHeight - 20);
 
             doc.setFont("helvetica", "normal");
-            doc.text("| Professional Audio Documentation", 95, pageHeight - 20);
+            doc.text("| Professional Event Documentation", 95, pageHeight - 20);
 
             // Center: Page number
             const pageNumText = `Page ${i} of ${pageCount}`;

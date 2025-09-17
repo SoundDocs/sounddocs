@@ -289,7 +289,7 @@ const AllRunOfShows: React.FC = () => {
         useCORS: true,
         allowTaint: true,
         letterRendering: true,
-        onclone: (clonedDoc) => {
+        onclone: (clonedDoc: Document) => {
           const styleGlobal = clonedDoc.createElement("style");
           styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
           clonedDoc.head.appendChild(styleGlobal);
@@ -305,7 +305,7 @@ const AllRunOfShows: React.FC = () => {
         windowWidth: targetRef.current.offsetWidth,
         height: targetRef.current.scrollHeight,
         width: targetRef.current.offsetWidth,
-      });
+      } as any);
 
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({
@@ -374,7 +374,7 @@ const AllRunOfShows: React.FC = () => {
             doc.setFont("helvetica", "bold");
             doc.text("SoundDocs", 40, pageHeight - 20);
             doc.setFont("helvetica", "normal");
-            doc.text("| Professional Audio Documentation", 95, pageHeight - 20);
+            doc.text("| Professional Event Documentation", 95, pageHeight - 20);
             const pageNumText = `Page ${i} of ${pageCount}`;
             doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: "center" });
             const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
