@@ -5,11 +5,74 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.6.3] - 2025-09-15
+
+### Fixed
+
+- **Production Schedule Print Export**: Fixed issues with print-friendly PDF exports for production schedules
+  - Added date headers to group schedule items by day with clear visual separation
+  - Fixed sorting to ensure dates are in chronological order
+  - Preserved user-defined order of items within each date group
+  - Applied same improvements to both detailed schedule and labor schedule sections
+  - Removed redundant date columns from tables since dates are now shown in headers
+  - Ensured consistent formatting between AllProductionSchedules and ProductionPage exports
+
+### Improved
+
+- **Production Schedule Export Layout**: Enhanced readability of print exports
+  - Added light blue-gray background for date headers
+  - Improved table column widths for better content distribution
+  - Consistent formatting between detailed schedule and labor schedule sections
+
+## [1.5.6.2] - 2025-09-11
+
+### Added
+
+- **PR Checks for Changed Files Only**: Implemented targeted CI/CD checks that only validate modified files in pull requests
+
+  - Created `.github/workflows/pr-checks.yml` workflow that runs on PRs to main and beta branches
+  - Uses `tj-actions/changed-files` to intelligently detect which files have been modified
+  - Significantly improves CI performance by avoiding full codebase scans
+  - Allows legacy code to coexist while ensuring new changes meet quality standards
+
+- **TypeScript/JavaScript Checks**: Added comprehensive checks for TypeScript and JavaScript files
+
+  - ESLint runs only on changed `.ts`, `.tsx`, `.js`, and `.jsx` files
+  - TypeScript type checking validates the entire project but reports errors only for changed files
+  - Prettier format checking ensures consistent code style on modified files
+  - Supports the monorepo structure with proper pnpm workspace handling
+
+- **Python Linting for Changed Files**: Integrated Python code quality checks
+
+  - Ruff linting and format checking on changed `.py` files
+  - Leverages existing Ruff configuration from `pyproject.toml`
+  - Optional mypy type checking (non-blocking initially) for gradual type safety adoption
+  - Properly configured for Python 3.11 as used in the capture agent
+
+- **SQL Linting for Migrations**: Added SQL file validation
+  - SQLFluff linting for changed `.sql` files with PostgreSQL dialect
+  - Created `.sqlfluff` configuration file with project-specific rules
+  - Safety checks for dangerous SQL operations (DROP without IF EXISTS, NOT NULL without DEFAULT)
+  - Non-blocking for existing migrations to avoid breaking legacy code
+
+### Improved
+
+- **CI/CD Performance**: Dramatic speed improvements by checking only changed files instead of entire codebase
+- **Developer Experience**: Faster feedback loops with focused checks on actual changes
+- **Incremental Code Quality**: Enables gradual improvement of codebase quality without requiring full refactor
+
+### Fixed
+
+- **NotFoundPage.tsx**: Removed unused `Home` import from lucide-react to resolve ESLint warning
+  - Demonstrates the new PR checks workflow in action
+  - Ensures clean lint status for testing CI/CD pipeline
+
 ## [1.5.6.1] - 2025-09-10
 
 ### Added
 
 - **Comprehensive CI/CD Pipeline**: Implemented automated testing and linting for PRs on main and beta branches
+
   - **GitHub Actions Workflow**: Created `.github/workflows/ci.yml` for automated quality checks
   - **Multi-Language Linting**: Added ESLint for TypeScript, Ruff for Python, and SQLFluff for SQL
   - **Legacy Code Protection**: Configured lint-staged to only check staged/changed files, protecting legacy code from CI failures
@@ -17,16 +80,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Staged-File-Only Approach**: CI only validates what developers are actually committing, not entire codebase
 
 - **Python Linting Setup**: Added comprehensive Ruff configuration for capture agent
+
   - **Comprehensive Rule Set**: Enabled 50+ linting rules covering code quality, security, and best practices
   - **Agent-Specific Configuration**: Created `agents/capture-agent-py/pyproject.toml` with Python 3.11 target and tailored rules
   - **Test File Exclusions**: Configured appropriate rule exclusions for test files
 
 - **SQL Linting Setup**: Added SQLFluff configuration for database migrations
+
   - **PostgreSQL Dialect**: Configured for Supabase PostgreSQL migrations
   - **Reasonable Exclusions**: Excluded overly strict rules while maintaining code quality
   - **Caching Support**: Added `.sqlfluff` config file with proper dialect and line length settings
 
 - **Enhanced Development Workflow**: Improved developer experience with automated quality checks
+
   - **Caching Support**: Added `.eslintcache` to `.gitignore` for faster ESLint runs
   - **Pre-commit Hooks**: Enhanced lint-staged configuration with comprehensive file type coverage
   - **Fast Feedback**: Only lints changed files during development for quick iteration

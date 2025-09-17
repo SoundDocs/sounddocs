@@ -1,7 +1,62 @@
+# SQLFluff configuration for SoundDocs
+# Used for linting SQL files, particularly Supabase migrations
+
 [sqlfluff]
+# PostgreSQL dialect for Supabase
 dialect = postgres
-exclude_rules = L034,L036,L044
-max_line_length = 100
+
+# Use raw templater (no jinja/dbt templating)
+templater = raw
+
+# Line length
+max_line_length = 120
+
+# Indentation
+indent_unit = space
+indent_size = 2
+
+# Comma placement
+comma_style = trailing
+
+[sqlfluff:rules]
+# Exclude overly strict rules for migration files
+# L031: Avoid using aliases in FROM/JOIN clauses - too strict for complex queries
+# L034: Select wildcards should not be used - acceptable in migrations
+exclude_rules = L031,L034
+
+[sqlfluff:rules:L003]
+# Indentation should be consistent
+indent_unit = space
 
 [sqlfluff:rules:L010]
-capitalisation_policy = lower
+# Keywords should be uppercase
+capitalisation_policy = upper
+
+[sqlfluff:rules:L014]
+# Unquoted identifiers should be lowercase
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:L016]
+# Line length limit
+max_line_length = 120
+
+[sqlfluff:rules:L030]
+# Function names should be lowercase
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:L042]
+# Subqueries should not be indented
+forbid_subquery_in = both
+
+[sqlfluff:rules:L063]
+# Data types should be uppercase
+extended_capitalisation_policy = upper
+
+# Ignore certain paths
+[sqlfluff:templater]
+# These are Supabase system migrations we don't control
+exclude_paths = supabase/migrations/00000000000000_*
+
+[sqlfluff:layout:type:comma]
+spacing_before = touch
+line_position = trailing
