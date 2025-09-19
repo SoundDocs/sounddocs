@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -151,156 +151,161 @@ const CommsPlannerEditor = () => {
     setBeltpacks(assignedBeltpacks);
   };
 
-  const runAssignmentLogic = (
-    currentBeltpacks: CommsBeltpackProps[],
-    currentElements: CommsElementProps[],
-  ): CommsBeltpackProps[] => {
-    const transceivers = currentElements.filter(
-      (el) => el.systemType === "FSII" || el.systemType === "Edge" || el.systemType === "Bolero",
-    );
+  const runAssignmentLogic = useCallback(
+    (
+      currentBeltpacks: CommsBeltpackProps[],
+      currentElements: CommsElementProps[],
+    ): CommsBeltpackProps[] => {
+      const transceivers = currentElements.filter(
+        (el) => el.systemType === "FSII" || el.systemType === "Edge" || el.systemType === "Bolero",
+      );
 
-    // Calculate signal strength based on distance and path loss
-    const calculateSignalStrength = (distance: number, coverageRadius: number): number => {
-      if (distance > coverageRadius) return 0;
-      // Simple inverse distance model with some attenuation
-      const signal = Math.max(0, 100 * (1 - distance / coverageRadius));
-      return Math.round(signal);
-    };
+      // Calculate signal strength based on distance and path loss
+      const calculateSignalStrength = (distance: number, coverageRadius: number): number => {
+        if (distance > coverageRadius) return 0;
+        // Simple inverse distance model with some attenuation
+        const signal = Math.max(0, 100 * (1 - distance / coverageRadius));
+        return Math.round(signal);
+      };
 
-    // Get best transceiver for a beltpack (prioritize signal strength)
-    const getBestTransceiverForBeltpack = (
-      bp: CommsBeltpackProps,
-      availableTransceivers: CommsElementProps[],
-    ) => {
-      const candidates = availableTransceivers
-        .map((t) => {
-          const distance = Math.hypot(t.x - bp.x, t.y - bp.y);
-          const coverageRadius =
-            t.coverageRadius || getCoverageRadius(t.systemType, t.band, t.model);
-          const signalStrength = calculateSignalStrength(distance, coverageRadius);
-          return { transceiver: t, distance, signalStrength };
-        })
-        .filter((c) => c.signalStrength > 0) // Only consider transceivers with signal
-        .sort((a, b) => b.signalStrength - a.signalStrength); // Best signal first
+      // Get best transceiver for a beltpack (prioritize signal strength)
+      const getBestTransceiverForBeltpack = (
+        bp: CommsBeltpackProps,
+        availableTransceivers: CommsElementProps[],
+      ) => {
+        const candidates = availableTransceivers
+          .map((t) => {
+            const distance = Math.hypot(t.x - bp.x, t.y - bp.y);
+            const coverageRadius =
+              t.coverageRadius || getCoverageRadius(t.systemType, t.band, t.model);
+            const signalStrength = calculateSignalStrength(distance, coverageRadius);
+            return { transceiver: t, distance, signalStrength };
+          })
+          .filter((c) => c.signalStrength > 0) // Only consider transceivers with signal
+          .sort((a, b) => b.signalStrength - a.signalStrength); // Best signal first
 
-      return candidates[0] || null;
-    };
+        return candidates[0] || null;
+      };
 
-    const assignments: { [beltpackId: string]: string | undefined } = {};
-    const transceiverLoads: { [transceiverId: string]: string[] } = {};
-    transceivers.forEach((t) => (transceiverLoads[t.id] = []));
+      const assignments: { [beltpackId: string]: string | undefined } = {};
+      const transceiverLoads: { [transceiverId: string]: string[] } = {};
+      transceivers.forEach((t) => (transceiverLoads[t.id] = []));
 
-    // Phase 1: Assign beltpacks to their best available transceiver
-    currentBeltpacks.forEach((bp) => {
-      const bestOption = getBestTransceiverForBeltpack(bp, transceivers);
-      if (bestOption) {
-        const maxCapacity = bestOption.transceiver.maxBeltpacks ?? 5;
-        if (transceiverLoads[bestOption.transceiver.id].length < maxCapacity) {
-          assignments[bp.id] = bestOption.transceiver.id;
-          transceiverLoads[bestOption.transceiver.id].push(bp.id);
-        }
-      }
-    });
-
-    // Phase 2: Roaming - allow beltpacks to move to better options if transceivers become full
-    const unassignedBeltpacks = currentBeltpacks.filter((bp) => !assignments[bp.id]);
-    let hasChanges = true;
-    let iterations = 0;
-
-    while (hasChanges && iterations < 10) {
-      // Prevent infinite loops
-      hasChanges = false;
-      iterations++;
-
-      // Try to find better assignments for unassigned beltpacks
-      for (const bp of [...unassignedBeltpacks]) {
+      // Phase 1: Assign beltpacks to their best available transceiver
+      currentBeltpacks.forEach((bp) => {
         const bestOption = getBestTransceiverForBeltpack(bp, transceivers);
         if (bestOption) {
-          const maxCapacity =
-            bestOption.transceiver.maxBeltpacks ??
-            MODEL_DEFAULTS[bestOption.transceiver.model!]?.maxBeltpacks ??
-            5;
+          const maxCapacity = bestOption.transceiver.maxBeltpacks ?? 5;
           if (transceiverLoads[bestOption.transceiver.id].length < maxCapacity) {
             assignments[bp.id] = bestOption.transceiver.id;
             transceiverLoads[bestOption.transceiver.id].push(bp.id);
-            unassignedBeltpacks.splice(unassignedBeltpacks.indexOf(bp), 1);
-            hasChanges = true;
-            break;
           }
         }
-      }
+      });
 
-      // Try to displace lower-signal beltpacks to make room for higher-signal ones
-      for (const transceiver of transceivers) {
-        const maxCapacity = transceiver.maxBeltpacks ?? 5;
-        const currentLoad = transceiverLoads[transceiver.id];
+      // Phase 2: Roaming - allow beltpacks to move to better options if transceivers become full
+      const unassignedBeltpacks = currentBeltpacks.filter((bp) => !assignments[bp.id]);
+      let hasChanges = true;
+      let iterations = 0;
 
-        if (currentLoad.length >= maxCapacity) {
-          // Find the beltpack with the weakest signal to this transceiver
-          let weakestBpId: string | null = null;
-          let weakestSignal = 100;
+      while (hasChanges && iterations < 10) {
+        // Prevent infinite loops
+        hasChanges = false;
+        iterations++;
 
-          currentLoad.forEach((bpId) => {
-            const bp = currentBeltpacks.find((b) => b.id === bpId);
-            if (bp) {
-              const distance = Math.hypot(transceiver.x - bp.x, transceiver.y - bp.y);
-              const coverageRadius =
-                transceiver.coverageRadius ||
-                getCoverageRadius(transceiver.systemType, transceiver.band, transceiver.model);
-              const signalStrength = calculateSignalStrength(distance, coverageRadius);
-              if (signalStrength < weakestSignal) {
-                weakestSignal = signalStrength;
-                weakestBpId = bpId;
-              }
+        // Try to find better assignments for unassigned beltpacks
+        for (const bp of [...unassignedBeltpacks]) {
+          const bestOption = getBestTransceiverForBeltpack(bp, transceivers);
+          if (bestOption) {
+            const maxCapacity =
+              bestOption.transceiver.maxBeltpacks ??
+              MODEL_DEFAULTS[bestOption.transceiver.model!]?.maxBeltpacks ??
+              5;
+            if (transceiverLoads[bestOption.transceiver.id].length < maxCapacity) {
+              assignments[bp.id] = bestOption.transceiver.id;
+              transceiverLoads[bestOption.transceiver.id].push(bp.id);
+              unassignedBeltpacks.splice(unassignedBeltpacks.indexOf(bp), 1);
+              hasChanges = true;
+              break;
             }
-          });
+          }
+        }
 
-          // Try to reassign the weakest beltpack to a better alternative
-          if (weakestBpId) {
-            const weakestBp = currentBeltpacks.find((b) => b.id === weakestBpId);
-            if (weakestBp) {
-              const altTransceivers = transceivers.filter((t) => t.id !== transceiver.id);
-              const bestAlt = getBestTransceiverForBeltpack(weakestBp, altTransceivers);
+        // Try to displace lower-signal beltpacks to make room for higher-signal ones
+        for (const transceiver of transceivers) {
+          const maxCapacity = transceiver.maxBeltpacks ?? 5;
+          const currentLoad = transceiverLoads[transceiver.id];
 
-              if (bestAlt && bestAlt.signalStrength > weakestSignal) {
-                const altMaxCapacity = bestAlt.transceiver.maxBeltpacks ?? 5;
-                if (transceiverLoads[bestAlt.transceiver.id].length < altMaxCapacity) {
-                  // Move the beltpack to the better transceiver
-                  transceiverLoads[transceiver.id] = currentLoad.filter((id) => id !== weakestBpId);
-                  transceiverLoads[bestAlt.transceiver.id].push(weakestBpId);
-                  assignments[weakestBpId] = bestAlt.transceiver.id;
-                  hasChanges = true;
+          if (currentLoad.length >= maxCapacity) {
+            // Find the beltpack with the weakest signal to this transceiver
+            let weakestBpId: string | null = null;
+            let weakestSignal = 100;
+
+            currentLoad.forEach((bpId) => {
+              const bp = currentBeltpacks.find((b) => b.id === bpId);
+              if (bp) {
+                const distance = Math.hypot(transceiver.x - bp.x, transceiver.y - bp.y);
+                const coverageRadius =
+                  transceiver.coverageRadius ||
+                  getCoverageRadius(transceiver.systemType, transceiver.band, transceiver.model);
+                const signalStrength = calculateSignalStrength(distance, coverageRadius);
+                if (signalStrength < weakestSignal) {
+                  weakestSignal = signalStrength;
+                  weakestBpId = bpId;
+                }
+              }
+            });
+
+            // Try to reassign the weakest beltpack to a better alternative
+            if (weakestBpId) {
+              const weakestBp = currentBeltpacks.find((b) => b.id === weakestBpId);
+              if (weakestBp) {
+                const altTransceivers = transceivers.filter((t) => t.id !== transceiver.id);
+                const bestAlt = getBestTransceiverForBeltpack(weakestBp, altTransceivers);
+
+                if (bestAlt && bestAlt.signalStrength > weakestSignal) {
+                  const altMaxCapacity = bestAlt.transceiver.maxBeltpacks ?? 5;
+                  if (transceiverLoads[bestAlt.transceiver.id].length < altMaxCapacity) {
+                    // Move the beltpack to the better transceiver
+                    transceiverLoads[transceiver.id] = currentLoad.filter(
+                      (id) => id !== weakestBpId,
+                    );
+                    transceiverLoads[bestAlt.transceiver.id].push(weakestBpId);
+                    assignments[weakestBpId] = bestAlt.transceiver.id;
+                    hasChanges = true;
+                  }
                 }
               }
             }
           }
         }
       }
-    }
 
-    // Final pass: calculate signal strengths and update beltpack status
-    return currentBeltpacks.map((bp) => {
-      const assignedTransceiverId = assignments[bp.id];
-      if (assignedTransceiverId) {
-        const transceiver = currentElements.find((el) => el.id === assignedTransceiverId);
-        if (transceiver) {
-          const distance = Math.hypot(transceiver.x - bp.x, transceiver.y - bp.y);
-          const coverageRadius =
-            transceiver.coverageRadius ||
-            getCoverageRadius(transceiver.systemType, transceiver.band, transceiver.model);
-          const signalStrength = calculateSignalStrength(distance, coverageRadius);
+      // Final pass: calculate signal strengths and update beltpack status
+      return currentBeltpacks.map((bp) => {
+        const assignedTransceiverId = assignments[bp.id];
+        if (assignedTransceiverId) {
+          const transceiver = currentElements.find((el) => el.id === assignedTransceiverId);
+          if (transceiver) {
+            const distance = Math.hypot(transceiver.x - bp.x, transceiver.y - bp.y);
+            const coverageRadius =
+              transceiver.coverageRadius ||
+              getCoverageRadius(transceiver.systemType, transceiver.band, transceiver.model);
+            const signalStrength = calculateSignalStrength(distance, coverageRadius);
 
-          return {
-            ...bp,
-            transceiverRef: assignedTransceiverId,
-            signalStrength,
-            online: signalStrength > 10, // Consider online if signal > 10%
-          };
+            return {
+              ...bp,
+              transceiverRef: assignedTransceiverId,
+              signalStrength,
+              online: signalStrength > 10, // Consider online if signal > 10%
+            };
+          }
         }
-      }
-      return { ...bp, transceiverRef: undefined, signalStrength: 0, online: false };
-    });
-  };
+        return { ...bp, transceiverRef: undefined, signalStrength: 0, online: false };
+      });
+    },
+    [],
+  );
 
   const handleBeltpackDragStop = (beltpackId: string, xFt: number, yFt: number) => {
     const updatedBeltpacks = beltpacks.map((bp) =>
@@ -338,7 +343,7 @@ const CommsPlannerEditor = () => {
     setSelectedElementId(null);
   };
 
-  const handlePropertyChange = (elementId: string, property: string, value: any) => {
+  const handlePropertyChange = (elementId: string, property: string, value: unknown) => {
     // Check if it's a beltpack or element
     const beltpack = beltpacks.find((bp) => bp.id === elementId);
 
@@ -452,7 +457,7 @@ const CommsPlannerEditor = () => {
         setBeltpacks(assignedBeltpacks);
       }
     }
-  }, [elements, runAssignmentLogic]); // Re-run when elements change
+  }, [elements, runAssignmentLogic, beltpacks, setBeltpacks]); // Re-run when elements change
 
   useEffect(() => {
     const loadPlan = async () => {
@@ -467,15 +472,24 @@ const CommsPlannerEditor = () => {
           setDfsEnabled(plan.dfs_enabled);
           setPoeBudget(plan.poe_budget_total);
           const loadedElements =
-            plan.elements.map((el: any) => ({
-              ...el,
-              systemType: el.system_type,
-              channels: el.channel_set,
-            })) || [];
+            plan.elements.map(
+              (el: {
+                id: string;
+                system_type: SystemType;
+                channel_set: string[];
+                [key: string]: unknown;
+              }) => ({
+                ...el,
+                systemType: el.system_type,
+                channels: el.channel_set,
+              }),
+            ) || [];
           setElements(loadedElements);
           const loadedBeltpacks = plan.beltpacks || [];
           // Only run assignment logic if beltpacks don't already have assignments
-          const hasExistingAssignments = loadedBeltpacks.some((bp: any) => bp.transceiverRef);
+          const hasExistingAssignments = loadedBeltpacks.some(
+            (bp: { transceiverRef?: string }) => bp.transceiverRef,
+          );
           if (hasExistingAssignments) {
             setBeltpacks(loadedBeltpacks);
           } else {
@@ -493,18 +507,8 @@ const CommsPlannerEditor = () => {
       }
     };
     loadPlan();
-  }, [
-    id,
-    reset,
-    setPlanName,
-    setVenueWidth,
-    setVenueHeight,
-    setZones,
-    setDfsEnabled,
-    setPoeBudget,
-    setElements,
-    navigate,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, navigate]);
 
   // Handle keyboard shortcuts for deleting elements
   useEffect(() => {
@@ -523,7 +527,37 @@ const CommsPlannerEditor = () => {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedElementId]);
+
+  const handleSave = useCallback(
+    async (isAutoSave = false) => {
+      setSaving(true);
+      setSaveError(null);
+      if (!isAutoSave) {
+        setSaveSuccess(false);
+      }
+      try {
+        const planId = await saveCommsPlan(id ?? null);
+        if (id === "new" && planId) {
+          navigate(`/comms-planner/${planId}`, { replace: true });
+        }
+        if (!isAutoSave) {
+          setSaveSuccess(true);
+          setTimeout(() => setSaveSuccess(false), 3000);
+        }
+      } catch (error: unknown) {
+        console.error("Failed to save comms plan:", error);
+        setSaveError(
+          `Error saving schedule: ${error instanceof Error ? error.message : "Please try again."}`,
+        );
+        setTimeout(() => setSaveError(null), 5000);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [id, navigate],
+  );
 
   // Auto-save logic
   useEffect(() => {
@@ -543,31 +577,20 @@ const CommsPlannerEditor = () => {
     return () => {
       clearTimeout(handler);
     };
-  }, [planName, elements, beltpacks, zones, venueWidth, venueHeight, dfsEnabled, poeBudget]);
-
-  const handleSave = async (isAutoSave = false) => {
-    setSaving(true);
-    setSaveError(null);
-    if (!isAutoSave) {
-      setSaveSuccess(false);
-    }
-    try {
-      const planId = await saveCommsPlan(id ?? null);
-      if (id === "new" && planId) {
-        navigate(`/comms-planner/${planId}`, { replace: true });
-      }
-      if (!isAutoSave) {
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      }
-    } catch (error: any) {
-      console.error("Failed to save comms plan:", error);
-      setSaveError(`Error saving schedule: ${error.message || "Please try again."}`);
-      setTimeout(() => setSaveError(null), 5000);
-    } finally {
-      setSaving(false);
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    planName,
+    elements,
+    beltpacks,
+    zones,
+    venueWidth,
+    venueHeight,
+    dfsEnabled,
+    poeBudget,
+    id,
+    loading,
+    saving,
+  ]);
 
   const exportAsPdf = async (
     targetRef: React.RefObject<HTMLDivElement>,
@@ -605,10 +628,10 @@ const CommsPlannerEditor = () => {
           styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
           clonedDoc.head.appendChild(styleGlobal);
           clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
-          Array.from(clonedDoc.querySelectorAll("*")).forEach((el: any) => {
-            if (el.style) {
-              el.style.fontFamily = `${font}, sans-serif`;
-              el.style.verticalAlign = "baseline";
+          Array.from(clonedDoc.querySelectorAll("*")).forEach((el) => {
+            if ((el as HTMLElement).style) {
+              (el as HTMLElement).style.fontFamily = `${font}, sans-serif`;
+              (el as HTMLElement).style.verticalAlign = "baseline";
             }
           });
         },
@@ -728,7 +751,7 @@ const CommsPlannerEditor = () => {
             doc.setFont("helvetica", "bold");
             doc.text("SoundDocs", 40, pageHeight - 20);
             doc.setFont("helvetica", "normal");
-            doc.text("| Professional Audio Documentation", 95, pageHeight - 20);
+            doc.text("| Professional Event Documentation", 95, pageHeight - 20);
             const pageNumText = `Page ${i} of ${pageCount}`;
             doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: "center" });
             const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
@@ -747,7 +770,12 @@ const CommsPlannerEditor = () => {
           doc.setFont("helvetica", "bold");
           doc.text(title, 40, lastY);
 
-          (doc as any).autoTable({
+          (
+            doc as jsPDF & {
+              autoTable?: (options: object) => void;
+              lastAutoTable?: { finalY: number };
+            }
+          ).autoTable!({
             body: data,
             startY: lastY + 5,
             theme: "plain",
@@ -761,7 +789,8 @@ const CommsPlannerEditor = () => {
             },
             margin: { left: 40 },
           });
-          lastY = (doc as any).lastAutoTable.finalY + 15;
+          lastY =
+            (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable!.finalY + 15;
         };
 
         const eventDetails: [string, string][] = [
@@ -785,10 +814,10 @@ const CommsPlannerEditor = () => {
 
           const transceiversHead = [["Label", "Model", "Band", "Coverage", "Connected Beltpacks"]];
           const transceiversBody = commsPlanData.transceivers
-            .filter((tx: any) => tx.systemType !== "FSII-Base")
-            .map((tx: any) => {
+            .filter((tx: Transceiver) => tx.systemType !== "FSII-Base")
+            .map((tx: Transceiver) => {
               const connectedBeltpacks = commsPlanData.beltpacks.filter(
-                (bp: any) => bp.transceiverRef === tx.id,
+                (bp: { transceiverRef?: string }) => bp.transceiverRef === tx.id,
               );
               return [
                 tx.label,
@@ -799,7 +828,12 @@ const CommsPlannerEditor = () => {
               ];
             });
 
-          (doc as any).autoTable({
+          (
+            doc as jsPDF & {
+              autoTable?: (options: object) => void;
+              lastAutoTable?: { finalY: number };
+            }
+          ).autoTable!({
             head: transceiversHead,
             body: transceiversBody,
             startY: lastY,
@@ -815,7 +849,8 @@ const CommsPlannerEditor = () => {
             alternateRowStyles: { fillColor: [248, 249, 250] },
             margin: { left: 40, right: 40 },
           });
-          lastY = (doc as any).lastAutoTable.finalY + 30;
+          lastY =
+            (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable!.finalY + 30;
         }
 
         if (commsPlanData.beltpacks && commsPlanData.beltpacks.length > 0) {
@@ -825,21 +860,31 @@ const CommsPlannerEditor = () => {
           lastY += 20;
 
           const beltpacksHead = [["Label", "Connected To", "Channel Assignments"]];
-          const beltpacksBody = commsPlanData.beltpacks.map((bp: any) => {
-            const transceiver = commsPlanData.transceivers.find(
-              (tx: any) => tx.id === bp.transceiverRef,
-            );
-            const assignments =
-              bp.channelAssignments && bp.channelAssignments.length > 0
-                ? bp.channelAssignments
-                    .map((ca: any) => `${ca.channel}:${ca.assignment}`)
-                    .join(", ")
-                : "No assignments";
+          const beltpacksBody = commsPlanData.beltpacks.map(
+            (bp: {
+              id: string;
+              label: string;
+              transceiverRef?: string;
+              channelAssignments?: Array<{ channel: string; assignment: string }>;
+            }) => {
+              const transceiver = commsPlanData.transceivers.find(
+                (tx: Transceiver) => tx.id === bp.transceiverRef,
+              );
+              const assignments =
+                bp.channelAssignments && bp.channelAssignments.length > 0
+                  ? bp.channelAssignments.map((ca) => `${ca.channel}:${ca.assignment}`).join(", ")
+                  : "No assignments";
 
-            return [bp.label, transceiver ? transceiver.label : "Not Connected", assignments];
-          });
+              return [bp.label, transceiver ? transceiver.label : "Not Connected", assignments];
+            },
+          );
 
-          (doc as any).autoTable({
+          (
+            doc as jsPDF & {
+              autoTable?: (options: object) => void;
+              lastAutoTable?: { finalY: number };
+            }
+          ).autoTable!({
             head: beltpacksHead,
             body: beltpacksBody,
             startY: lastY,

@@ -34,8 +34,20 @@ interface CorporateMicPlot {
   name: string;
   created_at: string;
   last_edited?: string;
-  presenters?: any[];
-  [key: string]: any;
+  presenters?: Array<{
+    presenter_name?: string;
+    session_segment?: string;
+    mic_type?: string;
+    element_channel_number?: string;
+    tx_pack_location?: string;
+    backup_element?: string;
+    sound_check_time?: string;
+    presentation_type?: string;
+    remote_participation?: boolean;
+    notes?: string;
+    photo_url?: string;
+  }>;
+  user_id?: string;
 }
 
 const AllCorporateMicPlots = () => {
@@ -235,10 +247,10 @@ const AllCorporateMicPlots = () => {
           styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
           clonedDoc.head.appendChild(styleGlobal);
           clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
-          Array.from(clonedDoc.querySelectorAll("*")).forEach((el: any) => {
-            if (el.style) {
-              el.style.fontFamily = `${font}, sans-serif`;
-              el.style.verticalAlign = "baseline";
+          Array.from(clonedDoc.querySelectorAll("*")).forEach((el) => {
+            if ((el as HTMLElement).style) {
+              (el as HTMLElement).style.fontFamily = `${font}, sans-serif`;
+              (el as HTMLElement).style.verticalAlign = "baseline";
             }
           });
         },
@@ -302,7 +314,7 @@ const AllCorporateMicPlots = () => {
               minute: "2-digit",
               hour12: false,
             });
-          } catch (e) {
+          } catch {
             return timeString;
           }
         };
@@ -320,7 +332,7 @@ const AllCorporateMicPlots = () => {
           doc.line(14, 20, doc.internal.pageSize.getWidth() - 14, 20);
         };
 
-        const pageFooter = (data: any) => {
+        const pageFooter = (data: { pageNumber: number }) => {
           const pageCount = doc.internal.pages.length;
           const pageWidth = doc.internal.pageSize.getWidth();
           const pageHeight = doc.internal.pageSize.getHeight();
@@ -334,7 +346,7 @@ const AllCorporateMicPlots = () => {
           doc.setFont("helvetica", "bold");
           doc.text("SoundDocs", 14, pageHeight - 9);
           doc.setFont("helvetica", "normal");
-          doc.text("| Professional Audio Documentation", 32, pageHeight - 9);
+          doc.text("| Professional Event Documentation", 32, pageHeight - 9);
 
           if (pageCount > 2) {
             doc.text(`Page ${data.pageNumber} of ${pageCount - 1}`, pageWidth / 2, pageHeight - 9, {
@@ -362,19 +374,33 @@ const AllCorporateMicPlots = () => {
           ],
         ];
 
-        const body = (fullMicPlot.presenters || []).map((p: any) => [
-          "", // Placeholder for photo. Will be drawn in `didDrawCell`.
-          p.presenter_name || "-",
-          p.session_segment || "-",
-          p.mic_type || "-",
-          p.element_channel_number || "-",
-          p.tx_pack_location || "-",
-          p.backup_element || "-",
-          formatTime(p.sound_check_time),
-          p.presentation_type || "-",
-          p.remote_participation ? "Yes" : "No",
-          p.notes || "-",
-        ]);
+        const body = (fullMicPlot.presenters || []).map(
+          (p: {
+            presenter_name?: string;
+            session_segment?: string;
+            mic_type?: string;
+            element_channel_number?: string;
+            tx_pack_location?: string;
+            backup_element?: string;
+            sound_check_time?: string;
+            presentation_type?: string;
+            remote_participation?: boolean;
+            notes?: string;
+            photo_url?: string;
+          }) => [
+            "", // Placeholder for photo. Will be drawn in `didDrawCell`.
+            p.presenter_name || "-",
+            p.session_segment || "-",
+            p.mic_type || "-",
+            p.element_channel_number || "-",
+            p.tx_pack_location || "-",
+            p.backup_element || "-",
+            formatTime(p.sound_check_time),
+            p.presentation_type || "-",
+            p.remote_participation ? "Yes" : "No",
+            p.notes || "-",
+          ],
+        );
 
         const presenterTitle = [
           [

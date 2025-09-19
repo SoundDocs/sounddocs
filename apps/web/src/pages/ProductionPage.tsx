@@ -415,7 +415,7 @@ const ProductionPage = () => {
               doc.setFont("helvetica", "bold");
               doc.text("SoundDocs", 40, pageHeight - 20);
               doc.setFont("helvetica", "normal");
-              doc.text("| Professional Audio Documentation", 95, pageHeight - 20);
+              doc.text("| Professional Event Documentation", 95, pageHeight - 20);
               const pageNumText = `Page ${i} of ${pageCount}`;
               doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: "center" });
               const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
@@ -788,7 +788,7 @@ const ProductionPage = () => {
               doc.setFont("helvetica", "bold");
               doc.text("SoundDocs", 40, pageHeight - 20);
               doc.setFont("helvetica", "normal");
-              doc.text("| Professional Audio Documentation", 95, pageHeight - 20);
+              doc.text("| Professional Event Documentation", 95, pageHeight - 20);
               const pageNumText = `Page ${i} of ${pageCount}`;
               doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: "center" });
               const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;

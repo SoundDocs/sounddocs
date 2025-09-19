@@ -99,11 +99,15 @@ For experienced developers, here are the essential commands to get the project r
     python3 generate_cert.py
     cd ../..
     ```
-6.  **Start the Web App**:
+6.  **Build the Project**:
+    ```bash
+    pnpm build
+    ```
+7.  **Start the Web App**:
     ```bash
     pnpm dev
     ```
-7.  **(Optional) Run Capture Agent for Development**:
+8.  **(Optional) Run Capture Agent for Development**:
     If developing agent-related features, run from source:
 
     ```bash
@@ -172,7 +176,12 @@ First, set up the main web application.
 
     This script uses `mkcert` to generate the necessary certificate files.
 
-6.  **Start the Development Server**:
+6.  **Build the Project**:
+    Build the project before starting development.
+    ```bash
+    pnpm build
+    ```
+7.  **Start the Development Server**:
     Now you can start the web app.
     ```bash
     pnpm dev

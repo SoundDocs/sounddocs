@@ -278,7 +278,7 @@ const PrintCommsPlanExport = forwardRef<HTMLDivElement, PrintCommsPlanExportProp
           }}
         >
           <div style={{ fontSize: "14px", color: "#666" }}>
-            SoundDocs | Professional Audio Documentation
+            SoundDocs | Professional Event Documentation
           </div>
           <div style={{ fontSize: "12px", color: "#999" }}>
             Generated on {new Date().toLocaleDateString()}

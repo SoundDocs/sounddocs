@@ -44,7 +44,7 @@ export interface FullRunOfShowData {
   items: RunOfShowItem[];
   custom_column_definitions: CustomColumnDefinition[];
   default_column_colors?: Record<string, string>; // Store colors for default columns
-  live_show_data?: any;
+  live_show_data?: Record<string, unknown>;
 }
 
 type SortField = "name" | "created_at" | "last_edited";
@@ -59,7 +59,7 @@ const isColorLight = (hexColor?: string): boolean => {
     const b = parseInt(color.substring(4, 6), 16);
     const hsp = Math.sqrt(0.299 * (r * r) + 0.587 * (g * g) + 0.114 * (b * b));
     return hsp > 127.5;
-  } catch (e) {
+  } catch {
     return true;
   }
 };
@@ -69,7 +69,7 @@ const AllRunOfShows: React.FC = () => {
   const [runOfShows, setRunOfShows] = useState<RunOfShowSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string; [key: string]: unknown } | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<RunOfShowSummary | null>(null);
 
@@ -109,8 +109,10 @@ const AllRunOfShows: React.FC = () => {
 
         if (dbError) throw dbError;
         setRunOfShows(data || []);
-      } catch (err: any) {
-        setError(err.message || "Failed to fetch run of shows.");
+      } catch (err: unknown) {
+        setError(
+          (err instanceof Error ? err.message : String(err)) || "Failed to fetch run of shows.",
+        );
         console.error("Error fetching run of shows:", err);
       } finally {
         setLoading(false);
@@ -163,8 +165,10 @@ const AllRunOfShows: React.FC = () => {
 
       if (deleteError) throw deleteError;
       setRunOfShows(runOfShows.filter((s) => s.id !== itemToDelete.id));
-    } catch (err: any) {
-      setError(err.message || "Failed to delete run of show.");
+    } catch (err: unknown) {
+      setError(
+        (err instanceof Error ? err.message : String(err)) || "Failed to delete run of show.",
+      );
       console.error("Error deleting run of show:", err);
     } finally {
       setShowDeleteConfirm(false);
@@ -249,8 +253,10 @@ const AllRunOfShows: React.FC = () => {
       if (newRunOfShow) {
         setRunOfShows((prevRunOfShows) => [newRunOfShow, ...prevRunOfShows]);
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to duplicate run of show.");
+    } catch (err: unknown) {
+      setError(
+        (err instanceof Error ? err.message : String(err)) || "Failed to duplicate run of show.",
+      );
       console.error("Error duplicating run of show:", err);
     } finally {
       setDuplicatingId(null);
@@ -289,15 +295,15 @@ const AllRunOfShows: React.FC = () => {
         useCORS: true,
         allowTaint: true,
         letterRendering: true,
-        onclone: (clonedDoc) => {
+        onclone: (clonedDoc: Document) => {
           const styleGlobal = clonedDoc.createElement("style");
           styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
           clonedDoc.head.appendChild(styleGlobal);
           clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
-          Array.from(clonedDoc.querySelectorAll("*")).forEach((el: any) => {
-            if (el.style) {
-              el.style.fontFamily = `${font}, sans-serif`;
-              el.style.verticalAlign = "baseline";
+          Array.from(clonedDoc.querySelectorAll("*")).forEach((el) => {
+            if ((el as HTMLElement).style) {
+              (el as HTMLElement).style.fontFamily = `${font}, sans-serif`;
+              (el as HTMLElement).style.verticalAlign = "baseline";
             }
           });
         },
@@ -374,7 +380,7 @@ const AllRunOfShows: React.FC = () => {
             doc.setFont("helvetica", "bold");
             doc.text("SoundDocs", 40, pageHeight - 20);
             doc.setFont("helvetica", "normal");
-            doc.text("| Professional Audio Documentation", 95, pageHeight - 20);
+            doc.text("| Professional Event Documentation", 95, pageHeight - 20);
             const pageNumText = `Page ${i} of ${pageCount}`;
             doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: "center" });
             const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
@@ -398,7 +404,9 @@ const AllRunOfShows: React.FC = () => {
         const customCols = fullData.custom_column_definitions || [];
         const head = [defaultCols.map((c) => c.label).concat(customCols.map((c) => c.name))];
 
-        const body: any[] = [];
+        const body: Array<
+          Array<string | { content: string; colSpan: number; styles: Record<string, unknown> }>
+        > = [];
 
         fullData.items.forEach((item) => {
           if (item.type === "header") {
@@ -421,7 +429,7 @@ const AllRunOfShows: React.FC = () => {
           }
         });
 
-        (pdf as any).autoTable({
+        (pdf as jsPDF & { autoTable?: (options: object) => void }).autoTable!({
           head: head,
           body: body,
           startY: 95,
@@ -436,7 +444,11 @@ const AllRunOfShows: React.FC = () => {
           },
           alternateRowStyles: { fillColor: [248, 249, 250] },
           margin: { left: 40, right: 40 },
-          didParseCell: (data: any) => {
+          didParseCell: (data: {
+            section: string;
+            row: { index: number };
+            cell: { styles: { fillColor?: string; textColor?: string } };
+          }) => {
             if (data.section === "body") {
               const item = fullData.items[data.row.index];
               if (item && item.type !== "header" && item.highlightColor) {
