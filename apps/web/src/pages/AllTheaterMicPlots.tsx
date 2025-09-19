@@ -36,7 +36,7 @@ interface TheaterMicPlot {
   created_at: string;
   last_edited?: string;
   actors?: ActorEntry[]; // Added actors field
-  [key: string]: any;
+  user_id?: string;
 }
 
 const AllTheaterMicPlots = () => {
@@ -166,7 +166,7 @@ const AllTheaterMicPlots = () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("User not authenticated");
 
-      const { id, created_at, last_edited, ...plotDataToCopy } = fullMicPlot;
+      const { ...plotDataToCopy } = fullMicPlot;
       const newPlotPayload = {
         ...plotDataToCopy,
         name: `Copy of ${fullMicPlot.name}`,
@@ -244,10 +244,10 @@ const AllTheaterMicPlots = () => {
           styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
           clonedDoc.head.appendChild(styleGlobal);
           clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
-          Array.from(clonedDoc.querySelectorAll("*")).forEach((el: any) => {
-            if (el.style) {
-              el.style.fontFamily = `${font}, sans-serif`;
-              el.style.verticalAlign = "baseline";
+          Array.from(clonedDoc.querySelectorAll("*")).forEach((el) => {
+            if ((el as HTMLElement).style) {
+              (el as HTMLElement).style.fontFamily = `${font}, sans-serif`;
+              (el as HTMLElement).style.verticalAlign = "baseline";
             }
           });
         },
@@ -313,7 +313,7 @@ const AllTheaterMicPlots = () => {
           doc.line(14, 20, doc.internal.pageSize.getWidth() - 14, 20);
         };
 
-        const pageFooter = (data: any) => {
+        const pageFooter = (data: { pageNumber: number }) => {
           const pageCount = doc.internal.pages.length;
           const pageWidth = doc.internal.pageSize.getWidth();
           const pageHeight = doc.internal.pageSize.getHeight();

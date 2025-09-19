@@ -34,10 +34,47 @@ interface PatchSheet {
   name: string;
   created_at: string;
   last_edited?: string;
-  inputs?: any[];
-  outputs?: any[];
-  info?: Record<string, any>;
-  [key: string]: any; // Allow any additional properties
+  inputs?: Array<{
+    id: string;
+    channelNumber: string;
+    name?: string;
+    type?: string;
+    device?: string;
+    phantom?: boolean;
+    connection?: string;
+    connectionDetails?: {
+      snakeType?: string;
+      inputNumber?: string;
+      consoleType?: string;
+      consoleInputNumber?: string;
+      networkType?: string;
+      networkPatch?: string;
+    };
+    notes?: string;
+    isStereo?: boolean;
+    stereoChannelNumber?: string;
+  }>;
+  outputs?: Array<{
+    id: string;
+    channelNumber: string;
+    name?: string;
+    sourceType?: string;
+    sourceDetails?: {
+      snakeType?: string;
+      outputNumber?: string;
+      consoleType?: string;
+      consoleOutputNumber?: string;
+      networkType?: string;
+      networkPatch?: string;
+    };
+    destinationType?: string;
+    destinationGear?: string;
+    notes?: string;
+    isStereo?: boolean;
+    stereoChannelNumber?: string;
+  }>;
+  info?: Record<string, unknown>;
+  user_id?: string;
 }
 
 const AllPatchSheets = () => {
@@ -255,7 +292,7 @@ const AllPatchSheets = () => {
 
       // Create template versions of the inputs and outputs
       // For inputs, keep only connection type and related fields
-      const templateInputs = (fullPatchSheet.inputs || []).map((input: any, index: number) => {
+      const templateInputs = (fullPatchSheet.inputs || []).map((input, index) => {
         return {
           id: `input-template-${index}`,
           channelNumber: `${index + 1}`,
@@ -273,7 +310,7 @@ const AllPatchSheets = () => {
       });
 
       // For outputs, keep only source type and related fields
-      const templateOutputs = (fullPatchSheet.outputs || []).map((output: any, index: number) => {
+      const templateOutputs = (fullPatchSheet.outputs || []).map((output, index) => {
         return {
           id: `output-template-${index}`,
           channelNumber: `${index + 1}`,
@@ -363,19 +400,19 @@ const AllPatchSheets = () => {
         const brandColor: [number, number, number] = [45, 55, 72]; // A dark slate for headers
 
         // Helper to format connection details for inputs
-        const formatInputDetails = (input: any) => {
+        const formatInputDetails = (input: NonNullable<PatchSheet["inputs"]>[number]) => {
           const details = [];
-          if (["Analog Snake", "Digital Snake"].includes(input.connection)) {
+          if (["Analog Snake", "Digital Snake"].includes(input.connection || "")) {
             details.push(
               `Snake: ${input.connectionDetails?.snakeType || "-"} #${input.connectionDetails?.inputNumber || "-"}`,
             );
           }
-          if (["Analog Snake", "Console Direct"].includes(input.connection)) {
+          if (["Analog Snake", "Console Direct"].includes(input.connection || "")) {
             details.push(
               `Console: ${input.connectionDetails?.consoleType || "-"} #${input.connectionDetails?.consoleInputNumber || "-"}`,
             );
           }
-          if (["Digital Snake", "Digital Network"].includes(input.connection)) {
+          if (["Digital Snake", "Digital Network"].includes(input.connection || "")) {
             details.push(
               `Network: ${input.connectionDetails?.networkType || "-"} Patch #${input.connectionDetails?.networkPatch || "-"}`,
             );
@@ -384,19 +421,19 @@ const AllPatchSheets = () => {
         };
 
         // Helper to format source details for outputs
-        const formatOutputDetails = (output: any) => {
+        const formatOutputDetails = (output: NonNullable<PatchSheet["outputs"]>[number]) => {
           const details = [];
-          if (["Analog Snake", "Digital Snake"].includes(output.sourceType)) {
+          if (["Analog Snake", "Digital Snake"].includes(output.sourceType || "")) {
             details.push(
               `Snake: ${output.sourceDetails?.snakeType || "-"} #${output.sourceDetails?.outputNumber || "-"}`,
             );
           }
-          if (["Console Output", "Analog Snake"].includes(output.sourceType)) {
+          if (["Console Output", "Analog Snake"].includes(output.sourceType || "")) {
             details.push(
               `Console: ${output.sourceDetails?.consoleType || "-"} #${output.sourceDetails?.consoleOutputNumber || "-"}`,
             );
           }
-          if (["Digital Snake", "Digital Network"].includes(output.sourceType)) {
+          if (["Digital Snake", "Digital Network"].includes(output.sourceType || "")) {
             details.push(
               `Network: ${output.sourceDetails?.networkType || "-"} Patch #${output.sourceDetails?.networkPatch || "-"}`,
             );
@@ -419,7 +456,7 @@ const AllPatchSheets = () => {
           doc.line(14, 20, doc.internal.pageSize.getWidth() - 14, 20);
         };
 
-        const pageFooter = (data: any) => {
+        const pageFooter = (data: { pageNumber: number }) => {
           const pageCount = doc.internal.pages.length;
           const pageWidth = doc.internal.pageSize.getWidth();
           const pageHeight = doc.internal.pageSize.getHeight();
@@ -470,7 +507,7 @@ const AllPatchSheets = () => {
         const inputHead = [
           ["Ch", "Name", "Type", "Device", "Connection", "Details", "48V", "Notes"],
         ];
-        const inputBody = (fullPatchSheet.inputs || []).map((input: any) => [
+        const inputBody = (fullPatchSheet.inputs || []).map((input) => [
           input.channelNumber,
           input.name || "",
           input.type || "",
@@ -518,7 +555,7 @@ const AllPatchSheets = () => {
           ],
         ];
         const outputHead = [["Ch", "Name", "Source", "Destination", "Details", "Notes"]];
-        const outputBody = (fullPatchSheet.outputs || []).map((output: any) => [
+        const outputBody = (fullPatchSheet.outputs || []).map((output) => [
           output.channelNumber,
           output.name || "",
           output.sourceType || "",

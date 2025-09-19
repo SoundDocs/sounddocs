@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -338,7 +338,7 @@ const CommsPlannerEditor = () => {
     setSelectedElementId(null);
   };
 
-  const handlePropertyChange = (elementId: string, property: string, value: any) => {
+  const handlePropertyChange = (elementId: string, property: string, value: unknown) => {
     // Check if it's a beltpack or element
     const beltpack = beltpacks.find((bp) => bp.id === elementId);
 
@@ -452,7 +452,7 @@ const CommsPlannerEditor = () => {
         setBeltpacks(assignedBeltpacks);
       }
     }
-  }, [elements, runAssignmentLogic]); // Re-run when elements change
+  }, [elements, runAssignmentLogic]); // Re-run when elements change, eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const loadPlan = async () => {
@@ -467,15 +467,24 @@ const CommsPlannerEditor = () => {
           setDfsEnabled(plan.dfs_enabled);
           setPoeBudget(plan.poe_budget_total);
           const loadedElements =
-            plan.elements.map((el: any) => ({
-              ...el,
-              systemType: el.system_type,
-              channels: el.channel_set,
-            })) || [];
+            plan.elements.map(
+              (el: {
+                id: string;
+                system_type: SystemType;
+                channel_set: string[];
+                [key: string]: unknown;
+              }) => ({
+                ...el,
+                systemType: el.system_type,
+                channels: el.channel_set,
+              }),
+            ) || [];
           setElements(loadedElements);
           const loadedBeltpacks = plan.beltpacks || [];
           // Only run assignment logic if beltpacks don't already have assignments
-          const hasExistingAssignments = loadedBeltpacks.some((bp: any) => bp.transceiverRef);
+          const hasExistingAssignments = loadedBeltpacks.some(
+            (bp: { transceiverRef?: string }) => bp.transceiverRef,
+          );
           if (hasExistingAssignments) {
             setBeltpacks(loadedBeltpacks);
           } else {
@@ -493,18 +502,8 @@ const CommsPlannerEditor = () => {
       }
     };
     loadPlan();
-  }, [
-    id,
-    reset,
-    setPlanName,
-    setVenueWidth,
-    setVenueHeight,
-    setZones,
-    setDfsEnabled,
-    setPoeBudget,
-    setElements,
-    navigate,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, navigate]);
 
   // Handle keyboard shortcuts for deleting elements
   useEffect(() => {
@@ -523,7 +522,37 @@ const CommsPlannerEditor = () => {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedElementId]);
+
+  const handleSave = useCallback(
+    async (isAutoSave = false) => {
+      setSaving(true);
+      setSaveError(null);
+      if (!isAutoSave) {
+        setSaveSuccess(false);
+      }
+      try {
+        const planId = await saveCommsPlan(id ?? null);
+        if (id === "new" && planId) {
+          navigate(`/comms-planner/${planId}`, { replace: true });
+        }
+        if (!isAutoSave) {
+          setSaveSuccess(true);
+          setTimeout(() => setSaveSuccess(false), 3000);
+        }
+      } catch (error: unknown) {
+        console.error("Failed to save comms plan:", error);
+        setSaveError(
+          `Error saving schedule: ${error instanceof Error ? error.message : "Please try again."}`,
+        );
+        setTimeout(() => setSaveError(null), 5000);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [id, navigate],
+  );
 
   // Auto-save logic
   useEffect(() => {
@@ -543,31 +572,20 @@ const CommsPlannerEditor = () => {
     return () => {
       clearTimeout(handler);
     };
-  }, [planName, elements, beltpacks, zones, venueWidth, venueHeight, dfsEnabled, poeBudget]);
-
-  const handleSave = async (isAutoSave = false) => {
-    setSaving(true);
-    setSaveError(null);
-    if (!isAutoSave) {
-      setSaveSuccess(false);
-    }
-    try {
-      const planId = await saveCommsPlan(id ?? null);
-      if (id === "new" && planId) {
-        navigate(`/comms-planner/${planId}`, { replace: true });
-      }
-      if (!isAutoSave) {
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      }
-    } catch (error: any) {
-      console.error("Failed to save comms plan:", error);
-      setSaveError(`Error saving schedule: ${error.message || "Please try again."}`);
-      setTimeout(() => setSaveError(null), 5000);
-    } finally {
-      setSaving(false);
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    planName,
+    elements,
+    beltpacks,
+    zones,
+    venueWidth,
+    venueHeight,
+    dfsEnabled,
+    poeBudget,
+    id,
+    loading,
+    saving,
+  ]);
 
   const exportAsPdf = async (
     targetRef: React.RefObject<HTMLDivElement>,
@@ -605,10 +623,10 @@ const CommsPlannerEditor = () => {
           styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
           clonedDoc.head.appendChild(styleGlobal);
           clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
-          Array.from(clonedDoc.querySelectorAll("*")).forEach((el: any) => {
-            if (el.style) {
-              el.style.fontFamily = `${font}, sans-serif`;
-              el.style.verticalAlign = "baseline";
+          Array.from(clonedDoc.querySelectorAll("*")).forEach((el) => {
+            if ((el as HTMLElement).style) {
+              (el as HTMLElement).style.fontFamily = `${font}, sans-serif`;
+              (el as HTMLElement).style.verticalAlign = "baseline";
             }
           });
         },
@@ -747,7 +765,12 @@ const CommsPlannerEditor = () => {
           doc.setFont("helvetica", "bold");
           doc.text(title, 40, lastY);
 
-          (doc as any).autoTable({
+          (
+            doc as jsPDF & {
+              autoTable?: (options: object) => void;
+              lastAutoTable?: { finalY: number };
+            }
+          ).autoTable!({
             body: data,
             startY: lastY + 5,
             theme: "plain",
@@ -761,7 +784,8 @@ const CommsPlannerEditor = () => {
             },
             margin: { left: 40 },
           });
-          lastY = (doc as any).lastAutoTable.finalY + 15;
+          lastY =
+            (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable!.finalY + 15;
         };
 
         const eventDetails: [string, string][] = [
@@ -785,10 +809,10 @@ const CommsPlannerEditor = () => {
 
           const transceiversHead = [["Label", "Model", "Band", "Coverage", "Connected Beltpacks"]];
           const transceiversBody = commsPlanData.transceivers
-            .filter((tx: any) => tx.systemType !== "FSII-Base")
-            .map((tx: any) => {
+            .filter((tx: Transceiver) => tx.systemType !== "FSII-Base")
+            .map((tx: Transceiver) => {
               const connectedBeltpacks = commsPlanData.beltpacks.filter(
-                (bp: any) => bp.transceiverRef === tx.id,
+                (bp: { transceiverRef?: string }) => bp.transceiverRef === tx.id,
               );
               return [
                 tx.label,
@@ -799,7 +823,12 @@ const CommsPlannerEditor = () => {
               ];
             });
 
-          (doc as any).autoTable({
+          (
+            doc as jsPDF & {
+              autoTable?: (options: object) => void;
+              lastAutoTable?: { finalY: number };
+            }
+          ).autoTable!({
             head: transceiversHead,
             body: transceiversBody,
             startY: lastY,
@@ -815,7 +844,8 @@ const CommsPlannerEditor = () => {
             alternateRowStyles: { fillColor: [248, 249, 250] },
             margin: { left: 40, right: 40 },
           });
-          lastY = (doc as any).lastAutoTable.finalY + 30;
+          lastY =
+            (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable!.finalY + 30;
         }
 
         if (commsPlanData.beltpacks && commsPlanData.beltpacks.length > 0) {
@@ -825,21 +855,31 @@ const CommsPlannerEditor = () => {
           lastY += 20;
 
           const beltpacksHead = [["Label", "Connected To", "Channel Assignments"]];
-          const beltpacksBody = commsPlanData.beltpacks.map((bp: any) => {
-            const transceiver = commsPlanData.transceivers.find(
-              (tx: any) => tx.id === bp.transceiverRef,
-            );
-            const assignments =
-              bp.channelAssignments && bp.channelAssignments.length > 0
-                ? bp.channelAssignments
-                    .map((ca: any) => `${ca.channel}:${ca.assignment}`)
-                    .join(", ")
-                : "No assignments";
+          const beltpacksBody = commsPlanData.beltpacks.map(
+            (bp: {
+              id: string;
+              label: string;
+              transceiverRef?: string;
+              channelAssignments?: Array<{ channel: string; assignment: string }>;
+            }) => {
+              const transceiver = commsPlanData.transceivers.find(
+                (tx: Transceiver) => tx.id === bp.transceiverRef,
+              );
+              const assignments =
+                bp.channelAssignments && bp.channelAssignments.length > 0
+                  ? bp.channelAssignments.map((ca) => `${ca.channel}:${ca.assignment}`).join(", ")
+                  : "No assignments";
 
-            return [bp.label, transceiver ? transceiver.label : "Not Connected", assignments];
-          });
+              return [bp.label, transceiver ? transceiver.label : "Not Connected", assignments];
+            },
+          );
 
-          (doc as any).autoTable({
+          (
+            doc as jsPDF & {
+              autoTable?: (options: object) => void;
+              lastAutoTable?: { finalY: number };
+            }
+          ).autoTable!({
             head: beltpacksHead,
             body: beltpacksBody,
             startY: lastY,

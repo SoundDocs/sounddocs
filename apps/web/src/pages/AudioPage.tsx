@@ -38,6 +38,145 @@ import PrintCommsPlanExport from "../components/PrintCommsPlanExport";
 import { ActorEntry } from "../components/theater-mic-plot/ActorEntryCard"; // For TheaterMicPlotFullData
 import { CommsPlan } from "../lib/commsTypes";
 
+// Type definitions for the component
+interface InputEntry {
+  channelNumber: string;
+  name?: string;
+  type?: string;
+  device?: string;
+  connection?: string;
+  connectionDetails?: {
+    snakeType?: string;
+    inputNumber?: string;
+    consoleType?: string;
+    consoleInputNumber?: string;
+    networkType?: string;
+    networkPatch?: string;
+  };
+  phantom?: boolean;
+  notes?: string;
+}
+
+interface OutputEntry {
+  channelNumber: string;
+  name?: string;
+  sourceType?: string;
+  sourceDetails?: {
+    snakeType?: string;
+    outputNumber?: string;
+    consoleType?: string;
+    consoleOutputNumber?: string;
+    networkType?: string;
+    networkPatch?: string;
+  };
+  destinationType?: string;
+  destinationGear?: string;
+  notes?: string;
+}
+
+interface StageElement {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  [key: string]: unknown;
+}
+
+interface PresenterEntry {
+  presenter_name?: string;
+  session_segment?: string;
+  mic_type?: string;
+  element_channel_number?: string;
+  tx_pack_location?: string;
+  backup_element?: string;
+  sound_check_time?: string;
+  presentation_type?: string;
+  remote_participation?: boolean;
+  notes?: string;
+  photo_url?: string;
+}
+
+interface CommsPlanEntry {
+  id: string;
+  name: string;
+  created_at: string;
+  last_edited?: string;
+}
+
+interface TransceiverData {
+  id: string;
+  zone_id?: string;
+  system_type: string;
+  model: string;
+  x: number;
+  y: number;
+  z?: number;
+  label: string;
+  band: string;
+  channel_set: string[];
+  dfs_enabled: boolean;
+  poe_class: string;
+  coverage_radius: number;
+  current_beltpacks?: number;
+  max_beltpacks?: number;
+  override_flags: unknown;
+}
+
+interface BeltpackData {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  transceiverRef?: string;
+  transceiver_ref?: string;
+  signalStrength?: number;
+  signal_strength?: number;
+  batteryLevel?: number;
+  battery_level?: number;
+  online?: boolean;
+  channelAssignments?: ChannelAssignment[];
+  channel_assignments?: ChannelAssignment[];
+}
+
+interface TransceiverEntry {
+  id: string;
+  label: string;
+  model: string;
+  band: string;
+  coverageRadius: number;
+  maxBeltpacks: number;
+}
+
+interface BeltpackEntry {
+  id: string;
+  label: string;
+  transceiverRef: string;
+  channelAssignments: ChannelAssignment[];
+}
+
+interface ChannelAssignment {
+  channel: string;
+  assignment: string;
+}
+
+interface TableRow {
+  content: string;
+  colSpan?: number;
+  styles?: {
+    halign?: string;
+    fontStyle?: string;
+    fontSize?: number;
+    fillColor?: number[];
+    textColor?: number[] | number;
+    cellPadding?: { top: number; bottom: number };
+  };
+}
+
+interface jsPDFWithAutoTable extends jsPDF {
+  autoTable: (options: unknown) => void;
+  lastAutoTable: { finalY: number };
+}
+
 interface BaseDocument {
   id: string;
   name: string;
@@ -46,12 +185,14 @@ interface BaseDocument {
 }
 
 interface PatchList extends BaseDocument {
-  [key: string]: any;
+  inputs?: InputEntry[];
+  outputs?: OutputEntry[];
+  [key: string]: unknown;
 }
 
 interface StagePlot extends BaseDocument {
   stage_size: string;
-  elements: any[];
+  elements: StageElement[];
   backgroundImage?: string;
   backgroundOpacity?: number;
 }
@@ -61,7 +202,7 @@ interface MicPlotDocument extends BaseDocument {
 }
 
 interface CorporateMicPlotFullData extends MicPlotDocument {
-  presenters?: any[];
+  presenters?: PresenterEntry[];
   // Add other fields specific to corporate_mic_plots table
 }
 
@@ -76,7 +217,7 @@ const AudioPage = () => {
   const [patchLists, setPatchLists] = useState<PatchList[]>([]);
   const [stagePlots, setStagePlots] = useState<StagePlot[]>([]);
   const [micPlots, setMicPlots] = useState<MicPlotDocument[]>([]);
-  const [commsPlans, setCommsPlans] = useState<any[]>([]);
+  const [commsPlans, setCommsPlans] = useState<CommsPlanEntry[]>([]);
 
   const [exportingItemId, setExportingItemId] = useState<string | null>(null); // For patch sheets and stage plots
 
@@ -385,10 +526,10 @@ const AudioPage = () => {
           styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
           clonedDoc.head.appendChild(styleGlobal);
           clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
-          Array.from(clonedDoc.querySelectorAll("*")).forEach((el: any) => {
-            if (el.style) {
-              el.style.fontFamily = `${font}, sans-serif`;
-              el.style.verticalAlign = "baseline";
+          Array.from(clonedDoc.querySelectorAll("*")).forEach((el: Element) => {
+            if ((el as HTMLElement).style) {
+              (el as HTMLElement).style.fontFamily = `${font}, sans-serif`;
+              (el as HTMLElement).style.verticalAlign = "baseline";
             }
           });
         },
@@ -432,7 +573,7 @@ const AudioPage = () => {
         const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
         const brandColor = [45, 55, 72]; // A dark slate for headers
 
-        const formatInputDetails = (input: any) => {
+        const formatInputDetails = (input: InputEntry) => {
           const details = [];
           if (["Analog Snake", "Digital Snake"].includes(input.connection)) {
             details.push(
@@ -452,7 +593,7 @@ const AudioPage = () => {
           return details.join("\n");
         };
 
-        const formatOutputDetails = (output: any) => {
+        const formatOutputDetails = (output: OutputEntry) => {
           const details = [];
           if (["Analog Snake", "Digital Snake"].includes(output.sourceType)) {
             details.push(
@@ -473,12 +614,12 @@ const AudioPage = () => {
         };
 
         const pageHeader = () => {
-          doc.setFont("helvetica", "bold" as any);
+          doc.setFont("helvetica", "bold");
           doc.setFontSize(16);
           doc.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
           doc.text("SoundDocs", 14, 15);
 
-          doc.setFont("helvetica", "normal" as any);
+          doc.setFont("helvetica", "normal");
           doc.setFontSize(12);
           doc.text(fullPatchSheet.name, doc.internal.pageSize.getWidth() - 14, 15, {
             align: "right",
@@ -487,7 +628,7 @@ const AudioPage = () => {
           doc.line(14, 20, doc.internal.pageSize.getWidth() - 14, 20);
         };
 
-        const pageFooter = (data: any) => {
+        const pageFooter = (data: { pageNumber: number }) => {
           const pageCount = doc.internal.pages.length;
           const pageWidth = doc.internal.pageSize.getWidth();
           const pageHeight = doc.internal.pageSize.getHeight();
@@ -498,9 +639,9 @@ const AudioPage = () => {
           doc.setFontSize(8);
           doc.setTextColor(128, 128, 128);
 
-          doc.setFont("helvetica", "bold" as any);
+          doc.setFont("helvetica", "bold");
           doc.text("SoundDocs", 14, pageHeight - 9);
-          doc.setFont("helvetica", "normal" as any);
+          doc.setFont("helvetica", "normal");
           doc.text("| Professional Event Documentation", 32, pageHeight - 9);
 
           if (pageCount > 2) {
@@ -541,7 +682,7 @@ const AudioPage = () => {
             { content: "Notes" },
           ],
         ];
-        const inputBody = (fullPatchSheet.inputs || []).map((input: any) => [
+        const inputBody = (fullPatchSheet.inputs || []).map((input: InputEntry) => [
           input.channelNumber,
           input.name || "",
           input.type || "",
@@ -553,7 +694,7 @@ const AudioPage = () => {
         ]);
 
         autoTable(doc, {
-          head: inputTitle.concat(inputHead as any) as any,
+          head: inputTitle.concat(inputHead as TableRow[]) as TableRow[],
           body: inputBody,
           startY: 25,
           didDrawPage: (data) => {
@@ -597,7 +738,7 @@ const AudioPage = () => {
             { content: "Notes" },
           ],
         ];
-        const outputBody = (fullPatchSheet.outputs || []).map((output: any) => [
+        const outputBody = (fullPatchSheet.outputs || []).map((output: OutputEntry) => [
           output.channelNumber,
           output.name || "",
           output.sourceType || "",
@@ -607,7 +748,7 @@ const AudioPage = () => {
         ]);
 
         autoTable(doc, {
-          head: outputTitle.concat(outputHead as any) as any,
+          head: outputTitle.concat(outputHead as TableRow[]) as TableRow[],
           body: outputBody,
           didDrawPage: (data) => {
             pageHeader();
@@ -728,16 +869,16 @@ const AudioPage = () => {
                 minute: "2-digit",
                 hour12: false,
               });
-            } catch (e) {
+            } catch {
               return timeString;
             }
           };
           const pageHeader = () => {
-            doc.setFont("helvetica", "bold" as any);
+            doc.setFont("helvetica", "bold");
             doc.setFontSize(16);
             doc.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
             doc.text("SoundDocs", 14, 15);
-            doc.setFont("helvetica", "normal" as any);
+            doc.setFont("helvetica", "normal");
             doc.setFontSize(12);
             doc.text(fullMicPlot.name, doc.internal.pageSize.getWidth() - 14, 15, {
               align: "right",
@@ -745,7 +886,7 @@ const AudioPage = () => {
             doc.setDrawColor(200);
             doc.line(14, 20, doc.internal.pageSize.getWidth() - 14, 20);
           };
-          const pageFooter = (data: any) => {
+          const pageFooter = (data: { pageNumber: number }) => {
             const pageCount = doc.internal.pages.length;
             const pageWidth = doc.internal.pageSize.getWidth();
             const pageHeight = doc.internal.pageSize.getHeight();
@@ -753,9 +894,9 @@ const AudioPage = () => {
             doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
             doc.setFontSize(8);
             doc.setTextColor(128, 128, 128);
-            doc.setFont("helvetica", "bold" as any);
+            doc.setFont("helvetica", "bold");
             doc.text("SoundDocs", 14, pageHeight - 9);
-            doc.setFont("helvetica", "normal" as any);
+            doc.setFont("helvetica", "normal");
             doc.text("| Professional Event Documentation", 32, pageHeight - 9);
             if (pageCount > 2) {
               doc.text(
@@ -783,7 +924,7 @@ const AudioPage = () => {
               { content: "Notes" },
             ],
           ];
-          const body = (fullMicPlot.presenters || []).map((p: any) => [
+          const body = (fullMicPlot.presenters || []).map((p: PresenterEntry) => [
             "",
             p.presenter_name || "-",
             p.session_segment || "-",
@@ -813,7 +954,7 @@ const AudioPage = () => {
             ],
           ];
           autoTable(doc, {
-            head: presenterTitle.concat(head as any) as any,
+            head: presenterTitle.concat(head as TableRow[]) as TableRow[],
             body: body,
             startY: 25,
             didDrawPage: (data) => {
@@ -865,8 +1006,8 @@ const AudioPage = () => {
                   const y = data.cell.y + (data.cell.height - imgDim) / 2;
                   try {
                     doc.addImage(imgData, format, x, y, imgDim, imgDim);
-                  } catch (e) {
-                    console.error(`Failed to add image to PDF cell. Format: ${format}`, e);
+                  } catch {
+                    console.error(`Failed to add image to PDF cell. Format: ${format}`);
                   }
                 }
               }
@@ -899,11 +1040,11 @@ const AudioPage = () => {
           const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
           const brandColor = [45, 55, 72];
           const pageHeader = () => {
-            doc.setFont("helvetica", "bold" as any);
+            doc.setFont("helvetica", "bold");
             doc.setFontSize(16);
             doc.setTextColor(brandColor[0], brandColor[1], brandColor[2]);
             doc.text("SoundDocs", 14, 15);
-            doc.setFont("helvetica", "normal" as any);
+            doc.setFont("helvetica", "normal");
             doc.setFontSize(12);
             doc.text(fullMicPlot.name, doc.internal.pageSize.getWidth() - 14, 15, {
               align: "right",
@@ -911,7 +1052,7 @@ const AudioPage = () => {
             doc.setDrawColor(200);
             doc.line(14, 20, doc.internal.pageSize.getWidth() - 14, 20);
           };
-          const pageFooter = (data: any) => {
+          const pageFooter = (data: { pageNumber: number }) => {
             const pageCount = doc.internal.pages.length;
             const pageWidth = doc.internal.pageSize.getWidth();
             const pageHeight = doc.internal.pageSize.getHeight();
@@ -919,9 +1060,9 @@ const AudioPage = () => {
             doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
             doc.setFontSize(8);
             doc.setTextColor(128, 128, 128);
-            doc.setFont("helvetica", "bold" as any);
+            doc.setFont("helvetica", "bold");
             doc.text("SoundDocs", 14, pageHeight - 9);
-            doc.setFont("helvetica", "normal" as any);
+            doc.setFont("helvetica", "normal");
             doc.text("| Professional Event Documentation", 32, pageHeight - 9);
             if (pageCount > 2) {
               doc.text(
@@ -978,7 +1119,7 @@ const AudioPage = () => {
             ],
           ];
           autoTable(doc, {
-            head: actorsTitle.concat(head as any) as any,
+            head: actorsTitle.concat(head as TableRow[]) as TableRow[],
             body: body,
             startY: 25,
             didDrawPage: (data) => {
@@ -1024,8 +1165,8 @@ const AudioPage = () => {
                   const y = data.cell.y + (data.cell.height - imgDim) / 2;
                   try {
                     doc.addImage(imgData, format, x, y, imgDim, imgDim);
-                  } catch (e) {
-                    console.error(`Failed to add image to PDF cell. Format: ${format}`, e);
+                  } catch {
+                    console.error(`Failed to add image to PDF cell. Format: ${format}`);
                   }
                 }
               }
@@ -1100,7 +1241,7 @@ const AudioPage = () => {
           shape: "rectangle" as const,
         },
         zones: data.zones || [],
-        transceivers: (data.transceivers || []).map((tx: any) => ({
+        transceivers: (data.transceivers || []).map((tx: TransceiverData) => ({
           id: tx.id,
           zoneId: tx.zone_id || "zone-1",
           systemType: tx.system_type,
@@ -1118,7 +1259,7 @@ const AudioPage = () => {
           maxBeltpacks: tx.max_beltpacks || 5,
           overrideFlags: tx.override_flags,
         })),
-        beltpacks: (data.beltpacks || []).map((bp: any) => ({
+        beltpacks: (data.beltpacks || []).map((bp: BeltpackData) => ({
           id: bp.id,
           label: bp.label,
           x: bp.x,
@@ -1196,7 +1337,7 @@ const AudioPage = () => {
           doc.setFont("helvetica", "bold");
           doc.text(title, 40, lastY);
 
-          (doc as any).autoTable({
+          (doc as jsPDFWithAutoTable).autoTable({
             body: data,
             startY: lastY + 5,
             theme: "plain",
@@ -1210,7 +1351,7 @@ const AudioPage = () => {
             },
             margin: { left: 40 },
           });
-          lastY = (doc as any).lastAutoTable.finalY + 15;
+          lastY = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 15;
         };
 
         const eventDetails: [string, string][] = [
@@ -1233,9 +1374,9 @@ const AudioPage = () => {
           lastY += 20;
 
           const transceiversHead = [["Label", "Model", "Band", "Coverage", "Connected Beltpacks"]];
-          const transceiversBody = commsPlanData.transceivers.map((tx: any) => {
+          const transceiversBody = commsPlanData.transceivers.map((tx: TransceiverEntry) => {
             const connectedBeltpacks = commsPlanData.beltpacks.filter(
-              (bp: any) => bp.transceiverRef === tx.id,
+              (bp: BeltpackEntry) => bp.transceiverRef === tx.id,
             );
             return [
               tx.label,
@@ -1246,7 +1387,7 @@ const AudioPage = () => {
             ];
           });
 
-          (doc as any).autoTable({
+          (doc as jsPDFWithAutoTable).autoTable({
             head: transceiversHead,
             body: transceiversBody,
             startY: lastY,
@@ -1262,7 +1403,7 @@ const AudioPage = () => {
             alternateRowStyles: { fillColor: [248, 249, 250] },
             margin: { left: 40, right: 40 },
           });
-          lastY = (doc as any).lastAutoTable.finalY + 30;
+          lastY = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 30;
         }
 
         if (commsPlanData.beltpacks && commsPlanData.beltpacks.length > 0) {
@@ -1272,21 +1413,21 @@ const AudioPage = () => {
           lastY += 20;
 
           const beltpacksHead = [["Label", "Connected To", "Channel Assignments"]];
-          const beltpacksBody = commsPlanData.beltpacks.map((bp: any) => {
+          const beltpacksBody = commsPlanData.beltpacks.map((bp: BeltpackEntry) => {
             const transceiver = commsPlanData.transceivers.find(
-              (tx: any) => tx.id === bp.transceiverRef,
+              (tx: TransceiverEntry) => tx.id === bp.transceiverRef,
             );
             const assignments =
               bp.channelAssignments && bp.channelAssignments.length > 0
                 ? bp.channelAssignments
-                    .map((ca: any) => `${ca.channel}:${ca.assignment}`)
+                    .map((ca: ChannelAssignment) => `${ca.channel}:${ca.assignment}`)
                     .join(", ")
                 : "No assignments";
 
             return [bp.label, transceiver ? transceiver.label : "Not Connected", assignments];
           });
 
-          (doc as any).autoTable({
+          (doc as jsPDFWithAutoTable).autoTable({
             head: beltpacksHead,
             body: beltpacksBody,
             startY: lastY,
