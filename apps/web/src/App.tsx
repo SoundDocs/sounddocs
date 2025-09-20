@@ -60,6 +60,7 @@ import LedPixelMapEditor from "./pages/LedPixelMapEditor"; // Import the new edi
 import AllPixelMaps from "./pages/AllPixelMaps";
 import AllCommsPlans from "./pages/AllCommsPlans";
 import CommsPlannerEditor from "./pages/CommsPlannerEditor";
+import LensCalculatorPage from "./pages/LensCalculatorPage";
 
 function App() {
   useEffect(() => {
@@ -168,6 +169,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AllPixelMaps />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/video/lens-calculator/:id"
+              element={
+                <ProtectedRoute>
+                  <LensCalculatorPage />
                 </ProtectedRoute>
               }
             />
