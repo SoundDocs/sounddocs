@@ -7,13 +7,19 @@ import type {
   InstallationConstraints,
   CalculationResult,
 } from "./lensCalculatorTypes";
-import {
-  scoreLensComprehensive,
-  scoreLensSimple,
-  calculateFootLamberts,
-  type ScoringBreakdown,
-  SCORING_PROFILES,
-} from "./lensScoring";
+import { scoreLensComprehensive, calculateFootLamberts, SCORING_PROFILES } from "./lensScoring";
+
+// Enhanced calculation result interface
+interface EnhancedCalculationResult extends CalculationResult {
+  scoringProfile: string;
+  totalLensesEvaluated: number;
+  scoringInsights: {
+    averageScore: number;
+    bestCategory: string;
+    commonIssues: string[];
+    recommendations: string[];
+  };
+}
 
 // Helper function for case-insensitive manufacturer comparison
 export function manufacturersMatch(manufacturer1: string, manufacturer2: string): boolean {
@@ -510,8 +516,7 @@ export function calculateCompatibleLensesEnhanced(
   projectorLumens: number,
   useCase: keyof typeof SCORING_PROFILES = "presentation",
   includeDetailedBreakdown: boolean = false,
-): any {
-  // Will be EnhancedCalculationResult when types are updated
+): EnhancedCalculationResult {
   const warnings: string[] = [];
   const recommendations: string[] = [];
   const compatibleLenses = [];

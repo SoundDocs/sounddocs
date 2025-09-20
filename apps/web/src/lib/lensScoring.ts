@@ -223,6 +223,9 @@ export function isShiftFeasible(
   maxVPct: number,
   maxHPct: number,
 ): boolean {
+  if ((requiredVPct !== 0 && !maxVPct) || (requiredHPct !== 0 && !maxHPct)) {
+    return false;
+  }
   if (!maxVPct && !maxHPct) return requiredVPct === 0 && requiredHPct === 0;
 
   const vNorm = maxVPct ? (requiredVPct / maxVPct) ** 2 : 0;
@@ -328,7 +331,7 @@ function scoreBrightness(
   const baseScore = 100;
   const targetFL = profile.targetFootLamberts;
   let score = baseScore;
-  let adequacy: string;
+  let adequacy: "excellent" | "good" | "adequate" | "insufficient" | "excessive";
 
   if (actualFL < targetFL * 0.8) {
     // Significantly under target
@@ -547,7 +550,12 @@ export function scoreLensComprehensive(
           maxScore: 100,
           actualFL,
           targetFL: profile.targetFootLamberts,
-          adequacy: brightnessResult.adequacy as any,
+          adequacy: brightnessResult.adequacy as
+            | "excellent"
+            | "good"
+            | "adequate"
+            | "insufficient"
+            | "excessive",
           details: brightnessResult.details,
         },
         lensShift: {
@@ -643,7 +651,12 @@ export function scoreLensComprehensive(
         maxScore: 100 * profile.weights.brightness,
         actualFL,
         targetFL: profile.targetFootLamberts,
-        adequacy: brightnessResult.adequacy as any,
+        adequacy: brightnessResult.adequacy as
+          | "excellent"
+          | "good"
+          | "adequate"
+          | "insufficient"
+          | "excessive",
         details: brightnessResult.details,
       },
       lensShift: {

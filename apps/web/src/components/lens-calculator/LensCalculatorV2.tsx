@@ -21,7 +21,7 @@ import {
   calculateCompatibleLenses,
   saveLensCalculation,
 } from "../../lib/lensCalculatorUtils";
-import debounce from "lodash.debounce";
+import { supabase } from "../../lib/supabase";
 
 interface LensCalculatorV2Props {
   onSave?: (calculationId: string) => void;
@@ -129,8 +129,8 @@ const LensCalculatorV2: React.FC<LensCalculatorV2Props> = ({ onSave }) => {
 
   // Debounced calculation function with enhanced algorithm
   const debouncedCalculate = useCallback(
-    debounce(
-      async (projector: ProjectorType, screenW: number, screenH: number, distance: number) => {
+    (projector: ProjectorType, screenW: number, screenH: number, distance: number) => {
+      const calculate = async () => {
         setIsCalculating(true);
         try {
           // Convert screen dimensions to feet for calculations
@@ -219,16 +219,25 @@ const LensCalculatorV2: React.FC<LensCalculatorV2Props> = ({ onSave }) => {
         } finally {
           setIsCalculating(false);
         }
-      },
-      500,
-    ),
+      };
+
+      // Use debounce with a delay of 500ms
+      const timeoutId = setTimeout(calculate, 500);
+      return () => clearTimeout(timeoutId);
+    },
     [screenShape],
   );
 
   // Trigger calculation when inputs change
   useEffect(() => {
-    if (selectedProjector) {
-      debouncedCalculate(selectedProjector, screenWidth, screenHeight, projectorDistance);
+    if (selectedProjector && screenWidth > 0 && screenHeight > 0) {
+      const cleanup = debouncedCalculate(
+        selectedProjector,
+        screenWidth,
+        screenHeight,
+        projectorDistance,
+      );
+      return cleanup;
     }
   }, [
     selectedProjector,
@@ -327,6 +336,15 @@ const LensCalculatorV2: React.FC<LensCalculatorV2Props> = ({ onSave }) => {
 
     setIsSaving(true);
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        console.error("User not authenticated. Cannot save calculation.");
+        // Optionally, you could redirect to login or show a message.
+        return;
+      }
+
       const screenData: ScreenData = {
         width: screenWidth / 12,
         height: screenHeight / 12,
@@ -359,7 +377,7 @@ const LensCalculatorV2: React.FC<LensCalculatorV2Props> = ({ onSave }) => {
       };
 
       const calculationId = await saveLensCalculation({
-        user_id: "",
+        user_id: user.id,
         calculation_name:
           calculationName || `${selectedProjector.model} - ${new Date().toLocaleDateString()}`,
         screen_data: screenData,

@@ -1,10 +1,11 @@
 -- Seed data for projectors and lenses
 -- This migration populates the database with professional projector and lens specifications
 
--- Clear existing data (for development - remove in production)
-TRUNCATE TABLE projector_lens_compatibility CASCADE;
-TRUNCATE TABLE lens_database CASCADE;
-TRUNCATE TABLE projector_database CASCADE;
+-- The TRUNCATE statements have been removed to prevent accidental data loss in production.
+-- If you need to clear data in a development environment, please do so with a separate script.
+-- TRUNCATE TABLE projector_lens_compatibility CASCADE;
+-- TRUNCATE TABLE lens_database CASCADE;
+-- TRUNCATE TABLE projector_database CASCADE;
 
 -- Insert Barco Projectors
 INSERT INTO projector_database (manufacturer, series, model, brightness_ansi, brightness_center, native_resolution, technology_type, lens_mount_system, specifications) VALUES
@@ -273,7 +274,7 @@ INSERT INTO lens_database (manufacturer, model, part_number, throw_ratio_min, th
 ('Barco', 'TLD+ 0.39:1', 'TLD+040', 0.38, 0.42, 'UST', 'Fixed', true, 100, 50, '{"throw_ratio_range": "0.38-0.42:1"}'),
 ('Barco', 'TLD+ 0.65-0.85:1', 'R9862001', 0.65, 0.85, 'UST', 'Zoom', true, 150, 150, '{"zoom_ratio": 1.31, "motorized": "zoom, focus, shift"}'),
 ('Barco', 'TLD+ 0.67-0.88:1', 'R9862000', 0.67, 0.88, 'UST', 'Zoom', true, 35, 20, '{"zoom_ratio": 1.31, "shift": "±150%"}'),
-('Barco', 'TLD+ 0.67:1', 'R9862000', 0.67, 0.67, 'UST', 'Fixed', true, 35, 20, '{"horizontal_shift": "±20%", "vertical_shift": "±35%"}'),
+('Barco', 'TLD+ 0.67:1', 'R9862000_FIXED', 0.67, 0.67, 'UST', 'Fixed', true, 35, 20, '{"horizontal_shift": "±20%", "vertical_shift": "±35%"}'),
 ('Barco', 'TLD+ 0.8-1.16:1', 'R9801414', 0.8, 1.16, 'Short', 'Zoom', true, 60, 60, '{"zoom_ratio": 1.45, "UST_zoom": true}'),
 
 -- Standard and Long Throw Models
@@ -599,7 +600,7 @@ INSERT INTO lens_database (manufacturer, model, part_number, throw_ratio_min, th
 ('BenQ', 'UST 0.8:1', 'PX9210-UST', 0.8, 0.8, 'UST', 'Fixed', false, 50, 30, '{"PX9210_compatible": true}'),
 ('BenQ', 'UST 0.77:1', 'PU9220-UST', 0.77, 0.77, 'UST', 'Fixed', false, 50, 30, '{"PU9220_compatible": true}'),
 ('BenQ', 'Short Zoom 1.14-1.34:1', 'LS2ST1', 1.14, 1.34, 'Standard', 'Zoom', true, 60, 30, '{"zoom_ratio": 1.18}'),
-('BenQ', 'Standard 2.0-3.0:1', 'LS2ST1', 2.0, 3.0, 'Standard', 'Zoom', true, 60, 30, '{"zoom_ratio": 1.5}'),
+('BenQ', 'Standard 2.0-3.0:1', 'LS2ST2', 2.0, 3.0, 'Standard', 'Zoom', true, 60, 30, '{"zoom_ratio": 1.5}'),
 ('BenQ', 'Long Throw 3.11-5.18:1', 'LS2LT1', 3.11, 5.18, 'Long', 'Zoom', true, 60, 30, '{"zoom_ratio": 1.67}'),
 ('BenQ', 'Wide Zoom', 'LS2LS1', 1.2, 2.0, 'Standard', 'Zoom', true, 60, 30, '{"zoom_ratio": 1.67, "multiple_models": true}'),
 

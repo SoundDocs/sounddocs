@@ -1,4 +1,5 @@
 // Types for the Projection Lens Calculator
+import type { ScoringBreakdown } from "./lensScoring";
 
 export interface Projector {
   id: string;
@@ -92,7 +93,7 @@ export interface EnhancedCalculationResult {
     imageHeight: number;
     brightness: number;
     score: number;
-    scoringBreakdown?: any; // Will be ScoringBreakdown from lensScoring.ts
+    scoringBreakdown?: ScoringBreakdown;
     targetThrowRatio: number;
     zoomPosition: number;
     compatibility: "excellent" | "good" | "acceptable" | "poor" | "incompatible";
