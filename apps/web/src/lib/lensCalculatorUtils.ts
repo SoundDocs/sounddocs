@@ -220,7 +220,9 @@ export async function deleteLensCalculation(id: string): Promise<boolean> {
 
 // Foot-Lamberts calculation
 export function footLamberts(lumens: number, areaFt2: number, gain: number): number {
-  return (lumens * gain) / areaFt2;
+  // Guard against zero or negative area to prevent division by zero
+  const safeArea = Math.max(areaFt2, 0.1);
+  return (lumens * gain) / safeArea;
 }
 
 // Required lumens for target foot-Lamberts

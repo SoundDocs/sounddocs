@@ -654,6 +654,32 @@ function scoreBrightnessEnhanced(
   const screenAreaFt2 = context.screenData.width * context.screenData.height;
   const screenGain = context.screenData.gain || 1.0;
 
+  const warnings: string[] = [];
+  const recommendations: string[] = [];
+
+  // Add input validation before brightness calculation
+  if (screenAreaFt2 <= 0) {
+    warnings.push("Invalid screen dimensions (non-positive area) for brightness calculation");
+    return {
+      score: 0,
+      actualFL: 0,
+      adequacy: "insufficient",
+      warnings,
+      recommendations,
+    };
+  }
+
+  if (!context.projectorLumens || context.projectorLumens <= 0) {
+    warnings.push("Invalid projector lumens value");
+    return {
+      score: 0,
+      actualFL: 0,
+      adequacy: "insufficient",
+      warnings,
+      recommendations,
+    };
+  }
+
   // Industry-standard brightness calculation:
   // 1. Convert ANSI to center lumens (ANSI is typically 90% of center)
   const centerLumens = context.projectorLumens / 0.9;
@@ -661,8 +687,6 @@ function scoreBrightnessEnhanced(
   const actualFL = (centerLumens * screenGain) / screenAreaFt2;
 
   const { minimum, optimal, maximum } = profile.brightnessRange;
-  const warnings: string[] = [];
-  const recommendations: string[] = [];
 
   let score = 100;
   let adequacy = "optimal";

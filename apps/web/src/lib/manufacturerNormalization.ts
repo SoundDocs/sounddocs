@@ -241,7 +241,9 @@ function findBestFuzzyMatch(
 
       // Check for alias match
       if (input.includes(alias) || alias.includes(input)) {
-        const score = Math.max(input.length, alias.length) / Math.min(input.length, alias.length);
+        // Fix: Calculate proper overlap ratio bounded between [0,1]
+        const overlap = Math.min(input.length, alias.length);
+        const score = overlap / Math.max(input.length, alias.length);
         if (score > bestMatch.score) {
           bestMatch = { manufacturer: canonical, score, matchType: "alias" };
         }
@@ -308,7 +310,7 @@ export function normalizeManufacturer(input: string): {
 
   // Fuzzy matching with minimum threshold
   const bestMatch = findBestFuzzyMatch(normalized, MANUFACTURER_ALIASES);
-  if (bestMatch.score > 0.8) {
+  if (bestMatch.score > 0.8 && bestMatch.manufacturer) {
     return {
       canonical: bestMatch.manufacturer,
       confidence: bestMatch.score,

@@ -33,8 +33,20 @@ function calculateLensRecommendations({ lenses, screenData, projectorData, const
         const lens = lenses[i];
 
         try {
-          // Basic throw ratio compatibility check
-          const targetThrowRatio = constraints.targetDistance / screenData.width;
+          // Basic throw ratio compatibility check with input validation
+          const width = Number(screenData?.width);
+          const targetDistance = Number(constraints?.targetDistance);
+          if (
+            !Number.isFinite(width) ||
+            width <= 0 ||
+            !Number.isFinite(targetDistance) ||
+            targetDistance <= 0
+          ) {
+            throw new Error(
+              "Invalid input: screen width and target distance must be positive numbers",
+            );
+          }
+          const targetThrowRatio = targetDistance / width;
 
           if (
             targetThrowRatio >= lens.throw_ratio_min &&
@@ -122,9 +134,14 @@ function calculateBasicScore(lens, throwRatio, projectorData, screenData, useCas
   const throwRatioDeviation = Math.abs(throwRatio - throwRatioCenter) / throwRatioCenter;
   score -= throwRatioDeviation * 20;
 
-  // Brightness adequacy (simplified)
-  const screenArea = screenData.width * screenData.height;
-  const footLamberts = (projectorData.brightness * screenData.gain) / screenArea;
+  // Brightness adequacy (simplified) with comprehensive input validation
+  const width = Number(screenData.width) || 0;
+  const height = Number(screenData.height) || 0;
+  const gain = Number(screenData.gain);
+  const safeGain = Number.isFinite(gain) && gain > 0 ? gain : 1;
+  const screenArea = width * height;
+  const lumens = Number(projectorData.brightness) || 0;
+  const footLamberts = screenArea > 0 ? (lumens * safeGain) / screenArea : 0;
 
   const targetBrightness = getTargetBrightness(useCase);
   if (footLamberts < targetBrightness * 0.8) {

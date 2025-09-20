@@ -173,8 +173,14 @@ function calculateKeyStoneRequirements(
   mountingHeight: number,
   horizontalDistance: number,
 ): USTMountingResult["keyStoneCorrection"] {
-  const projectionAngle = Math.atan(mountingHeight / horizontalDistance) * (180 / Math.PI);
-  const maxCorrection = Math.abs(projectionAngle);
+  // Prevent division by zero and handle edge cases in angle calculation
+  const epsilon = 1e-6;
+  const ratio =
+    Math.abs(horizontalDistance) < epsilon
+      ? Number.POSITIVE_INFINITY
+      : mountingHeight / horizontalDistance;
+  const projectionAngle = Math.atan(Math.max(-1e6, Math.min(1e6, ratio))) * (180 / Math.PI);
+  const maxCorrection = Number.isFinite(projectionAngle) ? Math.abs(projectionAngle) : 90;
 
   let required = false;
   let qualityImpact: "none" | "minimal" | "moderate" | "significant" = "none";
