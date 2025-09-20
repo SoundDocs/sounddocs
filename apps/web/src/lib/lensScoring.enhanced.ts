@@ -573,9 +573,9 @@ export function scoreLensEnhanced(context: EnhancedScoringContext): EnhancedScor
 // ENHANCED SCORING COMPONENT FUNCTIONS
 // =============================================================================
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function scoreThrowRatioEnhanced(
   context: EnhancedScoringContext,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _profile: EnhancedScoringProfile,
 ): {
   score: number;
@@ -705,9 +705,9 @@ function scoreBrightnessEnhanced(
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function scoreLensShiftEnhanced(
   context: EnhancedScoringContext,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _profile: EnhancedScoringProfile,
 ): {
   score: number;

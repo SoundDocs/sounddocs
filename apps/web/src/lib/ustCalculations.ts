@@ -52,8 +52,6 @@ export function calculateUSTMounting(config: USTConfiguration): USTMountingResul
   let criticalTolerance = 2; // mm
   let barrelDistortion = 0;
 
-  const screenDiagonal = Math.sqrt(config.screenWidth ** 2 + config.screenHeight ** 2);
-
   switch (config.lensType) {
     case "zero_offset":
       // Projector optical center aligned with screen bottom
@@ -86,9 +84,8 @@ export function calculateUSTMounting(config: USTConfiguration): USTMountingResul
       restrictions.push("Limited upward adjustment capability");
       break;
 
-    case "mirror_based":
+    case "mirror_based": {
       // L-shaped optical path (some UST models)
-      const mirrorAngle = 45; // degrees
       const mirrorHeight = config.screenHeight * 0.3;
       mountingHeight = -mirrorHeight;
       horizontalDistance = config.screenWidth * 0.4;
@@ -103,6 +100,7 @@ export function calculateUSTMounting(config: USTConfiguration): USTMountingResul
       restrictions.push("Not field-serviceable");
       restrictions.push("Vibration sensitivity extremely high");
       break;
+    }
 
     case "standard_ust":
       // Standard UST with some shift capability
@@ -294,7 +292,8 @@ export function isSpecialUSTLens(lens: Lens): USTClassification {
 export function validateUSTCompatibility(
   lens: Lens,
   constraints: InstallationConstraints,
-  screenHeight: number,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _screenHeight: number,
 ): {
   compatible: boolean;
   confidence: number;
@@ -369,7 +368,8 @@ export function calculateOptimalUSTInstallation(
   lens: Lens,
   screenWidth: number,
   screenHeight: number,
-  constraints?: InstallationConstraints,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _constraints?: InstallationConstraints,
 ): {
   optimalDistance: number;
   mountingHeight: number;

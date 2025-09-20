@@ -295,7 +295,7 @@ export function normalizeManufacturer(input: string): {
   }
 
   // Check acquisition mappings
-  for (const [legacy, mapping] of Object.entries(ACQUISITION_MAPPINGS)) {
+  for (const [, mapping] of Object.entries(ACQUISITION_MAPPINGS)) {
     if (mapping.aliases.includes(normalized) || mapping.regionalVariations.includes(normalized)) {
       return {
         canonical: mapping.canonical,

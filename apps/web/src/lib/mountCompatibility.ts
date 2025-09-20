@@ -600,7 +600,16 @@ export function getMountInformation(mount: string): {
   limitations: string[];
   compatibleSeries: string[];
 } {
-  const mountInfo: Record<string, any> = {
+  const mountInfo: Record<
+    string,
+    {
+      family: string;
+      features: string[];
+      capabilities: string[];
+      limitations: string[];
+      compatibleSeries: string[];
+    }
+  > = {
     "TLD+": {
       family: "Barco TLD+",
       features: ["Motorized zoom/focus", "Lens memory", "Auto-calibration"],
@@ -648,8 +657,20 @@ export function validateMountCompatibilityDetailed(
 ): {
   compatibility: MountCompatibilityResult;
   mountInfo: {
-    projector: any;
-    lens: any;
+    projector: {
+      family: string;
+      features: string[];
+      capabilities: string[];
+      limitations: string[];
+      compatibleSeries: string[];
+    };
+    lens: {
+      family: string;
+      features: string[];
+      capabilities: string[];
+      limitations: string[];
+      compatibleSeries: string[];
+    };
   };
   recommendations: string[];
   alternativeOptions: string[];
