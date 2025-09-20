@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import LensCalculatorV2 from "../components/lens-calculator/LensCalculatorV2";
+import LensCalculatorV2Enhanced from "../components/lens-calculator/LensCalculatorV2Enhanced";
 import { ArrowLeftCircle, Loader } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -109,7 +109,7 @@ const LensCalculatorPage = () => {
           </p>
         </div>
 
-        <LensCalculatorV2 onSave={handleSave} />
+        <LensCalculatorV2Enhanced onSave={handleSave} />
       </main>
 
       <Footer />
