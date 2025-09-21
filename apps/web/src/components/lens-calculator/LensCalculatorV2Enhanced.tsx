@@ -118,6 +118,43 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
   const [vShiftInput, setVShiftInput] = useState("");
   const [hShiftInput, setHShiftInput] = useState("");
 
+  // Typing state tracking to prevent interference during input
+  const [isTypingWidth, setIsTypingWidth] = useState(false);
+  const [isTypingHeight, setIsTypingHeight] = useState(false);
+
+  // Simplified cross-field update functions with proper rounding
+  const updateHeightFromWidth = useCallback(
+    (widthInInches: number) => {
+      if (aspectRatioIndex < ASPECT_RATIOS.length - 1 && !isTypingHeight) {
+        const ratio = ASPECT_RATIOS[aspectRatioIndex];
+        if (ratio.width > 0 && ratio.height > 0) {
+          const newHeight = (widthInInches * ratio.height) / ratio.width;
+          setScreenHeight(newHeight);
+          // Round to 1 decimal place for display
+          const displayValue = convertFromInches(newHeight, screenUnit);
+          setScreenHeightInput(Math.round(displayValue * 10) / 10);
+        }
+      }
+    },
+    [aspectRatioIndex, screenUnit, isTypingHeight],
+  );
+
+  const updateWidthFromHeight = useCallback(
+    (heightInInches: number) => {
+      if (aspectRatioIndex < ASPECT_RATIOS.length - 1 && !isTypingWidth) {
+        const ratio = ASPECT_RATIOS[aspectRatioIndex];
+        if (ratio.width > 0 && ratio.height > 0) {
+          const newWidth = (heightInInches * ratio.width) / ratio.height;
+          setScreenWidth(newWidth);
+          // Round to 1 decimal place for display
+          const displayValue = convertFromInches(newWidth, screenUnit);
+          setScreenWidthInput(Math.round(displayValue * 10) / 10);
+        }
+      }
+    },
+    [aspectRatioIndex, screenUnit, isTypingWidth],
+  );
+
   // Enhanced installation constraints
   const [projectorDistance, setProjectorDistance] = useState(25);
   const [distanceTolerance, setDistanceTolerance] = useState(10); // ±10%
@@ -141,18 +178,25 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
   >("projector");
 
   // Sync string inputs with numeric values on initialization and unit changes
+  // Only update inputs when not actively typing to prevent interference
   useEffect(() => {
-    setScreenWidthInput(
-      screenWidth === 0
-        ? ""
-        : convertFromInches(screenWidth, screenUnit).toFixed(screenUnit === "mm" ? 0 : 1),
-    );
-    setScreenHeightInput(
-      screenHeight === 0
-        ? ""
-        : convertFromInches(screenHeight, screenUnit).toFixed(screenUnit === "mm" ? 0 : 1),
-    );
-  }, [screenUnit]);
+    if (!isTypingWidth) {
+      if (screenWidth === 0) {
+        setScreenWidthInput("");
+      } else {
+        const displayValue = convertFromInches(screenWidth, screenUnit);
+        setScreenWidthInput(Math.round(displayValue * 10) / 10);
+      }
+    }
+    if (!isTypingHeight) {
+      if (screenHeight === 0) {
+        setScreenHeightInput("");
+      } else {
+        const displayValue = convertFromInches(screenHeight, screenUnit);
+        setScreenHeightInput(Math.round(displayValue * 10) / 10);
+      }
+    }
+  }, [screenUnit, screenWidth, screenHeight, isTypingWidth, isTypingHeight]);
 
   useEffect(() => {
     setProjectorDistanceInput(projectorDistance === 0 ? "" : projectorDistance.toString());
@@ -173,19 +217,6 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
   useEffect(() => {
     setHShiftInput(requiredHShift === 0 ? "" : requiredHShift.toString());
   }, [requiredHShift]);
-
-  // Initialize string inputs on mount
-  useEffect(() => {
-    setScreenWidthInput(
-      convertFromInches(screenWidth, screenUnit).toFixed(screenUnit === "mm" ? 0 : 1),
-    );
-    setScreenHeightInput(
-      convertFromInches(screenHeight, screenUnit).toFixed(screenUnit === "mm" ? 0 : 1),
-    );
-    setProjectorDistanceInput(projectorDistance.toString());
-    setDistanceToleranceInput(distanceTolerance.toString());
-    setScreenGainInput(screenGain.toString());
-  }, []);
 
   // Auto-save calculation state to localStorage for professional workflow
   useEffect(() => {
@@ -1116,16 +1147,10 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                     );
                     setScreenWidth(Math.round(width));
                     setScreenHeight(Math.round(height));
-                    setScreenWidthInput(
-                      convertFromInches(Math.round(width), screenUnit).toFixed(
-                        screenUnit === "mm" ? 0 : 1,
-                      ),
-                    );
-                    setScreenHeightInput(
-                      convertFromInches(Math.round(height), screenUnit).toFixed(
-                        screenUnit === "mm" ? 0 : 1,
-                      ),
-                    );
+                    const widthDisplay = convertFromInches(Math.round(width), screenUnit);
+                    const heightDisplay = convertFromInches(Math.round(height), screenUnit);
+                    setScreenWidthInput(Math.round(widthDisplay * 10) / 10);
+                    setScreenHeightInput(Math.round(heightDisplay * 10) / 10);
                   }
                 }}
                 className="w-full px-3 py-2 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -1154,16 +1179,10 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                         );
                         setScreenWidth(Math.round(width));
                         setScreenHeight(Math.round(height));
-                        setScreenWidthInput(
-                          convertFromInches(Math.round(width), screenUnit).toFixed(
-                            screenUnit === "mm" ? 0 : 1,
-                          ),
-                        );
-                        setScreenHeightInput(
-                          convertFromInches(Math.round(height), screenUnit).toFixed(
-                            screenUnit === "mm" ? 0 : 1,
-                          ),
-                        );
+                        const widthDisplay = convertFromInches(Math.round(width), screenUnit);
+                        const heightDisplay = convertFromInches(Math.round(height), screenUnit);
+                        setScreenWidthInput(Math.round(widthDisplay * 10) / 10);
+                        setScreenHeightInput(Math.round(heightDisplay * 10) / 10);
                       }
                     } else if (preset.width) {
                       setScreenWidth(preset.width);
@@ -1171,16 +1190,10 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                       if (ratio.width > 0 && ratio.height > 0) {
                         const newHeight = Math.round((preset.width * ratio.height) / ratio.width);
                         setScreenHeight(newHeight);
-                        setScreenWidthInput(
-                          convertFromInches(preset.width, screenUnit).toFixed(
-                            screenUnit === "mm" ? 0 : 1,
-                          ),
-                        );
-                        setScreenHeightInput(
-                          convertFromInches(newHeight, screenUnit).toFixed(
-                            screenUnit === "mm" ? 0 : 1,
-                          ),
-                        );
+                        const widthDisplay = convertFromInches(preset.width, screenUnit);
+                        const heightDisplay = convertFromInches(newHeight, screenUnit);
+                        setScreenWidthInput(Math.round(widthDisplay * 10) / 10);
+                        setScreenHeightInput(Math.round(heightDisplay * 10) / 10);
                       }
                     }
                   }
@@ -1237,6 +1250,14 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                 type="number"
                 step={screenUnit === "mm" ? "1" : "0.1"}
                 value={screenWidthInput}
+                onFocus={() => setIsTypingWidth(true)}
+                onBlur={() => {
+                  setIsTypingWidth(false);
+                  // Update height field after finishing typing width
+                  if (screenWidth > 0) {
+                    updateHeightFromWidth(screenWidth);
+                  }
+                }}
                 onChange={(e) => {
                   const value = e.target.value;
                   setScreenWidthInput(value);
@@ -1250,18 +1271,7 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                   if (!isNaN(numValue) && numValue >= 0) {
                     const valueInInches = convertToInches(numValue, screenUnit);
                     setScreenWidth(valueInInches);
-                    if (aspectRatioIndex < ASPECT_RATIOS.length - 1) {
-                      const ratio = ASPECT_RATIOS[aspectRatioIndex];
-                      if (ratio.width > 0 && ratio.height > 0) {
-                        const newHeight = (valueInInches * ratio.height) / ratio.width;
-                        setScreenHeight(newHeight);
-                        setScreenHeightInput(
-                          convertFromInches(newHeight, screenUnit).toFixed(
-                            screenUnit === "mm" ? 0 : 1,
-                          ),
-                        );
-                      }
-                    }
+                    // Don't update height input immediately while typing
                   }
                 }}
                 placeholder="Enter width"
@@ -1278,6 +1288,14 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                 type="number"
                 step={screenUnit === "mm" ? "1" : "0.1"}
                 value={screenHeightInput}
+                onFocus={() => setIsTypingHeight(true)}
+                onBlur={() => {
+                  setIsTypingHeight(false);
+                  // Update width field after finishing typing height
+                  if (screenHeight > 0) {
+                    updateWidthFromHeight(screenHeight);
+                  }
+                }}
                 onChange={(e) => {
                   const value = e.target.value;
                   setScreenHeightInput(value);
@@ -1291,18 +1309,7 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                   if (!isNaN(numValue) && numValue >= 0) {
                     const valueInInches = convertToInches(numValue, screenUnit);
                     setScreenHeight(valueInInches);
-                    if (aspectRatioIndex < ASPECT_RATIOS.length - 1) {
-                      const ratio = ASPECT_RATIOS[aspectRatioIndex];
-                      if (ratio.width > 0 && ratio.height > 0) {
-                        const newWidth = (valueInInches * ratio.width) / ratio.height;
-                        setScreenWidth(newWidth);
-                        setScreenWidthInput(
-                          convertFromInches(newWidth, screenUnit).toFixed(
-                            screenUnit === "mm" ? 0 : 1,
-                          ),
-                        );
-                      }
-                    }
+                    // Don't update width input immediately while typing
                   }
                 }}
                 placeholder="Enter height"
