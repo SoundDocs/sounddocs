@@ -131,48 +131,6 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
     "projector" | "screen" | "constraints" | "results"
   >("projector");
 
-  // Professional keyboard shortcuts
-  useEffect(() => {
-    const handleKeyboard = (e: KeyboardEvent) => {
-      // Skip if user is typing in an input field
-      if (
-        (e.target as HTMLElement)?.tagName === "INPUT" ||
-        (e.target as HTMLElement)?.tagName === "SELECT"
-      ) {
-        return;
-      }
-
-      if (e.ctrlKey || e.metaKey) {
-        switch (e.key) {
-          case "1":
-            e.preventDefault();
-            setActiveSection("projector");
-            break;
-          case "2":
-            e.preventDefault();
-            setActiveSection("screen");
-            break;
-          case "3":
-            e.preventDefault();
-            setActiveSection("constraints");
-            break;
-          case "4":
-            e.preventDefault();
-            setActiveSection("results");
-            break;
-          case "k":
-            e.preventDefault();
-            // Focus search input
-            document.querySelector('input[placeholder*="Search projectors"]')?.focus();
-            break;
-        }
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyboard);
-    return () => document.removeEventListener("keydown", handleKeyboard);
-  }, []);
-
   // Auto-save calculation state to localStorage for professional workflow
   useEffect(() => {
     if (selectedProjector && screenWidth && screenHeight && projectorDistance) {
@@ -239,7 +197,7 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
 
   // Enhanced projector filtering with manufacturer normalization
   const filteredProjectors = useMemo(() => {
-    if (!projectorSearch) return projectors;
+    if (!projectorSearch) return [];
     const search = projectorSearch.toLowerCase().trim();
     const searchTerms = search.split(/\s+/);
 
@@ -593,7 +551,7 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
 
   // Enhanced error display component
   const ErrorDisplay: React.FC<{ error: CalculationError }> = ({ error }) => (
-    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-4">
+    <div className="bg-gray-700 border border-red-500/30 rounded-lg p-4 mb-4">
       <div className="flex items-start gap-3">
         <AlertTriangle className="h-5 w-5 text-red-400 mt-0.5 flex-shrink-0" />
         <div className="flex-1">
@@ -665,10 +623,8 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
 
     return (
       <div
-        className={`bg-gray-700 rounded-lg p-4 sm:p-6 border-2 transition-all duration-200 hover:shadow-lg ${
-          index === 0
-            ? "border-indigo-500 bg-gradient-to-br from-gray-700 to-gray-800 shadow-lg"
-            : "border-transparent hover:border-gray-600"
+        className={`bg-gray-700 rounded-lg p-4 sm:p-6 border transition-all duration-200 hover:shadow-lg ${
+          index === 0 ? "border-indigo-500 shadow-md" : "border-gray-600 hover:border-gray-500"
         }`}
       >
         <div className="flex items-start justify-between mb-3">
@@ -959,7 +915,7 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
           className={`flex-1 px-3 py-2 text-sm font-medium rounded transition-colors ${
             activeSection === section
               ? "bg-indigo-600 text-white"
-              : "text-gray-400 hover:text-white"
+              : "text-gray-300 hover:text-white hover:bg-gray-700"
           }`}
         >
           {section.charAt(0).toUpperCase() + section.slice(1)}
@@ -969,26 +925,23 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
   );
 
   return (
-    <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-2xl border border-gray-700">
-      {/* Professional Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-t-xl p-4 sm:p-6">
+    <div className="bg-gray-800 rounded-xl shadow-lg border border-gray-700">
+      {/* Header */}
+      <div className="bg-gray-800 border-b border-gray-700 rounded-t-xl p-4 sm:p-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">
               Professional Lens Calculator
             </h1>
-            <p className="text-indigo-100 text-sm opacity-90">
+            <p className="text-gray-300 text-sm">
               Precision lens selection for professional AV installations
             </p>
           </div>
           <div className="hidden sm:flex items-center space-x-2">
-            <div className="bg-white/10 rounded-lg px-3 py-2">
-              <div className="text-white text-xs font-medium">
+            <div className="bg-gray-700 rounded-lg px-3 py-2">
+              <div className="text-gray-300 text-xs font-medium">
                 {recommendations.length > 0 ? `${recommendations.length} Compatible` : "Ready"}
               </div>
-            </div>
-            <div className="bg-white/5 rounded-lg px-2 py-1 text-xs text-indigo-100/70">
-              <span className="font-mono">Ctrl+K</span> to search
             </div>
           </div>
         </div>
@@ -1034,7 +987,7 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                   className={`p-3 rounded-lg text-left transition-all ${
                     selectedProjector?.id === projector.id
                       ? "bg-indigo-600 text-white"
-                      : "bg-gray-700 text-gray-300 hover:bg-gray-650"
+                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                   }`}
                 >
                   <div className="font-medium">{projector.model}</div>
@@ -1044,7 +997,7 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                     <span>{projector.brightness_ansi} lumens</span>
                     {projector.specifications?.year &&
                       parseInt(projector.specifications.year as string) >= 2024 && (
-                        <span className="px-1 py-0.5 bg-green-500/20 text-green-400 text-xs rounded">
+                        <span className="px-1 py-0.5 bg-indigo-500/20 text-indigo-400 text-xs rounded">
                           2024+
                         </span>
                       )}
@@ -1055,7 +1008,7 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
           )}
 
           {selectedProjector && (
-            <div className="mt-4 p-4 bg-indigo-600/20 border border-indigo-600/30 rounded-lg">
+            <div className="mt-4 p-4 bg-gray-700 border border-indigo-500/30 rounded-lg">
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-white font-medium">
@@ -1671,7 +1624,7 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
         )}
 
         {isCalculating ? (
-          <div className="flex flex-col items-center justify-center py-16 bg-gray-700/30 rounded-lg">
+          <div className="flex flex-col items-center justify-center py-16 bg-gray-700/50 rounded-lg">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-500 mb-4"></div>
             <div className="text-white text-lg font-medium mb-2">Analyzing Lens Compatibility</div>
             <div className="text-gray-400 text-sm mb-1">
@@ -1680,7 +1633,7 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
             <div className="text-gray-500 text-xs">This ensures accurate professional results</div>
           </div>
         ) : recommendations.length === 0 && !calculationError ? (
-          <div className="text-center py-12 bg-gray-700/50 rounded-lg">
+          <div className="text-center py-12 bg-gray-700 rounded-lg">
             <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-3" />
             <p className="text-gray-300">
               {selectedProjector
@@ -1692,10 +1645,10 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
           <div className="space-y-4">
             {/* Results Summary */}
             {recommendations.length > 0 && (
-              <div className="bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20 rounded-lg p-4 mb-6">
+              <div className="bg-gray-700/50 border border-indigo-500/30 rounded-lg p-4 mb-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-green-400 font-medium mb-1">
+                    <h3 className="text-indigo-400 font-medium mb-1">
                       {recommendations.length} Compatible Lens
                       {recommendations.length > 1 ? "es" : ""} Found
                     </h3>
@@ -1735,23 +1688,10 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
         )}
       </div>
 
-      {/* Professional Footer */}
-      <div className="border-t border-gray-700 px-4 md:px-6 py-3 bg-gray-800/50">
+      {/* Footer */}
+      <div className="border-t border-gray-700 px-4 md:px-6 py-3 bg-gray-800">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-gray-400">
           <div>Professional lens calculator for AV installations • v2.0</div>
-          <div className="flex items-center gap-4">
-            <span className="hidden md:inline">Keyboard shortcuts:</span>
-            <div className="flex gap-2">
-              <span className="bg-gray-700 px-1.5 py-0.5 rounded font-mono text-gray-300">
-                Ctrl+1-4
-              </span>
-              <span>Sections</span>
-              <span className="bg-gray-700 px-1.5 py-0.5 rounded font-mono text-gray-300 ml-2">
-                Ctrl+K
-              </span>
-              <span>Search</span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
