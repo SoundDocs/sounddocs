@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.6.5] - 2025-09-19
+
+### Added
+
+- **Lens Calculator**: Added a comprehensive lens throw calculator tool for projection and event planning
+  - Calculate image sizes and throw distances for various projector lens configurations
+  - Support for standard and ultra-wide aspect ratios (16:9, 16:10, 4:3, 21:9)
+  - Preset lens configurations for common projector types
+  - Interactive visual diagram showing projector positioning relative to screen
+  - Professional-grade calculations for accurate event setup planning
+
 ## [1.5.6.4] - 2025-09-17
 
 ### Changed
