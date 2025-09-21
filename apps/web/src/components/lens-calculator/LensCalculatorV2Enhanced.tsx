@@ -109,6 +109,52 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
   const [screenGain, setScreenGain] = useState(1.0);
   const [aspectRatioIndex, setAspectRatioIndex] = useState(0);
 
+  // String inputs for better UX
+  const [screenWidthInput, setScreenWidthInput] = useState("");
+  const [screenHeightInput, setScreenHeightInput] = useState("");
+  const [projectorDistanceInput, setProjectorDistanceInput] = useState("");
+  const [distanceToleranceInput, setDistanceToleranceInput] = useState("");
+  const [screenGainInput, setScreenGainInput] = useState("");
+  const [vShiftInput, setVShiftInput] = useState("");
+  const [hShiftInput, setHShiftInput] = useState("");
+
+  // Typing state tracking to prevent interference during input
+  const [isTypingWidth, setIsTypingWidth] = useState(false);
+  const [isTypingHeight, setIsTypingHeight] = useState(false);
+
+  // Simplified cross-field update functions with proper rounding
+  const updateHeightFromWidth = useCallback(
+    (widthInInches: number) => {
+      if (aspectRatioIndex < ASPECT_RATIOS.length - 1 && !isTypingHeight) {
+        const ratio = ASPECT_RATIOS[aspectRatioIndex];
+        if (ratio.width > 0 && ratio.height > 0) {
+          const newHeight = (widthInInches * ratio.height) / ratio.width;
+          setScreenHeight(newHeight);
+          // Round to 1 decimal place for display
+          const displayValue = convertFromInches(newHeight, screenUnit);
+          setScreenHeightInput(Math.round(displayValue * 10) / 10);
+        }
+      }
+    },
+    [aspectRatioIndex, screenUnit, isTypingHeight],
+  );
+
+  const updateWidthFromHeight = useCallback(
+    (heightInInches: number) => {
+      if (aspectRatioIndex < ASPECT_RATIOS.length - 1 && !isTypingWidth) {
+        const ratio = ASPECT_RATIOS[aspectRatioIndex];
+        if (ratio.width > 0 && ratio.height > 0) {
+          const newWidth = (heightInInches * ratio.width) / ratio.height;
+          setScreenWidth(newWidth);
+          // Round to 1 decimal place for display
+          const displayValue = convertFromInches(newWidth, screenUnit);
+          setScreenWidthInput(Math.round(displayValue * 10) / 10);
+        }
+      }
+    },
+    [aspectRatioIndex, screenUnit, isTypingWidth],
+  );
+
   // Enhanced installation constraints
   const [projectorDistance, setProjectorDistance] = useState(25);
   const [distanceTolerance, setDistanceTolerance] = useState(10); // ±10%
@@ -130,6 +176,47 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
   const [activeSection, setActiveSection] = useState<
     "projector" | "screen" | "constraints" | "results"
   >("projector");
+
+  // Sync string inputs with numeric values on initialization and unit changes
+  // Only update inputs when not actively typing to prevent interference
+  useEffect(() => {
+    if (!isTypingWidth) {
+      if (screenWidth === 0) {
+        setScreenWidthInput("");
+      } else {
+        const displayValue = convertFromInches(screenWidth, screenUnit);
+        setScreenWidthInput(Math.round(displayValue * 10) / 10);
+      }
+    }
+    if (!isTypingHeight) {
+      if (screenHeight === 0) {
+        setScreenHeightInput("");
+      } else {
+        const displayValue = convertFromInches(screenHeight, screenUnit);
+        setScreenHeightInput(Math.round(displayValue * 10) / 10);
+      }
+    }
+  }, [screenUnit, screenWidth, screenHeight, isTypingWidth, isTypingHeight]);
+
+  useEffect(() => {
+    setProjectorDistanceInput(projectorDistance === 0 ? "" : projectorDistance.toString());
+  }, [projectorDistance]);
+
+  useEffect(() => {
+    setDistanceToleranceInput(distanceTolerance === 0 ? "" : distanceTolerance.toString());
+  }, [distanceTolerance]);
+
+  useEffect(() => {
+    setScreenGainInput(screenGain.toString());
+  }, [screenGain]);
+
+  useEffect(() => {
+    setVShiftInput(requiredVShift === 0 ? "" : requiredVShift.toString());
+  }, [requiredVShift]);
+
+  useEffect(() => {
+    setHShiftInput(requiredHShift === 0 ? "" : requiredHShift.toString());
+  }, [requiredHShift]);
 
   // Auto-save calculation state to localStorage for professional workflow
   useEffect(() => {
@@ -1060,6 +1147,10 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                     );
                     setScreenWidth(Math.round(width));
                     setScreenHeight(Math.round(height));
+                    const widthDisplay = convertFromInches(Math.round(width), screenUnit);
+                    const heightDisplay = convertFromInches(Math.round(height), screenUnit);
+                    setScreenWidthInput(Math.round(widthDisplay * 10) / 10);
+                    setScreenHeightInput(Math.round(heightDisplay * 10) / 10);
                   }
                 }}
                 className="w-full px-3 py-2 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -1088,12 +1179,21 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                         );
                         setScreenWidth(Math.round(width));
                         setScreenHeight(Math.round(height));
+                        const widthDisplay = convertFromInches(Math.round(width), screenUnit);
+                        const heightDisplay = convertFromInches(Math.round(height), screenUnit);
+                        setScreenWidthInput(Math.round(widthDisplay * 10) / 10);
+                        setScreenHeightInput(Math.round(heightDisplay * 10) / 10);
                       }
                     } else if (preset.width) {
                       setScreenWidth(preset.width);
                       const ratio = ASPECT_RATIOS[aspectRatioIndex];
                       if (ratio.width > 0 && ratio.height > 0) {
-                        setScreenHeight(Math.round((preset.width * ratio.height) / ratio.width));
+                        const newHeight = Math.round((preset.width * ratio.height) / ratio.width);
+                        setScreenHeight(newHeight);
+                        const widthDisplay = convertFromInches(preset.width, screenUnit);
+                        const heightDisplay = convertFromInches(newHeight, screenUnit);
+                        setScreenWidthInput(Math.round(widthDisplay * 10) / 10);
+                        setScreenHeightInput(Math.round(heightDisplay * 10) / 10);
                       }
                     }
                   }
@@ -1149,43 +1249,29 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
               <input
                 type="number"
                 step={screenUnit === "mm" ? "1" : "0.1"}
-                value={
-                  screenWidth === 0
-                    ? ""
-                    : convertFromInches(screenWidth, screenUnit).toFixed(
-                        screenUnit === "mm" ? 0 : 1,
-                      )
-                }
+                value={screenWidthInput}
+                onFocus={() => setIsTypingWidth(true)}
+                onBlur={() => {
+                  setIsTypingWidth(false);
+                  // Update height field after finishing typing width
+                  if (screenWidth > 0) {
+                    updateHeightFromWidth(screenWidth);
+                  }
+                }}
                 onChange={(e) => {
-                  const value = e.target.value.trim();
-                  if (value === "" || value === "0") {
+                  const value = e.target.value;
+                  setScreenWidthInput(value);
+
+                  if (value === "") {
                     setScreenWidth(0);
                     return;
                   }
+
                   const numValue = parseFloat(value);
                   if (!isNaN(numValue) && numValue >= 0) {
                     const valueInInches = convertToInches(numValue, screenUnit);
                     setScreenWidth(valueInInches);
-                    if (aspectRatioIndex < ASPECT_RATIOS.length - 1) {
-                      const ratio = ASPECT_RATIOS[aspectRatioIndex];
-                      if (ratio.width > 0 && ratio.height > 0) {
-                        const newHeight = (valueInInches * ratio.height) / ratio.width;
-                        setScreenHeight(newHeight);
-                      }
-                    }
-                  }
-                }}
-                onKeyDown={(e) => {
-                  // Allow backspace, delete, tab, escape, enter, and arrow keys
-                  if (
-                    [8, 9, 27, 13, 37, 38, 39, 40, 46].includes(e.keyCode) ||
-                    // Allow Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-                    (e.keyCode === 65 && e.ctrlKey) ||
-                    (e.keyCode === 67 && e.ctrlKey) ||
-                    (e.keyCode === 86 && e.ctrlKey) ||
-                    (e.keyCode === 88 && e.ctrlKey)
-                  ) {
-                    return;
+                    // Don't update height input immediately while typing
                   }
                 }}
                 placeholder="Enter width"
@@ -1201,43 +1287,29 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
               <input
                 type="number"
                 step={screenUnit === "mm" ? "1" : "0.1"}
-                value={
-                  screenHeight === 0
-                    ? ""
-                    : convertFromInches(screenHeight, screenUnit).toFixed(
-                        screenUnit === "mm" ? 0 : 1,
-                      )
-                }
+                value={screenHeightInput}
+                onFocus={() => setIsTypingHeight(true)}
+                onBlur={() => {
+                  setIsTypingHeight(false);
+                  // Update width field after finishing typing height
+                  if (screenHeight > 0) {
+                    updateWidthFromHeight(screenHeight);
+                  }
+                }}
                 onChange={(e) => {
-                  const value = e.target.value.trim();
-                  if (value === "" || value === "0") {
+                  const value = e.target.value;
+                  setScreenHeightInput(value);
+
+                  if (value === "") {
                     setScreenHeight(0);
                     return;
                   }
+
                   const numValue = parseFloat(value);
                   if (!isNaN(numValue) && numValue >= 0) {
                     const valueInInches = convertToInches(numValue, screenUnit);
                     setScreenHeight(valueInInches);
-                    if (aspectRatioIndex < ASPECT_RATIOS.length - 1) {
-                      const ratio = ASPECT_RATIOS[aspectRatioIndex];
-                      if (ratio.width > 0 && ratio.height > 0) {
-                        const newWidth = (valueInInches * ratio.width) / ratio.height;
-                        setScreenWidth(newWidth);
-                      }
-                    }
-                  }
-                }}
-                onKeyDown={(e) => {
-                  // Allow backspace, delete, tab, escape, enter, and arrow keys
-                  if (
-                    [8, 9, 27, 13, 37, 38, 39, 40, 46].includes(e.keyCode) ||
-                    // Allow Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-                    (e.keyCode === 65 && e.ctrlKey) ||
-                    (e.keyCode === 67 && e.ctrlKey) ||
-                    (e.keyCode === 86 && e.ctrlKey) ||
-                    (e.keyCode === 88 && e.ctrlKey)
-                  ) {
-                    return;
+                    // Don't update width input immediately while typing
                   }
                 }}
                 placeholder="Enter height"
@@ -1252,8 +1324,21 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                 min="0.1"
                 max="10"
                 step="0.1"
-                value={screenGain}
-                onChange={(e) => setScreenGain(parseFloat(e.target.value) || 1.0)}
+                value={screenGainInput}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setScreenGainInput(value);
+
+                  if (value === "") {
+                    setScreenGain(1.0);
+                    return;
+                  }
+
+                  const numValue = parseFloat(value);
+                  if (!isNaN(numValue) && numValue >= 0.1 && numValue <= 10) {
+                    setScreenGain(numValue);
+                  }
+                }}
                 className="w-full px-3 py-2 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
@@ -1303,29 +1388,19 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                 min="1"
                 max="200"
                 step="0.1"
-                value={projectorDistance || ""}
+                value={projectorDistanceInput}
                 onChange={(e) => {
-                  const value = e.target.value.trim();
+                  const value = e.target.value;
+                  setProjectorDistanceInput(value);
+
                   if (value === "") {
                     setProjectorDistance(0);
                     return;
                   }
+
                   const numValue = parseFloat(value);
                   if (!isNaN(numValue) && numValue >= 0) {
                     setProjectorDistance(numValue);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  // Allow backspace, delete, tab, escape, enter, and arrow keys
-                  if (
-                    [8, 9, 27, 13, 37, 38, 39, 40, 46].includes(e.keyCode) ||
-                    // Allow Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-                    (e.keyCode === 65 && e.ctrlKey) ||
-                    (e.keyCode === 67 && e.ctrlKey) ||
-                    (e.keyCode === 86 && e.ctrlKey) ||
-                    (e.keyCode === 88 && e.ctrlKey)
-                  ) {
-                    return;
                   }
                 }}
                 placeholder="Enter distance"
@@ -1342,29 +1417,19 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                 min="0"
                 max="50"
                 step="1"
-                value={distanceTolerance || ""}
+                value={distanceToleranceInput}
                 onChange={(e) => {
-                  const value = e.target.value.trim();
+                  const value = e.target.value;
+                  setDistanceToleranceInput(value);
+
                   if (value === "") {
                     setDistanceTolerance(0);
                     return;
                   }
+
                   const numValue = parseInt(value);
                   if (!isNaN(numValue) && numValue >= 0) {
                     setDistanceTolerance(numValue);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  // Allow backspace, delete, tab, escape, enter, and arrow keys
-                  if (
-                    [8, 9, 27, 13, 37, 38, 39, 40, 46].includes(e.keyCode) ||
-                    // Allow Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-                    (e.keyCode === 65 && e.ctrlKey) ||
-                    (e.keyCode === 67 && e.ctrlKey) ||
-                    (e.keyCode === 86 && e.ctrlKey) ||
-                    (e.keyCode === 88 && e.ctrlKey)
-                  ) {
-                    return;
                   }
                 }}
                 placeholder="0"
@@ -1407,31 +1472,19 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                 min="-100"
                 max="100"
                 step="1"
-                value={requiredVShift || ""}
+                value={vShiftInput}
                 onChange={(e) => {
-                  const value = e.target.value.trim();
+                  const value = e.target.value;
+                  setVShiftInput(value);
+
                   if (value === "") {
                     setRequiredVShift(0);
                     return;
                   }
+
                   const numValue = parseInt(value);
                   if (!isNaN(numValue)) {
                     setRequiredVShift(numValue);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  // Allow backspace, delete, tab, escape, enter, and arrow keys
-                  if (
-                    [8, 9, 27, 13, 37, 38, 39, 40, 46].includes(e.keyCode) ||
-                    // Allow Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X, minus sign
-                    (e.keyCode === 65 && e.ctrlKey) ||
-                    (e.keyCode === 67 && e.ctrlKey) ||
-                    (e.keyCode === 86 && e.ctrlKey) ||
-                    (e.keyCode === 88 && e.ctrlKey) ||
-                    e.keyCode === 189 ||
-                    e.keyCode === 109
-                  ) {
-                    return;
                   }
                 }}
                 placeholder="0"
@@ -1448,31 +1501,19 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                 min="-100"
                 max="100"
                 step="1"
-                value={requiredHShift || ""}
+                value={hShiftInput}
                 onChange={(e) => {
-                  const value = e.target.value.trim();
+                  const value = e.target.value;
+                  setHShiftInput(value);
+
                   if (value === "") {
                     setRequiredHShift(0);
                     return;
                   }
+
                   const numValue = parseInt(value);
                   if (!isNaN(numValue)) {
                     setRequiredHShift(numValue);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  // Allow backspace, delete, tab, escape, enter, and arrow keys
-                  if (
-                    [8, 9, 27, 13, 37, 38, 39, 40, 46].includes(e.keyCode) ||
-                    // Allow Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X, minus sign
-                    (e.keyCode === 65 && e.ctrlKey) ||
-                    (e.keyCode === 67 && e.ctrlKey) ||
-                    (e.keyCode === 86 && e.ctrlKey) ||
-                    (e.keyCode === 88 && e.ctrlKey) ||
-                    e.keyCode === 189 ||
-                    e.keyCode === 109
-                  ) {
-                    return;
                   }
                 }}
                 placeholder="0"
