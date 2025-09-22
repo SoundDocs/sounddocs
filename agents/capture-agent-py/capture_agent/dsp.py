@@ -12,6 +12,7 @@ from functools import wraps
 import weakref
 import gc
 import time
+from typing import Dict, Tuple, Optional, Any, TypedDict, Union
 try:
     import psutil
     import os
@@ -20,7 +21,7 @@ except ImportError:
     _MEMORY_MONITORING_AVAILABLE = False
 from .schema import CaptureConfig, TFData, SPLData
 
-_windows = OrderedDict()
+_windows: OrderedDict[Tuple[str, int], np.ndarray] = OrderedDict()
 _MAX_WINDOWS = 16  # Reduced cap for better memory control
 
 def get_window(name, N):
@@ -82,16 +83,16 @@ def clear_dsp_caches():
     log_memory_usage()
 
 # Fix 2: Memory-aware cache for DSP work arrays
-_work_arrays = {}
-_work_array_access_times = {}
-_work_array_memory_sizes = {}  # Track memory usage per array
+_work_arrays: Dict[Tuple[str, Tuple[int, ...], Any], np.ndarray] = {}
+_work_array_access_times: Dict[Tuple[str, Tuple[int, ...], Any], float] = {}
+_work_array_memory_sizes: Dict[Tuple[str, Tuple[int, ...], Any], int] = {}  # Track memory usage per array
 MAX_WORK_ARRAYS = 16
 MAX_WORK_ARRAY_MEMORY = 100 * 1024 * 1024  # 100MB limit for work array cache
 _cleanup_counter = 0
 CLEANUP_INTERVAL = 100  # Every 100 frames
 
 # Fix 3: FFT plan lifecycle management with memory threshold
-_fft_plans = {}
+_fft_plans: Dict[Tuple[int, str, Any], Tuple[Any, np.ndarray, np.ndarray, float]] = {}
 MAX_FFT_PLANS = 8
 MAX_FFT_PLAN_MEMORY = 50 * 1024 * 1024  # 50MB limit for FFT plans
 _fft_plan_cleanup_counter = 0
@@ -239,9 +240,10 @@ def get_fft_plan(n: int, direction: str = 'forward', dtype=np.float64):
             old_plan = _fft_plans.pop(oldest_key, None)
             if old_plan:
                 # Properly clean up old plan
-                del old_plan[0]  # plan
-                del old_plan[1]  # in_arr
-                del old_plan[2]  # out_arr
+                plan, in_arr, out_arr, _ = old_plan
+                del plan
+                del in_arr
+                del out_arr
 
         if direction == 'forward':
             in_arr = pyfftw.empty_aligned(n, dtype=dtype)
@@ -258,7 +260,7 @@ def get_fft_plan(n: int, direction: str = 'forward', dtype=np.float64):
     _fft_plans[plan_key] = (plan, in_arr, out_arr, time.time())
     return plan, in_arr, out_arr
 
-def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: float | None = None) -> float:
+def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: Union[int, float], max_ms: Optional[float] = None) -> float:
     """
     Linear (zero-padded) GCC-PHAT delay. Positive => meas lags ref by +delay.
     """
@@ -280,16 +282,16 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
     X = get_work_array('fft_X', (fft_size,), dtype=np.complex128)
     Y = get_work_array('fft_Y', (fft_size,), dtype=np.complex128)
 
+    # Ensure inputs match planned length N (zero-pad or truncate)
+    xN = get_work_array('xN', (N,), dtype=x.dtype)
+    yN = get_work_array('yN', (N,), dtype=y.dtype)
+    xN.fill(0); yN.fill(0)
+    ncopy = min(len(x), N)
+    xN[:ncopy] = x[:ncopy]
+    yN[:ncopy] = y[:ncopy]
+
     # Use pyFFTW for optimal performance with preallocated arrays
     if _PYFFTW_AVAILABLE:
-        # Ensure inputs match planned length N (zero-pad or truncate)
-        xN = get_work_array('xN', (N,), dtype=x.dtype)
-        yN = get_work_array('yN', (N,), dtype=y.dtype)
-        xN.fill(0); yN.fill(0)
-        ncopy = min(len(x), N)
-        xN[:ncopy] = x[:ncopy]
-        yN[:ncopy] = y[:ncopy]
-
         plan, in_arr, out_arr = get_fft_plan(N, 'forward', xN.dtype)
         if plan is None:
             X[:] = fftw.rfft(xN, n=N)
@@ -368,7 +370,15 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
     return (lag_samples / fs) * 1000.0
 
 # ---- Delay state ----
-_delay = {
+class DelayState(TypedDict):
+    mode: str  # "auto" | "frozen" | "manual"
+    ema_ms: Optional[float]  # smoothed auto delay
+    frozen_ms: float  # value latched when freezing
+    manual_ms: float  # operator-set delay
+    alpha: float  # EMA factor
+    last_raw_ms: Optional[float]  # optional: for UI visibility
+
+_delay: DelayState = {
     "mode": "auto",         # "auto" | "frozen" | "manual"
     "ema_ms": None,         # smoothed auto delay
     "frozen_ms": 0.0,       # value latched when freezing
@@ -382,7 +392,7 @@ def reset_dsp_state():
     # Clear caches when resetting state
     clear_dsp_caches()
 
-def delay_freeze(enable: bool, applied_ms: float | None = None):
+def delay_freeze(enable: bool, applied_ms: Optional[float] = None):
     if enable:
         # Prefer explicit value, else the last applied auto/manual value.
         if applied_ms is not None:
@@ -390,7 +400,7 @@ def delay_freeze(enable: bool, applied_ms: float | None = None):
         elif _delay["mode"] == "manual":
             ms = float(_delay["manual_ms"])
         elif _delay["ema_ms"] is not None:
-            ms = float(_delay["ema_ms"])
+            ms = _delay["ema_ms"]
         else:
             # no estimate yet; stay in auto until we have one
             _delay["mode"] = "auto"
@@ -401,14 +411,14 @@ def delay_freeze(enable: bool, applied_ms: float | None = None):
     else:
         _delay["mode"] = "auto"
 
-def delay_set_manual(ms: float | None):
+def delay_set_manual(ms: Optional[float]):
     if ms is None:
         _delay["mode"] = "auto"
     else:
-        _delay["manual_ms"] = float(ms)
+        _delay["manual_ms"] = ms
         _delay["mode"] = "manual"
 
-def _delay_pick_applied(x: np.ndarray, y: np.ndarray, fs: float, max_ms: float) -> tuple[float, float | None]:
+def _delay_pick_applied(x: np.ndarray, y: np.ndarray, fs: float, max_ms: float) -> Tuple[float, Optional[float]]:
     """
     Returns (applied_delay_ms, raw_measured_ms_or_None).
     Skips GCC-PHAT when frozen/manual to save CPU and to keep the value fixed.
@@ -419,15 +429,15 @@ def _delay_pick_applied(x: np.ndarray, y: np.ndarray, fs: float, max_ms: float) 
         _delay["last_raw_ms"] = raw
         ema = _delay["ema_ms"]
         alpha = _delay["alpha"]
-        ema = raw if ema is None else alpha*ema + (1.0-alpha)*raw
+        ema = raw if ema is None else alpha * ema + (1.0 - alpha) * raw
         _delay["ema_ms"] = ema
-        return float(ema), float(raw)
+        return ema, raw
     elif mode == "frozen":
         raw = None  # not updated
-        return float(_delay["frozen_ms"]), raw
+        return _delay["frozen_ms"], raw
     else:  # "manual"
         raw = None
-        return float(_delay["manual_ms"]), raw
+        return _delay["manual_ms"], raw
 
 def delay_status() -> dict:
     return {
@@ -486,7 +496,7 @@ def _choose_nperseg_with_min_segments(usable_len: int, target_n: int, min_segmen
         n //= 2
     return 32, 24  # very small fallback
 
-def _log_band_edges(freqs: np.ndarray, frac: int = 6) -> tuple[np.ndarray, np.ndarray]:
+def _log_band_edges(freqs: np.ndarray, frac: int = 6) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """For each bin i, return [i0[i], i1[i]) index edges spanning ±(1/2*1/frac) octaves."""
     f = freqs.copy()
     valid = f > 0

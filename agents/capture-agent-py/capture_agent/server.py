@@ -7,7 +7,12 @@ import gc
 from typing import Set
 from collections import deque
 import websockets
-from websockets.server import WebSocketServerProtocol
+try:
+    # For websockets v12+
+    from websockets.legacy.server import WebSocketServerProtocol
+except ImportError:
+    # Fallback for older versions
+    from websockets.server import WebSocketServerProtocol
 from websockets.exceptions import ConnectionClosed
 from websockets import protocol
 import numpy as np
@@ -110,7 +115,7 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
 
 async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
     loop = asyncio.get_running_loop()
-    aq = asyncio.Queue(maxsize=128)  # Increased from 32 to prevent frame drops
+    aq: asyncio.Queue[np.ndarray] = asyncio.Queue(maxsize=128)  # Increased from 32 to prevent frame drops
     num_channels = max(config.refChan, config.measChan)
 
     # Add dropped frame tracking
