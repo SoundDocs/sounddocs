@@ -322,11 +322,16 @@ async def handler(ws):
     # In websockets v15+, the ws object is a ServerConnection
     # Headers are accessed via ws.request.headers
     origin = ws.request.headers.get("Origin") if hasattr(ws, 'request') else None
-    if origin not in ALLOWED_ORIGINS:
+
+    # Allow connections without Origin header (local/direct connections)
+    # or from allowed origins (browser connections)
+    if origin is None:
+        print("Client connected from local/direct connection (no Origin header)")
+    elif origin in ALLOWED_ORIGINS:
+        print(f"Client connected from allowed origin: {origin}")
+    else:
         print(f"Connection rejected from disallowed origin: {origin}")
         return
-
-    print(f"Client connected from origin: {origin}")
     # Fix 4: Proper WebSocket client cleanup with try-finally blocks
     try:
         connected_clients.add(ws)
