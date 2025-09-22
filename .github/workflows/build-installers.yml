@@ -224,7 +224,17 @@ jobs:
           pyinstaller --onefile --name sounddocs-capture-agent --add-data "capture_agent:capture_agent" --add-data "generate_cert.py:." main.py
 
       - name: Install NSIS
-        run: choco install nsis -y
+        shell: pwsh
+        run: |
+          choco install nsis -y
+          if ($LASTEXITCODE -ne 0) { throw "Chocolatey failed to install NSIS. Exit code: $LASTEXITCODE" }
+          $pf86 = ${env:ProgramFiles(x86)}
+          $nsisRoot = Join-Path -Path $pf86 -ChildPath 'NSIS\Bin'
+          if (-not (Test-Path -LiteralPath $nsisRoot)) { throw "NSIS Bin folder not found at $nsisRoot" }
+          $makensis = Join-Path $nsisRoot 'makensis.exe'
+          if (-not (Test-Path -LiteralPath $makensis)) { throw "makensis.exe not found in path: $nsisRoot" }
+          & $makensis /VERSION | Out-Host
+          Add-Content -Path $env:GITHUB_PATH -Value $nsisRoot
 
       - name: Create NSIS installer script
         run: |
