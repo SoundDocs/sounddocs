@@ -295,7 +295,7 @@ jobs:
       - name: Build NSIS installer
         run: |
           cd agents/capture-agent-py
-          makensis installer.nsi
+          & "C:\Program Files (x86)\NSIS\makensis.exe" installer.nsi
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
