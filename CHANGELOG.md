@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.6.6] - 2025-09-21
+
+### Fixed
+
+- **Capture Agent Memory Leaks**: Eliminated critical memory leaks and improved stability in the capture agent
+  - Fixed memory leaks in buffer pool management with proper buffer return and dynamic growth limits
+  - Fixed DSP cache memory leaks by implementing proper LRU cache cleanup and FFT plan management
+  - Fixed WebSocket cleanup issues preventing proper connection handling
+  - Resolved QueueFull errors with better queue management and connection stability
+  - Improved frame drop rates and overall capture agent reliability
+- **WebSockets Compatibility**: Fixed compatibility issues with websockets v12+ library
+  - Updated connection handling to support modern WebSocket protocols
+  - Enhanced error handling and connection resilience
+- **Chart Legend Consistency**: Fixed legend white fill consistency for magnitude and phase charts
+  - Ensured consistent white background for legend color swatches across all chart types
+  - Improved visual clarity and professional appearance of chart legends
+
+### Changed
+
+- **Capture Agent Version**: Bumped capture agent version to `0.1.14`
+
 ## [1.5.6.5] - 2025-09-19
 
 ### Added

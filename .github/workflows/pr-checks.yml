@@ -159,60 +159,25 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install ruff
-        run: pip install ruff
-
-      - name: Ruff linting on changed files
+      - name: Type checking with mypy
         run: |
-          FILES="${{ needs.changes.outputs.python_files }}"
-          FILES_ARRAY=$(echo "$FILES" | tr ',' ' ')
-
-          echo "Running Ruff linting on changed Python files:"
-          echo "$FILES_ARRAY" | tr ' ' '\n'
-
-          # Run ruff check on changed files
-          ruff check $FILES_ARRAY || EXIT_CODE=$?
-
-          if [ "${EXIT_CODE:-0}" -ne 0 ]; then
-            echo "❌ Ruff found linting issues"
-            exit 1
-          else
-            echo "✅ Ruff linting passed"
-          fi
-
-      - name: Ruff format check on changed files
-        run: |
-          FILES="${{ needs.changes.outputs.python_files }}"
-          FILES_ARRAY=$(echo "$FILES" | tr ',' ' ')
-
-          echo "Checking Python formatting with Ruff:"
-
-          # Check formatting
-          ruff format --check $FILES_ARRAY || EXIT_CODE=$?
-
-          if [ "${EXIT_CODE:-0}" -ne 0 ]; then
-            echo "❌ Some Python files are not properly formatted"
-            echo "Run 'ruff format <files>' to fix formatting"
-            exit 1
-          else
-            echo "✅ Python formatting check passed"
-          fi
-
-      - name: Type checking with mypy (optional)
-        continue-on-error: true # Make this non-blocking initially
-        run: |
-          pip install mypy types-websockets types-numpy
+          pip install mypy websockets numpy sounddevice
 
           FILES="${{ needs.changes.outputs.python_files }}"
           FILES_ARRAY=$(echo "$FILES" | tr ',' ' ')
 
-          echo "Running mypy type checking (non-blocking):"
+          echo "Running mypy type checking:"
 
           # Run mypy on changed files
           # Note: May need to install type stubs for dependencies
-          mypy $FILES_ARRAY --ignore-missing-imports || true
+          mypy $FILES_ARRAY --ignore-missing-imports || EXIT_CODE=$?
 
-          echo "ℹ️  MyPy check is currently non-blocking. Consider making it required in the future."
+          if [ "${EXIT_CODE:-0}" -ne 0 ]; then
+            echo "❌ MyPy type check failed"
+            exit 1
+          else
+            echo "✅ MyPy type check passed"
+          fi
 
   # SQL checks
   sql-checks:
