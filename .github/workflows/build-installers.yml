@@ -227,9 +227,13 @@ jobs:
         shell: pwsh
         run: |
           choco install nsis -y
-          $nsisRoot = Join-Path -Path ${env:ProgramFiles(x86)} -ChildPath 'NSIS\Bin'
+          if ($LASTEXITCODE -ne 0) { throw "Chocolatey failed to install NSIS. Exit code: $LASTEXITCODE" }
+          $pf86 = ${env:ProgramFiles(x86)}
+          $nsisRoot = Join-Path -Path $pf86 -ChildPath 'NSIS\Bin'
           if (-not (Test-Path -LiteralPath $nsisRoot)) { throw "NSIS Bin folder not found at $nsisRoot" }
-          if (-not (Test-Path -LiteralPath (Join-Path $nsisRoot "makensis.exe"))) { throw "makensis.exe not found in $nsisRoot" }
+          $makensis = Join-Path $nsisRoot 'makensis.exe'
+          if (-not (Test-Path -LiteralPath $makensis)) { throw "makensis.exe not found in path: $nsisRoot" }
+          & $makensis /VERSION | Out-Host
           Add-Content -Path $env:GITHUB_PATH -Value $nsisRoot
 
       - name: Create NSIS installer script
