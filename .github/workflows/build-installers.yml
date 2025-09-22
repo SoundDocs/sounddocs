@@ -124,7 +124,10 @@ jobs:
           echo ""
 
           # Run the actual agent executable
-          exec "APP_RESOURCES_PATH/sounddocs-capture-agent"
+          "APP_RESOURCES_PATH/sounddocs-capture-agent"
+
+          # Clean up this temp script when the agent exits
+          rm -f "$0"
           TERM_EOF
 
           # Replace the placeholder with the actual app resources path
@@ -139,8 +142,8 @@ jobs:
           end tell
           APPLESCRIPT
 
-          # Clean up temp script after a short delay
-          (sleep 2 && rm -f "$TEMP_SCRIPT") &
+          # Let the script clean up itself when it exits
+          # No need for background cleanup - Terminal will handle the script lifecycle
           EOF
 
           chmod +x "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/MacOS/SoundDocs Capture Agent"
