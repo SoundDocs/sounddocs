@@ -162,7 +162,7 @@ jobs:
       - name: Type checking with mypy (optional)
         continue-on-error: true # Make this non-blocking initially
         run: |
-          pip install mypy types-websockets types-numpy
+          pip install mypy websockets numpy sounddevice
 
           FILES="${{ needs.changes.outputs.python_files }}"
           FILES_ARRAY=$(echo "$FILES" | tr ',' ' ')
