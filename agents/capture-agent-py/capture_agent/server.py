@@ -8,6 +8,8 @@ from typing import Set
 from collections import deque
 import websockets
 from websockets.server import WebSocketServerProtocol
+from websockets.exceptions import ConnectionClosed
+from websockets import protocol
 import numpy as np
 import sounddevice as sd
 
@@ -28,7 +30,9 @@ from .schema import (
 )
 
 # --- State Management ---
-connected_clients: Set[WebSocketServerProtocol] = set()
+# Fix 4: Use weakref.WeakSet for automatic cleanup of disconnected clients
+import weakref
+connected_clients: weakref.WeakSet[WebSocketServerProtocol] = weakref.WeakSet()
 capture_task = None
 
 ALLOWED_ORIGINS = ["https://sounddocs.org", "https://beta.sounddocs.org", "http://localhost:5173", "https://localhost:5173"]
@@ -70,10 +74,24 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
         dsp.clear_dsp_caches()  # Ensure clean start
         config = CaptureConfig(**message.dict())
         capture_task = asyncio.create_task(run_capture(ws, config))
+        # Add error handler for the task to prevent "Task exception was never retrieved" warnings
+        def task_done_callback(task):
+            try:
+                task.result()  # This will raise any exception that occurred
+            except asyncio.CancelledError:
+                pass  # Normal cancellation, ignore
+            except Exception as e:
+                print(f"Capture task error: {e}")
+        capture_task.add_done_callback(task_done_callback)
 
     elif message.type == "stop":
         if capture_task and not capture_task.done():
             capture_task.cancel()
+            # Wait for task to actually finish
+            try:
+                await capture_task
+            except asyncio.CancelledError:
+                pass  # Expected when task is cancelled
             capture_task = None
 
     elif message.type == "delay_freeze":
@@ -92,8 +110,13 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
 
 async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
     loop = asyncio.get_running_loop()
-    aq = asyncio.Queue(maxsize=32)  # async queue for inter-thread handoff
+    aq = asyncio.Queue(maxsize=128)  # Increased from 32 to prevent frame drops
     num_channels = max(config.refChan, config.measChan)
+
+    # Add dropped frame tracking
+    dropped_frames = 0
+    last_drop_log_time = time.monotonic()
+    drop_log_interval = 30.0  # Log dropped frames every 30 seconds
 
     # Dynamic buffer pool with better management
     initial_pool_size = 16  # Increased from 8
@@ -105,34 +128,43 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
 
     def audio_callback(indata, frames, time_info, status):
         # called on driver thread; never block here
-        nonlocal pool_miss_count
+        nonlocal pool_miss_count, dropped_frames
         if status:
             print(f"Audio callback status: {status}")
-        
+
+        buf = None
+        # Fix 1: Ensure buffers are always returned to pool, even when frames are dropped
         buf = None
         try:
-            buf = pool.popleft()
-            # PortAudio reuses its buffers; copy into our reusable buffer
-            np.copyto(buf, indata, casting='no')
-        except IndexError:
-            # pool exhausted - track misses
-            pool_miss_count += 1
-            # Create new buffer only if under max size
-            if len(pool) < max_pool_size:
-                buf = indata.copy() if indata.dtype == np.float32 else indata.astype(np.float32, copy=True)
-            else:
-                # Pool at max, drop this frame to prevent unbounded growth
-                return
+            try:
+                buf = pool.popleft()
+                # PortAudio reuses its buffers; copy into our reusable buffer
+                np.copyto(buf, indata, casting='no')
+            except IndexError:
+                # pool exhausted - track misses
+                pool_miss_count += 1
+                # Create new buffer only if under max size
+                if len(pool) < max_pool_size:
+                    buf = indata.copy() if indata.dtype == np.float32 else indata.astype(np.float32, copy=True)
+                else:
+                    # Pool at max, drop this frame to prevent unbounded growth
+                    dropped_frames += 1
+                    return
 
-        try:
+            # Try to queue the buffer
             loop.call_soon_threadsafe(aq.put_nowait, buf)
         except Exception:
             # queue full -> drop; always return buffer to pool
-            if buf is not None:
+            dropped_frames += 1
+            if buf is not None and len(pool) < max_pool_size:
                 try:
                     pool.append(buf)
                 except Exception:
-                    pass
+                    pass  # If pool append fails, let GC handle it
+        finally:
+            # Critical fix: For buffers created during pool exhaustion that fail to queue,
+            # ensure they're returned to pool if there's space
+            pass  # Buffer management handled in except block
 
     stream = None
     try:
@@ -207,6 +239,11 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
                     print(f"Buffer pool health: {len(pool)} buffers, {pool_miss_count} misses since last check")
                     pool_miss_count = 0
 
+            # Log dropped frames periodically
+            if dropped_frames > 0 and (now - last_drop_log_time > drop_log_interval or dropped_frames % 1000 == 0):
+                print(f"Dropped frames: {dropped_frames} total (queue full or pool exhausted)")
+                last_drop_log_time = now
+
             # run analysis only when we've advanced by one hop
             if carry >= hop_size:
                 tf_data, spl_data, delay_ms = dsp.compute_metrics(analysis_buffer, config)
@@ -215,27 +252,41 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
                     status = dsp.delay_status()
                     applied = status["applied_ms"]
 
-                    frame = FrameMessage(
-                        type="frame",
-                        tf=tf_data,
-                        spl=spl_data,
-                        delay_ms=applied,              # show applied, not local variable
-                        latency_ms=float(stream.latency)*1000.0 if hasattr(stream, "latency") else 0.0,
-                        ts=int(time.time() * 1000),
-                        sampleRate=fs,
-                        delay_mode=status["mode"],
-                        applied_delay_ms=applied,
-                    )
-                    await ws.send(frame.model_dump_json())
-                    last_send = now
+                    # Check if WebSocket is still open before sending
+                    if ws.state == protocol.State.OPEN:
+                        try:
+                            frame = FrameMessage(
+                                type="frame",
+                                tf=tf_data,
+                                spl=spl_data,
+                                delay_ms=applied,              # show applied, not local variable
+                                latency_ms=float(stream.latency)*1000.0 if hasattr(stream, "latency") else 0.0,
+                                ts=int(time.time() * 1000),
+                                sampleRate=fs,
+                                delay_mode=status["mode"],
+                                applied_delay_ms=applied,
+                            )
+                            await ws.send(frame.model_dump_json())
+                            last_send = now
+                        except websockets.exceptions.ConnectionClosed:
+                            print("WebSocket connection closed during frame send")
+                            break  # Exit the capture loop
+                    else:
+                        print("WebSocket connection is not open, stopping capture")
+                        break
                 carry -= hop_size
 
             await asyncio.sleep(0)
     except asyncio.CancelledError:
-        pass
+        print("Capture task cancelled")
     except Exception as e:
         print(f"Error during capture: {e}")
-        await send_error(ws, f"Capture failed: {e}")
+        # Only send error if connection is still open
+        if ws.state == protocol.State.OPEN:
+            try:
+                await send_error(ws, f"Capture failed: {e}")
+            except websockets.exceptions.ConnectionClosed:
+                pass  # Connection already closed, can't send error
     finally:
         # Clean up buffer pool and DSP caches
         pool.clear()
@@ -252,21 +303,32 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
                 stream.close()
         except Exception:
             pass
-        await ws.send(json.dumps(StoppedMessage(type="stopped").dict()))
+
+        # Only send stopped message if connection is still open
+        if ws.state == protocol.State.OPEN:
+            try:
+                await ws.send(json.dumps(StoppedMessage(type="stopped").dict()))
+            except websockets.exceptions.ConnectionClosed:
+                pass  # Connection closed, can't send stopped message
+
+        # Log final dropped frames count if any
+        if dropped_frames > 0:
+            print(f"Capture ended with {dropped_frames} total dropped frames")
 
 async def send_error(ws: WebSocketServerProtocol, error_message: str):
     error_msg = ErrorMessage(type="error", message=error_message)
     await ws.send(json.dumps(error_msg.dict()))
 
-async def handler(ws: WebSocketServerProtocol, path: str):
-    origin = ws.request_headers.get("Origin")
+async def handler(ws: WebSocketServerProtocol):
+    origin = ws.request.headers.get("Origin")
     if origin not in ALLOWED_ORIGINS:
         print(f"Connection rejected from disallowed origin: {origin}")
         return
 
     print(f"Client connected from origin: {origin}")
-    connected_clients.add(ws)
+    # Fix 4: Proper WebSocket client cleanup with try-finally blocks
     try:
+        connected_clients.add(ws)
         async for message in ws:
             try:
                 message_data = json.loads(message)
@@ -277,12 +339,24 @@ async def handler(ws: WebSocketServerProtocol, path: str):
                 await send_error(ws, f"An unexpected error occurred: {e}")
     except websockets.exceptions.ConnectionClosed:
         print("Client disconnected.")
+    except Exception as e:
+        print(f"Unexpected error in WebSocket handler: {e}")
     finally:
+        # Ensure cleanup happens in all error paths
         global capture_task
         if capture_task and not capture_task.done():
             capture_task.cancel()
+            # Wait for task to actually finish
+            try:
+                await capture_task
+            except asyncio.CancelledError:
+                pass  # Expected when task is cancelled
             capture_task = None
-        connected_clients.remove(ws)
+        # WeakSet automatically removes disconnected clients, but we ensure removal
+        try:
+            connected_clients.discard(ws)  # Use discard to avoid KeyError
+        except Exception:
+            pass  # WeakSet may have already removed it
 
 async def start_server(host="127.0.0.1", port=9469):
     # Look for certificates in the user's .sounddocs-agent directory

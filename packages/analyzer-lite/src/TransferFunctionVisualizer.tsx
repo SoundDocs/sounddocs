@@ -128,6 +128,8 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
       datasets.push({
         label: "Live",
         data: tfData.mag_db,
+        borderColor: "#FFFFFF",
+        backgroundColor: "#FFFFFF",
         borderWidth: 2,
         segment: {
           borderColor: (context: any) => {
@@ -162,6 +164,8 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
       datasets.push({
         label: "Live",
         data: tfData.phase_deg,
+        borderColor: "#FFFFFF",
+        backgroundColor: "#FFFFFF",
         borderWidth: 2,
         segment: {
           borderColor: (context: any) => {
