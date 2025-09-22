@@ -224,7 +224,10 @@ jobs:
           pyinstaller --onefile --name sounddocs-capture-agent --add-data "capture_agent:capture_agent" --add-data "generate_cert.py:." main.py
 
       - name: Install NSIS
-        run: choco install nsis -y
+        run: |
+          choco install nsis -y
+          echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+        shell: pwsh
 
       - name: Create NSIS installer script
         run: |
@@ -293,10 +296,9 @@ jobs:
         shell: bash
 
       - name: Build NSIS installer
-        shell: pwsh
         run: |
           cd agents/capture-agent-py
-          & "C:\Program Files (x86)\NSIS\makensis.exe" installer.nsi
+          makensis installer.nsi
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
