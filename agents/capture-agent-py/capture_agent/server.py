@@ -7,12 +7,7 @@ import gc
 from typing import Set
 from collections import deque
 import websockets
-try:
-    # For websockets v12+
-    from websockets.legacy.server import WebSocketServerProtocol
-except ImportError:
-    # Fallback for older versions
-    from websockets.server import WebSocketServerProtocol
+from websockets.legacy.server import WebSocketServerProtocol
 from websockets.exceptions import ConnectionClosed
 from websockets import protocol
 import numpy as np
@@ -325,7 +320,7 @@ async def send_error(ws: WebSocketServerProtocol, error_message: str):
     await ws.send(json.dumps(error_msg.dict()))
 
 async def handler(ws: WebSocketServerProtocol):
-    origin = ws.request.headers.get("Origin")
+    origin = ws.request_headers.get("Origin")
     if origin not in ALLOWED_ORIGINS:
         print(f"Connection rejected from disallowed origin: {origin}")
         return
