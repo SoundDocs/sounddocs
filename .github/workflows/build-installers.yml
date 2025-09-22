@@ -293,6 +293,7 @@ jobs:
         shell: bash
 
       - name: Build NSIS installer
+        shell: pwsh
         run: |
           cd agents/capture-agent-py
           & "C:\Program Files (x86)\NSIS\makensis.exe" installer.nsi
