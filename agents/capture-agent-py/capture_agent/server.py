@@ -4,10 +4,9 @@ import ssl
 import pathlib
 import time
 import gc
-from typing import Set
+from typing import Set, Optional
 from collections import deque
 import websockets
-from websockets.legacy.server import WebSocketServerProtocol
 from websockets.exceptions import ConnectionClosed
 from websockets import protocol
 import numpy as np
@@ -32,12 +31,12 @@ from .schema import (
 # --- State Management ---
 # Fix 4: Use weakref.WeakSet for automatic cleanup of disconnected clients
 import weakref
-connected_clients: weakref.WeakSet[WebSocketServerProtocol] = weakref.WeakSet()
+connected_clients: weakref.WeakSet = weakref.WeakSet()
 capture_task = None
 
 ALLOWED_ORIGINS = ["https://sounddocs.org", "https://beta.sounddocs.org", "http://localhost:5173", "https://localhost:5173"]
 
-async def process_message(ws: WebSocketServerProtocol, message_data: dict):
+async def process_message(ws, message_data: dict):
     """Parses and routes incoming messages."""
     global capture_task
 
@@ -108,7 +107,7 @@ async def process_message(ws: WebSocketServerProtocol, message_data: dict):
             **dsp.delay_status()
         }))
 
-async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
+async def run_capture(ws, config: CaptureConfig):
     loop = asyncio.get_running_loop()
     aq: asyncio.Queue[np.ndarray] = asyncio.Queue(maxsize=128)  # Increased from 32 to prevent frame drops
     num_channels = max(config.refChan, config.measChan)
@@ -315,12 +314,14 @@ async def run_capture(ws: WebSocketServerProtocol, config: CaptureConfig):
         if dropped_frames > 0:
             print(f"Capture ended with {dropped_frames} total dropped frames")
 
-async def send_error(ws: WebSocketServerProtocol, error_message: str):
+async def send_error(ws, error_message: str):
     error_msg = ErrorMessage(type="error", message=error_message)
     await ws.send(json.dumps(error_msg.dict()))
 
-async def handler(ws: WebSocketServerProtocol):
-    origin = ws.request_headers.get("Origin")
+async def handler(ws):
+    # In websockets v15+, the ws object is a ServerConnection
+    # Headers are accessed via ws.request.headers
+    origin = ws.request.headers.get("Origin") if hasattr(ws, 'request') else None
     if origin not in ALLOWED_ORIGINS:
         print(f"Connection rejected from disallowed origin: {origin}")
         return
