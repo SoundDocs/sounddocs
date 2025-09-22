@@ -226,7 +226,9 @@ jobs:
       - name: Install NSIS
         run: |
           choco install nsis -y
-          echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+          $nsisRoot = "${env:ProgramFiles(x86)}\NSIS\Bin"
+          if (-not (Test-Path $nsisRoot)) { throw "NSIS Bin folder not found at $nsisRoot" }
+          Add-Content -Path $env:GITHUB_PATH -Value $nsisRoot
         shell: pwsh
 
       - name: Create NSIS installer script
