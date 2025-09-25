@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Volume2, Waves, Activity, TrendingUp } from "lucide-react";
+import { Volume2, Waves, Activity, TrendingUp, ChevronRight } from "lucide-react";
 
 export interface SignalGeneratorConfig {
   enabled: boolean;
@@ -42,7 +42,7 @@ const SignalGeneratorSettings: React.FC<SignalGeneratorSettingsProps> = ({
       ...config,
       outputChannels: useAllChannels ? null : Array.from(selectedChannels),
     });
-  }, [config, selectedChannels, useAllChannels, onConfigChange]);
+  }, [config, selectedChannels, useAllChannels]);
 
   const handleSignalTypeChange = (type: SignalGeneratorConfig["signalType"]) => {
     setConfig((prev) => ({ ...prev, signalType: type }));

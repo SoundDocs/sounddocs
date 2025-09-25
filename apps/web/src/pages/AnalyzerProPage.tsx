@@ -17,7 +17,7 @@ import { TransferFunctionVisualizer } from "@sounddocs/analyzer-lite";
 import { useCaptureAgent } from "../stores/agentStore";
 import { supabase } from "../lib/supabase";
 import { Device, TFData } from "@sounddocs/analyzer-protocol";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { TRACE_COLORS } from "../lib/constants";
 import { EqSetting, calculateMathTrace } from "../lib/dsp";
 import { Measurement } from "../lib/types";
@@ -164,6 +164,10 @@ const AnalyzerProPage: React.FC = () => {
   };
 
   useEffect(() => {
+    fetchMeasurements();
+  }, []);
+
+  useEffect(() => {
     const measurementsById = new Map(savedMeasurements.map((m) => [m.id, m]));
     const computed = mathTraces.map((trace): Measurement | null => {
       const sourceMeasurements = trace.source_measurement_ids
@@ -234,7 +238,7 @@ const AnalyzerProPage: React.FC = () => {
     }
   }, [lastMessage, selectedDeviceId]);
 
-  const fetchMeasurements = useCallback(async () => {
+  const fetchMeasurements = async () => {
     try {
       const { data, error } = await supabase
         .from("tf_measurements")
@@ -274,11 +278,7 @@ const AnalyzerProPage: React.FC = () => {
     } catch (error) {
       console.error("Error fetching measurements:", error);
     }
-  }, [measurementAdjustments]);
-
-  useEffect(() => {
-    fetchMeasurements();
-  }, [fetchMeasurements]);
+  };
 
   const handleDeleteMeasurement = async (id: string) => {
     try {
