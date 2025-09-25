@@ -22,7 +22,7 @@ class SignalType(Enum):
 class GeneratorConfig:
     signal_type: SignalType
     sample_rate: int = 48000
-    output_channels: List[int] = None  # Which channels to output to, None = all
+    output_channels: Optional[List[int]] = None  # Which channels to output to, None = all
     # Sine specific
     frequency: float = 1000.0  # Hz
     # Sine sweep specific
@@ -56,12 +56,12 @@ class SignalGenerator:
         }
 
         # Pre-generated noise table for smooth playback
-        self._noise_table = None
+        self._noise_table: Optional[np.ndarray] = None
         self._noise_len = 0
         self._noise_pos = 0
         self._xfade_len = 2048  # ~43 ms @48kHz for smooth crossfade
-        self._xfade_in = None
-        self._xfade_out = None
+        self._xfade_in: Optional[np.ndarray] = None
+        self._xfade_out: Optional[np.ndarray] = None
 
         # Pre-generate noise table if needed
         if self.config.signal_type in self.noise_beta_map:
@@ -217,7 +217,10 @@ class SignalGenerator:
 
         if p + block_size <= N:
             # Simple case: read straight from table
-            out = self._noise_table[p:p + block_size].copy()
+            if self._noise_table is not None:
+                out = self._noise_table[p:p + block_size].copy()
+            else:
+                out = np.zeros(block_size, dtype=np.float32)
             p += block_size
             if p == N:
                 p = 0  # Wrap to beginning
@@ -226,16 +229,20 @@ class SignalGenerator:
             n1 = N - p  # Samples from end
             n2 = block_size - n1  # Samples from beginning
             out = np.empty(block_size, dtype=np.float32)
-            out[:n1] = self._noise_table[p:]
-            out[n1:] = self._noise_table[:n2]
+            if self._noise_table is not None:
+                out[:n1] = self._noise_table[p:]
+                out[n1:] = self._noise_table[:n2]
 
             # Apply crossfade at the loop seam for click-free playback
             if n1 >= L and n2 >= L:
                 # Crossfade last L samples of part1 with first L samples of part2
-                fade_out_portion = self._noise_table[N - L:N] * self._xfade_out
-                fade_in_portion = self._noise_table[:L] * self._xfade_in
-                # The crossfade happens at the boundary
-                crossfaded = fade_out_portion + fade_in_portion
+                if self._noise_table is not None and self._xfade_out is not None and self._xfade_in is not None:
+                    fade_out_portion = self._noise_table[N - L:N] * self._xfade_out
+                    fade_in_portion = self._noise_table[:L] * self._xfade_in
+                    # The crossfade happens at the boundary
+                    crossfaded = fade_out_portion + fade_in_portion
+                else:
+                    crossfaded = np.zeros(L, dtype=np.float32)
                 # Replace the boundary region with crossfaded version
                 if n1 >= L:
                     out[n1 - L:n1] = crossfaded

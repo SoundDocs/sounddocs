@@ -10,7 +10,7 @@ interface ProSettingsProps {
   delayMode?: string;
   appliedDelayMs?: number;
   isCapturing: boolean;
-  signalGeneratorConfig?: any;
+  signalGeneratorConfig?: unknown;
   selectedDeviceId?: string;
   onDeviceSelect?: (deviceId: string) => void;
 }
@@ -31,7 +31,7 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
   const selectedDeviceId = propSelectedDeviceId || localSelectedDeviceId;
   const [refChan, setRefChan] = useState<number | string>(1);
   const [measChan, setMeasChan] = useState<number>(2);
-  const [nfft, setNfft] = useState<number>(8192);
+  const [nfft] = useState<number>(8192);
   const [useLoopback, setUseLoopback] = useState<boolean>(false);
 
   useEffect(() => {
