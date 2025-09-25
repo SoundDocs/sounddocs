@@ -8,7 +8,6 @@ import {
   Mic,
   Radio,
   Volume2,
-  Headphones,
   Settings,
   Cable,
 } from "lucide-react";
