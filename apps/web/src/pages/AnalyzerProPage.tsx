@@ -7,6 +7,9 @@ import AgentConnectionManager from "../components/analyzer/AgentConnectionManage
 import AgentDownload from "../components/analyzer/AgentDownload";
 import AgentUpdateNotification from "../components/analyzer/AgentUpdateNotification";
 import ProSettings from "../components/analyzer/ProSettings";
+import SignalGeneratorSettings, {
+  SignalGeneratorConfig,
+} from "../components/analyzer/SignalGeneratorSettings";
 import SavedMeasurementsModal from "../components/analyzer/SavedMeasurementsModal";
 import ChartDetailModal from "../components/analyzer/ChartDetailModal";
 import MathTraceModal from "../components/analyzer/MathTraceModal";
@@ -50,7 +53,28 @@ const AnalyzerProPage: React.FC = () => {
   }>({});
   const [agentVersion, setAgentVersion] = useState<string | undefined>();
   const [mathTraces, setMathTraces] = useState<MathTrace[]>([]);
+  const [signalGeneratorConfig, setSignalGeneratorConfig] = useState<SignalGeneratorConfig>({
+    enabled: false,
+    signalType: "sine",
+    outputChannels: null,
+    frequency: 1000,
+    startFreq: 20,
+    endFreq: 20000,
+    sweepDuration: 1,
+    amplitude: 0.5,
+  });
   const [computedMathTraces, setComputedMathTraces] = useState<Measurement[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
+
+  const handleGeneratorConfigChange = (config: SignalGeneratorConfig) => {
+    setSignalGeneratorConfig(config);
+    if (status === "connected") {
+      sendMessage({
+        type: "update_generator",
+        config,
+      });
+    }
+  };
 
   const handleEqChange = async (id: string, eq_settings: EqSetting[]) => {
     // Update local state immediately for responsiveness
@@ -176,6 +200,8 @@ const AnalyzerProPage: React.FC = () => {
     setComputedMathTraces(computed.filter((t): t is Measurement => t !== null));
   }, [mathTraces, savedMeasurements]);
 
+  const selectedDevice = devices.find((d) => d.id === selectedDeviceId) || devices[0];
+
   useEffect(() => {
     if (status === "connected") {
       sendMessage({ type: "list_devices" });
@@ -188,6 +214,10 @@ const AnalyzerProPage: React.FC = () => {
         setAgentVersion(lastMessage.version);
       } else if (lastMessage.type === "devices") {
         setDevices(lastMessage.items);
+        // Set default selected device if none selected
+        if (!selectedDeviceId && lastMessage.items.length > 0) {
+          setSelectedDeviceId(lastMessage.items[0].id);
+        }
       } else if (lastMessage.type === "frame") {
         setIsCapturing(true);
         setTfData(lastMessage.tf);
@@ -206,7 +236,7 @@ const AnalyzerProPage: React.FC = () => {
         }
       }
     }
-  }, [lastMessage]);
+  }, [lastMessage, selectedDeviceId]);
 
   const fetchMeasurements = async () => {
     try {
@@ -445,6 +475,16 @@ const AnalyzerProPage: React.FC = () => {
               }
               delayMode={delayMode}
               appliedDelayMs={appliedDelayMs}
+              isCapturing={isCapturing}
+              signalGeneratorConfig={signalGeneratorConfig}
+              selectedDeviceId={selectedDeviceId}
+              onDeviceSelect={setSelectedDeviceId}
+            />
+          )}
+          {status === "connected" && selectedDevice && selectedDevice.outputs > 0 && (
+            <SignalGeneratorSettings
+              deviceChannels={selectedDevice.outputs}
+              onConfigChange={handleGeneratorConfigChange}
               isCapturing={isCapturing}
             />
           )}

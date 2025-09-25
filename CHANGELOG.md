@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.6.7] - 2025-09-25
+
+### Added
+
+- **Signal Generator for Capture Agent**: Added comprehensive signal generation capabilities to the capture agent
+  - Pink Noise Generator: Professional-grade pink noise (1/f spectrum) using Voss-McCartney algorithm
+  - White Noise Generator: Full-spectrum white noise for system calibration
+  - Sine Wave Generator: Pure tone generation with adjustable frequency (20Hz - 20kHz)
+  - Sine Sweep Generator: Logarithmic sweep for system testing and alignment
+  - Click Track Generator: Metronome/timing reference with adjustable BPM
+  - Configurable output routing to any available audio channel
+  - Real-time signal generation with minimal latency
+  - WebSocket control interface for remote signal control from web UI
+- **Internal Loopback Measurement**: Added loopback mode for measuring systems internally
+  - Routes generated signal directly to reference channel for internal system measurement
+  - Enables measuring DSP chains, plugins, and software signal paths without physical connections
+  - Useful for analyzing digital signal processing and software-based audio systems
+
+### Changed
+
+- **Capture Agent Version**: Bumped to `0.2.0` to reflect major feature addition
+- **Web App Version**: Updated to `1.5.6.7`
+
 ## [1.5.6.6] - 2025-09-21
 
 ### Fixed

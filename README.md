@@ -14,6 +14,8 @@ SoundDocs is a modern web application meticulously crafted for audio engineers, 
 
 SoundDocs is provided free of charge and is open source under the AGPL v3 license.
 
+**Privacy Promise**: Just because SoundDocs is free with no ads doesn't mean you are the product. We are committed to never selling, sharing, or monetizing your personal data. Your projects, documents, and information remain yours, always.
+
 ![SoundDocs Hero Preview](https://i.postimg.cc/bJdc5Hmz/Screenshot-2025-06-05-at-19-21-01.png)
 
 ## ✨ Core Features
