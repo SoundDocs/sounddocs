@@ -14,7 +14,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - White Noise Generator: Full-spectrum white noise for system calibration
   - Sine Wave Generator: Pure tone generation with adjustable frequency (20Hz - 20kHz)
   - Sine Sweep Generator: Logarithmic sweep for system testing and alignment
-  - Click Track Generator: Metronome/timing reference with adjustable BPM
   - Configurable output routing to any available audio channel
   - Real-time signal generation with minimal latency
   - WebSocket control interface for remote signal control from web UI
