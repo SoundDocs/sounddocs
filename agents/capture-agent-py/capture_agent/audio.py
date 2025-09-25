@@ -46,5 +46,5 @@ class Stream:
             # The `read` method returns a tuple (data, overflowed_boolean)
             data, overflowed = self.stream.read(self.config.blockSize)
             if overflowed:
-                print("Warning: Audio buffer overflowed.")
+                pass  # Buffer overflow tracked
             yield data

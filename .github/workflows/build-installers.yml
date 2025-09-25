@@ -180,9 +180,9 @@ jobs:
               <key>CFBundleDisplayName</key>
               <string>SoundDocs Capture Agent</string>
               <key>CFBundleVersion</key>
-              <string>0.1.13</string>
+              <string>0.2.0</string>
               <key>CFBundleShortVersionString</key>
-              <string>0.1.13</string>
+              <string>0.2.0</string>
               <key>CFBundlePackageType</key>
               <string>APPL</string>
               <key>CFBundleIconFile</key>
@@ -196,7 +196,7 @@ jobs:
           EOF
 
           # Build package
-          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.13 --install-location / SoundDocsAgent-macOS.pkg
+          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.2.0 --install-location / SoundDocsAgent-macOS.pkg
 
       - name: Upload macOS installer
         uses: actions/upload-artifact@v4
@@ -244,7 +244,7 @@ jobs:
           cd agents/capture-agent-py
           cat > installer.nsi << 'EOF'
           !define APPNAME "SoundDocs Capture Agent"
-          !define APPVERSION "0.1.13"
+          !define APPVERSION "0.2.0"
           Name "${APPNAME}"
           OutFile "SoundDocsAgent-Windows.exe"
           InstallDir "$PROGRAMFILES\SoundDocs"

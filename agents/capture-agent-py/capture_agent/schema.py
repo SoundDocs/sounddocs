@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Literal, Union
+from typing import List, Literal, Union, Optional
 
 # Shared data structures
 class Device(BaseModel):
@@ -23,13 +23,23 @@ WindowType = Literal["hann", "kaiser", "blackman"]
 AvgType = Literal["power", "linear", "exp"]
 LpfMode = Literal["lpf", "none"]
 
+class SignalGeneratorConfig(BaseModel):
+    enabled: bool = False
+    signalType: Literal["sine", "white", "pink", "brown", "blue", "violet", "sine_sweep"] = "sine"
+    outputChannels: Optional[List[int]] = None  # None means all channels
+    frequency: float = 1000.0  # Hz (for sine)
+    startFreq: float = 20.0  # Hz (for sweep)
+    endFreq: float = 20000.0  # Hz (for sweep)
+    sweepDuration: float = 1.0  # seconds (for sweep)
+    amplitude: float = 0.5  # 0.0 to 1.0
+
 class CaptureConfig(BaseModel):
     deviceId: str
     sampleRate: int
     blockSize: int
     refChan: int
     measChan: int
-    
+
     # FFT & Averaging
     nfft: int
     avg: AvgType
@@ -39,6 +49,10 @@ class CaptureConfig(BaseModel):
     # Smoothing
     lpfMode: LpfMode
     lpfFreq: float
+
+    # Signal Generator & Loopback
+    useLoopback: bool = False  # Use loopback for reference channel
+    generator: Optional[SignalGeneratorConfig] = None
 
 # Message types from client to agent
 class HelloMessage(BaseModel):
@@ -71,6 +85,10 @@ class DelayFreezeMessage(BaseModel):
 class SetManualDelayMessage(BaseModel):
     type: Literal["set_manual_delay"]
     delay_ms: float | None = None
+
+class UpdateGeneratorMessage(BaseModel):
+    type: Literal["update_generator"]
+    config: SignalGeneratorConfig
 
 # Message types from agent to client
 class HelloAckMessage(BaseModel):
@@ -121,6 +139,7 @@ ClientMessage = Union[
     GetVersionMessage,
     DelayFreezeMessage,
     SetManualDelayMessage,
+    UpdateGeneratorMessage,
 ]
 
 AgentMessage = Union[

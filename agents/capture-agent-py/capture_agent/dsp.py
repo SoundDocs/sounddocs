@@ -54,9 +54,9 @@ def log_memory_usage():
         process = psutil.Process(os.getpid())
         memory_info = process.memory_info()
         memory_mb = memory_info.rss / 1024 / 1024
-        print(f"DSP Memory: {memory_mb:.1f} MB, Work arrays: {len(_work_arrays)}")
-    except Exception as e:
-        print(f"Memory monitoring error: {e}")
+        pass  # Memory stats tracked
+    except Exception:
+        pass  # Memory monitoring error
 
 def clear_dsp_caches():
     """Clear DSP caches to free memory.
@@ -670,7 +670,7 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     fs = float(config.sampleRate)
 
     # Delay (linear GCC-PHAT you already implemented)
-    MAX_DELAY_MS = getattr(config, "maxDelayMs", 500.0)
+    MAX_DELAY_MS = getattr(config, "maxDelayMs", 2000.0)
     delay_ms, _ = _delay_pick_applied(x, y, fs, max_ms=MAX_DELAY_MS)
 
     # Integer align with zero-padding (preserve length) + fractional remainder

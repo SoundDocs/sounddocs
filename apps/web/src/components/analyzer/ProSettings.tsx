@@ -10,6 +10,9 @@ interface ProSettingsProps {
   delayMode?: string;
   appliedDelayMs?: number;
   isCapturing: boolean;
+  signalGeneratorConfig?: any;
+  selectedDeviceId?: string;
+  onDeviceSelect?: (deviceId: string) => void;
 }
 
 export const ProSettings: React.FC<ProSettingsProps> = ({
@@ -20,17 +23,23 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
   delayMode,
   appliedDelayMs,
   isCapturing,
+  signalGeneratorConfig,
+  selectedDeviceId: propSelectedDeviceId,
+  onDeviceSelect,
 }) => {
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
-  const [refChan, setRefChan] = useState<number>(1);
+  const [localSelectedDeviceId, setLocalSelectedDeviceId] = useState<string>("");
+  const selectedDeviceId = propSelectedDeviceId || localSelectedDeviceId;
+  const [refChan, setRefChan] = useState<number | string>(1);
   const [measChan, setMeasChan] = useState<number>(2);
   const [nfft, setNfft] = useState<number>(8192);
+  const [useLoopback, setUseLoopback] = useState<boolean>(false);
 
   useEffect(() => {
-    if (devices.length > 0 && !selectedDeviceId) {
-      setSelectedDeviceId(devices[0].id);
+    if (devices.length > 0 && !localSelectedDeviceId && !propSelectedDeviceId) {
+      setLocalSelectedDeviceId(devices[0].id);
+      onDeviceSelect?.(devices[0].id);
     }
-  }, [devices, selectedDeviceId]);
+  }, [devices, localSelectedDeviceId, propSelectedDeviceId, onDeviceSelect]);
 
   const selectedDevice = devices.find((d) => d.id === selectedDeviceId);
 
@@ -43,7 +52,7 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
       deviceId: selectedDeviceId,
       sampleRate: 48000,
       blockSize: 1024,
-      refChan,
+      refChan: useLoopback ? 1 : (refChan as number), // Use channel 1 for loopback internally
       measChan,
       nfft,
       avg: "power",
@@ -51,6 +60,8 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
       window: "hann",
       lpfMode: "none",
       lpfFreq: 0,
+      useLoopback,
+      generator: signalGeneratorConfig,
     };
     onStartCapture(config);
   };
@@ -84,7 +95,11 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
           <label className="block text-sm font-medium text-gray-300 mb-1">Audio Device</label>
           <select
             value={selectedDeviceId}
-            onChange={(e) => setSelectedDeviceId(e.target.value)}
+            onChange={(e) => {
+              const newDeviceId = e.target.value;
+              setLocalSelectedDeviceId(newDeviceId);
+              onDeviceSelect?.(newDeviceId);
+            }}
             disabled={isCapturing}
             className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
           >
@@ -98,11 +113,20 @@ export const ProSettings: React.FC<ProSettingsProps> = ({
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-1">Reference Channel</label>
           <select
-            value={refChan}
-            onChange={(e) => setRefChan(Number(e.target.value))}
+            value={useLoopback ? "loopback" : refChan}
+            onChange={(e) => {
+              if (e.target.value === "loopback") {
+                setUseLoopback(true);
+                setRefChan(1); // Keep a default channel for internal use
+              } else {
+                setUseLoopback(false);
+                setRefChan(Number(e.target.value));
+              }
+            }}
             disabled={isCapturing || !selectedDevice}
             className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white disabled:opacity-50"
           >
+            <option value="loopback">Loopback (Signal Generator)</option>
             {selectedDevice && renderChannelOptions(selectedDevice.inputs)}
           </select>
         </div>
