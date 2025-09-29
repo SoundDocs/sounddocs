@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { User } from "@supabase/supabase-js";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import ImportShowFlowModal from "../components/ImportShowFlowModal";
 import {
   Loader,
   ArrowLeft,
+  ArrowUp,
+  ArrowDown,
   Save,
   Plus,
   Trash2,
@@ -16,6 +20,7 @@ import {
   MonitorPlay,
   Palette,
   AlertTriangle,
+  FileJson,
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { verifyShareLink, SharedLink } from "../lib/shareUtils";
@@ -37,7 +42,7 @@ export interface RunOfShowItem {
   audio?: string;
   video?: string;
   lights?: string;
-  [customKey: string]: any;
+  [customKey: string]: string | number | boolean | undefined;
 }
 
 export interface CustomColumnDefinition {
@@ -56,7 +61,7 @@ interface RunOfShowData {
   default_column_colors?: Record<string, string>; // Store colors for default columns
   created_at?: string;
   last_edited?: string;
-  live_show_data?: any | null; // Added for consistency with shared data
+  live_show_data?: Record<string, unknown> | null; // Added for consistency with shared data
 }
 
 // Time calculation utilities
@@ -138,7 +143,7 @@ const RunOfShowEditor: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [runOfShow, setRunOfShow] = useState<RunOfShowData | null>(null);
-  const [user, setUser] = useState<any>(null); // Authenticated user
+  const [user, setUser] = useState<User | null>(null); // Authenticated user
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -156,6 +161,9 @@ const RunOfShowEditor: React.FC = () => {
 
   const [currentIsSharedEdit, setCurrentIsSharedEdit] = useState(false);
   const [sharedLinkData, setSharedLinkData] = useState<SharedLink | null>(null);
+
+  // State for import modal
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Effect 1: Determine and set currentIsSharedEdit
   useEffect(() => {
@@ -183,7 +191,7 @@ const RunOfShowEditor: React.FC = () => {
 
       try {
         let data: RunOfShowData | null = null;
-        let error: any = null;
+        let error: unknown = null;
 
         if (currentIsSharedEdit && shareCode && resourceIdToFetch) {
           console.log(
@@ -227,7 +235,7 @@ const RunOfShowEditor: React.FC = () => {
         if (error) throw error;
 
         if (data) {
-          const migratedItems = (data.items || []).map((item: any) => ({
+          const migratedItems = (data.items || []).map((item: RunOfShowItem) => ({
             ...item,
             type: item.type || "item",
             highlightColor: item.highlightColor || undefined,
@@ -235,10 +243,12 @@ const RunOfShowEditor: React.FC = () => {
           setRunOfShow({
             ...data,
             items: migratedItems,
-            custom_column_definitions: (data.custom_column_definitions || []).map((col: any) => ({
-              ...col,
-              type: col.type || "text",
-            })),
+            custom_column_definitions: (data.custom_column_definitions || []).map(
+              (col: CustomColumnDefinition) => ({
+                ...col,
+                type: col.type || "text",
+              }),
+            ),
             default_column_colors: data.default_column_colors || {},
           });
         } else {
@@ -250,9 +260,11 @@ const RunOfShowEditor: React.FC = () => {
             navigate("/dashboard");
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error fetching run of show:", err);
-        setSaveError(`Failed to load run of show data: ${err.message}`);
+        setSaveError(
+          `Failed to load run of show data: ${err instanceof Error ? err.message : String(err)}`,
+        );
         if (!currentIsSharedEdit) {
           console.log(
             "[RoSEditor] fetchAndSetRunOfShow: Caught error, !currentIsSharedEdit -> navigating to dashboard.",
@@ -303,10 +315,10 @@ const RunOfShowEditor: React.FC = () => {
           } else {
             throw new Error("Invalid share link type or resource for editing.");
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error("Error verifying share link for RoS edit:", err);
           setSaveError(
-            `Error: ${err.message}. You may not have permission to edit this document or the link is invalid.`,
+            `Error: ${err instanceof Error ? err.message : String(err)}. You may not have permission to edit this document or the link is invalid.`,
           );
           setLoading(false);
         }
@@ -458,7 +470,11 @@ const RunOfShowEditor: React.FC = () => {
     return updatedItems;
   };
 
-  const handleItemChange = (itemId: string, field: keyof RunOfShowItem | string, value: any) => {
+  const handleItemChange = (
+    itemId: string,
+    field: keyof RunOfShowItem | string,
+    value: string | number | boolean | undefined,
+  ) => {
     if (runOfShow) {
       const updatedItems = runOfShow.items.map((item) =>
         item.id === itemId ? { ...item, [field]: value } : item,
@@ -484,6 +500,54 @@ const RunOfShowEditor: React.FC = () => {
         items: runOfShow.items.filter((item) => item.id !== itemId),
       });
     }
+  };
+
+  const handleMoveItem = (itemId: string, direction: "up" | "down") => {
+    if (!runOfShow) return;
+
+    const items = [...runOfShow.items];
+    const currentIndex = items.findIndex((item) => item.id === itemId);
+
+    if (currentIndex === -1) return;
+
+    let targetIndex: number;
+    if (direction === "up") {
+      targetIndex = currentIndex - 1;
+      if (targetIndex < 0) return;
+    } else {
+      targetIndex = currentIndex + 1;
+      if (targetIndex >= items.length) return;
+    }
+
+    // Swap items
+    [items[currentIndex], items[targetIndex]] = [items[targetIndex], items[currentIndex]];
+
+    // Recalculate item numbers and start times
+    let itemCount = 1;
+    let cumulativeTimeSeconds = 0;
+
+    const recalculatedItems = items.map((item) => {
+      if (item.type === "item") {
+        // Update item number
+        item.itemNumber = itemCount.toString();
+        itemCount++;
+
+        // Update start time based on cumulative time
+        item.startTime = formatSecondsToTime(cumulativeTimeSeconds);
+
+        // Add this item's duration to cumulative time
+        const durationSeconds = parseDurationToSeconds(item.duration || "");
+        if (durationSeconds !== null) {
+          cumulativeTimeSeconds += durationSeconds;
+        }
+      } else if (item.type === "header") {
+        // Headers can have a start time matching the next item
+        item.startTime = formatSecondsToTime(cumulativeTimeSeconds);
+      }
+      return item;
+    });
+
+    setRunOfShow({ ...runOfShow, items: recalculatedItems });
   };
 
   const handleAddCustomColumn = () => {
@@ -520,7 +584,7 @@ const RunOfShowEditor: React.FC = () => {
       );
       const updatedItems: RunOfShowItem[] = runOfShow.items.map((item) => {
         if (item.type === "header") return item;
-        if (oldName !== newName.trim() && item.hasOwnProperty(oldName)) {
+        if (oldName !== newName.trim() && Object.prototype.hasOwnProperty.call(item, oldName)) {
           const { [oldName]: value, ...rest } = item;
           return { ...rest, [newName.trim()]: value } as RunOfShowItem;
         }
@@ -547,7 +611,8 @@ const RunOfShowEditor: React.FC = () => {
       );
       const updatedItems: RunOfShowItem[] = runOfShow.items.map((item) => {
         if (item.type === "header") return item;
-        const { [columnToDelete.name]: _, ...rest } = item;
+        const { [columnToDelete.name]: deletedValue, ...rest } = item;
+        void deletedValue; // Mark as intentionally unused
         return rest as RunOfShowItem;
       });
       setRunOfShow({
@@ -634,7 +699,7 @@ const RunOfShowEditor: React.FC = () => {
       }
 
       if (savedData) {
-        const migratedItems = (savedData.items || []).map((item: any) => ({
+        const migratedItems = (savedData.items || []).map((item: RunOfShowItem) => ({
           ...item,
           type: item.type || "item",
           highlightColor: item.highlightColor || undefined,
@@ -643,16 +708,16 @@ const RunOfShowEditor: React.FC = () => {
           ...(savedData as RunOfShowData), // Cast to ensure type compatibility
           items: migratedItems,
           custom_column_definitions: (savedData.custom_column_definitions || []).map(
-            (col: any) => ({ ...col, type: col.type || "text" }),
+            (col: CustomColumnDefinition) => ({ ...col, type: col.type || "text" }),
           ),
         });
       }
 
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error saving run of show:", error);
-      setSaveError(`Error saving: ${error.message || "Please try again."}`);
+      setSaveError(`Error saving: ${error instanceof Error ? error.message : "Please try again."}`);
       setTimeout(() => setSaveError(null), 5000);
     } finally {
       setSaving(false);
@@ -732,6 +797,37 @@ const RunOfShowEditor: React.FC = () => {
       } else {
         navigate("/all-run-of-shows"); // Default for existing if no 'from'
       }
+    }
+  };
+
+  const handleImportShowFlow = (
+    name: string,
+    items: RunOfShowItem[],
+    customColumns: CustomColumnDefinition[],
+  ) => {
+    if (runOfShow) {
+      // Check if there are existing items that would be replaced
+      const hasExistingContent = runOfShow.items.length > 0;
+
+      if (hasExistingContent) {
+        const confirmMessage =
+          "Are you sure you want to import this show flow?\n\n" +
+          "This will replace all current items in your run of show. " +
+          "This action cannot be undone.";
+
+        if (!window.confirm(confirmMessage)) {
+          return;
+        }
+      }
+
+      // Replace the existing show content
+      setRunOfShow({
+        ...runOfShow,
+        name: name || runOfShow.name,
+        items: items,
+        custom_column_definitions: customColumns,
+      });
+      setShowImportModal(false);
     }
   };
 
@@ -892,6 +988,13 @@ const RunOfShowEditor: React.FC = () => {
           <div className="p-4 md:p-6 border-b border-gray-700 flex justify-between items-center">
             <h2 className="text-lg font-medium text-white">Show Content</h2>
             <div className="flex gap-2">
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+              >
+                <FileJson className="h-4 w-4 mr-1.5" />
+                Import
+              </button>
               <button
                 onClick={() => handleAddItem("header")}
                 className="inline-flex items-center bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
@@ -1138,13 +1241,34 @@ const RunOfShowEditor: React.FC = () => {
                         })}
                         <td className="px-3 py-2"></td>
                         <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6">
-                          <button
-                            onClick={() => handleDeleteItem(item.id)}
-                            className="text-red-400 hover:text-red-300 p-1"
-                            title="Delete Header"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => handleMoveItem(item.id, "up")}
+                              disabled={runOfShow.items.findIndex((i) => i.id === item.id) === 0}
+                              className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                              title="Move Up"
+                            >
+                              <ArrowUp className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleMoveItem(item.id, "down")}
+                              disabled={
+                                runOfShow.items.findIndex((i) => i.id === item.id) ===
+                                runOfShow.items.length - 1
+                              }
+                              className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                              title="Move Down"
+                            >
+                              <ArrowDown className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteItem(item.id)}
+                              className="text-red-400 hover:text-red-300 p-1"
+                              title="Delete Header"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1204,6 +1328,25 @@ const RunOfShowEditor: React.FC = () => {
                       <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6 relative">
                         <div className="flex items-center justify-end gap-1">
                           <button
+                            onClick={() => handleMoveItem(item.id, "up")}
+                            disabled={runOfShow.items.findIndex((i) => i.id === item.id) === 0}
+                            className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                            title="Move Up"
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleMoveItem(item.id, "down")}
+                            disabled={
+                              runOfShow.items.findIndex((i) => i.id === item.id) ===
+                              runOfShow.items.length - 1
+                            }
+                            className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                            title="Move Down"
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => handleOpenColorPickerModal(item.id)}
                             className="text-indigo-400 hover:text-indigo-300 p-1"
                             title="Highlight Row"
@@ -1255,13 +1398,34 @@ const RunOfShowEditor: React.FC = () => {
                         className="bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-400 text-lg font-bold"
                         placeholder="Section Header Title"
                       />
-                      <button
-                        onClick={() => handleDeleteItem(item.id)}
-                        className="text-red-400 hover:text-red-300 p-1"
-                        title="Delete Header"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleMoveItem(item.id, "up")}
+                          disabled={runOfShow.items.findIndex((i) => i.id === item.id) === 0}
+                          className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                          title="Move Up"
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleMoveItem(item.id, "down")}
+                          disabled={
+                            runOfShow.items.findIndex((i) => i.id === item.id) ===
+                            runOfShow.items.length - 1
+                          }
+                          className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                          title="Move Down"
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="text-red-400 hover:text-red-300 p-1"
+                          title="Delete Header"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -1274,6 +1438,25 @@ const RunOfShowEditor: React.FC = () => {
                           placeholder="Item Name/No."
                         />
                         <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleMoveItem(item.id, "up")}
+                            disabled={runOfShow.items.findIndex((i) => i.id === item.id) === 0}
+                            className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                            title="Move Up"
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleMoveItem(item.id, "down")}
+                            disabled={
+                              runOfShow.items.findIndex((i) => i.id === item.id) ===
+                              runOfShow.items.length - 1
+                            }
+                            className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                            title="Move Down"
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </button>
                           <button
                             onClick={() => handleOpenColorPickerModal(item.id)}
                             className="text-indigo-400 hover:text-indigo-300 p-1"
@@ -1428,6 +1611,13 @@ const RunOfShowEditor: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Import Show Flow Modal */}
+      <ImportShowFlowModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImport={handleImportShowFlow}
+      />
     </div>
   );
 };
