@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { User } from "@supabase/supabase-js";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import ImportShowFlowModal from "../components/ImportShowFlowModal";
@@ -41,7 +42,7 @@ export interface RunOfShowItem {
   audio?: string;
   video?: string;
   lights?: string;
-  [customKey: string]: any;
+  [customKey: string]: string | number | boolean | undefined;
 }
 
 export interface CustomColumnDefinition {
@@ -60,7 +61,7 @@ interface RunOfShowData {
   default_column_colors?: Record<string, string>; // Store colors for default columns
   created_at?: string;
   last_edited?: string;
-  live_show_data?: any | null; // Added for consistency with shared data
+  live_show_data?: Record<string, unknown> | null; // Added for consistency with shared data
 }
 
 // Time calculation utilities
@@ -142,7 +143,7 @@ const RunOfShowEditor: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [runOfShow, setRunOfShow] = useState<RunOfShowData | null>(null);
-  const [user, setUser] = useState<any>(null); // Authenticated user
+  const [user, setUser] = useState<User | null>(null); // Authenticated user
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -190,7 +191,7 @@ const RunOfShowEditor: React.FC = () => {
 
       try {
         let data: RunOfShowData | null = null;
-        let error: any = null;
+        let error: unknown = null;
 
         if (currentIsSharedEdit && shareCode && resourceIdToFetch) {
           console.log(
@@ -234,7 +235,7 @@ const RunOfShowEditor: React.FC = () => {
         if (error) throw error;
 
         if (data) {
-          const migratedItems = (data.items || []).map((item: any) => ({
+          const migratedItems = (data.items || []).map((item: RunOfShowItem) => ({
             ...item,
             type: item.type || "item",
             highlightColor: item.highlightColor || undefined,
@@ -242,10 +243,12 @@ const RunOfShowEditor: React.FC = () => {
           setRunOfShow({
             ...data,
             items: migratedItems,
-            custom_column_definitions: (data.custom_column_definitions || []).map((col: any) => ({
-              ...col,
-              type: col.type || "text",
-            })),
+            custom_column_definitions: (data.custom_column_definitions || []).map(
+              (col: CustomColumnDefinition) => ({
+                ...col,
+                type: col.type || "text",
+              }),
+            ),
             default_column_colors: data.default_column_colors || {},
           });
         } else {
@@ -257,9 +260,11 @@ const RunOfShowEditor: React.FC = () => {
             navigate("/dashboard");
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error fetching run of show:", err);
-        setSaveError(`Failed to load run of show data: ${err.message}`);
+        setSaveError(
+          `Failed to load run of show data: ${err instanceof Error ? err.message : String(err)}`,
+        );
         if (!currentIsSharedEdit) {
           console.log(
             "[RoSEditor] fetchAndSetRunOfShow: Caught error, !currentIsSharedEdit -> navigating to dashboard.",
@@ -310,10 +315,10 @@ const RunOfShowEditor: React.FC = () => {
           } else {
             throw new Error("Invalid share link type or resource for editing.");
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error("Error verifying share link for RoS edit:", err);
           setSaveError(
-            `Error: ${err.message}. You may not have permission to edit this document or the link is invalid.`,
+            `Error: ${err instanceof Error ? err.message : String(err)}. You may not have permission to edit this document or the link is invalid.`,
           );
           setLoading(false);
         }
@@ -465,7 +470,11 @@ const RunOfShowEditor: React.FC = () => {
     return updatedItems;
   };
 
-  const handleItemChange = (itemId: string, field: keyof RunOfShowItem | string, value: any) => {
+  const handleItemChange = (
+    itemId: string,
+    field: keyof RunOfShowItem | string,
+    value: string | number | boolean | undefined,
+  ) => {
     if (runOfShow) {
       const updatedItems = runOfShow.items.map((item) =>
         item.id === itemId ? { ...item, [field]: value } : item,
@@ -559,7 +568,7 @@ const RunOfShowEditor: React.FC = () => {
       );
       const updatedItems: RunOfShowItem[] = runOfShow.items.map((item) => {
         if (item.type === "header") return item;
-        if (oldName !== newName.trim() && item.hasOwnProperty(oldName)) {
+        if (oldName !== newName.trim() && Object.prototype.hasOwnProperty.call(item, oldName)) {
           const { [oldName]: value, ...rest } = item;
           return { ...rest, [newName.trim()]: value } as RunOfShowItem;
         }
@@ -586,7 +595,8 @@ const RunOfShowEditor: React.FC = () => {
       );
       const updatedItems: RunOfShowItem[] = runOfShow.items.map((item) => {
         if (item.type === "header") return item;
-        const { [columnToDelete.name]: _, ...rest } = item;
+        const { [columnToDelete.name]: deletedValue, ...rest } = item;
+        void deletedValue; // Mark as intentionally unused
         return rest as RunOfShowItem;
       });
       setRunOfShow({
@@ -673,7 +683,7 @@ const RunOfShowEditor: React.FC = () => {
       }
 
       if (savedData) {
-        const migratedItems = (savedData.items || []).map((item: any) => ({
+        const migratedItems = (savedData.items || []).map((item: RunOfShowItem) => ({
           ...item,
           type: item.type || "item",
           highlightColor: item.highlightColor || undefined,
@@ -682,16 +692,16 @@ const RunOfShowEditor: React.FC = () => {
           ...(savedData as RunOfShowData), // Cast to ensure type compatibility
           items: migratedItems,
           custom_column_definitions: (savedData.custom_column_definitions || []).map(
-            (col: any) => ({ ...col, type: col.type || "text" }),
+            (col: CustomColumnDefinition) => ({ ...col, type: col.type || "text" }),
           ),
         });
       }
 
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error saving run of show:", error);
-      setSaveError(`Error saving: ${error.message || "Please try again."}`);
+      setSaveError(`Error saving: ${error instanceof Error ? error.message : "Please try again."}`);
       setTimeout(() => setSaveError(null), 5000);
     } finally {
       setSaving(false);
