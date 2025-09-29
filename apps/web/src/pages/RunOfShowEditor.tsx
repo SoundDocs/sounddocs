@@ -522,16 +522,32 @@ const RunOfShowEditor: React.FC = () => {
     // Swap items
     [items[currentIndex], items[targetIndex]] = [items[targetIndex], items[currentIndex]];
 
-    // Update item numbers for regular items
+    // Recalculate item numbers and start times
     let itemCount = 1;
-    items.forEach((item) => {
+    let cumulativeTimeSeconds = 0;
+
+    const recalculatedItems = items.map((item) => {
       if (item.type === "item") {
+        // Update item number
         item.itemNumber = itemCount.toString();
         itemCount++;
+
+        // Update start time based on cumulative time
+        item.startTime = formatSecondsToTime(cumulativeTimeSeconds);
+
+        // Add this item's duration to cumulative time
+        const durationSeconds = parseDurationToSeconds(item.duration || "");
+        if (durationSeconds !== null) {
+          cumulativeTimeSeconds += durationSeconds;
+        }
+      } else if (item.type === "header") {
+        // Headers can have a start time matching the next item
+        item.startTime = formatSecondsToTime(cumulativeTimeSeconds);
       }
+      return item;
     });
 
-    setRunOfShow({ ...runOfShow, items });
+    setRunOfShow({ ...runOfShow, items: recalculatedItems });
   };
 
   const handleAddCustomColumn = () => {
@@ -790,7 +806,21 @@ const RunOfShowEditor: React.FC = () => {
     customColumns: CustomColumnDefinition[],
   ) => {
     if (runOfShow) {
-      // Add imported items to existing show
+      // Check if there are existing items that would be replaced
+      const hasExistingContent = runOfShow.items.length > 0;
+
+      if (hasExistingContent) {
+        const confirmMessage =
+          "Are you sure you want to import this show flow?\n\n" +
+          "This will replace all current items in your run of show. " +
+          "This action cannot be undone.";
+
+        if (!window.confirm(confirmMessage)) {
+          return;
+        }
+      }
+
+      // Replace the existing show content
       setRunOfShow({
         ...runOfShow,
         name: name || runOfShow.name,
