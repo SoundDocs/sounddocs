@@ -9,7 +9,12 @@ CREATE OR REPLACE FUNCTION get_total_user_count()
 RETURNS bigint
 LANGUAGE sql
 SECURITY DEFINER
+SET search_path = ''
 AS $$
   SELECT COUNT(*)
   FROM auth.users;
 $$;
+
+-- Security: Revoke public access and grant only to necessary roles
+REVOKE ALL ON FUNCTION get_total_user_count() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION get_total_user_count() TO anon, authenticated;

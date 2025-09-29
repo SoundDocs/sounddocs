@@ -17,26 +17,33 @@ const TrustedBy: React.FC = () => {
     loadUserCount();
   }, []);
 
-  // Animated counter effect
+  // Animated counter effect using requestAnimationFrame for smoother animation
   useEffect(() => {
     if (userCount === null) return;
 
     const duration = 2000; // 2 seconds
-    const steps = 60;
-    const increment = userCount / steps;
-    let current = 0;
+    let animationFrameId: number;
+    let startTime: number | undefined;
 
-    const timer = setInterval(() => {
-      current += increment;
-      if (current >= userCount) {
-        setDisplayCount(userCount);
-        clearInterval(timer);
-      } else {
-        setDisplayCount(Math.floor(current));
+    const animate = (timestamp: number) => {
+      if (startTime === undefined) {
+        startTime = timestamp;
       }
-    }, duration / steps);
 
-    return () => clearInterval(timer);
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const currentDisplayCount = Math.floor(progress * userCount);
+
+      setDisplayCount(currentDisplayCount);
+
+      if (progress < 1) {
+        animationFrameId = requestAnimationFrame(animate);
+      }
+    };
+
+    animationFrameId = requestAnimationFrame(animate);
+
+    return () => cancelAnimationFrame(animationFrameId);
   }, [userCount]);
 
   const formatNumber = (num: number) => {
