@@ -137,3 +137,24 @@ export const savePixelMap = async (payload: PixelMapPayload) => {
     throw error;
   }
 };
+
+/**
+ * Fetches the total count of registered users by counting unique users who created documents.
+ * @returns The total number of unique users or null if query fails.
+ */
+export const fetchUserCount = async (): Promise<number | null> => {
+  try {
+    // Use RPC function to count unique users across all document types
+    const { data, error } = await supabase.rpc("get_total_user_count");
+
+    if (error) {
+      console.error("Error fetching user count:", error);
+      return null;
+    }
+
+    return data;
+  } catch (err) {
+    console.error("Error fetching user count:", err);
+    return null;
+  }
+};

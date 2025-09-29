@@ -18,6 +18,10 @@ SoundDocs is provided free of charge and is open source under the AGPL v3 licens
 
 ![SoundDocs Hero Preview](https://i.postimg.cc/bJdc5Hmz/Screenshot-2025-06-05-at-19-21-01.png)
 
+## 🌍 Trusted Worldwide
+
+SoundDocs is trusted by production companies, freelancers, and event professionals around the globe. From national tours and corporate events to theatrical productions and broadcast operations, professionals rely on SoundDocs to streamline their documentation workflow and deliver exceptional results.
+
 ## ✨ Core Features
 
 SoundDocs empowers you to manage event audio documentation efficiently:
