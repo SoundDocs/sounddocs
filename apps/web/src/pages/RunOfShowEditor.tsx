@@ -3,9 +3,12 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import ImportShowFlowModal from "../components/ImportShowFlowModal";
 import {
   Loader,
   ArrowLeft,
+  ArrowUp,
+  ArrowDown,
   Save,
   Plus,
   Trash2,
@@ -16,6 +19,7 @@ import {
   MonitorPlay,
   Palette,
   AlertTriangle,
+  FileJson,
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { verifyShareLink, SharedLink } from "../lib/shareUtils";
@@ -156,6 +160,9 @@ const RunOfShowEditor: React.FC = () => {
 
   const [currentIsSharedEdit, setCurrentIsSharedEdit] = useState(false);
   const [sharedLinkData, setSharedLinkData] = useState<SharedLink | null>(null);
+
+  // State for import modal
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Effect 1: Determine and set currentIsSharedEdit
   useEffect(() => {
@@ -486,6 +493,38 @@ const RunOfShowEditor: React.FC = () => {
     }
   };
 
+  const handleMoveItem = (itemId: string, direction: "up" | "down") => {
+    if (!runOfShow) return;
+
+    const items = [...runOfShow.items];
+    const currentIndex = items.findIndex((item) => item.id === itemId);
+
+    if (currentIndex === -1) return;
+
+    let targetIndex: number;
+    if (direction === "up") {
+      targetIndex = currentIndex - 1;
+      if (targetIndex < 0) return;
+    } else {
+      targetIndex = currentIndex + 1;
+      if (targetIndex >= items.length) return;
+    }
+
+    // Swap items
+    [items[currentIndex], items[targetIndex]] = [items[targetIndex], items[currentIndex]];
+
+    // Update item numbers for regular items
+    let itemCount = 1;
+    items.forEach((item) => {
+      if (item.type === "item") {
+        item.itemNumber = itemCount.toString();
+        itemCount++;
+      }
+    });
+
+    setRunOfShow({ ...runOfShow, items });
+  };
+
   const handleAddCustomColumn = () => {
     if (runOfShow && newColumnName.trim() !== "") {
       const newColumn: CustomColumnDefinition = {
@@ -735,6 +774,23 @@ const RunOfShowEditor: React.FC = () => {
     }
   };
 
+  const handleImportShowFlow = (
+    name: string,
+    items: RunOfShowItem[],
+    customColumns: CustomColumnDefinition[],
+  ) => {
+    if (runOfShow) {
+      // Add imported items to existing show
+      setRunOfShow({
+        ...runOfShow,
+        name: name || runOfShow.name,
+        items: items,
+        custom_column_definitions: customColumns,
+      });
+      setShowImportModal(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -892,6 +948,13 @@ const RunOfShowEditor: React.FC = () => {
           <div className="p-4 md:p-6 border-b border-gray-700 flex justify-between items-center">
             <h2 className="text-lg font-medium text-white">Show Content</h2>
             <div className="flex gap-2">
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+              >
+                <FileJson className="h-4 w-4 mr-1.5" />
+                Import
+              </button>
               <button
                 onClick={() => handleAddItem("header")}
                 className="inline-flex items-center bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
@@ -1138,13 +1201,34 @@ const RunOfShowEditor: React.FC = () => {
                         })}
                         <td className="px-3 py-2"></td>
                         <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6">
-                          <button
-                            onClick={() => handleDeleteItem(item.id)}
-                            className="text-red-400 hover:text-red-300 p-1"
-                            title="Delete Header"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => handleMoveItem(item.id, "up")}
+                              disabled={runOfShow.items.findIndex((i) => i.id === item.id) === 0}
+                              className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                              title="Move Up"
+                            >
+                              <ArrowUp className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleMoveItem(item.id, "down")}
+                              disabled={
+                                runOfShow.items.findIndex((i) => i.id === item.id) ===
+                                runOfShow.items.length - 1
+                              }
+                              className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                              title="Move Down"
+                            >
+                              <ArrowDown className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteItem(item.id)}
+                              className="text-red-400 hover:text-red-300 p-1"
+                              title="Delete Header"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1204,6 +1288,25 @@ const RunOfShowEditor: React.FC = () => {
                       <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6 relative">
                         <div className="flex items-center justify-end gap-1">
                           <button
+                            onClick={() => handleMoveItem(item.id, "up")}
+                            disabled={runOfShow.items.findIndex((i) => i.id === item.id) === 0}
+                            className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                            title="Move Up"
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleMoveItem(item.id, "down")}
+                            disabled={
+                              runOfShow.items.findIndex((i) => i.id === item.id) ===
+                              runOfShow.items.length - 1
+                            }
+                            className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                            title="Move Down"
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => handleOpenColorPickerModal(item.id)}
                             className="text-indigo-400 hover:text-indigo-300 p-1"
                             title="Highlight Row"
@@ -1255,13 +1358,34 @@ const RunOfShowEditor: React.FC = () => {
                         className="bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-400 text-lg font-bold"
                         placeholder="Section Header Title"
                       />
-                      <button
-                        onClick={() => handleDeleteItem(item.id)}
-                        className="text-red-400 hover:text-red-300 p-1"
-                        title="Delete Header"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleMoveItem(item.id, "up")}
+                          disabled={runOfShow.items.findIndex((i) => i.id === item.id) === 0}
+                          className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                          title="Move Up"
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleMoveItem(item.id, "down")}
+                          disabled={
+                            runOfShow.items.findIndex((i) => i.id === item.id) ===
+                            runOfShow.items.length - 1
+                          }
+                          className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                          title="Move Down"
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="text-red-400 hover:text-red-300 p-1"
+                          title="Delete Header"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -1274,6 +1398,25 @@ const RunOfShowEditor: React.FC = () => {
                           placeholder="Item Name/No."
                         />
                         <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleMoveItem(item.id, "up")}
+                            disabled={runOfShow.items.findIndex((i) => i.id === item.id) === 0}
+                            className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                            title="Move Up"
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleMoveItem(item.id, "down")}
+                            disabled={
+                              runOfShow.items.findIndex((i) => i.id === item.id) ===
+                              runOfShow.items.length - 1
+                            }
+                            className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                            title="Move Down"
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </button>
                           <button
                             onClick={() => handleOpenColorPickerModal(item.id)}
                             className="text-indigo-400 hover:text-indigo-300 p-1"
@@ -1428,6 +1571,13 @@ const RunOfShowEditor: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Import Show Flow Modal */}
+      <ImportShowFlowModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImport={handleImportShowFlow}
+      />
     </div>
   );
 };
