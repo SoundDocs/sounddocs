@@ -33,6 +33,7 @@ const RiderInputList: React.FC<RiderInputListProps> = ({ inputList, onUpdateInpu
       const duplicated: InputChannel = {
         ...inputToDuplicate,
         id: uuidv4(),
+        channel_number: "", // Clear channel number to avoid duplicates
       };
       const index = inputList.findIndex((input) => input.id === id);
       const newList = [...inputList];
