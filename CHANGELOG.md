@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.6.8] - 2025-09-30
+
+### Added
+
+- **Technical Riders**: Complete technical rider management system for touring artists and production teams
+  - Create and edit comprehensive technical riders with artist information, band members, and contact details
+  - Manage input/channel lists with mic types, phantom power, and DI requirements
+  - Define sound system requirements (PA, monitors, console specifications)
+  - Track backline requirements and artist-provided equipment
+  - Specify required technical staff and special production requirements
+  - Add hospitality and additional notes sections
+  - Share riders with view and edit permissions via secure share links
+  - Print-friendly PDF exports with professional formatting and proper page breaks
+  - Available on Production page for easy access
+- **Script Import Instructions**: Added LLM prompt template for converting scripts to Run of Show format
+  - Provides structured instructions for users to convert scripts using external LLMs (ChatGPT, Claude, etc.)
+  - Template includes guidance for adding lighting cues, audio requirements, and production notes
+  - Generates JSON format compatible with SoundDocs Run of Show system
+  - Accessed via Import Show Flow modal in Run of Show editor
+- **Trusted By Section**: Added social proof component to landing page
+  - Live user count display showing platform adoption
+  - Real-time statistics from user base
+  - Professional presentation of platform credibility
+
+### Changed
+
+- **Web App Version**: Updated to `1.5.6.8`
+
 ## [1.5.6.7] - 2025-09-25
 
 ### Added

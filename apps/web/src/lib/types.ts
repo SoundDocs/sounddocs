@@ -48,3 +48,62 @@ export interface Measurement {
   phase_flipped?: boolean;
   isMathTrace?: boolean;
 }
+
+// Technical Rider Interfaces
+export interface BandMember {
+  id: string;
+  name: string;
+  instrument: string;
+  input_needs: string;
+}
+
+export interface InputChannel {
+  id: string;
+  channel_number: string;
+  name: string;
+  type: string;
+  mic_type?: string;
+  phantom_power: boolean;
+  di_needed: boolean;
+  notes: string;
+}
+
+export interface BacklineItem {
+  id: string;
+  item: string;
+  quantity: string;
+  notes: string;
+}
+
+export interface StaffRequirement {
+  id: string;
+  role: string;
+  quantity: string;
+  notes: string;
+}
+
+export interface RiderForExport {
+  id: string;
+  name: string;
+  created_at: string;
+  last_edited?: string;
+  artist_name: string;
+  band_members: BandMember[];
+  genre: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string;
+  stage_plot_url?: string;
+  input_list: InputChannel[];
+  pa_requirements: string;
+  monitor_requirements: string;
+  console_requirements: string;
+  backline_requirements: BacklineItem[];
+  artist_provided_gear: BacklineItem[];
+  required_staff: StaffRequirement[];
+  special_requirements: string;
+  power_requirements: string;
+  lighting_notes: string;
+  hospitality_notes: string;
+  additional_notes: string;
+}

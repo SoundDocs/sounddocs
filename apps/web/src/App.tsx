@@ -16,6 +16,8 @@ import ProductionScheduleEditor from "./pages/ProductionScheduleEditor";
 import AllProductionSchedules from "./pages/AllProductionSchedules";
 import RunOfShowEditor from "./pages/RunOfShowEditor";
 import AllRunOfShows from "./pages/AllRunOfShows";
+import RiderEditor from "./pages/RiderEditor";
+import AllRiders from "./pages/AllRiders";
 import ShowModePage from "./pages/ShowModePage";
 import SharedShowModePage from "./pages/SharedShowModePage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -23,6 +25,7 @@ import TermsOfService from "./pages/TermsOfService";
 import SharedPatchSheet from "./pages/SharedPatchSheet";
 import SharedStagePlot from "./pages/SharedStagePlot";
 import SharedProductionSchedule from "./pages/SharedProductionSchedule";
+import SharedTechnicalRider from "./pages/SharedTechnicalRider";
 import ProfilePage from "./pages/ProfilePage";
 import UpdatePasswordPage from "./pages/UpdatePasswordPage";
 import SharedWithMePage from "./pages/SharedWithMePage";
@@ -267,6 +270,8 @@ function App() {
               path="/shared/production-schedule/:shareCode"
               element={<SharedProductionSchedule />}
             />
+            <Route path="/shared/technical-rider/edit/:shareCode" element={<RiderEditor />} />
+            <Route path="/shared/technical-rider/:shareCode" element={<SharedTechnicalRider />} />
             <Route
               path="/all-production-schedules"
               element={
@@ -291,6 +296,23 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AllRunOfShows />
+                </ProtectedRoute>
+              }
+            />
+            {/* Technical Rider Routes */}
+            <Route
+              path="/rider/:id"
+              element={
+                <ProtectedRoute>
+                  <RiderEditor />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/all-riders"
+              element={
+                <ProtectedRoute>
+                  <AllRiders />
                 </ProtectedRoute>
               }
             />
