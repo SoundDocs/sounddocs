@@ -10,7 +10,7 @@
 
 ## 🎵 **Free and Open Source**
 
-SoundDocs is a modern web application meticulously crafted for audio engineers, production managers, and event technicians. Streamline your workflow by creating comprehensive patch lists, intuitive stage plots, detailed run of shows, and production schedules with ease. Now featuring advanced measurement mathematics for professional audio analysis. Share your setups seamlessly with venues, artists, and production teams.
+SoundDocs is a modern web application meticulously crafted for audio engineers, production managers, and event technicians. Streamline your workflow by creating comprehensive patch lists, intuitive stage plots, technical riders, detailed run of shows, and production schedules with ease. Now featuring advanced measurement mathematics for professional audio analysis. Share your setups seamlessly with venues, artists, and production teams.
 
 SoundDocs is provided free of charge and is open source under the AGPL v3 license.
 
@@ -32,6 +32,8 @@ SoundDocs empowers you to manage event audio documentation efficiently:
   Visually construct stage layouts using a library of draggable elements including instruments, microphones, monitors, DI boxes, and risers. Clearly communicate stage needs.
 - **🎤 Mic Plot Designer:**
   Craft detailed Corporate and Theater mic plots. Manage presenters, actors, wireless assignments, photos, and notes with ease.
+- **📋 Technical Rider Manager:**
+  Create comprehensive technical riders for touring artists and production teams. Include artist information, band members, input/channel lists, sound system requirements, backline needs, technical staff requirements, and hospitality riders. Share riders with venues and production teams via secure links, with professional PDF exports.
 - **📊 Pixel Map Designer:**
   Design and visualize LED video wall layouts, then export clear, detailed plans for your video team.
 - **📻 Comms Planner:**
