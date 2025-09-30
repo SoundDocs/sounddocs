@@ -41,7 +41,6 @@ const AllRiders: React.FC = () => {
   const [riders, setRiders] = useState<RiderSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<{ id: string } | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [riderToDelete, setRiderToDelete] = useState<RiderSummary | null>(null);
 
@@ -69,7 +68,6 @@ const AllRiders: React.FC = () => {
         navigate("/login");
         return;
       }
-      setUser(userData.user);
 
       const { data, error: fetchError } = await supabase
         .from("technical_riders")

@@ -28,12 +28,12 @@ export interface SharedLink {
 export interface SharedRunOfShowData {
   id: string; // run_of_shows.id
   name: string;
-  items: any[]; // Sanitized items
-  custom_column_definitions: any[];
+  items: Record<string, unknown>[]; // Sanitized items
+  custom_column_definitions: Record<string, unknown>[];
   default_column_colors?: Record<string, string>; // Store colors for default columns
   created_at: string;
   last_edited: string | null;
-  live_show_data: any | null; // To store { currentItemIndex, isTimerActive, timeRemaining }
+  live_show_data: Record<string, unknown> | null; // To store { currentItemIndex, isTimerActive, timeRemaining }
   resource_id: string; // Corresponds to SharedLink.resource_id
   resource_type: string; // Should be 'run_of_show'
   link_id: string; // Corresponds to SharedLink.id
@@ -197,7 +197,7 @@ export const verifyShareLink = async (shareCode: string): Promise<SharedLink> =>
 
 export const getSharedResource = async (
   shareCode: string,
-): Promise<{ resource: any; shareLink: SharedLink }> => {
+): Promise<{ resource: Record<string, unknown>; shareLink: SharedLink }> => {
   try {
     if (!shareCode) throw new Error("Share code is required");
 
@@ -367,7 +367,7 @@ export const getShareUrl = (
 export const updateSharedResource = async (
   shareCode: string,
   resourceType: ResourceType,
-  updates: any,
+  updates: Record<string, unknown>,
 ) => {
   try {
     if (!shareCode) throw new Error("Share code is required");
@@ -436,7 +436,10 @@ export const updateSharedResource = async (
  * @param sharedLinkId The ID of the shared_links record.
  * @returns The newly created user_claimed_shares record.
  */
-export const addClaimedShare = async (userId: string, sharedLinkId: string): Promise<any> => {
+export const addClaimedShare = async (
+  userId: string,
+  sharedLinkId: string,
+): Promise<{ success: boolean; user_id: string; shared_link_id: string; claimed_at: string }> => {
   if (!userId || !sharedLinkId) {
     throw new Error("User ID and Shared Link ID are required to claim a share.");
   }

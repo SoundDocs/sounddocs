@@ -1,16 +1,5 @@
 import React, { forwardRef } from "react";
-import {
-  User,
-  Mail,
-  Phone,
-  Mic,
-  Volume2,
-  Wrench,
-  Users,
-  Zap,
-  Coffee,
-  Bookmark,
-} from "lucide-react";
+import { User, Mic, Volume2, Wrench, Users, Zap, Coffee, Bookmark } from "lucide-react";
 import type { RiderForExport } from "../../lib/types";
 
 interface RiderExportProps {

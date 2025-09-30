@@ -1,5 +1,4 @@
 import React, { forwardRef } from "react";
-import { Calendar } from "lucide-react";
 import type { RiderForExport } from "../../lib/types";
 
 interface PrintRiderExportProps {

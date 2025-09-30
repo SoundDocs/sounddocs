@@ -8,7 +8,6 @@ import RiderInputList from "../components/rider/RiderInputList";
 import RiderEquipment from "../components/rider/RiderEquipment";
 import RiderTechnicalStaff from "../components/rider/RiderTechnicalStaff";
 import { Loader, ArrowLeft, Save, AlertCircle, Users, ListChecks, Wrench, Zap } from "lucide-react";
-import { v4 as uuidv4 } from "uuid";
 import { BandMember, InputChannel, BacklineItem, StaffRequirement } from "../lib/types";
 
 interface RiderData {
