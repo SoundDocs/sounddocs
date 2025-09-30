@@ -1,14 +1,15 @@
 import { supabase } from "./supabase";
 import { nanoid } from "nanoid";
 
-// Updated ResourceType to include 'corporate_mic_plot' and 'theater_mic_plot'
+// Updated ResourceType to include 'corporate_mic_plot', 'theater_mic_plot', and 'technical_rider'
 export type ResourceType =
   | "patch_sheet"
   | "stage_plot"
   | "production_schedule"
   | "run_of_show"
   | "corporate_mic_plot"
-  | "theater_mic_plot";
+  | "theater_mic_plot"
+  | "technical_rider";
 
 export interface SharedLink {
   id: string; // This is shared_links.id
@@ -263,8 +264,11 @@ export const getSharedResource = async (
         case "corporate_mic_plot":
           tableName = "corporate_mic_plots";
           break;
-        case "theater_mic_plot": // Added case for theater_mic_plot
+        case "theater_mic_plot":
           tableName = "theater_mic_plots";
+          break;
+        case "technical_rider": // Added case for technical_rider
+          tableName = "technical_riders";
           break;
         default:
           console.error(`Unsupported resource type encountered: ${verifiedLink.resource_type}`);
@@ -346,6 +350,12 @@ export const getShareUrl = (
       return `${baseUrl}/shared/theater-mic-plot/edit/${shareCode}`;
     }
     return `${baseUrl}/shared/theater-mic-plot/${shareCode}`;
+  } else if (resourceType === "technical_rider") {
+    // Added case for technical_rider
+    if (linkType === "edit") {
+      return `${baseUrl}/shared/technical-rider/edit/${shareCode}`;
+    }
+    return `${baseUrl}/shared/technical-rider/${shareCode}`;
   }
 
   console.warn(
