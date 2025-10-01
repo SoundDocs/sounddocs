@@ -1,3 +1,75 @@
-# Ignore artifacts:
-build
-coverage
+# Build outputs and artifacts
+build/
+dist/
+coverage/
+.next/
+out/
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment files
+.env
+.env.*
+
+# Generated files
+*.generated.*
+**/*.generated.*
+
+# Supabase
+.branches/
+**/supabase/.branches/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+
+# Lock files
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+poetry.lock
+
+# Binary and media files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.pdf
+*.woff*
+*.ttf
+*.eot
+*.mp4
+*.mp3
+*.wav
+
+# Certificate files
+*.pem
+*.key
+*.crt
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Temporary and cache
+tmp/
+temp/
+.cache/
+.turbo/
+
+# Git
+.git/
