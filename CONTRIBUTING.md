@@ -2,6 +2,37 @@
 
 First off, thank you for considering contributing to SoundDocs! It's people like you that make SoundDocs such a great tool. We welcome any form of contribution, from reporting bugs and suggesting features to writing code and improving documentation.
 
+## 🤖 AI-Assisted Development (Recommended)
+
+If you're using AI-assisted coding tools or "vibe coding" approaches, we **strongly recommend using [Claude Code](https://claude.ai/claude-code)** for the best development experience.
+
+### Why Claude Code for SoundDocs?
+
+This project is specifically optimized for Claude Code with:
+
+- **[.claude/CLAUDE.md](.claude/CLAUDE.md)**: Comprehensive project documentation covering:
+
+  - Complete architecture overview
+  - Tech stack details (React, TypeScript, Supabase, pnpm)
+  - Code style conventions and patterns
+  - Database schema and security policies
+  - Common tasks and workflows
+  - Troubleshooting guides
+
+- **60+ Specialized Sub-Agents**: Claude Code provides expert agents for:
+
+  - Frontend development (React, TypeScript)
+  - Backend & database (Supabase, PostgreSQL)
+  - Testing & QA
+  - Security & performance
+  - DevOps & CI/CD
+  - Documentation
+  - And many more...
+
+- **Intelligent Delegation**: Claude Code acts as a CTO, delegating tasks to the most appropriate specialist agent for better results and faster development.
+
+Using Claude Code means you'll automatically follow project conventions, use the right patterns, and produce higher-quality code that aligns with our architecture.
+
 ## Code of Conduct
 
 This project and everyone participating in it is governed by the [SoundDocs Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior.

@@ -15,9 +15,10 @@ import {
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { AppConfig } from "../config";
+import type { User } from "@supabase/supabase-js";
 
 const Hero: React.FC = () => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [currentDate, setCurrentDate] = useState<string>("");
 
   useEffect(() => {
@@ -104,7 +105,7 @@ const Hero: React.FC = () => {
                 <span>Open source on GitHub</span>
               </a>
               <a
-                href="https://buy.stripe.com/7sIaFxgFu7ulawEbIJ"
+                href="https://buymeacoffee.com/sounddocs"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center text-pink-400 hover:text-pink-300 transition-colors duration-200"

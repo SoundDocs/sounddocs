@@ -276,6 +276,18 @@ To self-host SoundDocs, you will need a remote Supabase project.
 
 We welcome contributions from the community! Whether it's bug fixes, feature enhancements, or documentation improvements, your help is appreciated.
 
+### 🤖 AI-Assisted Development
+
+If you're using AI-assisted coding tools or "vibe coding", we **strongly recommend using [Claude Code](https://claude.ai/claude-code)** for contributing to SoundDocs. This project includes:
+
+- **Extensive [CLAUDE.md](.claude/CLAUDE.md) documentation** with comprehensive project architecture, patterns, and guidelines
+- **60+ specialized sub-agents** for different development tasks (frontend, backend, testing, database, security, etc.)
+- **Optimized workflows** for our specific tech stack (React, TypeScript, Supabase, pnpm workspaces)
+
+Using Claude Code ensures better code quality, adherence to project conventions, and faster development cycles through intelligent agent delegation.
+
+---
+
 Please review our [Contributing Guidelines](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests.
 
 Join our [Discord server](https://discord.com/invite/NRcRtyxFQa) to discuss ideas and collaborate with the community.
