@@ -15,9 +15,10 @@ import {
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { AppConfig } from "../config";
+import type { User } from "@supabase/supabase-js";
 
 const Hero: React.FC = () => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [currentDate, setCurrentDate] = useState<string>("");
 
   useEffect(() => {
