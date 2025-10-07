@@ -522,9 +522,9 @@ const RunOfShowEditor: React.FC = () => {
     // Swap items
     [items[currentIndex], items[targetIndex]] = [items[targetIndex], items[currentIndex]];
 
-    // Recalculate item numbers and start times
+    // Recalculate item numbers and start times with gap preservation
     let itemCount = 1;
-    let cumulativeTimeSeconds = 0;
+    let cumulativeEndTimeSeconds = 0;
 
     const recalculatedItems = items.map((item) => {
       if (item.type === "item") {
@@ -532,17 +532,45 @@ const RunOfShowEditor: React.FC = () => {
         item.itemNumber = itemCount.toString();
         itemCount++;
 
-        // Update start time based on cumulative time
-        item.startTime = formatSecondsToTime(cumulativeTimeSeconds);
+        // Gap-preserving start time logic
+        const existingStartTime = parseTimeToSeconds(item.startTime || "");
+        const expectedStartTime = cumulativeEndTimeSeconds;
 
-        // Add this item's duration to cumulative time
+        if (existingStartTime !== null) {
+          // Item HAS a start time - calculate gap
+          const gap = existingStartTime - expectedStartTime;
+
+          if (gap > 0) {
+            // Positive gap (intentional buffer/break) - preserve it
+            item.startTime = formatSecondsToTime(expectedStartTime + gap);
+            cumulativeEndTimeSeconds = expectedStartTime + gap;
+          } else {
+            // No gap or overlap - fix it by setting to expected time
+            item.startTime = formatSecondsToTime(expectedStartTime);
+            cumulativeEndTimeSeconds = expectedStartTime;
+          }
+        } else {
+          // Item has NO start time - calculate it from expected time
+          item.startTime = formatSecondsToTime(expectedStartTime);
+          cumulativeEndTimeSeconds = expectedStartTime;
+        }
+
+        // Add this item's duration to cumulative end time
         const durationSeconds = parseDurationToSeconds(item.duration || "");
         if (durationSeconds !== null) {
-          cumulativeTimeSeconds += durationSeconds;
+          cumulativeEndTimeSeconds += durationSeconds;
         }
       } else if (item.type === "header") {
-        // Headers can have a start time matching the next item
-        item.startTime = formatSecondsToTime(cumulativeTimeSeconds);
+        // Headers use current cumulative time but don't affect it
+        const existingStartTime = parseTimeToSeconds(item.startTime || "");
+
+        if (existingStartTime !== null) {
+          // Header HAS a start time - preserve it as-is
+          // Don't update cumulative time
+        } else {
+          // Header has NO start time - set it to current cumulative time
+          item.startTime = formatSecondsToTime(cumulativeEndTimeSeconds);
+        }
       }
       return item;
     });
