@@ -599,21 +599,22 @@ const RunOfShowEditor: React.FC = () => {
           newHeaderStart = formatSecondsToTime(cumulativeEndTimeSeconds);
         }
 
-        const updatedHeader = { ...item, startTime: newHeaderStart } as RunOfShowItem;
-        const { calculatedGap, ...itemWithoutGap } = updatedHeader as any;
-        return itemWithoutGap as RunOfShowItem;
+        // Return header without calculatedGap property
+        return {
+          id: item.id,
+          type: item.type,
+          itemNumber: item.itemNumber,
+          startTime: newHeaderStart,
+          highlightColor: item.highlightColor,
+          headerTitle: item.headerTitle,
+        } as RunOfShowItem;
       }
 
-      // Items
-      const gap = (item as any).calculatedGap || 0;
+      // Items - extract gap and other properties
+      const itemWithGap = item as RunOfShowItem & { calculatedGap?: number };
+      const gap = itemWithGap.calculatedGap || 0;
       const newStartTime = cumulativeEndTimeSeconds + gap;
       const durationSeconds = parseDurationToSeconds(item.duration || "");
-
-      const updatedItem = {
-        ...item,
-        itemNumber: itemCount.toString(),
-        startTime: formatSecondsToTime(newStartTime),
-      } as RunOfShowItem;
 
       itemCount++;
       cumulativeEndTimeSeconds = newStartTime;
@@ -621,8 +622,49 @@ const RunOfShowEditor: React.FC = () => {
         cumulativeEndTimeSeconds += durationSeconds;
       }
 
-      const { calculatedGap, ...itemWithoutGap } = updatedItem as any;
-      return itemWithoutGap as RunOfShowItem;
+      // Return item without calculatedGap property
+      return {
+        id: item.id,
+        type: item.type,
+        itemNumber: itemCount.toString(),
+        startTime: formatSecondsToTime(newStartTime),
+        highlightColor: item.highlightColor,
+        preset: item.preset,
+        duration: item.duration,
+        privateNotes: item.privateNotes,
+        productionNotes: item.productionNotes,
+        audio: item.audio,
+        video: item.video,
+        lights: item.lights,
+        // Include custom column values
+        ...Object.keys(item)
+          .filter(
+            (key) =>
+              ![
+                "id",
+                "type",
+                "itemNumber",
+                "startTime",
+                "highlightColor",
+                "preset",
+                "duration",
+                "privateNotes",
+                "productionNotes",
+                "audio",
+                "video",
+                "lights",
+                "calculatedGap",
+                "headerTitle",
+              ].includes(key),
+          )
+          .reduce(
+            (acc, key) => {
+              acc[key] = item[key as keyof RunOfShowItem];
+              return acc;
+            },
+            {} as Record<string, string | number | boolean | undefined>,
+          ),
+      } as RunOfShowItem;
     });
 
     setRunOfShow({ ...runOfShow, items: recalculatedItems });
