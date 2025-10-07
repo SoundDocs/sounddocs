@@ -520,37 +520,43 @@ const RunOfShowEditor: React.FC = () => {
     }
 
     // Step 1: Calculate gaps BEFORE reordering
-    // This captures the gap each item has relative to its CURRENT previous item
+    // This captures the gap each item has relative to its IMMEDIATE previous item
     const itemsWithGaps = items.map((item, index) => {
       let gap = 0;
 
       if (item.type === "item") {
         const itemStartTime = parseTimeToSeconds(item.startTime || "");
 
-        if (itemStartTime !== null && index > 0) {
-          // Calculate cumulative end time of all previous items
-          let prevEndTime = 0;
-          for (let i = 0; i < index; i++) {
-            const prevItem = items[i];
-            if (prevItem.type === "item") {
-              const prevStart = parseTimeToSeconds(prevItem.startTime || "");
-              const prevDuration = parseDurationToSeconds(prevItem.duration || "");
+        if (itemStartTime === null) {
+          // Without a valid start time we cannot compute a reliable gap
+          return { ...item, calculatedGap: 0 };
+        }
 
-              if (prevStart !== null) {
-                prevEndTime = prevStart;
-                if (prevDuration !== null) {
-                  prevEndTime += prevDuration;
-                }
-              } else if (prevDuration !== null) {
-                prevEndTime += prevDuration;
-              }
-            }
+        // Walk backwards to find the previous item's end time, skipping headers
+        let prevEndTime: number | null = null;
+        for (let i = index - 1; i >= 0; i--) {
+          const prev = items[i];
+          if (prev.type !== "item") continue;
+
+          const prevStart = parseTimeToSeconds(prev.startTime || "");
+          const prevDuration = parseDurationToSeconds(prev.duration || "");
+
+          if (prevStart !== null) {
+            prevEndTime = prevStart + (prevDuration ?? 0);
+            break;
           }
 
-          // Gap is the difference between this item's start and when it "should" start
+          // If no start, but we have duration, keep looking further back
+          // However, don't add duration without a known anchor start.
+          if (prevStart === null) continue;
+        }
+
+        if (prevEndTime !== null) {
           gap = itemStartTime - prevEndTime;
-          // Only preserve positive gaps (intentional buffers)
           if (gap < 0) gap = 0;
+        } else {
+          // No previous item with a valid start; treat as no gap to preserve
+          gap = 0;
         }
       }
 
@@ -563,47 +569,59 @@ const RunOfShowEditor: React.FC = () => {
       itemsWithGaps[currentIndex],
     ];
 
+    // Establish initial cumulative time from earliest anchored start (header or item)
+    const firstAnchoredStart = (() => {
+      for (const it of itemsWithGaps) {
+        const t = parseTimeToSeconds(it.startTime || "");
+        if (t !== null) return t;
+      }
+      return 0;
+    })();
+
     // Step 3: Recalculate item numbers and start times using stored gaps
     let itemCount = 1;
-    let cumulativeEndTimeSeconds = 0;
+    let cumulativeEndTimeSeconds = firstAnchoredStart;
 
     const recalculatedItems = itemsWithGaps.map((item) => {
-      if (item.type === "item") {
-        // Update item number
-        item.itemNumber = itemCount.toString();
-        itemCount++;
-
-        // Use the pre-calculated gap from before the move
-        const gap = item.calculatedGap || 0;
-        const newStartTime = cumulativeEndTimeSeconds + gap;
-
-        item.startTime = formatSecondsToTime(newStartTime);
-        cumulativeEndTimeSeconds = newStartTime;
-
-        // Add this item's duration to cumulative end time
-        const durationSeconds = parseDurationToSeconds(item.duration || "");
-        if (durationSeconds !== null) {
-          cumulativeEndTimeSeconds += durationSeconds;
-        }
-      } else if (item.type === "header") {
-        // Headers use current cumulative time but don't affect it
+      if (item.type === "header") {
         const existingStartTime = parseTimeToSeconds(item.startTime || "");
+        let newHeaderStart: string;
 
         if (existingStartTime !== null) {
-          // Header HAS a start time - ensure it's not before the cumulative time
-          if (existingStartTime < cumulativeEndTimeSeconds) {
-            item.startTime = formatSecondsToTime(cumulativeEndTimeSeconds);
+          // Advance pointer to header time if it's ahead, clamp if behind
+          if (existingStartTime > cumulativeEndTimeSeconds) {
+            cumulativeEndTimeSeconds = existingStartTime;
+            newHeaderStart = item.startTime!;
+          } else {
+            newHeaderStart = formatSecondsToTime(cumulativeEndTimeSeconds);
           }
-          // Otherwise, preserve its original time, as it's either on time or creates a gap.
         } else {
-          // Header has NO start time - set it to current cumulative time
-          item.startTime = formatSecondsToTime(cumulativeEndTimeSeconds);
+          newHeaderStart = formatSecondsToTime(cumulativeEndTimeSeconds);
         }
+
+        const updatedHeader = { ...item, startTime: newHeaderStart } as RunOfShowItem;
+        const { calculatedGap, ...itemWithoutGap } = updatedHeader as any;
+        return itemWithoutGap as RunOfShowItem;
       }
 
-      // Remove the temporary calculatedGap property
-      const { calculatedGap, ...itemWithoutGap } = item;
-      void calculatedGap; // Mark as intentionally unused
+      // Items
+      const gap = (item as any).calculatedGap || 0;
+      const newStartTime = cumulativeEndTimeSeconds + gap;
+      const durationSeconds = parseDurationToSeconds(item.duration || "");
+
+      const updatedItem = {
+        ...item,
+        itemNumber: itemCount.toString(),
+        startTime: formatSecondsToTime(newStartTime),
+      } as RunOfShowItem;
+
+      itemCount++;
+      cumulativeEndTimeSeconds = newStartTime;
+      if (durationSeconds !== null) {
+        cumulativeEndTimeSeconds += durationSeconds;
+      }
+
+      const { calculatedGap, ...itemWithoutGap } = updatedItem as any;
       return itemWithoutGap as RunOfShowItem;
     });
 
