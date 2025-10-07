@@ -519,41 +519,66 @@ const RunOfShowEditor: React.FC = () => {
       if (targetIndex >= items.length) return;
     }
 
-    // Swap items
-    [items[currentIndex], items[targetIndex]] = [items[targetIndex], items[currentIndex]];
+    // Step 1: Calculate gaps BEFORE reordering
+    // This captures the gap each item has relative to its CURRENT previous item
+    const itemsWithGaps = items.map((item, index) => {
+      let gap = 0;
 
-    // Recalculate item numbers and start times with gap preservation
+      if (item.type === "item") {
+        const itemStartTime = parseTimeToSeconds(item.startTime || "");
+
+        if (itemStartTime !== null && index > 0) {
+          // Calculate cumulative end time of all previous items
+          let prevEndTime = 0;
+          for (let i = 0; i < index; i++) {
+            const prevItem = items[i];
+            if (prevItem.type === "item") {
+              const prevStart = parseTimeToSeconds(prevItem.startTime || "");
+              const prevDuration = parseDurationToSeconds(prevItem.duration || "");
+
+              if (prevStart !== null) {
+                prevEndTime = prevStart;
+                if (prevDuration !== null) {
+                  prevEndTime += prevDuration;
+                }
+              } else if (prevDuration !== null) {
+                prevEndTime += prevDuration;
+              }
+            }
+          }
+
+          // Gap is the difference between this item's start and when it "should" start
+          gap = itemStartTime - prevEndTime;
+          // Only preserve positive gaps (intentional buffers)
+          if (gap < 0) gap = 0;
+        }
+      }
+
+      return { ...item, calculatedGap: gap };
+    });
+
+    // Step 2: Swap items
+    [itemsWithGaps[currentIndex], itemsWithGaps[targetIndex]] = [
+      itemsWithGaps[targetIndex],
+      itemsWithGaps[currentIndex],
+    ];
+
+    // Step 3: Recalculate item numbers and start times using stored gaps
     let itemCount = 1;
     let cumulativeEndTimeSeconds = 0;
 
-    const recalculatedItems = items.map((item) => {
+    const recalculatedItems = itemsWithGaps.map((item) => {
       if (item.type === "item") {
         // Update item number
         item.itemNumber = itemCount.toString();
         itemCount++;
 
-        // Gap-preserving start time logic
-        const existingStartTime = parseTimeToSeconds(item.startTime || "");
-        const expectedStartTime = cumulativeEndTimeSeconds;
+        // Use the pre-calculated gap from before the move
+        const gap = item.calculatedGap || 0;
+        const newStartTime = cumulativeEndTimeSeconds + gap;
 
-        if (existingStartTime !== null) {
-          // Item HAS a start time - calculate gap
-          const gap = existingStartTime - expectedStartTime;
-
-          if (gap > 0) {
-            // Positive gap (intentional buffer/break) - preserve it
-            item.startTime = formatSecondsToTime(expectedStartTime + gap);
-            cumulativeEndTimeSeconds = expectedStartTime + gap;
-          } else {
-            // No gap or overlap - fix it by setting to expected time
-            item.startTime = formatSecondsToTime(expectedStartTime);
-            cumulativeEndTimeSeconds = expectedStartTime;
-          }
-        } else {
-          // Item has NO start time - calculate it from expected time
-          item.startTime = formatSecondsToTime(expectedStartTime);
-          cumulativeEndTimeSeconds = expectedStartTime;
-        }
+        item.startTime = formatSecondsToTime(newStartTime);
+        cumulativeEndTimeSeconds = newStartTime;
 
         // Add this item's duration to cumulative end time
         const durationSeconds = parseDurationToSeconds(item.duration || "");
@@ -565,14 +590,21 @@ const RunOfShowEditor: React.FC = () => {
         const existingStartTime = parseTimeToSeconds(item.startTime || "");
 
         if (existingStartTime !== null) {
-          // Header HAS a start time - preserve it as-is
-          // Don't update cumulative time
+          // Header HAS a start time - ensure it's not before the cumulative time
+          if (existingStartTime < cumulativeEndTimeSeconds) {
+            item.startTime = formatSecondsToTime(cumulativeEndTimeSeconds);
+          }
+          // Otherwise, preserve its original time, as it's either on time or creates a gap.
         } else {
           // Header has NO start time - set it to current cumulative time
           item.startTime = formatSecondsToTime(cumulativeEndTimeSeconds);
         }
       }
-      return item;
+
+      // Remove the temporary calculatedGap property
+      const { calculatedGap, ...itemWithoutGap } = item;
+      void calculatedGap; // Mark as intentionally unused
+      return itemWithoutGap as RunOfShowItem;
     });
 
     setRunOfShow({ ...runOfShow, items: recalculatedItems });
