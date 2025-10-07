@@ -50,7 +50,7 @@ Each item in the \`items\` array must follow this format:
   "id": "unique-id-here",
   "type": "item",
   "itemNumber": "1",
-  "startTime": "00:00:00",
+  "startTime": "19:00:00",  // Actual show time (e.g., 7:00 PM)
   "preset": "Scene or preset name",
   "duration": "00:30",
   "privateNotes": "Internal notes not shown to audience",
@@ -68,7 +68,7 @@ Each item in the \`items\` array must follow this format:
   "id": "unique-id-here",
   "type": "header",
   "itemNumber": "",  // Leave empty for headers
-  "startTime": "00:00:00",  // Optional for headers
+  "startTime": "19:00:00",  // Actual show time when section starts
   "headerTitle": "Section Name",
   "highlightColor": "#0000FF"  // Optional, but recommended for visual organization
 }
@@ -79,7 +79,7 @@ Each item in the \`items\` array must follow this format:
 - **id**: Generate a unique identifier for each item (e.g., "item-1", "header-1", or UUID)
 - **type**: Either "item" for regular entries or "header" for section dividers
 - **itemNumber**: Sequential number for items (string). Leave empty ("") for headers
-- **startTime**: Time in HH:MM:SS format (e.g., "00:15:30"). Calculate based on previous items
+- **startTime**: The actual absolute time when this item/header starts in HH:MM:SS format (e.g., "19:30:00" for 7:30 PM). This is NOT relative to show start - it's the real wall-clock time
 - **duration**: Duration in MM:SS format (e.g., "05:30" for 5 minutes 30 seconds)
 - **preset**: The scene, preset, or segment name (descriptive and clear)
 - **privateNotes**: Internal notes for operators (technical details, warnings, reminders)
@@ -116,7 +116,7 @@ For specialized productions, add custom fields:
 
 ## Conversion Guidelines:
 
-1. **Time Calculation**: Start at "00:00:00" and calculate each subsequent startTime by adding the previous item's duration
+1. **Time Calculation**: Use actual absolute wall-clock times for all start times. If the show starts at 7:00 PM (19:00), the first item should be "19:00:00", not "00:00:00". Calculate each subsequent startTime by adding the previous item's duration to its start time, plus any intentional gaps/buffers
 2. **Section Organization**: Use headers to break the show into logical sections
 3. **Color Coding**: Use highlight colors to help operators quickly identify different types of content
 4. **Technical Details**: Include specific technical information that operators would need:
@@ -148,7 +148,7 @@ Q&A session
       "id": "header-1",
       "type": "header",
       "itemNumber": "",
-      "startTime": "00:00:00",
+      "startTime": "18:30:00",
       "headerTitle": "Pre-Show",
       "highlightColor": "#4A90E2"
     },
@@ -156,7 +156,7 @@ Q&A session
       "id": "item-1",
       "type": "item",
       "itemNumber": "1",
-      "startTime": "00:00:00",
+      "startTime": "18:30:00",
       "preset": "Walk-in Music & House Open",
       "duration": "30:00",
       "privateNotes": "Loop playlist, check all wireless mics",
@@ -169,7 +169,7 @@ Q&A session
       "id": "item-2",
       "type": "item",
       "itemNumber": "2",
-      "startTime": "00:30:00",
+      "startTime": "19:00:00",
       "preset": "CEO Opening Speech",
       "duration": "10:00",
       "privateNotes": "CEO enters from stage left, mic check complete",

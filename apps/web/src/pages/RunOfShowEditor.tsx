@@ -519,32 +519,152 @@ const RunOfShowEditor: React.FC = () => {
       if (targetIndex >= items.length) return;
     }
 
-    // Swap items
-    [items[currentIndex], items[targetIndex]] = [items[targetIndex], items[currentIndex]];
+    // Step 1: Calculate gaps BEFORE reordering
+    // This captures the gap each item has relative to its IMMEDIATE previous item
+    const itemsWithGaps = items.map((item, index) => {
+      let gap = 0;
 
-    // Recalculate item numbers and start times
-    let itemCount = 1;
-    let cumulativeTimeSeconds = 0;
-
-    const recalculatedItems = items.map((item) => {
       if (item.type === "item") {
-        // Update item number
-        item.itemNumber = itemCount.toString();
-        itemCount++;
+        const itemStartTime = parseTimeToSeconds(item.startTime || "");
 
-        // Update start time based on cumulative time
-        item.startTime = formatSecondsToTime(cumulativeTimeSeconds);
-
-        // Add this item's duration to cumulative time
-        const durationSeconds = parseDurationToSeconds(item.duration || "");
-        if (durationSeconds !== null) {
-          cumulativeTimeSeconds += durationSeconds;
+        if (itemStartTime === null) {
+          // Without a valid start time we cannot compute a reliable gap
+          return { ...item, calculatedGap: 0 };
         }
-      } else if (item.type === "header") {
-        // Headers can have a start time matching the next item
-        item.startTime = formatSecondsToTime(cumulativeTimeSeconds);
+
+        // Walk backwards to find the previous item's end time, skipping headers
+        let prevEndTime: number | null = null;
+        for (let i = index - 1; i >= 0; i--) {
+          const prev = items[i];
+          if (prev.type !== "item") continue;
+
+          const prevStart = parseTimeToSeconds(prev.startTime || "");
+          const prevDuration = parseDurationToSeconds(prev.duration || "");
+
+          if (prevStart !== null) {
+            prevEndTime = prevStart + (prevDuration ?? 0);
+            break;
+          }
+
+          // If no start, but we have duration, keep looking further back
+          // However, don't add duration without a known anchor start.
+          if (prevStart === null) continue;
+        }
+
+        if (prevEndTime !== null) {
+          gap = itemStartTime - prevEndTime;
+          if (gap < 0) gap = 0;
+        } else {
+          // No previous item with a valid start; treat as no gap to preserve
+          gap = 0;
+        }
       }
-      return item;
+
+      return { ...item, calculatedGap: gap };
+    });
+
+    // Step 2: Swap items
+    [itemsWithGaps[currentIndex], itemsWithGaps[targetIndex]] = [
+      itemsWithGaps[targetIndex],
+      itemsWithGaps[currentIndex],
+    ];
+
+    // Establish initial cumulative time from earliest anchored start (header or item)
+    const firstAnchoredStart = (() => {
+      for (const it of itemsWithGaps) {
+        const t = parseTimeToSeconds(it.startTime || "");
+        if (t !== null) return t;
+      }
+      return 0;
+    })();
+
+    // Step 3: Recalculate item numbers and start times using stored gaps
+    let itemCount = 1;
+    let cumulativeEndTimeSeconds = firstAnchoredStart;
+
+    const recalculatedItems = itemsWithGaps.map((item) => {
+      if (item.type === "header") {
+        const existingStartTime = parseTimeToSeconds(item.startTime || "");
+        let newHeaderStart: string;
+
+        if (existingStartTime !== null) {
+          // Advance pointer to header time if it's ahead, clamp if behind
+          if (existingStartTime > cumulativeEndTimeSeconds) {
+            cumulativeEndTimeSeconds = existingStartTime;
+            newHeaderStart = item.startTime!;
+          } else {
+            newHeaderStart = formatSecondsToTime(cumulativeEndTimeSeconds);
+          }
+        } else {
+          newHeaderStart = formatSecondsToTime(cumulativeEndTimeSeconds);
+        }
+
+        // Return header without calculatedGap property
+        return {
+          id: item.id,
+          type: item.type,
+          itemNumber: item.itemNumber,
+          startTime: newHeaderStart,
+          highlightColor: item.highlightColor,
+          headerTitle: item.headerTitle,
+        } as RunOfShowItem;
+      }
+
+      // Items - extract gap and other properties
+      const itemWithGap = item as RunOfShowItem & { calculatedGap?: number };
+      const gap = itemWithGap.calculatedGap || 0;
+      const newStartTime = cumulativeEndTimeSeconds + gap;
+      const durationSeconds = parseDurationToSeconds(item.duration || "");
+
+      itemCount++;
+      cumulativeEndTimeSeconds = newStartTime;
+      if (durationSeconds !== null) {
+        cumulativeEndTimeSeconds += durationSeconds;
+      }
+
+      // Return item without calculatedGap property
+      return {
+        id: item.id,
+        type: item.type,
+        itemNumber: itemCount.toString(),
+        startTime: formatSecondsToTime(newStartTime),
+        highlightColor: item.highlightColor,
+        preset: item.preset,
+        duration: item.duration,
+        privateNotes: item.privateNotes,
+        productionNotes: item.productionNotes,
+        audio: item.audio,
+        video: item.video,
+        lights: item.lights,
+        // Include custom column values
+        ...Object.keys(item)
+          .filter(
+            (key) =>
+              ![
+                "id",
+                "type",
+                "itemNumber",
+                "startTime",
+                "highlightColor",
+                "preset",
+                "duration",
+                "privateNotes",
+                "productionNotes",
+                "audio",
+                "video",
+                "lights",
+                "calculatedGap",
+                "headerTitle",
+              ].includes(key),
+          )
+          .reduce(
+            (acc, key) => {
+              acc[key] = item[key as keyof RunOfShowItem];
+              return acc;
+            },
+            {} as Record<string, string | number | boolean | undefined>,
+          ),
+      } as RunOfShowItem;
     });
 
     setRunOfShow({ ...runOfShow, items: recalculatedItems });
