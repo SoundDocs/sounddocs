@@ -599,26 +599,33 @@ const RunOfShowEditor: React.FC = () => {
 
     // Only calculate if both start time and duration are valid
     if (currentStartTime !== null && currentDuration !== null) {
-      const nextStartTimeSeconds = currentStartTime + currentDuration;
-      const nextStartTime = formatSecondsToTime(nextStartTimeSeconds);
+      // Initialize cumulative end time with the current item's end time
+      let cumulativeEndTimeSeconds = currentStartTime + currentDuration;
 
-      // Find and update all immediately following items (both headers and regular items)
+      // Update all following items in cascade
       for (let i = currentIndex + 1; i < updatedItems.length; i++) {
         const nextItem = updatedItems[i];
 
         if (nextItem.type === "header") {
-          // Update section header start time
+          // Update section header start time to match running time
           updatedItems[i] = {
             ...updatedItems[i],
-            startTime: nextStartTime,
+            startTime: formatSecondsToTime(cumulativeEndTimeSeconds),
           };
+          // Headers don't have duration, so cumulative time stays the same
         } else if (nextItem.type === "item") {
-          // Update next regular item start time and stop (only update the first regular item)
+          // Update regular item start time to previous item's end time
           updatedItems[i] = {
             ...updatedItems[i],
-            startTime: nextStartTime,
+            startTime: formatSecondsToTime(cumulativeEndTimeSeconds),
           };
-          break; // Stop after the first regular item
+
+          // Calculate this item's end time for the next iteration
+          const itemDuration = parseDurationToSeconds(nextItem.duration || "");
+          if (itemDuration !== null) {
+            cumulativeEndTimeSeconds += itemDuration;
+          }
+          // Continue to next item (no break - this is the fix!)
         }
       }
     }
