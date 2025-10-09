@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../lib/AuthContext";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import ProductionScheduleHeader from "../components/production-schedule/ProductionScheduleHeader";
@@ -22,6 +23,13 @@ import {
   SharedLink,
 } from "../lib/shareUtils"; // Added SharedLink
 import { ScheduleForExport } from "../lib/types";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { useCollaboration } from "@/hooks/useCollaboration";
+import { usePresence } from "@/hooks/usePresence";
+import { CollaborationToolbar } from "@/components/CollaborationToolbar";
+import { DocumentHistory } from "@/components/History/DocumentHistory";
+import { ConflictResolution } from "@/components/ConflictResolution";
+import type { DocumentConflict, VersionHistory } from "@/types/collaboration";
 
 const defaultColors = [
   "#EF4444",
@@ -121,25 +129,176 @@ const ProductionScheduleEditor = () => {
   const { id, shareCode } = useParams(); // Get both id and shareCode
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [schedule, setSchedule] = useState<ProductionScheduleData | null>(null);
-  const [user, setUser] = useState<any>(null); // Current logged-in user
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSharedEdit, setIsSharedEdit] = useState(false);
   const [currentShareLink, setCurrentShareLink] = useState<SharedLink | null>(null);
 
+  // Collaboration state
+  const [showHistory, setShowHistory] = useState(false);
+  const [showConflict, setShowConflict] = useState(false);
+  const [conflict, setConflict] = useState<DocumentConflict | null>(null);
+
+  // Version history state
+  const [versionHistory, setVersionHistory] = useState<VersionHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  // For unauthenticated shared edit users, generate a temporary ID
+  const [anonymousUserId] = useState(() => `anonymous-${uuidv4()}`);
+  const effectiveUserId = user?.id || (isSharedEdit ? anonymousUserId : "");
+  const effectiveUserEmail = user?.email || (isSharedEdit ? `${anonymousUserId}@shared` : "");
+  const effectiveUserName = user?.user_metadata?.name || (isSharedEdit ? "Anonymous User" : "");
+
+  // Enable collaboration for existing documents (including edit-mode shared links)
+  // For shared links, id will be undefined, so we check schedule?.id instead
+  // For edit-mode shared links, allow collaboration even without authentication
+  const collaborationEnabled =
+    (id ? id !== "new" : true) && // Allow if no id param (shared link) or if id !== "new"
+    (!isSharedEdit || currentShareLink?.link_type === "edit") &&
+    !!schedule?.id &&
+    (!!user || (isSharedEdit && currentShareLink?.link_type === "edit")); // Allow unauthenticated for edit-mode shared links
+
+  // Debug: Log collaboration status
+  useEffect(() => {
+    const status = {
+      collaborationEnabled,
+      id,
+      idCheck: id ? id !== "new" : true,
+      isNew: id === "new",
+      isSharedEdit,
+      currentShareLinkType: currentShareLink?.link_type,
+      shareEditCheck: !isSharedEdit || currentShareLink?.link_type === "edit",
+      hasScheduleId: !!schedule?.id,
+      hasUser: !!user,
+      userId: user?.id,
+      scheduleId: schedule?.id,
+    };
+    console.log("[ProductionScheduleEditor] Collaboration status:");
+    console.log(JSON.stringify(status, null, 2));
+  }, [collaborationEnabled, id, isSharedEdit, currentShareLink, schedule?.id, user]);
+
+  // Auto-save hook
+  const {
+    saveStatus,
+    lastSavedAt,
+    forceSave,
+    error: autoSaveError,
+  } = useAutoSave({
+    documentId: schedule?.id || "",
+    documentType: "production_schedules",
+    userId: effectiveUserId,
+    data: schedule,
+    enabled: collaborationEnabled,
+    debounceMs: 1500,
+    onBeforeSave: async (data) => {
+      // Validate data before saving
+      if (!data.name || data.name.trim() === "") {
+        return false;
+      }
+      return true;
+    },
+  });
+
+  // Collaboration hook
+  const {
+    activeUsers,
+    broadcast,
+    status: connectionStatus,
+  } = useCollaboration({
+    documentId: schedule?.id || "",
+    documentType: "production_schedules",
+    userId: effectiveUserId,
+    userEmail: effectiveUserEmail,
+    userName: effectiveUserName,
+    enabled: collaborationEnabled,
+    onRemoteUpdate: (payload) => {
+      if (payload.type === "field_update" && payload.field) {
+        setSchedule((prev: any) => ({
+          ...prev,
+          [payload.field!]: payload.value,
+        }));
+      }
+    },
+  });
+
+  // Presence hook
+  const { setEditingField } = usePresence({
+    channel: null, // Will be set up when collaboration channels are ready
+    userId: effectiveUserId,
+  });
+
+  // Real-time database subscription for syncing changes across users
+  useEffect(() => {
+    if (!collaborationEnabled || !schedule?.id) {
+      return;
+    }
+
+    console.log(
+      "[ProductionScheduleEditor] Setting up real-time subscription for schedule:",
+      schedule.id,
+    );
+
+    const channel = supabase
+      .channel(`production_schedule_db_${schedule.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "production_schedules",
+          filter: `id=eq.${schedule.id}`,
+        },
+        (payload) => {
+          console.log("[ProductionScheduleEditor] Received database UPDATE event:", payload);
+          // Update local state with the new data
+          // IMPORTANT: Exclude metadata fields (version, last_edited, metadata) to prevent
+          // triggering auto-save, which would create an infinite loop
+          if (payload.new) {
+            const { version, last_edited, metadata, ...userEditableFields } = payload.new as any;
+            setSchedule((prev: any) => ({
+              ...prev,
+              ...userEditableFields,
+              // Keep existing metadata to avoid triggering auto-save
+              version: prev?.version,
+              last_edited: prev?.last_edited,
+              metadata: prev?.metadata,
+            }));
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      console.log("[ProductionScheduleEditor] Cleaning up real-time subscription");
+      supabase.removeChannel(channel);
+    };
+  }, [collaborationEnabled, schedule?.id]);
+
+  // Keyboard shortcut for manual save (Cmd/Ctrl+S)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        forceSave();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [forceSave]);
+
   useEffect(() => {
     const fetchUserAndSchedule = async () => {
       setLoading(true);
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError && !shareCode) {
-        console.error("User not authenticated:", userError);
+      if (!user && !shareCode) {
+        console.error("User not authenticated");
         navigate("/login");
         return;
       }
-      setUser(userData?.user || null);
 
       const currentPathIsSharedEdit = location.pathname.includes(
         "/shared/production-schedule/edit/",
@@ -218,6 +377,11 @@ const ProductionScheduleEditor = () => {
           console.log(
             "[ProdSchedEditor] SHARED production_schedule resource loaded successfully for editing.",
           );
+          console.log(
+            "[ProdSchedEditor] Set currentShareLink:",
+            fetchedShareLink,
+            "Set isSharedEdit: true",
+          );
         } catch (error: any) {
           console.error(
             "[ProdSchedEditor] Error fetching SHARED production schedule:",
@@ -229,7 +393,7 @@ const ProductionScheduleEditor = () => {
           setLoading(false);
         }
       } else if (id === "new") {
-        if (!userData?.user) {
+        if (!user) {
           navigate("/login");
           return;
         }
@@ -246,14 +410,14 @@ const ProductionScheduleEditor = () => {
           crew_key: [],
           labor_schedule_items: [],
           detailed_schedule_items: [],
-          user_id: userData.user.id,
+          user_id: user.id,
           created_at: new Date().toISOString(),
         };
         setSchedule(newSchedule);
         setIsSharedEdit(false);
         setLoading(false);
       } else if (id) {
-        if (!userData?.user) {
+        if (!user) {
           navigate("/login");
           return;
         }
@@ -262,7 +426,7 @@ const ProductionScheduleEditor = () => {
             .from("production_schedules")
             .select("*")
             .eq("id", id)
-            .eq("user_id", userData.user.id)
+            .eq("user_id", user.id)
             .single();
 
           if (error) throw error;
@@ -378,6 +542,13 @@ const ProductionScheduleEditor = () => {
 
   const handleSave = async () => {
     if (!schedule) return;
+
+    // For existing documents with collaboration enabled, use forceSave
+    if (collaborationEnabled) {
+      await forceSave();
+      return;
+    }
+
     if (!user && !isSharedEdit) {
       setSaveError("You must be logged in to save.");
       setTimeout(() => setSaveError(null), 5000);
@@ -509,6 +680,136 @@ const ProductionScheduleEditor = () => {
     }
   };
 
+  /**
+   * Fetch version history for the current document
+   */
+  const fetchVersionHistory = async () => {
+    if (!schedule?.id) return;
+
+    setHistoryLoading(true);
+    setHistoryError(null);
+
+    try {
+      // Query the production_schedule_history table
+      const { data, error } = await supabase
+        .from("production_schedule_history")
+        .select(
+          `
+          id,
+          version,
+          changed_fields,
+          created_at,
+          created_by,
+          save_type,
+          content
+        `,
+        )
+        .eq("production_schedule_id", schedule.id)
+        .order("version", { ascending: false })
+        .limit(50); // Limit to last 50 versions
+
+      if (error) throw error;
+
+      // Transform the data to match VersionHistory interface
+      // We need to join with users table to get email
+      const versionsWithUsers = await Promise.all(
+        (data || []).map(async (version: any) => {
+          let userEmail = "Unknown User";
+
+          if (version.created_by) {
+            try {
+              const { data: userData } = await supabase
+                .from("profiles")
+                .select("email")
+                .eq("id", version.created_by)
+                .single();
+
+              if (userData?.email) {
+                userEmail = userData.email;
+              }
+            } catch (err) {
+              console.warn("Could not fetch user email:", err);
+            }
+          }
+
+          return {
+            id: version.id,
+            version: version.version,
+            userEmail,
+            createdAt: version.created_at,
+            changedFields: version.changed_fields || [],
+            description: `${version.save_type} save`,
+          } as VersionHistory;
+        }),
+      );
+
+      setVersionHistory(versionsWithUsers);
+    } catch (error: any) {
+      console.error("Error fetching version history:", error);
+      setHistoryError(error.message || "Failed to load version history");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  /**
+   * Restore a previous version of the document
+   */
+  const handleRestoreVersion = async (versionId: string) => {
+    if (!schedule?.id) return;
+
+    try {
+      // Fetch the full content from the history table
+      const { data: historyData, error: historyError } = await supabase
+        .from("production_schedule_history")
+        .select("content, version")
+        .eq("id", versionId)
+        .single();
+
+      if (historyError) throw historyError;
+      if (!historyData) throw new Error("Version not found");
+
+      // Update the current document with the historical content
+      const restoredContent = historyData.content as any;
+
+      // Update in the database
+      const { error: updateError } = await supabase
+        .from("production_schedules")
+        .update({
+          ...restoredContent,
+          last_edited: new Date().toISOString(),
+        })
+        .eq("id", schedule.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setSchedule({
+        ...schedule,
+        ...restoredContent,
+      });
+
+      // Close the history modal
+      setShowHistory(false);
+
+      // Show success message
+      alert(`Successfully restored version ${historyData.version}`);
+
+      // Refresh history to show the restoration
+      await fetchVersionHistory();
+    } catch (error: any) {
+      console.error("Error restoring version:", error);
+      alert(`Failed to restore version: ${error.message}`);
+    }
+  };
+
+  // Fetch version history when modal opens
+  useEffect(() => {
+    if (showHistory && schedule?.id) {
+      fetchVersionHistory();
+    }
+  }, [showHistory, schedule?.id]);
+
   if (loading || !schedule) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -577,6 +878,22 @@ const ProductionScheduleEditor = () => {
         scheduleType="production"
       />
 
+      {/* Collaboration Toolbar (for existing documents) */}
+      {collaborationEnabled && (
+        <CollaborationToolbar
+          saveStatus={saveStatus}
+          lastSavedAt={lastSavedAt ? new Date(lastSavedAt) : undefined}
+          saveError={autoSaveError || undefined}
+          onRetry={forceSave}
+          activeUsers={activeUsers}
+          currentUserId={user?.id}
+          connectionStatus={connectionStatus}
+          onOpenHistory={() => setShowHistory(true)}
+          showHistory={true}
+          position="top-right"
+        />
+      )}
+
       <main className="flex-grow container mx-auto px-4 py-6 md:py-12 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
           <div className="flex items-center flex-grow min-w-0">
@@ -607,35 +924,39 @@ const ProductionScheduleEditor = () => {
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-2 sm:ml-auto flex-shrink-0">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg md:shadow-none"
-            >
-              {saving ? (
-                <>
-                  <Loader className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
-                </>
-              )}
-            </button>
-          </div>
+          {/* Manual Save button (only for new documents or shared edits) */}
+          {!collaborationEnabled && (
+            <div className="hidden md:flex items-center gap-2 sm:ml-auto flex-shrink-0">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg md:shadow-none"
+              >
+                {saving ? (
+                  <>
+                    <Loader className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
 
-        {saveError && (
+        {/* Error messages (for new documents or manual save errors) */}
+        {!collaborationEnabled && saveError && (
           <div className="bg-red-400/10 border border-red-400 rounded-lg p-4 mb-4 flex items-start">
             <AlertCircle className="h-5 w-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
             <p className="text-red-400 text-sm">{saveError}</p>
           </div>
         )}
 
-        {saveSuccess && (
+        {!collaborationEnabled && saveSuccess && (
           <div className="bg-green-400/10 border border-green-400 rounded-lg p-4 mb-4 flex items-start">
             <Save className="h-5 w-5 text-green-400 mr-3 mt-0.5 flex-shrink-0" />
             <p className="text-green-400 text-sm">Production schedule saved successfully!</p>
@@ -731,26 +1052,56 @@ const ProductionScheduleEditor = () => {
           </div>
         </div>
 
-        <div className="flex justify-center py-8">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg text-base"
-          >
-            {saving ? (
-              <>
-                <Loader className="h-5 w-5 mr-2 animate-spin" />
-                Saving Schedule...
-              </>
-            ) : (
-              <>
-                <Save className="h-5 w-5 mr-2" />
-                Save Production Schedule
-              </>
-            )}
-          </button>
-        </div>
+        {/* Bottom Save button (only for new documents or shared edits) */}
+        {!collaborationEnabled && (
+          <div className="flex justify-center py-8">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg text-base"
+            >
+              {saving ? (
+                <>
+                  <Loader className="h-5 w-5 mr-2 animate-spin" />
+                  Saving Schedule...
+                </>
+              ) : (
+                <>
+                  <Save className="h-5 w-5 mr-2" />
+                  Save Production Schedule
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </main>
+
+      {/* Collaboration Modals */}
+      {collaborationEnabled && (
+        <>
+          <DocumentHistory
+            open={showHistory}
+            onOpenChange={setShowHistory}
+            versions={versionHistory}
+            onRestore={handleRestoreVersion}
+            loading={historyLoading}
+            error={historyError || undefined}
+          />
+
+          <ConflictResolution
+            open={showConflict}
+            onOpenChange={setShowConflict}
+            conflicts={conflict ? [conflict] : []}
+            documentId={schedule?.id || ""}
+            onResolve={(resolution) => {
+              // Handle conflict resolution
+              console.log("Conflict resolved with strategy:", resolution);
+              setShowConflict(false);
+              setConflict(null);
+            }}
+          />
+        </>
+      )}
 
       <Footer />
     </div>

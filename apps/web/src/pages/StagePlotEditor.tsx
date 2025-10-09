@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../lib/AuthContext";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import StageCanvas from "../components/stage-plot/StageCanvas";
@@ -23,6 +24,12 @@ import {
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { getSharedResource, updateSharedResource, getShareUrl } from "../lib/shareUtils";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { useCollaboration } from "@/hooks/useCollaboration";
+import { usePresence } from "@/hooks/usePresence";
+import { DocumentHistory } from "@/components/History/DocumentHistory";
+import { ConflictResolution } from "@/components/ConflictResolution";
+import type { DocumentConflict } from "@/types/collaboration";
 
 const STAGE_DEPTHS = ["x-small", "small", "medium", "large", "x-large"] as const;
 const STAGE_WIDTHS = ["narrow", "wide"] as const;
@@ -103,6 +110,7 @@ const StagePlotEditor = () => {
   const { id, shareCode } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   // const screenSize = useScreenSize(); // Removed
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -112,7 +120,6 @@ const StagePlotEditor = () => {
   const [stageSize, setStageSize] = useState<StageSize>(parseStageSize("medium-wide"));
   const [elements, setElements] = useState<StageElementProps[]>([]);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false); // Default to false (editable)
@@ -123,6 +130,17 @@ const StagePlotEditor = () => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isSharedEdit, setIsSharedEdit] = useState(false);
   const [shareLink, setShareLink] = useState<any>(null);
+
+  // Collaboration state
+  const [showHistory, setShowHistory] = useState(false);
+  const [showConflict, setShowConflict] = useState(false);
+  const [conflict, setConflict] = useState<DocumentConflict | null>(null);
+
+  // For unauthenticated shared edit users, generate a temporary ID
+  const [anonymousUserId] = useState(() => `anonymous-${uuidv4()}`);
+  const effectiveUserId = user?.id || (isSharedEdit ? anonymousUserId : "");
+  const effectiveUserEmail = user?.email || (isSharedEdit ? `${anonymousUserId}@shared` : "");
+  const effectiveUserName = user?.user_metadata?.name || (isSharedEdit ? "Anonymous User" : "");
 
   const lastDimsRef = React.useRef(stageSizeToPx(stageSize));
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -136,14 +154,199 @@ const StagePlotEditor = () => {
     // Screen size no longer forces view mode.
   }, [location.pathname]);
 
+  // Enable collaboration for existing documents (including edit-mode shared links)
+  // For shared links, id will be undefined, so we check stagePlot?.id instead
+  // For edit-mode shared links, allow collaboration even without authentication
+  const collaborationEnabled =
+    (id ? id !== "new" : true) && // Allow if no id param (shared link) or if id !== "new"
+    (!isSharedEdit || shareLink?.link_type === "edit") &&
+    !!stagePlot?.id &&
+    (!!user || (isSharedEdit && shareLink?.link_type === "edit")); // Allow unauthenticated for edit-mode shared links
+
+  // Debug: Log collaboration status
   useEffect(() => {
-    const fetchUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data.user) {
-        setUser(data.user);
+    const status = {
+      collaborationEnabled,
+      id,
+      idCheck: id ? id !== "new" : true,
+      isNew: id === "new",
+      isSharedEdit,
+      shareLinkType: shareLink?.link_type,
+      shareEditCheck: !isSharedEdit || shareLink?.link_type === "edit",
+      hasStagePlotId: !!stagePlot?.id,
+      hasUser: !!user,
+      userId: user?.id,
+      stagePlotId: stagePlot?.id,
+      effectiveUserId,
+      effectiveUserEmail,
+      effectiveUserName,
+    };
+    console.log("[StagePlotEditor] Collaboration status:");
+    console.log(JSON.stringify(status, null, 2));
+  }, [
+    collaborationEnabled,
+    id,
+    isSharedEdit,
+    shareLink,
+    stagePlot?.id,
+    user,
+    effectiveUserId,
+    effectiveUserEmail,
+    effectiveUserName,
+  ]);
+
+  // Auto-save hook
+  const {
+    saveStatus,
+    lastSavedAt,
+    forceSave,
+    error: autoSaveError,
+  } = useAutoSave({
+    documentId: stagePlot?.id || "",
+    documentType: "stage_plots",
+    userId: effectiveUserId,
+    data: {
+      ...stagePlot,
+      elements,
+      stage_size: stringifyStageSize(stageSize),
+      backgroundImage,
+      backgroundOpacity,
+    },
+    enabled: collaborationEnabled,
+    debounceMs: 1500,
+    onBeforeSave: async (data) => {
+      // Validate data before saving
+      if (!data.name || data.name.trim() === "") {
+        return false;
+      }
+      return true;
+    },
+  });
+
+  // Collaboration hook
+  const {
+    activeUsers,
+    broadcast,
+    status: connectionStatus,
+  } = useCollaboration({
+    documentId: stagePlot?.id || "",
+    documentType: "stage_plots",
+    userId: effectiveUserId,
+    userEmail: effectiveUserEmail,
+    userName: effectiveUserName,
+    enabled: collaborationEnabled,
+    onRemoteUpdate: (payload) => {
+      if (payload.type === "field_update" && payload.field) {
+        // Handle different field updates
+        if (payload.field === "name") {
+          setStagePlot((prev: any) => ({ ...prev, name: payload.value }));
+        } else if (payload.field === "elements") {
+          setElements(payload.value);
+        } else if (payload.field === "stage_size") {
+          const newSize = parseStageSize(payload.value);
+          setStageSize(newSize);
+        } else if (payload.field === "backgroundImage") {
+          setBackgroundImage(payload.value);
+          setImageUrl(payload.value);
+        } else if (payload.field === "backgroundOpacity") {
+          setBackgroundOpacity(payload.value);
+        } else {
+          setStagePlot((prev: any) => ({
+            ...prev,
+            [payload.field!]: payload.value,
+          }));
+        }
+      }
+    },
+  });
+
+  // Presence hook
+  const { setEditingField } = usePresence({
+    channel: null, // Will be set up when collaboration channels are ready
+    userId: effectiveUserId,
+  });
+
+  // Real-time database subscription for syncing changes across users
+  useEffect(() => {
+    if (!collaborationEnabled || !stagePlot?.id) {
+      return;
+    }
+
+    console.log(
+      "[StagePlotEditor] Setting up real-time subscription for stage plot:",
+      stagePlot.id,
+    );
+
+    const channel = supabase
+      .channel(`stage_plot_db_${stagePlot.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "stage_plots",
+          filter: `id=eq.${stagePlot.id}`,
+        },
+        (payload) => {
+          console.log("[StagePlotEditor] Received database UPDATE event:", payload);
+          // Update local state with the new data
+          // IMPORTANT: Exclude metadata fields (version, last_edited, metadata) to prevent
+          // triggering auto-save, which would create an infinite loop
+          if (payload.new) {
+            const { version, last_edited, metadata, ...userEditableFields } = payload.new as any;
+
+            // Update stagePlot data
+            setStagePlot((prev: any) => ({
+              ...prev,
+              ...userEditableFields,
+              // Keep existing metadata to avoid triggering auto-save
+              version: prev?.version,
+              last_edited: prev?.last_edited,
+              metadata: prev?.metadata,
+            }));
+
+            // Update individual state fields from the database payload
+            if (userEditableFields.elements) {
+              setElements(userEditableFields.elements);
+            }
+            if (userEditableFields.stage_size) {
+              setStageSize(parseStageSize(userEditableFields.stage_size));
+            }
+            if (userEditableFields.backgroundImage !== undefined) {
+              setBackgroundImage(userEditableFields.backgroundImage);
+              setImageUrl(userEditableFields.backgroundImage);
+            }
+            if (userEditableFields.backgroundOpacity !== undefined) {
+              setBackgroundOpacity(userEditableFields.backgroundOpacity);
+            }
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      console.log("[StagePlotEditor] Cleaning up real-time subscription");
+      supabase.removeChannel(channel);
+    };
+  }, [collaborationEnabled, stagePlot?.id]);
+
+  // Keyboard shortcut for manual save (Cmd/Ctrl+S)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        if (collaborationEnabled) {
+          forceSave();
+        } else if (!isViewMode) {
+          handleSave();
+        }
       }
     };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [forceSave, collaborationEnabled, isViewMode]);
 
+  useEffect(() => {
     const fetchStagePlotData = async () => {
       setLoading(true);
       const currentPathIsSharedEdit = location.pathname.includes("/shared/stage-plot/edit/");
@@ -265,7 +468,6 @@ const StagePlotEditor = () => {
       }
     };
 
-    fetchUser();
     fetchStagePlotData();
   }, [id, shareCode, location.pathname, navigate]);
 
@@ -314,32 +516,47 @@ const StagePlotEditor = () => {
     const scaleX = newDims.width / oldDims.width;
     const scaleY = newDims.height / oldDims.height;
 
-    setElements((prev) =>
-      prev.map((el) => {
-        const newWidth = Math.max(20, Math.round((el.width ?? 0) * scaleX) || (el.width ?? 0));
-        const newHeight = Math.max(20, Math.round((el.height ?? 0) * scaleY) || (el.height ?? 0));
+    const scaledElements = elements.map((el) => {
+      const newWidth = Math.max(20, Math.round((el.width ?? 0) * scaleX) || (el.width ?? 0));
+      const newHeight = Math.max(20, Math.round((el.height ?? 0) * scaleY) || (el.height ?? 0));
 
-        const newX = Math.min(
-          Math.max(0, Math.round(el.x * scaleX)),
-          newDims.width - (newWidth || 0),
-        );
-        const newY = Math.min(
-          Math.max(0, Math.round(el.y * scaleY)),
-          newDims.height - (newHeight || 0),
-        );
+      const newX = Math.min(
+        Math.max(0, Math.round(el.x * scaleX)),
+        newDims.width - (newWidth || 0),
+      );
+      const newY = Math.min(
+        Math.max(0, Math.round(el.y * scaleY)),
+        newDims.height - (newHeight || 0),
+      );
 
-        return {
-          ...el,
-          x: newX,
-          y: newY,
-          width: newWidth || el.width,
-          height: newHeight || el.height,
-        };
-      }),
-    );
+      return {
+        ...el,
+        x: newX,
+        y: newY,
+        width: newWidth || el.width,
+        height: newHeight || el.height,
+      };
+    });
 
+    setElements(scaledElements);
     setStageSize(newSize);
     lastDimsRef.current = newDims;
+
+    // Broadcast stage size change to other collaborators
+    const newSizeString = stringifyStageSize(newSize);
+    if (collaborationEnabled && broadcast) {
+      broadcast({
+        type: "field_update",
+        field: "stage_size",
+        value: newSizeString,
+      });
+      // Also broadcast the scaled elements
+      broadcast({
+        type: "field_update",
+        field: "elements",
+        value: scaledElements,
+      });
+    }
   };
 
   const handleAddElement = (type: string, label: string) => {
@@ -361,8 +578,18 @@ const StagePlotEditor = () => {
       labelVisible: true,
     };
 
-    setElements([...elements, newElement]);
+    const updatedElements = [...elements, newElement];
+    setElements(updatedElements);
     setSelectedElementId(newElement.id);
+
+    // Broadcast element addition to other collaborators
+    if (collaborationEnabled && broadcast) {
+      broadcast({
+        type: "field_update",
+        field: "elements",
+        value: updatedElements,
+      });
+    }
   };
 
   const handleSelectElement = (elementId: string | null) => {
@@ -372,24 +599,64 @@ const StagePlotEditor = () => {
 
   const handleElementDragStop = (elementId: string, x: number, y: number) => {
     if (isViewMode) return;
-    setElements(elements.map((el) => (el.id === elementId ? { ...el, x, y } : el)));
+    const updatedElements = elements.map((el) => (el.id === elementId ? { ...el, x, y } : el));
+    setElements(updatedElements);
+
+    // Broadcast element position change to other collaborators
+    if (collaborationEnabled && broadcast) {
+      broadcast({
+        type: "field_update",
+        field: "elements",
+        value: updatedElements,
+      });
+    }
   };
 
   const handleElementRotate = (elementId: string, rotation: number) => {
     if (isViewMode) return;
-    setElements(elements.map((el) => (el.id === elementId ? { ...el, rotation } : el)));
+    const updatedElements = elements.map((el) => (el.id === elementId ? { ...el, rotation } : el));
+    setElements(updatedElements);
+
+    // Broadcast element rotation to other collaborators
+    if (collaborationEnabled && broadcast) {
+      broadcast({
+        type: "field_update",
+        field: "elements",
+        value: updatedElements,
+      });
+    }
   };
 
   const handleElementLabelChange = (elementId: string, label: string) => {
     if (isViewMode) return;
-    setElements(elements.map((el) => (el.id === elementId ? { ...el, label } : el)));
+    const updatedElements = elements.map((el) => (el.id === elementId ? { ...el, label } : el));
+    setElements(updatedElements);
+
+    // Broadcast element label change to other collaborators
+    if (collaborationEnabled && broadcast) {
+      broadcast({
+        type: "field_update",
+        field: "elements",
+        value: updatedElements,
+      });
+    }
   };
 
   const handleElementDelete = (elementId: string) => {
     if (isViewMode) return;
-    setElements(elements.filter((el) => el.id !== elementId));
+    const updatedElements = elements.filter((el) => el.id !== elementId);
+    setElements(updatedElements);
     if (selectedElementId === elementId) {
       setSelectedElementId(null);
+    }
+
+    // Broadcast element deletion to other collaborators
+    if (collaborationEnabled && broadcast) {
+      broadcast({
+        type: "field_update",
+        field: "elements",
+        value: updatedElements,
+      });
     }
   };
 
@@ -406,22 +673,62 @@ const StagePlotEditor = () => {
       y: elementToDuplicate.y + 20,
     };
 
-    setElements([...elements, newElement]);
+    const updatedElements = [...elements, newElement];
+    setElements(updatedElements);
     setSelectedElementId(newElement.id);
+
+    // Broadcast element duplication to other collaborators
+    if (collaborationEnabled && broadcast) {
+      broadcast({
+        type: "field_update",
+        field: "elements",
+        value: updatedElements,
+      });
+    }
   };
 
   const handleElementResize = (elementId: string, width: number, height: number) => {
     if (isViewMode) return;
-    setElements(elements.map((el) => (el.id === elementId ? { ...el, width, height } : el)));
+    const updatedElements = elements.map((el) =>
+      el.id === elementId ? { ...el, width, height } : el,
+    );
+    setElements(updatedElements);
+
+    // Broadcast element resize to other collaborators
+    if (collaborationEnabled && broadcast) {
+      broadcast({
+        type: "field_update",
+        field: "elements",
+        value: updatedElements,
+      });
+    }
   };
 
   const handlePropertyChange = (elementId: string, property: string, value: any) => {
     if (isViewMode) return;
-    setElements(elements.map((el) => (el.id === elementId ? { ...el, [property]: value } : el)));
+    const updatedElements = elements.map((el) =>
+      el.id === elementId ? { ...el, [property]: value } : el,
+    );
+    setElements(updatedElements);
+
+    // Broadcast element property change to other collaborators
+    if (collaborationEnabled && broadcast) {
+      broadcast({
+        type: "field_update",
+        field: "elements",
+        value: updatedElements,
+      });
+    }
   };
 
   const handleSave = async () => {
     if (isViewMode) return;
+
+    // For existing documents with collaboration enabled, use forceSave
+    if (collaborationEnabled) {
+      await forceSave();
+      return;
+    }
 
     setSaving(true);
     setSaveError(null);
@@ -499,6 +806,15 @@ const StagePlotEditor = () => {
     if (isViewMode) return;
     setBackgroundImage(null);
     setImageUrl(null);
+
+    // Broadcast background image removal to other collaborators
+    if (collaborationEnabled && broadcast) {
+      broadcast({
+        type: "field_update",
+        field: "backgroundImage",
+        value: null,
+      });
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -522,6 +838,15 @@ const StagePlotEditor = () => {
       setImageUrl(newImageUrl);
       setBackgroundImage(newImageUrl);
       setShowImageUpload(false);
+
+      // Broadcast background image change to other collaborators
+      if (collaborationEnabled && broadcast) {
+        broadcast({
+          type: "field_update",
+          field: "backgroundImage",
+          value: newImageUrl,
+        });
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -557,6 +882,15 @@ const StagePlotEditor = () => {
       setImageUrl(newImageUrl);
       setBackgroundImage(newImageUrl);
       setShowImageUpload(false);
+
+      // Broadcast background image change to other collaborators
+      if (collaborationEnabled && broadcast) {
+        broadcast({
+          type: "field_update",
+          field: "backgroundImage",
+          value: newImageUrl,
+        });
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -597,7 +931,27 @@ const StagePlotEditor = () => {
     <div className="min-h-screen bg-gray-900 flex flex-col">
       {/* Removed MobileScreenWarning component and its conditional rendering */}
 
-      <Header dashboard={!isSharedEdit} />
+      <Header
+        dashboard={!isSharedEdit}
+        collaborationToolbar={
+          collaborationEnabled
+            ? {
+                saveStatus,
+                lastSavedAt: lastSavedAt ? new Date(lastSavedAt) : undefined,
+                saveError: autoSaveError || undefined,
+                onRetry: forceSave,
+                activeUsers,
+                currentUserId: effectiveUserId,
+                connectionStatus,
+                onOpenHistory: () => {
+                  console.log("[StagePlotEditor] Opening history modal");
+                  setShowHistory(true);
+                },
+                showHistory: true,
+              }
+            : undefined
+        }
+      />
 
       <main className="flex-grow container mx-auto px-4 py-4 md:py-8 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-4">
@@ -612,9 +966,21 @@ const StagePlotEditor = () => {
               <input
                 type="text"
                 value={stagePlot?.name || "Untitled Stage Plot"}
-                onChange={(e) =>
-                  !isViewMode && setStagePlot({ ...stagePlot, name: e.target.value })
-                }
+                onChange={(e) => {
+                  if (!isViewMode) {
+                    const newName = e.target.value;
+                    setStagePlot({ ...stagePlot, name: newName });
+
+                    // Broadcast name change to other collaborators
+                    if (collaborationEnabled && broadcast) {
+                      broadcast({
+                        type: "field_update",
+                        field: "name",
+                        value: newName,
+                      });
+                    }
+                  }
+                }}
                 className={`text-xl md:text-2xl font-bold text-white bg-transparent border-none focus:outline-none focus:ring-0 w-full max-w-[220px] sm:max-w-none ${isViewMode ? "cursor-default" : ""}`}
                 placeholder="Enter stage plot name"
                 readOnly={isViewMode}
@@ -637,23 +1003,26 @@ const StagePlotEditor = () => {
 
           {!isViewMode && (
             <div className="flex flex-wrap gap-3 sm:ml-auto">
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {saving ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save
-                  </>
-                )}
-              </button>
+              {/* Manual Save button (only for new documents or shared edits) */}
+              {!collaborationEnabled && (
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {saving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save
+                    </>
+                  )}
+                </button>
+              )}
 
               <button
                 onClick={() => setShowImageUpload(!showImageUpload)}
@@ -675,14 +1044,15 @@ const StagePlotEditor = () => {
           )}
         </div>
 
-        {saveError && (
+        {/* Error messages (for new documents or manual save errors) */}
+        {!collaborationEnabled && saveError && (
           <div className="bg-red-400/10 border border-red-400 rounded-lg p-4 mb-4 flex items-start">
             <AlertCircle className="h-5 w-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
             <p className="text-red-400">{saveError}</p>
           </div>
         )}
 
-        {saveSuccess && (
+        {!collaborationEnabled && saveSuccess && (
           <div className="bg-green-400/10 border border-green-400 rounded-lg p-4 mb-4 flex items-start">
             <Save className="h-5 w-5 text-green-400 mr-3 mt-0.5 flex-shrink-0" />
             <p className="text-green-400">Stage plot saved successfully!</p>
@@ -750,7 +1120,19 @@ const StagePlotEditor = () => {
                       min="5"
                       max="100"
                       value={backgroundOpacity}
-                      onChange={(e) => setBackgroundOpacity(parseInt(e.target.value))}
+                      onChange={(e) => {
+                        const newOpacity = parseInt(e.target.value);
+                        setBackgroundOpacity(newOpacity);
+
+                        // Broadcast background opacity change to other collaborators
+                        if (collaborationEnabled && broadcast) {
+                          broadcast({
+                            type: "field_update",
+                            field: "backgroundOpacity",
+                            value: newOpacity,
+                          });
+                        }
+                      }}
                       className="w-full accent-indigo-600"
                     />
                   </div>
@@ -791,7 +1173,19 @@ const StagePlotEditor = () => {
                     min="5"
                     max="100"
                     value={backgroundOpacity}
-                    onChange={(e) => setBackgroundOpacity(parseInt(e.target.value))}
+                    onChange={(e) => {
+                      const newOpacity = parseInt(e.target.value);
+                      setBackgroundOpacity(newOpacity);
+
+                      // Broadcast background opacity change to other collaborators
+                      if (collaborationEnabled && broadcast) {
+                        broadcast({
+                          type: "field_update",
+                          field: "backgroundOpacity",
+                          value: newOpacity,
+                        });
+                      }
+                    }}
                     className="w-full accent-indigo-600"
                   />
                 </div>
@@ -910,6 +1304,30 @@ const StagePlotEditor = () => {
           </>
         )}
       </main>
+
+      {/* Collaboration Modals */}
+      {collaborationEnabled && (
+        <>
+          <DocumentHistory
+            isOpen={showHistory}
+            onClose={() => setShowHistory(false)}
+            documentId={stagePlot?.id || ""}
+            documentType="stage_plots"
+          />
+
+          <ConflictResolution
+            isOpen={showConflict}
+            onClose={() => setShowConflict(false)}
+            conflict={conflict}
+            onResolve={(resolution) => {
+              // Handle conflict resolution
+              console.log("Conflict resolved with strategy:", resolution);
+              setShowConflict(false);
+              setConflict(null);
+            }}
+          />
+        </>
+      )}
 
       <Footer />
     </div>

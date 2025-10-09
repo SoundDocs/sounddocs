@@ -252,9 +252,10 @@ const PatchSheetInputs: React.FC<PatchSheetInputsProps> = ({ inputs, updateInput
   useEffect(() => {
     const newEditingInputs: { [key: string]: InputChannel } = {};
     inputs.forEach((input) => {
-      newEditingInputs[input.id] = editingInputs[input.id]
-        ? { ...editingInputs[input.id] }
-        : { ...input };
+      // CRITICAL: Always use the new input value from props
+      // This ensures remote updates are reflected in the UI
+      // Previously this was preserving old editingInputs values, preventing remote updates from showing
+      newEditingInputs[input.id] = { ...input };
     });
     setEditingInputs(newEditingInputs);
     inputs.forEach((input) => {

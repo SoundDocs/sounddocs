@@ -256,17 +256,13 @@ const ShareModal: React.FC<ShareModalProps> = ({
                   <Info size={16} className="mr-2 mt-0.5 text-indigo-400 flex-shrink-0" />
                   <div>
                     <p className="font-semibold text-slate-200 mb-1">
-                      How recipients use Editable Links:
+                      Real-time Collaborative Editing
                     </p>
-                    <ol className="list-decimal list-inside space-y-1 text-slate-300/90">
-                      <li>Recipient receives the generated link or code.</li>
-                      <li>
-                        They navigate to their "Shared With Me" page on SoundDocs (account
-                        required).
-                      </li>
-                      <li>They enter the share code/URL to claim the document.</li>
-                      <li>The document appears in their list, ready for editing.</li>
-                    </ol>
+                    <p className="text-slate-300/90">
+                      Just send the link and go! Recipients can click the link and start editing
+                      immediately. All changes are synced in real-time, so everyone sees updates
+                      instantly. No account required for editing via shared links.
+                    </p>
                   </div>
                 </div>
               </div>

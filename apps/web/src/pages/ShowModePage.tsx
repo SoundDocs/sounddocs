@@ -686,11 +686,10 @@ const ShowModePage: React.FC = () => {
 
                   let rowClass =
                     "hover:bg-gray-700/50 transition-colors duration-150 border-t border-gray-700";
-                  let rowStyle: React.CSSProperties = {};
+                  const rowStyle: React.CSSProperties = {};
 
                   if (item.type === "header") {
-                    rowClass =
-                      "bg-gray-700 hover:bg-gray-600 font-semibold sticky top-[49px] z-10 border-t-0";
+                    rowClass = "bg-gray-700 hover:bg-gray-600 font-semibold sticky top-[40px] z-10";
                   } else {
                     if (item.highlightColor && !isCurrent && !isNext) {
                       rowStyle.backgroundColor = item.highlightColor;

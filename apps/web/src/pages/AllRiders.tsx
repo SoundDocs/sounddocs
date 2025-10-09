@@ -23,6 +23,7 @@ import {
   SortDesc,
   Download,
   Share2,
+  Eye,
 } from "lucide-react";
 
 interface RiderSummary {
@@ -832,6 +833,14 @@ const AllRiders: React.FC = () => {
                         )}
                       </button>
                       <button
+                        onClick={() => navigate(`/rider/${rider.id}/view`)}
+                        className="p-2 text-gray-400 hover:text-blue-400 rounded-md hover:bg-gray-700 transition-colors"
+                        title="View"
+                        disabled={isExporting}
+                      >
+                        <Eye className="h-5 w-5" />
+                      </button>
+                      <button
                         onClick={() => navigate(`/rider/${rider.id}`)}
                         className="p-2 text-gray-400 hover:text-indigo-400 rounded-md hover:bg-gray-700 transition-colors"
                         title="Edit"
@@ -894,6 +903,13 @@ const AllRiders: React.FC = () => {
               </div>
 
               <div className="flex space-x-2">
+                <button
+                  onClick={() => navigate(`/rider/${rider.id}/view`)}
+                  className="flex-1 inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  View
+                </button>
                 <button
                   onClick={() => navigate(`/rider/${rider.id}`)}
                   className="flex-1 inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-colors"

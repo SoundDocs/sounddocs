@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../lib/AuthContext";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import PatchSheetInputs from "../components/patch-sheet/PatchSheetInputs";
@@ -8,7 +9,20 @@ import PatchSheetOutputs from "../components/patch-sheet/PatchSheetOutputs";
 // import MobileScreenWarning from "../components/MobileScreenWarning"; // Removed
 // import { useScreenSize } from "../hooks/useScreenSize"; // Removed
 import { Loader, ArrowLeft, Save, AlertCircle } from "lucide-react";
-import { getSharedResource, updateSharedResource, getShareUrl } from "../lib/shareUtils";
+import {
+  getSharedResource,
+  updateSharedResource,
+  getShareUrl,
+  SharedLink,
+} from "../lib/shareUtils";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { useCollaboration } from "@/hooks/useCollaboration";
+import { usePresence } from "@/hooks/usePresence";
+import { CollaborationToolbar } from "@/components/CollaborationToolbar";
+import { DocumentHistory } from "@/components/History/DocumentHistory";
+import { ConflictResolution } from "@/components/ConflictResolution";
+import type { DocumentConflict } from "@/types/collaboration";
+import { v4 as uuidv4 } from "uuid";
 
 interface InputChannel {
   id: string;
@@ -53,41 +67,232 @@ const PatchSheetEditor = () => {
   const { id, shareCode } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   // const screenSize = useScreenSize(); // Removed
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [patchSheet, setPatchSheet] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("inputs");
-  const [user, setUser] = useState<any>(null);
   const [inputs, setInputs] = useState<InputChannel[]>([]);
   const [outputs, setOutputs] = useState<OutputChannel[]>([]);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState(false);
   // const [showMobileWarning, setShowMobileWarning] = useState(false); // Removed
   const [isSharedEdit, setIsSharedEdit] = useState(false);
   const [shareLink, setShareLink] = useState<any>(null);
+  const [currentShareLink, setCurrentShareLink] = useState<SharedLink | null>(null);
 
-  useEffect(() => {
-    // if (screenSize === "mobile" || screenSize === "tablet") { // Removed
-    //   setShowMobileWarning(true);
-    // }
-    setIsSharedEdit(location.pathname.includes("/shared/edit/"));
-  }, [location.pathname]); // screenSize dependency removed
+  // Collaboration state
+  const [showHistory, setShowHistory] = useState(false);
+  const [showConflict, setShowConflict] = useState(false);
+  const [conflict, setConflict] = useState<DocumentConflict | null>(null);
 
+  // For unauthenticated shared edit users, generate a temporary ID
+  const [anonymousUserId] = useState(() => `anonymous-${uuidv4()}`);
+  const effectiveUserId = user?.id || (isSharedEdit ? anonymousUserId : "");
+  const effectiveUserEmail = user?.email || (isSharedEdit ? `${anonymousUserId}@shared` : "");
+  const effectiveUserName = user?.user_metadata?.name || (isSharedEdit ? "Anonymous User" : "");
+
+  // useEffect for isSharedEdit removed - now set inside fetchPatchSheetData to avoid re-render loop
+
+  // Enable collaboration for existing documents (including edit-mode shared links)
+  // For shared links, id will be undefined, so we check patchSheet?.id instead
+  // For edit-mode shared links, allow collaboration even without authentication
+  const collaborationEnabled =
+    (id ? id !== "new" : true) && // Allow if no id param (shared link) or if id !== "new"
+    (!isSharedEdit || currentShareLink?.link_type === "edit") &&
+    !!patchSheet?.id &&
+    (!!user || (isSharedEdit && currentShareLink?.link_type === "edit")); // Allow unauthenticated for edit-mode shared links
+
+  // Debug: Log collaboration status
   useEffect(() => {
-    const fetchUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data.user) {
-        setUser(data.user);
+    const status = {
+      collaborationEnabled,
+      id,
+      idCheck: id ? id !== "new" : true,
+      isNew: id === "new",
+      isSharedEdit,
+      currentShareLinkType: currentShareLink?.link_type,
+      shareEditCheck: !isSharedEdit || currentShareLink?.link_type === "edit",
+      hasPatchSheetId: !!patchSheet?.id,
+      hasUser: !!user,
+      userId: user?.id,
+      patchSheetId: patchSheet?.id,
+    };
+    console.log("[PatchSheetEditor] Collaboration status:");
+    console.log(JSON.stringify(status, null, 2));
+  }, [collaborationEnabled, id, isSharedEdit, currentShareLink, patchSheet?.id, user]);
+
+  // Auto-save hook
+  const {
+    saveStatus,
+    lastSavedAt,
+    forceSave,
+    error: autoSaveError,
+    markAsRemoteUpdate,
+  } = useAutoSave({
+    documentId: patchSheet?.id || "",
+    documentType: "patch_sheets",
+    userId: effectiveUserId,
+    data: patchSheet,
+    enabled: collaborationEnabled,
+    debounceMs: 1500,
+    shareCode: isSharedEdit ? shareCode : undefined,
+    onBeforeSave: async (data) => {
+      // Validate data before saving
+      if (!data.name || data.name.trim() === "") {
+        return false;
+      }
+      return true;
+    },
+    onSaveComplete: (success, error, changedFields) => {
+      // CRITICAL: After successfully saving, broadcast the changes to other users
+      // This is how real-time collaboration works - we don't rely on database UPDATE events
+      if (success && patchSheet && changedFields) {
+        console.log(
+          "[PatchSheetEditor] Save successful, broadcasting changes to other users:",
+          changedFields,
+        );
+
+        // Broadcast each changed field to all connected users
+        changedFields.forEach((field) => {
+          const value = patchSheet[field as keyof typeof patchSheet];
+          console.log(`[PatchSheetEditor] Broadcasting ${field}:`, {
+            valueType: Array.isArray(value) ? `Array[${value.length}]` : typeof value,
+            firstItem: Array.isArray(value) ? value[0] : undefined,
+          });
+          broadcast({
+            type: "field_update",
+            field,
+            value,
+            userId: effectiveUserId,
+          }).catch((err) =>
+            console.error(`[PatchSheetEditor] Broadcast failed for ${field}:`, err),
+          );
+        });
+      }
+    },
+  });
+
+  // Collaboration hook
+  const {
+    activeUsers,
+    broadcast,
+    status: connectionStatus,
+  } = useCollaboration({
+    documentId: patchSheet?.id || "",
+    documentType: "patch_sheets",
+    userId: effectiveUserId,
+    userEmail: effectiveUserEmail,
+    userName: effectiveUserName,
+    enabled: collaborationEnabled,
+    onRemoteUpdate: (payload) => {
+      if (payload.type === "field_update" && payload.field) {
+        console.log(`[PatchSheetEditor] Applying remote update for field: ${payload.field}`);
+
+        // CRITICAL: Mark as remote update BEFORE state change
+        // This prevents the autosave effect from treating it as a local change
+        markAsRemoteUpdate();
+
+        // Update local state with remote change
+        setPatchSheet((prev: any) => {
+          if (!prev) return prev;
+          return { ...prev, [payload.field!]: payload.value };
+        });
+
+        // CRITICAL: Also update inputs/outputs state if those fields changed
+        // The UI components use these separate state variables
+        if (payload.field === "inputs" && Array.isArray(payload.value)) {
+          console.log("[PatchSheetEditor] Updating inputs state from remote broadcast", {
+            receivedLength: payload.value.length,
+            firstItem: payload.value[0],
+          });
+          // Create a new array reference to ensure React detects the change
+          setInputs([...payload.value]);
+        } else if (payload.field === "outputs" && Array.isArray(payload.value)) {
+          console.log("[PatchSheetEditor] Updating outputs state from remote broadcast", {
+            receivedLength: payload.value.length,
+            firstItem: payload.value[0],
+          });
+          // Create a new array reference to ensure React detects the change
+          setOutputs([...payload.value]);
+        }
+      }
+    },
+  });
+
+  // Presence hook
+  const { setEditingField } = usePresence({
+    channel: null, // Will be set up when collaboration channels are ready
+    userId: effectiveUserId,
+  });
+
+  // Keyboard shortcut for manual save (Cmd/Ctrl+S)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        forceSave();
       }
     };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [forceSave]);
 
+  // Real-time database subscription for syncing changes across users
+  useEffect(() => {
+    if (!collaborationEnabled || !patchSheet?.id) {
+      return;
+    }
+
+    console.log(
+      "[PatchSheetEditor] Setting up real-time subscription for patch sheet:",
+      patchSheet.id,
+    );
+
+    const channel = supabase
+      .channel(`patch_sheet_db_${patchSheet.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "patch_sheets",
+          filter: `id=eq.${patchSheet.id}`,
+        },
+        (payload) => {
+          console.log("[PatchSheetEditor] Received database UPDATE event:", payload);
+          // NOTE: We intentionally DO NOT update local state from database UPDATE events
+          // because they include our own saves echoing back, which creates an infinite loop
+          // when using the RPC function for shared edits (the RPC function may return data
+          // in a slightly different format due to JSONB serialization).
+          // Real-time collaboration updates happen via the broadcast channel in useCollaboration,
+          // which properly filters out the current user's own changes and ensures data consistency.
+          console.log(
+            "[PatchSheetEditor] Ignoring database UPDATE to prevent infinite loop with RPC saves",
+          );
+        },
+      )
+      .subscribe();
+
+    return () => {
+      console.log("[PatchSheetEditor] Cleaning up real-time subscription");
+      supabase.removeChannel(channel);
+    };
+  }, [collaborationEnabled, patchSheet?.id]);
+
+  useEffect(() => {
     const fetchPatchSheetData = async () => {
       setLoading(true);
+
+      // Allow unauthenticated access ONLY if there's a shareCode
+      if (!user && !shareCode) {
+        console.error("[PatchSheetEditor] User not authenticated and no shareCode");
+        navigate("/login");
+        return;
+      }
+
       const currentPathIsSharedEdit = location.pathname.includes("/shared/edit/");
 
       console.log(
-        `[PatchSheetEditor] Fetching. Path: ${location.pathname}, ID: ${id}, ShareCode: ${shareCode}, CalculatedIsShared: ${currentPathIsSharedEdit}`,
+        `[PatchSheetEditor] Fetching. Path: ${location.pathname}, ID: ${id}, ShareCode: ${shareCode}, IsShared: ${currentPathIsSharedEdit}`,
       );
 
       if (currentPathIsSharedEdit && shareCode) {
@@ -112,6 +317,7 @@ const PatchSheetEditor = () => {
 
           setPatchSheet(resource);
           setShareLink(fetchedShareLink);
+          setCurrentShareLink(fetchedShareLink);
           setInputs(resource.inputs && Array.isArray(resource.inputs) ? resource.inputs : []);
           const updatedOutputs = (
             resource.outputs && Array.isArray(resource.outputs) ? resource.outputs : []
@@ -120,6 +326,7 @@ const PatchSheetEditor = () => {
             destinationGear: output.destinationGear || "",
           }));
           setOutputs(updatedOutputs);
+          setIsSharedEdit(true);
           setLoading(false);
           console.log("[PatchSheetEditor] SHARED resource loaded successfully.");
           return;
@@ -129,27 +336,31 @@ const PatchSheetEditor = () => {
           setLoading(false);
           return;
         }
+      } else if (id === "new") {
+        console.log(
+          `[PatchSheetEditor] Proceeding with OWNED document logic. ID: ${id}, User:`,
+          user,
+        );
+        setPatchSheet({
+          name: "Untitled Patch Sheet",
+          created_at: new Date().toISOString(),
+          info: {
+            /* ... default info object ... */
+          },
+          inputs: [],
+          outputs: [],
+        });
+        setInputs([]);
+        setOutputs([]);
+        setIsSharedEdit(false);
+        setLoading(false);
+        console.log("[PatchSheetEditor] New OWNED document initialized.");
+        return;
       } else {
         console.log(
           `[PatchSheetEditor] Proceeding with OWNED document logic. ID: ${id}, User:`,
           user,
         );
-        if (id === "new") {
-          setPatchSheet({
-            name: "Untitled Patch Sheet",
-            created_at: new Date().toISOString(),
-            info: {
-              /* ... default info object ... */
-            },
-            inputs: [],
-            outputs: [],
-          });
-          setInputs([]);
-          setOutputs([]);
-          setLoading(false);
-          console.log("[PatchSheetEditor] New OWNED document initialized.");
-          return;
-        }
 
         if (!id) {
           console.error("[PatchSheetEditor] OWNED logic: No ID, and not 'new'. Invalid state.");
@@ -191,25 +402,26 @@ const PatchSheetEditor = () => {
             destinationGear: output.destinationGear || "",
           }));
           setOutputs(updatedOutputs);
+          setIsSharedEdit(false);
           setLoading(false);
           console.log("[PatchSheetEditor] OWNED patch sheet loaded successfully.");
         } catch (error) {
           console.error("[PatchSheetEditor] Catch block for OWNED patch sheet fetch error:", error);
           navigate("/dashboard");
+          setIsSharedEdit(false);
           setLoading(false);
         }
       }
     };
 
-    fetchUser();
     fetchPatchSheetData();
-  }, [id, shareCode, location.pathname, navigate]);
+    // Note: `user` is intentionally excluded from deps to prevent re-fetch on auth state updates
+    // This matches the pattern in ProductionScheduleEditor.tsx and prevents infinite re-render loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, shareCode, navigate, location.pathname]);
 
+  // Manual save handler (for new documents only - existing documents use auto-save)
   const handleSave = async () => {
-    setSaving(true);
-    setSaveError(null);
-    setSaveSuccess(false);
-
     const updatedInputs = inputs.map((input) => ({
       ...input,
       connectionDetails: input.connection ? input.connectionDetails || {} : undefined,
@@ -234,8 +446,6 @@ const PatchSheetEditor = () => {
           setPatchSheet(patchSheetData);
           setInputs(updatedInputs);
           setOutputs(updatedOutputs);
-          setSaveSuccess(true);
-          setTimeout(() => setSaveSuccess(false), 3000);
         }
       } else if (user) {
         if (id === "new") {
@@ -248,37 +458,33 @@ const PatchSheetEditor = () => {
             navigate(`/patch-sheet/${data[0].id}`, { state: { from: location.state?.from } });
           }
         } else {
-          const { error } = await supabase.from("patch_sheets").update(patchSheetData).eq("id", id);
-          if (error) throw error;
-          setPatchSheet(patchSheetData);
-          setInputs(updatedInputs);
-          setOutputs(updatedOutputs);
-          setSaveSuccess(true);
-          setTimeout(() => setSaveSuccess(false), 3000);
+          // For existing documents, use forceSave from auto-save hook
+          await forceSave();
         }
       } else {
         console.warn(
           "[PatchSheetEditor] Save attempt failed: Not a shared edit and user is not logged in.",
         );
-        setSaveError(
-          "You must be logged in to save changes to your own documents, or this shared link may not support editing.",
-        );
       }
     } catch (error) {
       console.error("Error saving patch sheet:", error);
-      setSaveError("Error saving patch sheet. Please try again.");
-      setTimeout(() => setSaveError(null), 5000);
-    } finally {
-      setSaving(false);
     }
   };
 
   const updateInputs = (newInputs: InputChannel[]) => {
     setInputs(newInputs);
+    // Update patchSheet to trigger auto-save
+    if (patchSheet) {
+      setPatchSheet({ ...patchSheet, inputs: newInputs });
+    }
   };
 
   const updateOutputs = (newOutputs: OutputChannel[]) => {
     setOutputs(newOutputs);
+    // Update patchSheet to trigger auto-save
+    if (patchSheet) {
+      setPatchSheet({ ...patchSheet, outputs: newOutputs });
+    }
   };
 
   const handleBackNavigation = () => {
@@ -324,6 +530,22 @@ const PatchSheetEditor = () => {
 
       <Header dashboard={!isSharedEdit} />
 
+      {/* Collaboration Toolbar (for existing documents) */}
+      {collaborationEnabled && (
+        <CollaborationToolbar
+          saveStatus={saveStatus}
+          lastSavedAt={lastSavedAt ? new Date(lastSavedAt) : undefined}
+          saveError={autoSaveError || undefined}
+          onRetry={forceSave}
+          activeUsers={activeUsers}
+          currentUserId={user?.id}
+          connectionStatus={connectionStatus}
+          onOpenHistory={() => setShowHistory(true)}
+          showHistory={true}
+          position="top-right"
+        />
+      )}
+
       <main className="flex-grow container mx-auto px-4 py-6 md:py-12 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
           <div className="flex items-center">
@@ -348,38 +570,25 @@ const PatchSheetEditor = () => {
             </div>
           </div>
 
-          <div className="fixed bottom-4 right-4 z-10 md:static md:z-auto sm:ml-auto">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg md:shadow-none"
-            >
-              {saving ? (
-                <>
-                  <Loader className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
-                </>
-              )}
-            </button>
-          </div>
+          {/* Manual Save button (only for new documents) */}
+          {id === "new" && (
+            <div className="fixed bottom-4 right-4 z-10 md:static md:z-auto sm:ml-auto">
+              <button
+                onClick={handleSave}
+                className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 shadow-lg md:shadow-none"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save
+              </button>
+            </div>
+          )}
         </div>
 
-        {saveError && (
+        {/* Error messages (for new documents or manual save errors) */}
+        {!collaborationEnabled && autoSaveError && (
           <div className="bg-red-400/10 border border-red-400 rounded-lg p-4 mb-4 flex items-start">
             <AlertCircle className="h-5 w-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
-            <p className="text-red-400 text-sm">{saveError}</p>
-          </div>
-        )}
-
-        {saveSuccess && (
-          <div className="bg-green-400/10 border border-green-400 rounded-lg p-4 mb-4 flex items-start">
-            <Save className="h-5 w-5 text-green-400 mr-3 mt-0.5 flex-shrink-0" />
-            <p className="text-green-400 text-sm">Patch sheet saved successfully!</p>
+            <p className="text-red-400 text-sm">{autoSaveError}</p>
           </div>
         )}
 
@@ -428,26 +637,43 @@ const PatchSheetEditor = () => {
           </div>
         </div>
 
-        <div className="flex justify-center py-8">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg text-base"
-          >
-            {saving ? (
-              <>
-                <Loader className="h-5 w-5 mr-2 animate-spin" />
-                Saving Patch Sheet...
-              </>
-            ) : (
-              <>
-                <Save className="h-5 w-5 mr-2" />
-                Save Patch Sheet
-              </>
-            )}
-          </button>
-        </div>
+        {/* Bottom Save button (only for new documents) */}
+        {id === "new" && (
+          <div className="flex justify-center py-8">
+            <button
+              onClick={handleSave}
+              className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 shadow-lg text-base"
+            >
+              <Save className="h-5 w-5 mr-2" />
+              Save Patch Sheet
+            </button>
+          </div>
+        )}
       </main>
+
+      {/* Collaboration Modals */}
+      {collaborationEnabled && (
+        <>
+          <DocumentHistory
+            isOpen={showHistory}
+            onClose={() => setShowHistory(false)}
+            documentId={patchSheet?.id || ""}
+            documentType="patch_sheets"
+          />
+
+          <ConflictResolution
+            isOpen={showConflict}
+            onClose={() => setShowConflict(false)}
+            conflict={conflict}
+            onResolve={(resolution) => {
+              // Handle conflict resolution
+              console.log("Conflict resolved with strategy:", resolution);
+              setShowConflict(false);
+              setConflict(null);
+            }}
+          />
+        </>
+      )}
 
       <Footer />
     </div>
