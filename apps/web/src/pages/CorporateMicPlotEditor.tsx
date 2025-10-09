@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../lib/AuthContext";
 import { v4 as uuidv4 } from "uuid";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -14,6 +15,13 @@ import {
   SharedLink,
   ResourceType,
 } from "../lib/shareUtils";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { useCollaboration } from "@/hooks/useCollaboration";
+import { usePresence } from "@/hooks/usePresence";
+import { CollaborationToolbar } from "@/components/CollaborationToolbar";
+import { DocumentHistory } from "@/components/History/DocumentHistory";
+import { ConflictResolution } from "@/components/ConflictResolution";
+import type { DocumentConflict, VersionHistory } from "@/types/collaboration";
 
 interface CorporateMicPlot {
   id: string;
@@ -36,6 +44,48 @@ const CorporateMicPlotEditor: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSharedEdit, setIsSharedEdit] = useState(false);
   const [sharedLinkInfo, setSharedLinkInfo] = useState<SharedLink | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showConflict, setShowConflict] = useState(false);
+  const [conflict, setConflict] = useState<DocumentConflict | null>(null);
+
+  // Version history state
+  const [versionHistory, setVersionHistory] = useState<VersionHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  // For unauthenticated shared edit users, generate a temporary ID
+  const [anonymousUserId] = useState(() => `anonymous-${uuidv4()}`);
+  const effectiveUserId = user?.id || (isSharedEdit ? anonymousUserId : "");
+  const effectiveUserEmail = user?.email || (isSharedEdit ? `${anonymousUserId}@shared` : "");
+  const effectiveUserName = user?.user_metadata?.name || (isSharedEdit ? "Anonymous User" : "");
+
+  // Enable collaboration for existing documents (including edit-mode shared links)
+  // For shared links, routeId will be undefined, so we check micPlot?.id instead
+  // For edit-mode shared links, allow collaboration even without authentication
+  const collaborationEnabled =
+    (routeId ? routeId !== "new" : true) && // Allow if no routeId param (shared link) or if routeId !== "new"
+    (!isSharedEdit || sharedLinkInfo?.link_type === "edit") &&
+    !!micPlot?.id &&
+    (!!user || (isSharedEdit && sharedLinkInfo?.link_type === "edit")); // Allow unauthenticated for edit-mode shared links
+
+  // Debug: Log collaboration status
+  useEffect(() => {
+    const status = {
+      collaborationEnabled,
+      routeId,
+      routeIdCheck: routeId ? routeId !== "new" : true,
+      isNew: routeId === "new",
+      isSharedEdit,
+      sharedLinkType: sharedLinkInfo?.link_type,
+      shareEditCheck: !isSharedEdit || sharedLinkInfo?.link_type === "edit",
+      hasMicPlotId: !!micPlot?.id,
+      hasUser: !!user,
+      userId: user?.id,
+      micPlotId: micPlot?.id,
+    };
+    console.log("[CorporateMicPlotEditor] Collaboration status:");
+    console.log(JSON.stringify(status, null, 2));
+  }, [collaborationEnabled, routeId, isSharedEdit, sharedLinkInfo, micPlot?.id, user]);
 
   const fetchMicPlotData = useCallback(
     async (currentUserId: string | null) => {
@@ -103,9 +153,132 @@ const CorporateMicPlotEditor: React.FC = () => {
     initialize();
   }, [fetchMicPlotData, navigate, shareCode]);
 
+  // Auto-save hook
+  const {
+    saveStatus,
+    lastSavedAt,
+    forceSave,
+    error: autoSaveError,
+  } = useAutoSave({
+    documentId: micPlot?.id || "",
+    documentType: "corporate_mic_plots",
+    userId: effectiveUserId,
+    data: micPlot,
+    enabled: collaborationEnabled,
+    debounceMs: 1500,
+    shareCode: isSharedEdit && shareCode ? shareCode : undefined,
+    onBeforeSave: async (data) => {
+      // Validate data before saving
+      if (!data.name || data.name.trim() === "") {
+        return false;
+      }
+      return true;
+    },
+  });
+
+  // Collaboration hook
+  const {
+    activeUsers,
+    broadcast,
+    status: connectionStatus,
+  } = useCollaboration({
+    documentId: micPlot?.id || "",
+    documentType: "corporate_mic_plots",
+    userId: effectiveUserId,
+    userEmail: effectiveUserEmail,
+    userName: effectiveUserName,
+    enabled: collaborationEnabled,
+    onRemoteUpdate: (payload) => {
+      if (payload.type === "field_update" && payload.field) {
+        setMicPlot((prev: any) => ({
+          ...prev,
+          [payload.field!]: payload.value,
+        }));
+      }
+    },
+  });
+
+  // Presence hook
+  const { setEditingField } = usePresence({
+    channel: null, // Will be set up when collaboration channels are ready
+    userId: effectiveUserId,
+  });
+
+  // Keyboard shortcut for manual save (Cmd/Ctrl+S)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        forceSave();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [forceSave]);
+
+  // Real-time database subscription for syncing changes across users
+  useEffect(() => {
+    if (!collaborationEnabled || !micPlot?.id) {
+      return;
+    }
+
+    console.log(
+      "[CorporateMicPlotEditor] Setting up real-time subscription for mic plot:",
+      micPlot.id,
+    );
+
+    const channel = supabase
+      .channel(`corporate_mic_plot_db_${micPlot.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "corporate_mic_plots",
+          filter: `id=eq.${micPlot.id}`,
+        },
+        (payload) => {
+          console.log("[CorporateMicPlotEditor] Received database UPDATE event:", payload);
+          // Update local state with the new data
+          // IMPORTANT: Exclude metadata fields (version, last_edited, metadata) to prevent
+          // triggering auto-save, which would create an infinite loop
+          if (payload.new) {
+            const { version, last_edited, metadata, ...userEditableFields } = payload.new as any;
+            setMicPlot((prev: any) => ({
+              ...prev,
+              ...userEditableFields,
+              // Keep existing metadata to avoid triggering auto-save
+              version: prev?.version,
+              last_edited: prev?.last_edited,
+              metadata: prev?.metadata,
+            }));
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      console.log("[CorporateMicPlotEditor] Cleaning up real-time subscription");
+      supabase.removeChannel(channel);
+    };
+  }, [collaborationEnabled, micPlot?.id]);
+
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (micPlot) {
-      setMicPlot({ ...micPlot, name: e.target.value });
+      const newName = e.target.value;
+      setMicPlot({ ...micPlot, name: newName });
+
+      // Broadcast name change to other collaborators
+      if (collaborationEnabled && broadcast) {
+        broadcast({
+          type: "field_update",
+          field: "name",
+          value: newName,
+          userId: effectiveUserId,
+        }).catch((err) =>
+          console.error("[CorporateMicPlotEditor] Failed to broadcast name change:", err),
+        );
+      }
     }
   };
 
@@ -125,30 +298,83 @@ const CorporateMicPlotEditor: React.FC = () => {
         remote_participation: false,
         photo_url: null,
       };
-      setMicPlot({ ...micPlot, presenters: [...micPlot.presenters, newPresenter] });
+      const updatedPresenters = [...micPlot.presenters, newPresenter];
+      setMicPlot({ ...micPlot, presenters: updatedPresenters });
+
+      // Broadcast presenter addition to other collaborators
+      if (collaborationEnabled && broadcast) {
+        broadcast({
+          type: "field_update",
+          field: "presenters",
+          value: updatedPresenters,
+          userId: effectiveUserId,
+        }).catch((err) =>
+          console.error("[CorporateMicPlotEditor] Failed to broadcast presenter addition:", err),
+        );
+      }
     }
   };
 
   const handleUpdatePresenter = (id: string, field: keyof PresenterEntry, value: any) => {
     if (micPlot) {
+      const updatedPresenters = micPlot.presenters.map((p) =>
+        p.id === id ? { ...p, [field]: value } : p,
+      );
       setMicPlot({
         ...micPlot,
-        presenters: micPlot.presenters.map((p) => (p.id === id ? { ...p, [field]: value } : p)),
+        presenters: updatedPresenters,
       });
+
+      // Broadcast presenter update to other collaborators
+      if (collaborationEnabled && broadcast) {
+        broadcast({
+          type: "field_update",
+          field: "presenters",
+          value: updatedPresenters,
+          userId: effectiveUserId,
+        }).catch((err) =>
+          console.error("[CorporateMicPlotEditor] Failed to broadcast presenter update:", err),
+        );
+      }
     }
   };
 
   const handleDeletePresenter = (id: string) => {
     if (micPlot) {
+      const updatedPresenters = micPlot.presenters.filter((p) => p.id !== id);
       setMicPlot({
         ...micPlot,
-        presenters: micPlot.presenters.filter((p) => p.id !== id),
+        presenters: updatedPresenters,
       });
+
+      // Broadcast presenter deletion to other collaborators
+      if (collaborationEnabled && broadcast) {
+        broadcast({
+          type: "field_update",
+          field: "presenters",
+          value: updatedPresenters,
+          userId: effectiveUserId,
+        }).catch((err) =>
+          console.error("[CorporateMicPlotEditor] Failed to broadcast presenter deletion:", err),
+        );
+      }
     }
   };
 
   const handleSave = async () => {
     if (!micPlot) return;
+
+    // For existing documents with collaboration enabled, use forceSave
+    if (collaborationEnabled) {
+      await forceSave();
+      return;
+    }
+
+    if (!user && !isSharedEdit) {
+      setSaveError("You must be logged in to save.");
+      setTimeout(() => setSaveError(null), 5000);
+      return;
+    }
 
     setSaving(true);
     setSaveError(null);
@@ -211,6 +437,136 @@ const CorporateMicPlotEditor: React.FC = () => {
     }
   };
 
+  /**
+   * Fetch version history for the current document
+   */
+  const fetchVersionHistory = async () => {
+    if (!micPlot?.id) return;
+
+    setHistoryLoading(true);
+    setHistoryError(null);
+
+    try {
+      // Query the corporate_mic_plot_history table
+      const { data, error } = await supabase
+        .from("corporate_mic_plot_history")
+        .select(
+          `
+          id,
+          version,
+          changed_fields,
+          created_at,
+          created_by,
+          save_type,
+          content
+        `,
+        )
+        .eq("corporate_mic_plot_id", micPlot.id)
+        .order("version", { ascending: false })
+        .limit(50); // Limit to last 50 versions
+
+      if (error) throw error;
+
+      // Transform the data to match VersionHistory interface
+      // We need to join with users table to get email
+      const versionsWithUsers = await Promise.all(
+        (data || []).map(async (version: any) => {
+          let userEmail = "Unknown User";
+
+          if (version.created_by) {
+            try {
+              const { data: userData } = await supabase
+                .from("profiles")
+                .select("email")
+                .eq("id", version.created_by)
+                .single();
+
+              if (userData?.email) {
+                userEmail = userData.email;
+              }
+            } catch (err) {
+              console.warn("Could not fetch user email:", err);
+            }
+          }
+
+          return {
+            id: version.id,
+            version: version.version,
+            userEmail,
+            createdAt: version.created_at,
+            changedFields: version.changed_fields || [],
+            description: `${version.save_type} save`,
+          } as VersionHistory;
+        }),
+      );
+
+      setVersionHistory(versionsWithUsers);
+    } catch (error: any) {
+      console.error("Error fetching version history:", error);
+      setHistoryError(error.message || "Failed to load version history");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  /**
+   * Restore a previous version of the document
+   */
+  const handleRestoreVersion = async (versionId: string) => {
+    if (!micPlot?.id) return;
+
+    try {
+      // Fetch the full content from the history table
+      const { data: historyData, error: historyError } = await supabase
+        .from("corporate_mic_plot_history")
+        .select("content, version")
+        .eq("id", versionId)
+        .single();
+
+      if (historyError) throw historyError;
+      if (!historyData) throw new Error("Version not found");
+
+      // Update the current document with the historical content
+      const restoredContent = historyData.content as any;
+
+      // Update in the database
+      const { error: updateError } = await supabase
+        .from("corporate_mic_plots")
+        .update({
+          ...restoredContent,
+          last_edited: new Date().toISOString(),
+        })
+        .eq("id", micPlot.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setMicPlot({
+        ...micPlot,
+        ...restoredContent,
+      });
+
+      // Close the history modal
+      setShowHistory(false);
+
+      // Show success message
+      alert(`Successfully restored version ${historyData.version}`);
+
+      // Refresh history to show the restoration
+      await fetchVersionHistory();
+    } catch (error: any) {
+      console.error("Error restoring version:", error);
+      alert(`Failed to restore version: ${error.message}`);
+    }
+  };
+
+  // Fetch version history when modal opens
+  useEffect(() => {
+    if (showHistory && micPlot?.id) {
+      fetchVersionHistory();
+    }
+  }, [showHistory, micPlot?.id]);
+
   const handleBackNavigation = () => {
     if (isSharedEdit) {
       // For shared edit, maybe go to a generic shared confirmation or home
@@ -251,6 +607,20 @@ const CorporateMicPlotEditor: React.FC = () => {
           )}
         </div>
       )}
+      {collaborationEnabled && (
+        <CollaborationToolbar
+          saveStatus={saveStatus}
+          lastSavedAt={lastSavedAt ? new Date(lastSavedAt) : undefined}
+          saveError={autoSaveError || undefined}
+          onRetry={forceSave}
+          activeUsers={activeUsers}
+          currentUserId={user?.id}
+          connectionStatus={connectionStatus}
+          onOpenHistory={() => setShowHistory(true)}
+          showHistory={true}
+          position="top-right"
+        />
+      )}
       <main className="flex-grow container mx-auto px-4 py-6 md:py-12 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
           <div className="flex items-center flex-grow min-w-0">
@@ -273,29 +643,39 @@ const CorporateMicPlotEditor: React.FC = () => {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 fixed bottom-4 right-4 z-20 md:static md:z-auto sm:ml-auto flex-shrink-0">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg md:shadow-none"
-            >
-              {saving ? (
-                <Loader className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
-              )}
-              {saving ? "Saving..." : "Save Plot"}
-            </button>
-          </div>
+          {/* Manual Save button (only for new documents or shared edits) */}
+          {!collaborationEnabled && (
+            <div className="hidden md:flex items-center gap-2 sm:ml-auto flex-shrink-0">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg md:shadow-none"
+              >
+                {saving ? (
+                  <>
+                    <Loader className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
 
-        {saveError && (
+        {/* Error messages (for new documents or manual save errors) */}
+        {!collaborationEnabled && saveError && (
           <div className="bg-red-400/10 border border-red-400 rounded-lg p-4 mb-4 flex items-start">
             <AlertCircle className="h-5 w-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
             <p className="text-red-400 text-sm">{saveError}</p>
           </div>
         )}
-        {saveSuccess && (
+
+        {!collaborationEnabled && saveSuccess && (
           <div className="bg-green-400/10 border border-green-400 rounded-lg p-4 mb-4 flex items-start">
             <Save className="h-5 w-5 text-green-400 mr-3 mt-0.5 flex-shrink-0" />
             <p className="text-green-400 text-sm">Mic plot saved successfully!</p>
@@ -337,22 +717,56 @@ const CorporateMicPlotEditor: React.FC = () => {
           ))}
         </div>
 
-        <div className="flex justify-center py-8">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg text-base"
-          >
-            {saving ? (
-              <Loader className="h-5 w-5 mr-2 animate-spin" />
-            ) : (
-              <Save className="h-5 w-5 mr-2" />
-            )}
-            {saving ? "Saving Mic Plot..." : "Save Mic Plot"}
-          </button>
-        </div>
+        {/* Bottom Save button (only for new documents or shared edits) */}
+        {!collaborationEnabled && (
+          <div className="flex justify-center py-8">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg text-base"
+            >
+              {saving ? (
+                <>
+                  <Loader className="h-5 w-5 mr-2 animate-spin" />
+                  Saving Mic Plot...
+                </>
+              ) : (
+                <>
+                  <Save className="h-5 w-5 mr-2" />
+                  Save Corporate Mic Plot
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </main>
       <Footer />
+      {/* Collaboration Modals */}
+      {collaborationEnabled && (
+        <>
+          <DocumentHistory
+            open={showHistory}
+            onOpenChange={setShowHistory}
+            versions={versionHistory}
+            onRestore={handleRestoreVersion}
+            loading={historyLoading}
+            error={historyError || undefined}
+          />
+
+          <ConflictResolution
+            open={showConflict}
+            onOpenChange={setShowConflict}
+            conflicts={conflict ? [conflict] : []}
+            documentId={micPlot?.id || ""}
+            onResolve={(resolution) => {
+              // Handle conflict resolution
+              console.log("Conflict resolved with strategy:", resolution);
+              setShowConflict(false);
+              setConflict(null);
+            }}
+          />
+        </>
+      )}
     </div>
   );
 };

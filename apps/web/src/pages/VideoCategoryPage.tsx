@@ -335,7 +335,7 @@ const VideoCategoryPage: React.FC = () => {
     const commonDenominators = [
       24, 25, 30, 48, 50, 60, 100, 120, 125, 150, 180, 200, 240, 250, 300, 360, 400, 500, 720, 1000,
     ];
-    let safeSpeeds: string[] = [];
+    const safeSpeeds: string[] = [];
 
     for (let i = 1; i <= 5; i++) {
       const idealDenominator = i * targetFreq;

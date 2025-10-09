@@ -74,7 +74,7 @@ function App() {
   return (
     <div className="bg-gray-900 min-h-screen text-white">
       <AuthProvider>
-        <Router>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/signup" element={<SignUp />} />

@@ -13,12 +13,14 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { ScheduleForExport } from "../lib/types";
 import ProductionScheduleExport from "./production-schedule/ProductionScheduleExport";
+import { CollaborationToolbar, CollaborationToolbarProps } from "./CollaborationToolbar";
 
 interface HeaderProps {
   dashboard?: boolean;
   onSignOut?: () => void;
   scheduleForExport?: ScheduleForExport;
   scheduleType?: "production" | "run-of-show";
+  collaborationToolbar?: Omit<CollaborationToolbarProps, "position">;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -26,6 +28,7 @@ const Header: React.FC<HeaderProps> = ({
   onSignOut,
   scheduleForExport,
   scheduleType,
+  collaborationToolbar,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -123,6 +126,13 @@ const Header: React.FC<HeaderProps> = ({
           <Bookmark className="h-8 w-8 text-indigo-400" />
           <span className="text-white text-xl font-bold">SoundDocs</span>
         </div>
+
+        {/* Collaboration Toolbar - integrated into header */}
+        {collaborationToolbar && (
+          <div className="hidden md:flex mx-4 flex-1 justify-center">
+            <CollaborationToolbar {...collaborationToolbar} className="!static !transform-none" />
+          </div>
+        )}
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center space-x-8" aria-label="Main Navigation">

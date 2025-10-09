@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "../lib/AuthContext";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import {
@@ -24,6 +26,20 @@ import CommsPlanExport from "../components/CommsPlanExport";
 import PrintCommsPlanExport from "../components/PrintCommsPlanExport";
 import ExportModal from "../components/ExportModal";
 import { CommsPlan } from "../lib/commsTypes";
+import { v4 as uuidv4 } from "uuid";
+import {
+  getSharedResource,
+  updateSharedResource,
+  getShareUrl,
+  SharedLink,
+} from "../lib/shareUtils";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { useCollaboration } from "@/hooks/useCollaboration";
+import { usePresence } from "@/hooks/usePresence";
+import { CollaborationToolbar } from "@/components/CollaborationToolbar";
+import { DocumentHistory } from "@/components/History/DocumentHistory";
+import { ConflictResolution } from "@/components/ConflictResolution";
+import type { DocumentConflict, VersionHistory } from "@/types/collaboration";
 import {
   SystemType,
   SystemModel,
@@ -38,16 +54,34 @@ import {
   ValidationResult,
 } from "../lib/commsTypes";
 import { saveCommsPlan, getCommsPlan } from "../lib/commsPlannerUtils";
-import { v4 as uuidv4 } from "uuid";
 
 const CommsPlannerEditor = () => {
-  const { id } = useParams();
+  const { id, shareCode } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSharedEdit, setIsSharedEdit] = useState(false);
+  const [currentShareLink, setCurrentShareLink] = useState<SharedLink | null>(null);
+
+  // Collaboration state
+  const [showHistory, setShowHistory] = useState(false);
+  const [showConflict, setShowConflict] = useState(false);
+  const [conflict, setConflict] = useState<DocumentConflict | null>(null);
+
+  // Version history state
+  const [versionHistory, setVersionHistory] = useState<VersionHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  // For unauthenticated shared edit users, generate a temporary ID
+  const [anonymousUserId] = useState(() => `anonymous-${uuidv4()}`);
+  const effectiveUserId = user?.id || (isSharedEdit ? anonymousUserId : "");
+  const effectiveUserEmail = user?.email || (isSharedEdit ? `${anonymousUserId}@shared` : "");
+  const effectiveUserName = user?.user_metadata?.name || (isSharedEdit ? "Anonymous User" : "");
   const {
     planName,
     elements,
@@ -78,6 +112,37 @@ const CommsPlannerEditor = () => {
   const [totalPoELoad, setTotalPoELoad] = useState(0);
   const isInitialMount = useRef(true);
 
+  // Get actual document ID from store (for collaboration)
+  const [documentId, setDocumentId] = useState<string | null>(null);
+
+  // Enable collaboration for existing documents (including edit-mode shared links)
+  // For shared links, id will be undefined, so we check documentId instead
+  // For edit-mode shared links, allow collaboration even without authentication
+  const collaborationEnabled =
+    (id ? id !== "new" : true) && // Allow if no id param (shared link) or if id !== "new"
+    (!isSharedEdit || currentShareLink?.link_type === "edit") &&
+    !!documentId &&
+    (!!user || (isSharedEdit && currentShareLink?.link_type === "edit")); // Allow unauthenticated for edit-mode shared links
+
+  // Debug: Log collaboration status
+  useEffect(() => {
+    const status = {
+      collaborationEnabled,
+      id,
+      idCheck: id ? id !== "new" : true,
+      isNew: id === "new",
+      isSharedEdit,
+      currentShareLinkType: currentShareLink?.link_type,
+      shareEditCheck: !isSharedEdit || currentShareLink?.link_type === "edit",
+      hasDocumentId: !!documentId,
+      hasUser: !!user,
+      userId: user?.id,
+      documentId,
+    };
+    console.log("[CommsPlannerEditor] Collaboration status:");
+    console.log(JSON.stringify(status, null, 2));
+  }, [collaborationEnabled, id, isSharedEdit, currentShareLink, documentId, user]);
+
   // Export state
   const [exporting, setExporting] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -90,6 +155,167 @@ const CommsPlannerEditor = () => {
   const [showCoverage, setShowCoverage] = useState(true);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [fitMode, setFitMode] = useState<"fit" | "fill">("fit");
+
+  // Auto-save hook - Create a document data object for auto-save
+  const documentData = documentId
+    ? {
+        id: documentId,
+        name: planName,
+        venue_geometry: {
+          width: venueWidth,
+          height: venueHeight,
+        },
+        zones,
+        elements: elements.map((el) => ({
+          ...el,
+          system_type: el.systemType,
+          channel_set: el.channels,
+        })),
+        beltpacks,
+        dfs_enabled: dfsEnabled,
+        poe_budget_total: poeBudget,
+      }
+    : null;
+
+  const {
+    saveStatus,
+    lastSavedAt,
+    forceSave,
+    error: autoSaveError,
+  } = useAutoSave({
+    documentId: documentId || "",
+    documentType: "comms_planners",
+    userId: effectiveUserId,
+    data: documentData,
+    enabled: collaborationEnabled,
+    debounceMs: 1500,
+    onBeforeSave: async (data) => {
+      // Validate data before saving
+      if (!data.name || data.name.trim() === "") {
+        return false;
+      }
+      return true;
+    },
+  });
+
+  // Collaboration hook
+  const {
+    activeUsers,
+    broadcast,
+    status: connectionStatus,
+  } = useCollaboration({
+    documentId: documentId || "",
+    documentType: "comms_planners",
+    userId: effectiveUserId,
+    userEmail: effectiveUserEmail,
+    userName: effectiveUserName,
+    enabled: collaborationEnabled,
+    onRemoteUpdate: (payload) => {
+      if (payload.type === "field_update" && payload.field) {
+        // Handle field updates from remote users
+        console.log("[CommsPlannerEditor] Remote field update:", payload.field, payload.value);
+        // Update will be handled by database subscription
+      }
+    },
+  });
+
+  // Presence hook
+  const { setEditingField } = usePresence({
+    channel: null, // Will be set up when collaboration channels are ready
+    userId: effectiveUserId,
+  });
+
+  // Real-time database subscription for syncing changes across users
+  useEffect(() => {
+    if (!collaborationEnabled || !documentId) {
+      return;
+    }
+
+    console.log("[CommsPlannerEditor] Setting up real-time subscription for document:", documentId);
+
+    const channel = supabase
+      .channel(`comms_planner_db_${documentId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "comms_planners",
+          filter: `id=eq.${documentId}`,
+        },
+        (payload) => {
+          console.log("[CommsPlannerEditor] Received database UPDATE event:", payload);
+          // Update local state with the new data
+          // IMPORTANT: Exclude metadata fields (version, last_edited, metadata) to prevent
+          // triggering auto-save, which would create an infinite loop
+          if (payload.new) {
+            const { version, last_edited, metadata, ...userEditableFields } = payload.new as any;
+
+            // Update store with new data
+            if (userEditableFields.name) {
+              setPlanName(userEditableFields.name);
+            }
+            if (userEditableFields.venue_geometry) {
+              setVenueWidth(userEditableFields.venue_geometry.width);
+              setVenueHeight(userEditableFields.venue_geometry.height);
+            }
+            if (userEditableFields.zones) {
+              setZones(userEditableFields.zones);
+            }
+            if (userEditableFields.elements) {
+              const loadedElements = userEditableFields.elements.map((el: any) => ({
+                ...el,
+                systemType: el.system_type,
+                channels: el.channel_set,
+              }));
+              setElements(loadedElements);
+            }
+            if (userEditableFields.beltpacks) {
+              setBeltpacks(userEditableFields.beltpacks);
+            }
+            if (typeof userEditableFields.dfs_enabled !== "undefined") {
+              setDfsEnabled(userEditableFields.dfs_enabled);
+            }
+            if (typeof userEditableFields.poe_budget_total !== "undefined") {
+              setPoeBudget(userEditableFields.poe_budget_total);
+            }
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      console.log("[CommsPlannerEditor] Cleaning up real-time subscription");
+      supabase.removeChannel(channel);
+    };
+  }, [
+    collaborationEnabled,
+    documentId,
+    setPlanName,
+    setVenueWidth,
+    setVenueHeight,
+    setZones,
+    setElements,
+    setBeltpacks,
+    setDfsEnabled,
+    setPoeBudget,
+  ]);
+
+  // Keyboard shortcut for manual save (Cmd/Ctrl+S)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        if (collaborationEnabled) {
+          forceSave();
+        } else {
+          handleSave(false);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [collaborationEnabled, forceSave]);
 
   const getDefaultModel = (systemType: SystemType): SystemModel => {
     switch (systemType) {
@@ -461,11 +687,101 @@ const CommsPlannerEditor = () => {
 
   useEffect(() => {
     const loadPlan = async () => {
-      if (id && id !== "new") {
+      setLoading(true);
+
+      // Check if this is a shared edit path
+      const currentPathIsSharedEdit = location.pathname.includes("/shared/comms-planner/edit/");
+      console.log(
+        `[CommsPlannerEditor] Path: ${location.pathname}, shareCode: ${shareCode}, currentPathIsSharedEdit: ${currentPathIsSharedEdit}`,
+      );
+
+      if (currentPathIsSharedEdit && shareCode) {
+        // Load shared resource
+        console.log(
+          "[CommsPlannerEditor] Attempting to fetch SHARED resource with shareCode:",
+          shareCode,
+        );
         try {
-          setLoading(true);
+          const { resource, shareLink: fetchedShareLink } = await getSharedResource(shareCode);
+
+          console.log(
+            "[CommsPlannerEditor] DEBUG: Fetched Shared Link Details:",
+            JSON.stringify(fetchedShareLink, null, 2),
+          );
+          console.log(
+            "[CommsPlannerEditor] DEBUG: Fetched Resource Details:",
+            JSON.stringify(resource, null, 2),
+          );
+
+          if (fetchedShareLink.resource_type !== "comms_planner") {
+            console.error(
+              "[CommsPlannerEditor] Share code is for a different resource type:",
+              fetchedShareLink.resource_type,
+              "Expected: comms_planner",
+            );
+            navigate("/dashboard");
+            setLoading(false);
+            return;
+          }
+
+          if (fetchedShareLink.link_type !== "edit") {
+            console.warn(
+              `[CommsPlannerEditor] Link type is '${fetchedShareLink.link_type}', not 'edit'. Redirecting to view page.`,
+            );
+            window.location.href = getShareUrl(shareCode, "comms_planner", "view");
+            return;
+          }
+
+          // Load the shared plan data
+          setPlanName(resource.name || "Untitled Comms Plan");
+          setDocumentId(resource.id);
+          setVenueWidth(resource.venue_geometry?.width || 100);
+          setVenueHeight(resource.venue_geometry?.height || 100);
+          setZones(resource.zones || []);
+          setDfsEnabled(resource.dfs_enabled || false);
+          setPoeBudget(resource.poe_budget_total || 1000);
+
+          const loadedElements = (resource.elements || []).map((el: any) => ({
+            ...el,
+            systemType: el.system_type,
+            channels: el.channel_set,
+          }));
+          setElements(loadedElements);
+
+          const loadedBeltpacks = resource.beltpacks || [];
+          const hasExistingAssignments = loadedBeltpacks.some((bp: any) => bp.transceiverRef);
+          if (hasExistingAssignments) {
+            setBeltpacks(loadedBeltpacks);
+          } else {
+            setBeltpacks(runAssignmentLogic(loadedBeltpacks, loadedElements));
+          }
+
+          setCurrentShareLink(fetchedShareLink);
+          setIsSharedEdit(true);
+          console.log(
+            "[CommsPlannerEditor] SHARED comms_planner resource loaded successfully for editing.",
+          );
+        } catch (error: any) {
+          console.error(
+            "[CommsPlannerEditor] Error fetching SHARED comms plan:",
+            error.message,
+            error,
+          );
+          navigate("/dashboard");
+        } finally {
+          setLoading(false);
+        }
+      } else if (id && id !== "new") {
+        // Load owned resource
+        if (!user) {
+          navigate("/login");
+          return;
+        }
+
+        try {
           const plan = await getCommsPlan(id);
           setPlanName(plan.name);
+          setDocumentId(plan.id);
           setVenueWidth(plan.venue_geometry.width);
           setVenueHeight(plan.venue_geometry.height);
           setZones(plan.zones || []);
@@ -495,20 +811,32 @@ const CommsPlannerEditor = () => {
           } else {
             setBeltpacks(runAssignmentLogic(loadedBeltpacks, loadedElements));
           }
+          setIsSharedEdit(false);
         } catch (error) {
           console.error("Failed to load comms plan:", error);
           navigate("/all-comms-plans");
         } finally {
           setLoading(false);
         }
-      } else {
+      } else if (id === "new") {
+        // New document
+        if (!user) {
+          navigate("/login");
+          return;
+        }
         reset();
+        setDocumentId(null);
+        setIsSharedEdit(false);
+        setLoading(false);
+      } else {
+        console.error("[CommsPlannerEditor] Invalid route state. No id, no shareCode, not 'new'.");
+        navigate("/dashboard");
         setLoading(false);
       }
     };
     loadPlan();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, navigate]);
+  }, [id, shareCode, navigate, location.pathname, user]);
 
   // Handle keyboard shortcuts for deleting elements
   useEffect(() => {
@@ -532,15 +860,52 @@ const CommsPlannerEditor = () => {
 
   const handleSave = useCallback(
     async (isAutoSave = false) => {
+      // For existing documents with collaboration enabled, use forceSave
+      if (collaborationEnabled && !isAutoSave) {
+        await forceSave();
+        return;
+      }
+
+      if (!user && !isSharedEdit) {
+        setSaveError("You must be logged in to save.");
+        setTimeout(() => setSaveError(null), 5000);
+        return;
+      }
+
       setSaving(true);
       setSaveError(null);
       if (!isAutoSave) {
         setSaveSuccess(false);
       }
       try {
-        const planId = await saveCommsPlan(id ?? null);
-        if (id === "new" && planId) {
-          navigate(`/comms-planner/${planId}`, { replace: true });
+        if (isSharedEdit && shareCode) {
+          // Save shared resource
+          console.log("[CommsPlannerEditor] Saving SHARED comms plan with shareCode:", shareCode);
+          const baseDataToSave = {
+            name: planName,
+            venue_geometry: {
+              width: venueWidth,
+              height: venueHeight,
+            },
+            zones,
+            elements: elements.map((el) => ({
+              ...el,
+              system_type: el.systemType,
+              channel_set: el.channels,
+            })),
+            beltpacks,
+            dfs_enabled: dfsEnabled,
+            poe_budget_total: poeBudget,
+            last_edited: new Date().toISOString(),
+          };
+          await updateSharedResource(shareCode, "comms_planner", baseDataToSave);
+        } else {
+          // Save owned resource
+          const planId = await saveCommsPlan(id ?? null);
+          if (id === "new" && planId) {
+            setDocumentId(planId);
+            navigate(`/comms-planner/${planId}`, { replace: true });
+          }
         }
         if (!isAutoSave) {
           setSaveSuccess(true);
@@ -549,20 +914,186 @@ const CommsPlannerEditor = () => {
       } catch (error: unknown) {
         console.error("Failed to save comms plan:", error);
         setSaveError(
-          `Error saving schedule: ${error instanceof Error ? error.message : "Please try again."}`,
+          `Error saving comms plan: ${error instanceof Error ? error.message : "Please try again."}`,
         );
         setTimeout(() => setSaveError(null), 5000);
       } finally {
         setSaving(false);
       }
     },
-    [id, navigate],
+    [
+      id,
+      navigate,
+      collaborationEnabled,
+      forceSave,
+      user,
+      isSharedEdit,
+      shareCode,
+      planName,
+      venueWidth,
+      venueHeight,
+      zones,
+      elements,
+      beltpacks,
+      dfsEnabled,
+      poeBudget,
+    ],
   );
 
-  // Auto-save logic
+  /**
+   * Fetch version history for the current document
+   */
+  const fetchVersionHistory = async () => {
+    if (!documentId) return;
+
+    setHistoryLoading(true);
+    setHistoryError(null);
+
+    try {
+      // Query the comms_planner_history table
+      const { data, error } = await supabase
+        .from("comms_planner_history")
+        .select(
+          `
+          id,
+          version,
+          changed_fields,
+          created_at,
+          created_by,
+          save_type,
+          content
+        `,
+        )
+        .eq("comms_planner_id", documentId)
+        .order("version", { ascending: false })
+        .limit(50); // Limit to last 50 versions
+
+      if (error) throw error;
+
+      // Transform the data to match VersionHistory interface
+      // We need to join with users table to get email
+      const versionsWithUsers = await Promise.all(
+        (data || []).map(async (version: any) => {
+          let userEmail = "Unknown User";
+
+          if (version.created_by) {
+            try {
+              const { data: userData } = await supabase
+                .from("profiles")
+                .select("email")
+                .eq("id", version.created_by)
+                .single();
+
+              if (userData?.email) {
+                userEmail = userData.email;
+              }
+            } catch (err) {
+              console.warn("Could not fetch user email:", err);
+            }
+          }
+
+          return {
+            id: version.id,
+            version: version.version,
+            userEmail,
+            createdAt: version.created_at,
+            changedFields: version.changed_fields || [],
+            description: `${version.save_type} save`,
+          } as VersionHistory;
+        }),
+      );
+
+      setVersionHistory(versionsWithUsers);
+    } catch (error: any) {
+      console.error("Error fetching version history:", error);
+      setHistoryError(error.message || "Failed to load version history");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  /**
+   * Restore a previous version of the document
+   */
+  const handleRestoreVersion = async (versionId: string) => {
+    if (!documentId) return;
+
+    try {
+      // Fetch the full content from the history table
+      const { data: historyData, error: historyError } = await supabase
+        .from("comms_planner_history")
+        .select("content, version")
+        .eq("id", versionId)
+        .single();
+
+      if (historyError) throw historyError;
+      if (!historyData) throw new Error("Version not found");
+
+      // Update the current document with the historical content
+      const restoredContent = historyData.content as any;
+
+      // Update in the database
+      const { error: updateError } = await supabase
+        .from("comms_planners")
+        .update({
+          ...restoredContent,
+          last_edited: new Date().toISOString(),
+        })
+        .eq("id", documentId);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      if (restoredContent.name) setPlanName(restoredContent.name);
+      if (restoredContent.venue_geometry) {
+        setVenueWidth(restoredContent.venue_geometry.width);
+        setVenueHeight(restoredContent.venue_geometry.height);
+      }
+      if (restoredContent.zones) setZones(restoredContent.zones);
+      if (restoredContent.elements) {
+        const loadedElements = restoredContent.elements.map((el: any) => ({
+          ...el,
+          systemType: el.system_type,
+          channels: el.channel_set,
+        }));
+        setElements(loadedElements);
+      }
+      if (restoredContent.beltpacks) setBeltpacks(restoredContent.beltpacks);
+      if (typeof restoredContent.dfs_enabled !== "undefined")
+        setDfsEnabled(restoredContent.dfs_enabled);
+      if (typeof restoredContent.poe_budget_total !== "undefined")
+        setPoeBudget(restoredContent.poe_budget_total);
+
+      // Close the history modal
+      setShowHistory(false);
+
+      // Show success message
+      alert(`Successfully restored version ${historyData.version}`);
+
+      // Refresh history to show the restoration
+      await fetchVersionHistory();
+    } catch (error: any) {
+      console.error("Error restoring version:", error);
+      alert(`Failed to restore version: ${error.message}`);
+    }
+  };
+
+  // Fetch version history when modal opens
+  useEffect(() => {
+    if (showHistory && documentId) {
+      fetchVersionHistory();
+    }
+  }, [showHistory, documentId]);
+
+  // Auto-save logic (only for new documents without collaboration)
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
+      return;
+    }
+
+    // Skip auto-save if collaboration is enabled (handled by useAutoSave hook)
+    if (collaborationEnabled) {
       return;
     }
 
@@ -590,6 +1121,7 @@ const CommsPlannerEditor = () => {
     id,
     loading,
     saving,
+    collaborationEnabled,
   ]);
 
   const exportAsPdf = async (
@@ -925,6 +1457,23 @@ const CommsPlannerEditor = () => {
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       <Header />
+
+      {/* Collaboration Toolbar (for existing documents) */}
+      {collaborationEnabled && (
+        <CollaborationToolbar
+          saveStatus={saveStatus}
+          lastSavedAt={lastSavedAt ? new Date(lastSavedAt) : undefined}
+          saveError={autoSaveError || undefined}
+          onRetry={forceSave}
+          activeUsers={activeUsers}
+          currentUserId={user?.id}
+          connectionStatus={connectionStatus}
+          onOpenHistory={() => setShowHistory(true)}
+          showHistory={true}
+          position="top-right"
+        />
+      )}
+
       <main className="flex-grow container mx-auto px-4 py-8 mt-16">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center">
@@ -962,34 +1511,38 @@ const CommsPlannerEditor = () => {
                 </>
               )}
             </button>
-            <button
-              onClick={() => handleSave(false)}
-              disabled={saving}
-              className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {saving ? (
-                <>
-                  <Loader className="animate-spin h-4 w-4 mr-2" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
-                </>
-              )}
-            </button>
+            {/* Manual Save button (only for new documents or shared edits without collaboration) */}
+            {!collaborationEnabled && (
+              <button
+                onClick={() => handleSave(false)}
+                disabled={saving}
+                className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {saving ? (
+                  <>
+                    <Loader className="animate-spin h-4 w-4 mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
-        {saveError && (
+        {/* Error messages (for new documents or manual save errors) */}
+        {!collaborationEnabled && saveError && (
           <div className="bg-red-400/10 border border-red-400 rounded-lg p-4 mb-4 flex items-start">
             <AlertCircle className="h-5 w-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
             <p className="text-red-400 text-sm">{saveError}</p>
           </div>
         )}
 
-        {saveSuccess && (
+        {!collaborationEnabled && saveSuccess && (
           <div className="bg-green-400/10 border border-green-400 rounded-lg p-4 mb-4 flex items-start">
             <Save className="h-5 w-5 text-green-400 mr-3 mt-0.5 flex-shrink-0" />
             <p className="text-green-400 text-sm">Comms plan saved successfully!</p>
@@ -1276,6 +1829,33 @@ const CommsPlannerEditor = () => {
         <>
           <CommsPlanExport ref={exportRef} commsPlan={currentExportCommsPlan} />
           <PrintCommsPlanExport ref={printExportRef} commsPlan={currentExportCommsPlan} />
+        </>
+      )}
+
+      {/* Collaboration Modals */}
+      {collaborationEnabled && (
+        <>
+          <DocumentHistory
+            open={showHistory}
+            onOpenChange={setShowHistory}
+            versions={versionHistory}
+            onRestore={handleRestoreVersion}
+            loading={historyLoading}
+            error={historyError || undefined}
+          />
+
+          <ConflictResolution
+            open={showConflict}
+            onOpenChange={setShowConflict}
+            conflicts={conflict ? [conflict] : []}
+            documentId={documentId || ""}
+            onResolve={(resolution) => {
+              // Handle conflict resolution
+              console.log("Conflict resolved with strategy:", resolution);
+              setShowConflict(false);
+              setConflict(null);
+            }}
+          />
         </>
       )}
 

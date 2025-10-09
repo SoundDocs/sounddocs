@@ -6,6 +6,21 @@ import Footer from "../components/Footer";
 import PixelMapControls from "../components/pixel-map/PixelMapControls";
 import StandardPixelMapPreview from "../components/pixel-map/StandardPixelMapPreview";
 import { ArrowLeft, Save, Download, Loader, AlertCircle } from "lucide-react";
+import { useAuth } from "../lib/AuthContext";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { useCollaboration } from "@/hooks/useCollaboration";
+import { usePresence } from "@/hooks/usePresence";
+import { CollaborationToolbar } from "@/components/CollaborationToolbar";
+import { DocumentHistory } from "@/components/History/DocumentHistory";
+import { ConflictResolution } from "@/components/ConflictResolution";
+import type { DocumentConflict } from "@/types/collaboration";
+import { v4 as uuidv4 } from "uuid";
+import {
+  getSharedResource,
+  updateSharedResource,
+  getShareUrl,
+  SharedLink,
+} from "../lib/shareUtils";
 
 export interface PixelMapData {
   project_name: string;
@@ -18,16 +33,30 @@ export interface PixelMapData {
   resolution_h: number;
 }
 
+interface PixelMapDocument extends PixelMapData {
+  id?: string;
+  user_id?: string;
+  version?: number;
+  last_edited?: string;
+  metadata?: any;
+}
+
 const StandardPixelMapEditor = () => {
-  const { id } = useParams();
+  const { id, shareCode } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const [user, setUser] = useState<any>(null);
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showConflict, setShowConflict] = useState(false);
+  const [conflict, setConflict] = useState<DocumentConflict | null>(null);
+  const [isSharedEdit, setIsSharedEdit] = useState(false);
+  const [currentShareLink, setCurrentShareLink] = useState<SharedLink | null>(null);
+  const [document, setDocument] = useState<PixelMapDocument | null>(null);
   const [mapData, setMapData] = useState<PixelMapData>({
     project_name: "My Awesome Show",
     screen_name: "Center Screen",
@@ -44,18 +73,264 @@ const StandardPixelMapEditor = () => {
 
   const backPath = location.state?.from || "/video";
 
+  // For unauthenticated shared edit users, generate a temporary ID
+  const [anonymousUserId] = useState(() => `anonymous-${uuidv4()}`);
+  const effectiveUserId = user?.id || (isSharedEdit ? anonymousUserId : "");
+  const effectiveUserEmail = user?.email || (isSharedEdit ? `${anonymousUserId}@shared` : "");
+  const effectiveUserName = user?.user_metadata?.name || (isSharedEdit ? "Anonymous User" : "");
+
+  // Enable collaboration for existing documents (including edit-mode shared links)
+  // For shared links, id will be undefined, so we check document?.id instead
+  // For edit-mode shared links, allow collaboration even without authentication
+  const collaborationEnabled =
+    (id ? id !== "new" : true) && // Allow if no id param (shared link) or if id !== "new"
+    (!isSharedEdit || currentShareLink?.link_type === "edit") &&
+    !!document?.id &&
+    (!!user || (isSharedEdit && currentShareLink?.link_type === "edit")); // Allow unauthenticated for edit-mode shared links
+
+  // Debug: Log collaboration status
+  useEffect(() => {
+    const status = {
+      collaborationEnabled,
+      id,
+      idCheck: id ? id !== "new" : true,
+      isNew: id === "new",
+      isSharedEdit,
+      currentShareLinkType: currentShareLink?.link_type,
+      shareEditCheck: !isSharedEdit || currentShareLink?.link_type === "edit",
+      hasDocumentId: !!document?.id,
+      hasUser: !!user,
+      userId: user?.id,
+      documentId: document?.id,
+    };
+    console.log("[StandardPixelMapEditor] Collaboration status:");
+    console.log(JSON.stringify(status, null, 2));
+  }, [collaborationEnabled, id, isSharedEdit, currentShareLink, document?.id, user]);
+
+  const {
+    saveStatus,
+    lastSavedAt,
+    forceSave,
+    error: autoSaveError,
+  } = useAutoSave({
+    documentId: document?.id || "",
+    documentType: "pixel_maps",
+    userId: effectiveUserId,
+    data: mapData,
+    enabled: collaborationEnabled,
+    debounceMs: 1500,
+    onBeforeSave: async (data) => {
+      if (!data.project_name || data.project_name.trim() === "") return false;
+      return true;
+    },
+  });
+
+  const {
+    activeUsers,
+    broadcast,
+    status: connectionStatus,
+  } = useCollaboration({
+    documentId: document?.id || "",
+    documentType: "pixel_maps",
+    userId: effectiveUserId,
+    userEmail: effectiveUserEmail,
+    userName: effectiveUserName,
+    enabled: collaborationEnabled,
+    onRemoteUpdate: (payload) => {
+      if (payload.type === "field_update" && payload.field) {
+        setMapData((prev: any) => (prev ? { ...prev, [payload.field!]: payload.value } : prev));
+      }
+    },
+  });
+
+  const { setEditingField } = usePresence({
+    channel: null,
+    userId: effectiveUserId,
+  });
+
+  // Real-time database subscription for syncing changes across users
+  useEffect(() => {
+    if (!collaborationEnabled || !document?.id) {
+      return;
+    }
+
+    console.log(
+      "[StandardPixelMapEditor] Setting up real-time subscription for pixel map:",
+      document.id,
+    );
+
+    const channel = supabase
+      .channel(`pixel_map_db_${document.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "pixel_maps",
+          filter: `id=eq.${document.id}`,
+        },
+        (payload) => {
+          console.log("[StandardPixelMapEditor] Received database UPDATE event:", payload);
+          // Update local state with the new data
+          // IMPORTANT: Exclude metadata fields (version, last_edited, metadata) to prevent
+          // triggering auto-save, which would create an infinite loop
+          if (payload.new) {
+            const { version, last_edited, metadata, ...userEditableFields } = payload.new as any;
+            setMapData((prev: any) => ({
+              ...prev,
+              project_name: userEditableFields.project_name,
+              screen_name: userEditableFields.screen_name,
+              aspect_ratio_w: userEditableFields.aspect_ratio_w,
+              aspect_ratio_h: userEditableFields.aspect_ratio_h,
+              aspect_ratio_preset: `${userEditableFields.aspect_ratio_w}:${userEditableFields.aspect_ratio_h}`,
+              resolution_w: userEditableFields.resolution_w,
+              resolution_h: userEditableFields.resolution_h,
+              resolution_preset: `${userEditableFields.resolution_w}x${userEditableFields.resolution_h}`,
+            }));
+            // Update document state with metadata preserved
+            setDocument((prev: any) => ({
+              ...prev,
+              ...userEditableFields,
+              // Keep existing metadata to avoid triggering auto-save
+              version: prev?.version,
+              last_edited: prev?.last_edited,
+              metadata: prev?.metadata,
+            }));
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      console.log("[StandardPixelMapEditor] Cleaning up real-time subscription");
+      supabase.removeChannel(channel);
+    };
+  }, [collaborationEnabled, document?.id]);
+
+  // Keyboard shortcut for manual save (Cmd/Ctrl+S)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        forceSave();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [forceSave]);
+
   useEffect(() => {
     const fetchUserAndData = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
+      setLoading(true);
+      if (!user && !shareCode) {
+        console.error("[StandardPixelMapEditor] User not authenticated");
         navigate("/login");
         return;
       }
-      setUser(user);
 
-      if (id !== "new") {
+      const currentPathIsSharedEdit = location.pathname.includes(
+        "/shared/pixel-map/standard/edit/",
+      );
+      console.log(
+        `[StandardPixelMapEditor] Path: ${location.pathname}, shareCode: ${shareCode}, currentPathIsSharedEdit: ${currentPathIsSharedEdit}`,
+      );
+
+      if (currentPathIsSharedEdit && shareCode) {
+        console.log(
+          "[StandardPixelMapEditor] Attempting to fetch SHARED resource with shareCode:",
+          shareCode,
+        );
+        try {
+          const { resource, shareLink: fetchedShareLink } = await getSharedResource(shareCode);
+
+          console.log(
+            "[StandardPixelMapEditor] DEBUG: Fetched Shared Link Details:",
+            JSON.stringify(fetchedShareLink, null, 2),
+          );
+          console.log(
+            "[StandardPixelMapEditor] DEBUG: Fetched Resource Details:",
+            JSON.stringify(resource, null, 2),
+          );
+
+          if (fetchedShareLink.resource_type !== "pixel_map") {
+            console.error(
+              "[StandardPixelMapEditor] Share code is for a different resource type:",
+              fetchedShareLink.resource_type,
+              "Expected: pixel_map",
+            );
+            navigate("/video");
+            setLoading(false);
+            return;
+          }
+
+          if (fetchedShareLink.link_type !== "edit") {
+            console.warn(
+              `[StandardPixelMapEditor] Link type is '${fetchedShareLink.link_type}', not 'edit'. Redirecting to view page.`,
+            );
+            window.location.href = getShareUrl(shareCode, "pixel_map", "view");
+            return;
+          }
+
+          const sharedPixelMapData: PixelMapDocument = {
+            id: resource.id,
+            user_id: resource.user_id,
+            project_name: resource.project_name || "Untitled Project",
+            screen_name: resource.screen_name || "Screen",
+            aspect_ratio_w: resource.aspect_ratio_w || 16,
+            aspect_ratio_h: resource.aspect_ratio_h || 9,
+            aspect_ratio_preset: `${resource.aspect_ratio_w || 16}:${resource.aspect_ratio_h || 9}`,
+            resolution_w: resource.resolution_w || 1920,
+            resolution_h: resource.resolution_h || 1080,
+            resolution_preset: `${resource.resolution_w || 1920}x${resource.resolution_h || 1080}`,
+            version: resource.version,
+            last_edited: resource.last_edited,
+            metadata: resource.metadata,
+          };
+          setDocument(sharedPixelMapData);
+          setMapData({
+            project_name: sharedPixelMapData.project_name,
+            screen_name: sharedPixelMapData.screen_name,
+            aspect_ratio_w: sharedPixelMapData.aspect_ratio_w,
+            aspect_ratio_h: sharedPixelMapData.aspect_ratio_h,
+            aspect_ratio_preset: sharedPixelMapData.aspect_ratio_preset,
+            resolution_w: sharedPixelMapData.resolution_w,
+            resolution_h: sharedPixelMapData.resolution_h,
+            resolution_preset: sharedPixelMapData.resolution_preset,
+          });
+          setCurrentShareLink(fetchedShareLink);
+          setIsSharedEdit(true);
+          console.log(
+            "[StandardPixelMapEditor] SHARED pixel_map resource loaded successfully for editing.",
+          );
+          console.log(
+            "[StandardPixelMapEditor] Set currentShareLink:",
+            fetchedShareLink,
+            "Set isSharedEdit: true",
+          );
+        } catch (error: any) {
+          console.error(
+            "[StandardPixelMapEditor] Error fetching SHARED pixel map:",
+            error.message,
+            error,
+          );
+          navigate("/video");
+        } finally {
+          setLoading(false);
+        }
+      } else if (id === "new") {
+        if (!user) {
+          navigate("/login");
+          return;
+        }
+        // For new documents, document state remains null until first save
+        setDocument(null);
+        setIsSharedEdit(false);
+        setLoading(false);
+      } else if (id) {
+        if (!user) {
+          navigate("/login");
+          return;
+        }
         try {
           const { data, error } = await supabase
             .from("pixel_maps")
@@ -66,38 +341,71 @@ const StandardPixelMapEditor = () => {
 
           if (error) throw error;
 
-          setMapData({
-            project_name: data.project_name,
-            screen_name: data.screen_name,
-            aspect_ratio_preset: `${data.aspect_ratio_w}:${data.aspect_ratio_h}`,
-            aspect_ratio_w: data.aspect_ratio_w,
-            aspect_ratio_h: data.aspect_ratio_h,
-            resolution_preset: `${data.resolution_w}x${data.resolution_h}`,
-            resolution_w: data.resolution_w,
-            resolution_h: data.resolution_h,
-          });
+          if (data) {
+            const documentData: PixelMapDocument = {
+              id: data.id,
+              user_id: data.user_id,
+              project_name: data.project_name,
+              screen_name: data.screen_name,
+              aspect_ratio_w: data.aspect_ratio_w,
+              aspect_ratio_h: data.aspect_ratio_h,
+              aspect_ratio_preset: `${data.aspect_ratio_w}:${data.aspect_ratio_h}`,
+              resolution_w: data.resolution_w,
+              resolution_h: data.resolution_h,
+              resolution_preset: `${data.resolution_w}x${data.resolution_h}`,
+              version: data.version,
+              last_edited: data.last_edited,
+              metadata: data.metadata,
+            };
+            setDocument(documentData);
+            setMapData({
+              project_name: data.project_name,
+              screen_name: data.screen_name,
+              aspect_ratio_preset: `${data.aspect_ratio_w}:${data.aspect_ratio_h}`,
+              aspect_ratio_w: data.aspect_ratio_w,
+              aspect_ratio_h: data.aspect_ratio_h,
+              resolution_preset: `${data.resolution_w}x${data.resolution_h}`,
+              resolution_w: data.resolution_w,
+              resolution_h: data.resolution_h,
+            });
+          } else {
+            navigate("/video");
+          }
         } catch (error) {
-          console.error("Error fetching pixel map:", error);
+          console.error("[StandardPixelMapEditor] Error fetching pixel map:", error);
           navigate("/video");
+        } finally {
+          setIsSharedEdit(false);
+          setLoading(false);
         }
+      } else {
+        console.error(
+          "[StandardPixelMapEditor] Invalid route state. No id, no shareCode, not 'new'.",
+        );
+        navigate("/video");
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchUserAndData();
-  }, [id, navigate]);
+  }, [id, shareCode, navigate, location.pathname]);
 
   const handleSave = async () => {
-    if (!user) {
+    if (!user && !isSharedEdit) {
       setSaveError("You must be logged in to save.");
       return;
     }
+
+    if (collaborationEnabled) {
+      await forceSave();
+      return;
+    }
+
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
 
-    const dataToSave = {
-      user_id: user.id,
+    const baseDataToSave = {
       map_type: "standard",
       project_name: mapData.project_name,
       screen_name: mapData.screen_name,
@@ -109,22 +417,61 @@ const StandardPixelMapEditor = () => {
     };
 
     try {
-      if (id === "new") {
+      let savedData: any = null;
+
+      if (isSharedEdit && shareCode) {
+        console.log("[StandardPixelMapEditor] Saving SHARED pixel map with shareCode:", shareCode);
+        savedData = await updateSharedResource(shareCode, "pixel_map", baseDataToSave);
+        setSaveSuccess(true);
+        console.log("[StandardPixelMapEditor] SHARED pixel map saved successfully:", savedData);
+      } else if (id === "new") {
+        if (!user) {
+          setSaveError("You must be logged in to create a new pixel map.");
+          return;
+        }
+        const dataToSave = {
+          ...baseDataToSave,
+          user_id: user.id,
+        };
         const { data, error } = await supabase
           .from("pixel_maps")
           .insert(dataToSave)
           .select("id")
           .single();
         if (error) throw error;
+        savedData = data;
         setSaveSuccess(true);
         navigate(`/pixel-map/standard/${data.id}`, { replace: true, state: { from: backPath } });
       } else {
+        if (!user) {
+          setSaveError("You must be logged in to save.");
+          return;
+        }
+        const dataToSave = {
+          ...baseDataToSave,
+          user_id: user.id,
+        };
         const { error } = await supabase.from("pixel_maps").update(dataToSave).eq("id", id);
         if (error) throw error;
         setSaveSuccess(true);
       }
+
+      // Update document state with saved data
+      if (savedData && !isSharedEdit) {
+        setDocument((prev) => ({
+          ...prev,
+          ...savedData,
+        }));
+      } else if (savedData && isSharedEdit) {
+        setDocument((prev) => ({
+          ...prev,
+          ...savedData,
+        }));
+      }
+
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error: any) {
+      console.error("[StandardPixelMapEditor] Error saving pixel map:", error);
       setSaveError(`Error saving: ${error.message}`);
     } finally {
       setSaving(false);
@@ -203,6 +550,20 @@ const StandardPixelMapEditor = () => {
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       <Header dashboard={true} />
+      {collaborationEnabled && (
+        <CollaborationToolbar
+          saveStatus={saveStatus}
+          lastSavedAt={lastSavedAt ? new Date(lastSavedAt) : undefined}
+          saveError={autoSaveError || undefined}
+          onRetry={forceSave}
+          activeUsers={activeUsers}
+          currentUserId={effectiveUserId}
+          connectionStatus={connectionStatus}
+          onOpenHistory={() => setShowHistory(true)}
+          showHistory={true}
+          position="top-right"
+        />
+      )}
       <main className="flex-grow container mx-auto px-4 py-6 md:py-12 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
           <div className="flex items-center">
@@ -297,27 +658,48 @@ const StandardPixelMapEditor = () => {
           </div>
         </div>
 
-        <div className="flex justify-center py-8">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg text-base"
-          >
-            {saving ? (
-              <>
-                <Loader className="h-5 w-5 mr-2 animate-spin" />
-                Saving Pixel Map...
-              </>
-            ) : (
-              <>
-                <Save className="h-5 w-5 mr-2" />
-                Save Pixel Map
-              </>
-            )}
-          </button>
-        </div>
+        {id === "new" && (
+          <div className="flex justify-center py-8">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg text-base"
+            >
+              {saving ? (
+                <>
+                  <Loader className="h-5 w-5 mr-2 animate-spin" />
+                  Saving Pixel Map...
+                </>
+              ) : (
+                <>
+                  <Save className="h-5 w-5 mr-2" />
+                  Save Pixel Map
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </main>
       <Footer />
+      {collaborationEnabled && (
+        <>
+          <DocumentHistory
+            isOpen={showHistory}
+            onClose={() => setShowHistory(false)}
+            documentId={document?.id || ""}
+            documentType="pixel_maps"
+          />
+          <ConflictResolution
+            isOpen={showConflict}
+            onClose={() => setShowConflict(false)}
+            conflict={conflict}
+            onResolve={(resolution) => {
+              setShowConflict(false);
+              setConflict(null);
+            }}
+          />
+        </>
+      )}
     </div>
   );
 };

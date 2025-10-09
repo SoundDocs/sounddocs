@@ -120,22 +120,28 @@ export interface PixelMapPayload {
  * @param payload The data for the pixel map.
  */
 export const savePixelMap = async (payload: PixelMapPayload) => {
-  const { error } = await supabase.from("pixel_maps").insert({
-    user_id: payload.userId,
-    map_type: payload.mapType,
-    project_name: payload.projectName,
-    screen_name: payload.screenName,
-    aspect_ratio_w: payload.aspectRatioW,
-    aspect_ratio_h: payload.aspectRatioH,
-    resolution_w: payload.resolutionW,
-    resolution_h: payload.resolutionH,
-    settings: payload.settings,
-  });
+  const { data, error } = await supabase
+    .from("pixel_maps")
+    .insert({
+      user_id: payload.userId,
+      map_type: payload.mapType,
+      project_name: payload.projectName,
+      screen_name: payload.screenName,
+      aspect_ratio_w: payload.aspectRatioW,
+      aspect_ratio_h: payload.aspectRatioH,
+      resolution_w: payload.resolutionW,
+      resolution_h: payload.resolutionH,
+      settings: payload.settings,
+    })
+    .select()
+    .single();
 
   if (error) {
     console.error("Error saving pixel map:", error);
     throw error;
   }
+
+  return data;
 };
 
 /**

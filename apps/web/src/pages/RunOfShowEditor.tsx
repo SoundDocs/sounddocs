@@ -23,7 +23,14 @@ import {
   FileJson,
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
-import { verifyShareLink, SharedLink } from "../lib/shareUtils";
+import { getSharedResource, SharedLink } from "../lib/shareUtils";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { useCollaboration } from "@/hooks/useCollaboration";
+import { usePresence } from "@/hooks/usePresence";
+import { CollaborationToolbar } from "@/components/CollaborationToolbar";
+import { DocumentHistory } from "@/components/History/DocumentHistory";
+import { ConflictResolution } from "@/components/ConflictResolution";
+import type { DocumentConflict } from "@/types/collaboration";
 
 // Interfaces
 export interface RunOfShowItem {
@@ -160,10 +167,157 @@ const RunOfShowEditor: React.FC = () => {
   const colorPickerModalRef = useRef<HTMLDivElement>(null);
 
   const [currentIsSharedEdit, setCurrentIsSharedEdit] = useState(false);
-  const [sharedLinkData, setSharedLinkData] = useState<SharedLink | null>(null);
+  const [currentShareLink, setCurrentShareLink] = useState<SharedLink | null>(null);
+
+  // For unauthenticated shared edit users, generate a temporary ID
+  const [anonymousUserId] = useState(() => `anonymous-${uuidv4()}`);
+  const effectiveUserId = user?.id || (currentIsSharedEdit ? anonymousUserId : "");
+  const effectiveUserEmail =
+    user?.email || (currentIsSharedEdit ? `${anonymousUserId}@shared` : "");
+  const effectiveUserName =
+    user?.user_metadata?.name || (currentIsSharedEdit ? "Anonymous User" : "");
+  const [showHistory, setShowHistory] = useState(false);
+  const [showConflict, setShowConflict] = useState(false);
+  const [conflict, setConflict] = useState<DocumentConflict | null>(null);
 
   // State for import modal
   const [showImportModal, setShowImportModal] = useState(false);
+
+  // Enable collaboration for existing documents (including edit-mode shared links)
+  // For shared links, id will be undefined, so we check runOfShow?.id instead
+  // For edit-mode shared links, allow collaboration even without authentication
+  const collaborationEnabled =
+    (id ? id !== "new" : true) && // Allow if no id param (shared link) or if id !== "new"
+    (!currentIsSharedEdit || currentShareLink?.link_type === "edit") &&
+    !!runOfShow?.id &&
+    (!!user || (currentIsSharedEdit && currentShareLink?.link_type === "edit")); // Allow unauthenticated for edit-mode shared links
+
+  // Debug: Log collaboration status and history modal state
+  useEffect(() => {
+    const status = {
+      collaborationEnabled,
+      id,
+      idCheck: id ? id !== "new" : true,
+      isNew: id === "new",
+      currentIsSharedEdit,
+      currentShareLinkType: currentShareLink?.link_type,
+      shareEditCheck: !currentIsSharedEdit || currentShareLink?.link_type === "edit",
+      hasDocumentId: !!runOfShow?.id,
+      hasUser: !!user,
+      userId: user?.id,
+      documentId: runOfShow?.id,
+      showHistory,
+    };
+    console.log("[RunOfShowEditor] Collaboration status:");
+    console.log(JSON.stringify(status, null, 2));
+  }, [
+    collaborationEnabled,
+    id,
+    currentIsSharedEdit,
+    currentShareLink,
+    runOfShow?.id,
+    user,
+    showHistory,
+  ]);
+
+  const {
+    saveStatus,
+    lastSavedAt,
+    forceSave,
+    error: autoSaveError,
+  } = useAutoSave({
+    documentId: runOfShow?.id || "",
+    documentType: "run_of_shows",
+    userId: effectiveUserId,
+    data: runOfShow,
+    enabled: collaborationEnabled,
+    debounceMs: 1500,
+    shareCode:
+      currentIsSharedEdit && currentShareLink?.link_type === "edit" ? shareCode : undefined,
+    onBeforeSave: async (data) => {
+      if (!data.name || data.name.trim() === "") return false;
+      return true;
+    },
+  });
+
+  const { activeUsers, status: connectionStatus } = useCollaboration({
+    documentId: runOfShow?.id || "",
+    documentType: "run_of_shows",
+    userId: effectiveUserId,
+    userEmail: effectiveUserEmail,
+    userName: effectiveUserName,
+    enabled: collaborationEnabled,
+    onRemoteUpdate: (payload) => {
+      if (payload.type === "field_update" && payload.field) {
+        setRunOfShow((prev) => (prev ? { ...prev, [payload.field!]: payload.value } : prev));
+      }
+    },
+  });
+
+  // Presence tracking (currently not used but will be needed for cursor/field tracking)
+  usePresence({ channel: null, userId: effectiveUserId });
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        forceSave();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [forceSave]);
+
+  // Real-time database subscription for syncing changes across users
+  useEffect(() => {
+    if (!collaborationEnabled || !runOfShow?.id) {
+      return;
+    }
+
+    console.log(
+      "[RunOfShowEditor] Setting up real-time subscription for run_of_show:",
+      runOfShow.id,
+    );
+
+    const channel = supabase
+      .channel(`run_of_show_db_${runOfShow.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "run_of_shows",
+          filter: `id=eq.${runOfShow.id}`,
+        },
+        (payload) => {
+          console.log("[RunOfShowEditor] Received database UPDATE event:", payload);
+          // Update local state with the new data
+          // IMPORTANT: Exclude metadata fields (version, last_edited, metadata) to prevent
+          // triggering auto-save, which would create an infinite loop
+          if (payload.new) {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { version, last_edited, metadata, ...userEditableFields } = payload.new as Record<
+              string,
+              unknown
+            >;
+            setRunOfShow((prev) => ({
+              ...prev,
+              ...userEditableFields,
+              // Keep existing metadata to avoid triggering auto-save
+              version: prev?.version,
+              last_edited: prev?.last_edited,
+              metadata: prev?.metadata,
+            }));
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      console.log("[RunOfShowEditor] Cleaning up real-time subscription");
+      supabase.removeChannel(channel);
+    };
+  }, [collaborationEnabled, runOfShow?.id]);
 
   // Effect 1: Determine and set currentIsSharedEdit
   useEffect(() => {
@@ -193,17 +347,25 @@ const RunOfShowEditor: React.FC = () => {
         let data: RunOfShowData | null = null;
         let error: unknown = null;
 
-        if (currentIsSharedEdit && shareCode && resourceIdToFetch) {
-          console.log(
-            `[RoSEditor] Fetching shared RoS by resource_id: ${resourceIdToFetch} via shareCode: ${shareCode}`,
-          );
-          const response = await supabase
-            .from("run_of_shows")
-            .select("*")
-            .eq("id", resourceIdToFetch)
-            .single();
-          data = response.data;
-          error = response.error;
+        if (currentIsSharedEdit && shareCode) {
+          console.log(`[RoSEditor] Fetching shared RoS via shareCode: ${shareCode}`);
+          const { resource, shareLink: fetchedShareLink } = await getSharedResource(shareCode);
+          if (resource && fetchedShareLink) {
+            // Validate resource type and link type
+            if (fetchedShareLink.resource_type !== "run_of_show") {
+              throw new Error("Invalid share link: not a Run of Show");
+            }
+            if (fetchedShareLink.link_type !== "edit") {
+              throw new Error("This share link is view-only, not editable");
+            }
+            setCurrentShareLink(fetchedShareLink);
+            data = {
+              ...(resource as RunOfShowData),
+              id: fetchedShareLink.resource_id, // Ensure id is set
+            };
+          } else {
+            error = new Error("Shared resource not found");
+          }
         } else if (id === "new") {
           console.log("[RoSEditor] Creating new RoS");
           setRunOfShow({
@@ -305,18 +467,11 @@ const RunOfShowEditor: React.FC = () => {
 
       if (currentIsSharedEdit && shareCode) {
         try {
-          console.log(
-            `[RoSEditor] Verifying shareCode for shared edit: ${shareCode}. currentIsSharedEdit is true.`,
-          );
-          const verifiedLink = await verifyShareLink(shareCode);
-          if (verifiedLink.resource_type === "run_of_show" && verifiedLink.link_type === "edit") {
-            setSharedLinkData(verifiedLink);
-            await fetchAndSetRunOfShow(undefined, verifiedLink.resource_id);
-          } else {
-            throw new Error("Invalid share link type or resource for editing.");
-          }
+          console.log(`[RoSEditor] Loading shared edit via shareCode: ${shareCode}`);
+          // fetchAndSetRunOfShow will call getSharedResource which validates and sets currentShareLink
+          await fetchAndSetRunOfShow();
         } catch (err: unknown) {
-          console.error("Error verifying share link for RoS edit:", err);
+          console.error("Error loading shared Run of Show:", err);
           setSaveError(
             `Error: ${err instanceof Error ? err.message : String(err)}. You may not have permission to edit this document or the link is invalid.`,
           );
@@ -746,6 +901,11 @@ const RunOfShowEditor: React.FC = () => {
   const handleSave = async () => {
     if (!runOfShow) return;
 
+    if (collaborationEnabled) {
+      await forceSave();
+      return;
+    }
+
     if (!user && currentIsSharedEdit) {
       setSaveError(
         "You must be logged in to save changes, even to a shared document. Please log in or sign up, then try claiming this share link again.",
@@ -782,8 +942,8 @@ const RunOfShowEditor: React.FC = () => {
 
     try {
       let savedData;
-      if (currentIsSharedEdit && runOfShow.id && sharedLinkData) {
-        // Ensure sharedLinkData and runOfShow.id (resource_id) are present
+      if (currentIsSharedEdit && runOfShow.id && currentShareLink) {
+        // Ensure currentShareLink and runOfShow.id (resource_id) are present
         console.log(`[RoSEditor] Saving shared RoS ID: ${runOfShow.id}`);
         const { data, error } = await supabase
           .from("run_of_shows")
@@ -845,7 +1005,7 @@ const RunOfShowEditor: React.FC = () => {
   };
 
   const handleNavigateToShowMode = () => {
-    const targetId = currentIsSharedEdit ? sharedLinkData?.resource_id : id;
+    const targetId = currentIsSharedEdit ? currentShareLink?.resource_id : id;
     if (targetId && targetId !== "new") {
       navigate(`/show-mode/${targetId}`);
     } else {
@@ -1038,7 +1198,27 @@ const RunOfShowEditor: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      <Header dashboard={true} />
+      <Header
+        dashboard={true}
+        collaborationToolbar={
+          collaborationEnabled
+            ? {
+                saveStatus,
+                lastSavedAt: lastSavedAt ? new Date(lastSavedAt) : undefined,
+                saveError: autoSaveError || undefined,
+                onRetry: forceSave,
+                activeUsers,
+                currentUserId: effectiveUserId,
+                connectionStatus,
+                onOpenHistory: () => {
+                  console.log("[RunOfShowEditor] Opening history modal");
+                  setShowHistory(true);
+                },
+                showHistory: true,
+              }
+            : undefined
+        }
+      />
       <main className="flex-grow container mx-auto px-2 sm:px-4 py-6 md:py-12 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
           <div className="flex items-center flex-grow min-w-0">
@@ -1057,8 +1237,8 @@ const RunOfShowEditor: React.FC = () => {
                 placeholder="Enter Run of Show Name"
               />
               <p className="text-xs sm:text-sm text-gray-400 truncate">
-                {currentIsSharedEdit && sharedLinkData
-                  ? `Editing shared document (Owner ID: ${sharedLinkData.user_id || "Unknown"})`
+                {currentIsSharedEdit && currentShareLink
+                  ? `Editing shared document (Owner ID: ${currentShareLink.user_id || "Unknown"})`
                   : runOfShow.last_edited
                     ? `Last edited: ${new Date(runOfShow.last_edited).toLocaleString()}`
                     : `Created: ${new Date(runOfShow.created_at || Date.now()).toLocaleString()}`}
@@ -1073,23 +1253,25 @@ const RunOfShowEditor: React.FC = () => {
               <MonitorPlay className="h-4 w-4 mr-2" />
               Show Mode
             </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg md:shadow-none"
-            >
-              {saving ? (
-                <>
-                  <Loader className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
-                </>
-              )}
-            </button>
+            {id === "new" && (
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg md:shadow-none"
+              >
+                {saving ? (
+                  <>
+                    <Loader className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
@@ -1627,34 +1809,59 @@ const RunOfShowEditor: React.FC = () => {
           </div>
         </div>
 
-        <div className="mt-8 flex justify-center items-center gap-4">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg"
-          >
-            {saving ? (
-              <>
-                <Loader className="h-5 w-5 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="h-5 w-5 mr-2" />
-                Save Run of Show
-              </>
-            )}
-          </button>
-          <button
-            onClick={handleNavigateToShowMode}
-            className="inline-flex items-center bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-6 py-3 rounded-md font-medium transition-all duration-200 shadow-lg"
-          >
-            <MonitorPlay className="h-5 w-5 mr-2" />
-            Show Mode
-          </button>
-        </div>
+        {id === "new" && (
+          <div className="mt-8 flex justify-center items-center gap-4">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg"
+            >
+              {saving ? (
+                <>
+                  <Loader className="h-5 w-5 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-5 w-5 mr-2" />
+                  Save Run of Show
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleNavigateToShowMode}
+              className="inline-flex items-center bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-6 py-3 rounded-md font-medium transition-all duration-200 shadow-lg"
+            >
+              <MonitorPlay className="h-5 w-5 mr-2" />
+              Show Mode
+            </button>
+          </div>
+        )}
       </main>
       <Footer />
+      {collaborationEnabled && (
+        <>
+          <DocumentHistory
+            open={showHistory}
+            onOpenChange={setShowHistory}
+            versions={[]}
+            onRestore={(versionId) => {
+              console.log("[RunOfShowEditor] Restore version:", versionId);
+              // TODO: Implement version restore
+            }}
+            loading={false}
+          />
+          <ConflictResolution
+            isOpen={showConflict}
+            onClose={() => setShowConflict(false)}
+            conflict={conflict}
+            onResolve={() => {
+              setShowConflict(false);
+              setConflict(null);
+            }}
+          />
+        </>
+      )}
 
       {/* Color Picker Modal */}
       {(colorPickerModalTargetItemId || colorPickerModalTargetColumnId) && (

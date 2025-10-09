@@ -231,7 +231,8 @@ export const getSharedResource = async (
 
     let resourceData;
 
-    if (verifiedLink.resource_type === "run_of_show") {
+    // For view-only Run of Show links, use the special RPC that sanitizes privateNotes
+    if (verifiedLink.resource_type === "run_of_show" && verifiedLink.link_type === "view") {
       const { data: rosData, error: rosError } = await supabase.rpc(
         "get_public_run_of_show_by_share_code",
         {
@@ -269,6 +270,9 @@ export const getSharedResource = async (
           break;
         case "technical_rider": // Added case for technical_rider
           tableName = "technical_riders";
+          break;
+        case "run_of_show": // Added for edit-mode Run of Show links
+          tableName = "run_of_shows";
           break;
         default:
           console.error(`Unsupported resource type encountered: ${verifiedLink.resource_type}`);
@@ -372,26 +376,7 @@ export const updateSharedResource = async (
   try {
     if (!shareCode) throw new Error("Share code is required");
 
-    if (resourceType === "run_of_show") {
-      console.warn(
-        "Run of Show updates should be handled by RunOfShowEditor's save logic directly.",
-      );
-      throw new Error(
-        "Direct update for Run of Show via this generic function is not recommended.",
-      );
-    }
-
-    const verifiedLink = await verifyShareLink(shareCode);
-
-    if (verifiedLink.link_type !== "edit") {
-      throw new Error("This link does not have edit permissions");
-    }
-    if (verifiedLink.resource_type !== resourceType) {
-      throw new Error("Resource type mismatch");
-    }
-
-    const updatesWithTimestamp = { ...updates, last_edited: new Date().toISOString() };
-
+    // Map resource type to table name
     let tableName: string;
     switch (resourceType) {
       case "patch_sheet":
@@ -403,26 +388,52 @@ export const updateSharedResource = async (
       case "production_schedule":
         tableName = "production_schedules";
         break;
+      case "run_of_show":
+        tableName = "run_of_shows";
+        break;
       case "corporate_mic_plot":
         tableName = "corporate_mic_plots";
         break;
-      case "theater_mic_plot": // Added case for theater_mic_plot
+      case "theater_mic_plot":
         tableName = "theater_mic_plots";
+        break;
+      case "technical_rider":
+        tableName = "technical_riders";
         break;
       default:
         console.error(`Unsupported resource type for update: ${resourceType}`);
         throw new Error(`Unsupported resource type for update: ${resourceType}`);
     }
 
-    const { data, error } = await supabase
-      .from(tableName)
-      .update(updatesWithTimestamp)
-      .eq("id", verifiedLink.resource_id)
-      .select()
-      .single();
+    console.log(`[updateSharedResource] Calling RPC with:`, {
+      shareCode,
+      resourceType,
+      tableName,
+      updateKeys: Object.keys(updates),
+    });
 
-    if (error) throw new Error(`Error updating shared resource: ${error.message}`);
-    if (!data) throw new Error("Failed to update shared resource: No data returned.");
+    // Call the RPC function which bypasses RLS with SECURITY DEFINER
+    const { data, error } = await supabase.rpc("update_shared_resource", {
+      p_share_code: shareCode,
+      p_resource_type: resourceType,
+      p_table_name: tableName,
+      p_updates: updates,
+    });
+
+    if (error) {
+      console.error(`[updateSharedResource] RPC error:`, error);
+      throw new Error(`Error updating shared resource: ${error.message}`);
+    }
+    if (!data) {
+      throw new Error("Failed to update shared resource: No data returned.");
+    }
+
+    console.log(`[updateSharedResource] Update successful:`, {
+      resourceType,
+      tableName,
+      version: data.version,
+    });
+
     return data;
   } catch (error) {
     console.error("Error updating shared resource:", error);

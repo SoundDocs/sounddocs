@@ -164,7 +164,7 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
       }
 
       // Determine element style based on type
-      let elementStyle: React.CSSProperties = {
+      const elementStyle: React.CSSProperties = {
         position: "absolute",
         left: `${element.x}px`,
         top: `${element.y}px`,
@@ -174,7 +174,7 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
       };
 
       // Wrapper for rotation
-      let wrapperStyle: React.CSSProperties = {
+      const wrapperStyle: React.CSSProperties = {
         transform: `rotate(${element.rotation}deg)`,
         transformOrigin: "center center",
         width: "100%", // Ensure wrapper takes full size
@@ -183,7 +183,7 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
       };
 
       // Inner element style (the visual shape)
-      let innerStyle: React.CSSProperties = {
+      const innerStyle: React.CSSProperties = {
         backgroundColor: "#777",
         border: "1px solid #666",
         boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
@@ -195,7 +195,7 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
       };
 
       // Symbol/icon style
-      let symbolStyle: React.CSSProperties = {
+      const symbolStyle: React.CSSProperties = {
         color: "#fff",
         fontSize: "14px", // Base size
         fontWeight: "bold",
@@ -209,7 +209,7 @@ const PrintStagePlotExport = forwardRef<HTMLDivElement, PrintStagePlotExportProp
       const labelWidth = getLabelWidth();
       const fontSize = getFontSize();
 
-      let labelStyle: React.CSSProperties = {
+      const labelStyle: React.CSSProperties = {
         position: "absolute",
         top: "100%", // Position below the element
         left: "50%", // Center horizontally relative to the element
