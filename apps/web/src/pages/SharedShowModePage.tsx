@@ -318,8 +318,7 @@ const SharedShowModePage: React.FC = () => {
                   const rowStyle: React.CSSProperties = {};
 
                   if (item.type === "header") {
-                    rowClass =
-                      "bg-gray-700 hover:bg-gray-600 font-semibold sticky top-[49px] z-10 border-t-0";
+                    rowClass = "bg-gray-700 hover:bg-gray-600 font-semibold sticky top-[40px] z-10";
                   } else {
                     if (item.highlightColor && !isCurrent && !isNext) {
                       rowStyle.backgroundColor = item.highlightColor;

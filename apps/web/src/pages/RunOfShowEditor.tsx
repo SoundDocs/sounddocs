@@ -21,6 +21,7 @@ import {
   Palette,
   AlertTriangle,
   FileJson,
+  Copy,
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { getSharedResource, SharedLink } from "../lib/shareUtils";
@@ -657,6 +658,53 @@ const RunOfShowEditor: React.FC = () => {
     }
   };
 
+  const handleDuplicateItem = (itemId: string) => {
+    if (!runOfShow) return;
+
+    const itemIndex = runOfShow.items.findIndex((item) => item.id === itemId);
+    if (itemIndex === -1) return;
+
+    const originalItem = runOfShow.items[itemIndex];
+
+    // Create a deep copy of the item with a new UUID
+    const duplicatedItem: RunOfShowItem = {
+      ...originalItem,
+      id: uuidv4(),
+    };
+
+    // Handle item number for regular items
+    if (originalItem.type === "item" && originalItem.itemNumber) {
+      const itemNumber = originalItem.itemNumber;
+
+      // Check if itemNumber is a pure number
+      const parsedNumber = parseInt(itemNumber, 10);
+      if (!isNaN(parsedNumber) && parsedNumber.toString() === itemNumber) {
+        // Pure number: increment by 1
+        duplicatedItem.itemNumber = (parsedNumber + 1).toString();
+      } else {
+        // Contains text: append "(copy)"
+        duplicatedItem.itemNumber = `${itemNumber} (copy)`;
+      }
+    }
+
+    // For headers, keep the same headerTitle but could optionally append "(copy)"
+    // if (originalItem.type === "header" && originalItem.headerTitle) {
+    //   duplicatedItem.headerTitle = `${originalItem.headerTitle} (copy)`;
+    // }
+
+    // Insert the duplicated item immediately after the original
+    const newItems = [
+      ...runOfShow.items.slice(0, itemIndex + 1),
+      duplicatedItem,
+      ...runOfShow.items.slice(itemIndex + 1),
+    ];
+
+    setRunOfShow({
+      ...runOfShow,
+      items: newItems,
+    });
+  };
+
   const handleMoveItem = (itemId: string, direction: "up" | "down") => {
     if (!runOfShow) return;
 
@@ -733,8 +781,7 @@ const RunOfShowEditor: React.FC = () => {
       return 0;
     })();
 
-    // Step 3: Recalculate item numbers and start times using stored gaps
-    let itemCount = 1;
+    // Step 3: Recalculate start times using stored gaps
     let cumulativeEndTimeSeconds = firstAnchoredStart;
 
     const recalculatedItems = itemsWithGaps.map((item) => {
@@ -771,7 +818,6 @@ const RunOfShowEditor: React.FC = () => {
       const newStartTime = cumulativeEndTimeSeconds + gap;
       const durationSeconds = parseDurationToSeconds(item.duration || "");
 
-      itemCount++;
       cumulativeEndTimeSeconds = newStartTime;
       if (durationSeconds !== null) {
         cumulativeEndTimeSeconds += durationSeconds;
@@ -781,7 +827,7 @@ const RunOfShowEditor: React.FC = () => {
       return {
         id: item.id,
         type: item.type,
-        itemNumber: itemCount.toString(),
+        itemNumber: item.itemNumber, // Preserve original itemNumber (user's custom name)
         startTime: formatSecondsToTime(newStartTime),
         highlightColor: item.highlightColor,
         preset: item.preset,
@@ -1505,7 +1551,7 @@ const RunOfShowEditor: React.FC = () => {
                     return (
                       <tr
                         key={item.id}
-                        className="bg-gray-700 hover:bg-gray-600 transition-colors sticky top-[49px] z-10 border-t-0"
+                        className="bg-gray-700 hover:bg-gray-600 transition-colors sticky top-[40px] z-10"
                       >
                         <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-100 pl-4 md:pl-6">
                           <input
@@ -1562,6 +1608,13 @@ const RunOfShowEditor: React.FC = () => {
                               title="Move Down"
                             >
                               <ArrowDown className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDuplicateItem(item.id)}
+                              className="text-blue-400 hover:text-blue-300 p-1"
+                              title="Duplicate Header"
+                            >
+                              <Copy className="h-4 w-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteItem(item.id)}
@@ -1656,6 +1709,13 @@ const RunOfShowEditor: React.FC = () => {
                             <Palette className="h-4 w-4" />
                           </button>
                           <button
+                            onClick={() => handleDuplicateItem(item.id)}
+                            className="text-blue-400 hover:text-blue-300 p-1"
+                            title="Duplicate Item"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => handleDeleteItem(item.id)}
                             className="text-red-400 hover:text-red-300 p-1"
                             title="Delete Item"
@@ -1721,6 +1781,13 @@ const RunOfShowEditor: React.FC = () => {
                           <ArrowDown className="h-4 w-4" />
                         </button>
                         <button
+                          onClick={() => handleDuplicateItem(item.id)}
+                          className="text-blue-400 hover:text-blue-300 p-1"
+                          title="Duplicate Header"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => handleDeleteItem(item.id)}
                           className="text-red-400 hover:text-red-300 p-1"
                           title="Delete Header"
@@ -1765,6 +1832,13 @@ const RunOfShowEditor: React.FC = () => {
                             title="Highlight Row"
                           >
                             <Palette className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDuplicateItem(item.id)}
+                            className="text-blue-400 hover:text-blue-300 p-1"
+                            title="Duplicate Item"
+                          >
+                            <Copy className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteItem(item.id)}
