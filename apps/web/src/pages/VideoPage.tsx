@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Helmet } from "react-helmet";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { getCanonicalUrl } from "../utils/canonical-url";
 import {
   Grid,
   PlusCircle,
@@ -140,223 +138,187 @@ const VideoPage = () => {
   }
 
   return (
-    <>
-      <Helmet>
-        <title>LED Pixel Mapping & Video Tools | SoundDocs</title>
-        <meta
-          name="description"
-          content="Professional LED pixel mapping and video documentation tools. Create LED wall designs, standard pixel maps, and video signal flow documentation. Free forever for video technicians."
-        />
-        <meta
-          name="keywords"
-          content="LED pixel mapping, video mapping, LED wall designer, pixel map software, video documentation, video signal flow, video technician tools"
-        />
+    <div className="min-h-screen bg-gray-900 flex flex-col">
+      <Header onSignOut={handleSignOut} />
 
-        {/* Canonical URL */}
-        <link rel="canonical" href={getCanonicalUrl()} />
+      {supabaseError && (
+        <div className="bg-red-500 text-white px-4 py-3 shadow-sm">
+          <div className="container mx-auto flex items-center">
+            <Info className="h-5 w-5 mr-2" />
+            <div>
+              <p className="font-medium">Error</p>
+              <p className="text-sm">{supabaseError}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
-        {/* Open Graph - Social Media */}
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://sounddocs.org/video" />
-        <meta property="og:title" content="LED Pixel Mapping & Video Tools | SoundDocs" />
-        <meta
-          property="og:description"
-          content="Professional LED pixel mapping and video documentation tools. Create LED wall designs and pixel maps. Free forever."
-        />
-        <meta property="og:image" content="https://i.postimg.cc/c448TSnj/New-Project-3.png" />
+      <main className="flex-grow container mx-auto px-4 py-12 mt-12">
+        <div className="mb-8">
+          <Link
+            to="/dashboard"
+            className="inline-flex items-center text-indigo-400 hover:text-indigo-300 transition-colors duration-200 mb-4 group"
+          >
+            <ArrowLeftCircle className="h-5 w-5 mr-2 transform group-hover:-translate-x-1 transition-transform duration-200" />
+            Back to Dashboard
+          </Link>
+          <h1 className="text-4xl font-bold text-white mb-4">Video Documents</h1>
+          <p className="text-lg text-gray-300">
+            Manage your pixel maps and other video-related documents.
+          </p>
+        </div>
 
-        {/* Twitter Card */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="LED Pixel Mapping & Video Tools | SoundDocs" />
-        <meta
-          name="twitter:description"
-          content="Professional LED pixel mapping and video documentation tools. Create LED wall designs and pixel maps. Free forever."
-        />
-        <meta name="twitter:image" content="https://i.postimg.cc/c448TSnj/New-Project-3.png" />
-      </Helmet>
-
-      <div className="min-h-screen bg-gray-900 flex flex-col">
-        <Header onSignOut={handleSignOut} />
-
-        {supabaseError && (
-          <div className="bg-red-500 text-white px-4 py-3 shadow-sm">
-            <div className="container mx-auto flex items-center">
-              <Info className="h-5 w-5 mr-2" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+          {/* Pixel Maps Card */}
+          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
+            <div className="flex justify-between items-start mb-6">
               <div>
-                <p className="font-medium">Error</p>
-                <p className="text-sm">{supabaseError}</p>
+                <h2 className="text-xl font-semibold text-white mb-2">My Pixel Maps</h2>
+                <p className="text-gray-400">Design and manage your LED wall pixel maps</p>
               </div>
+              <Grid className="h-8 w-8 text-indigo-400" />
             </div>
-          </div>
-        )}
-
-        <main className="flex-grow container mx-auto px-4 py-12 mt-12">
-          <div className="mb-8">
-            <Link
-              to="/dashboard"
-              className="inline-flex items-center text-indigo-400 hover:text-indigo-300 transition-colors duration-200 mb-4 group"
-            >
-              <ArrowLeftCircle className="h-5 w-5 mr-2 transform group-hover:-translate-x-1 transition-transform duration-200" />
-              Back to Dashboard
-            </Link>
-            <h1 className="text-4xl font-bold text-white mb-4">Video Documents</h1>
-            <p className="text-lg text-gray-300">
-              Manage your pixel maps and other video-related documents.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-            {/* Pixel Maps Card */}
-            <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-xl font-semibold text-white mb-2">My Pixel Maps</h2>
-                  <p className="text-gray-400">Design and manage your LED wall pixel maps</p>
-                </div>
-                <Grid className="h-8 w-8 text-indigo-400" />
-              </div>
-              <div className="space-y-4">
-                {pixelMaps.length > 0 ? (
-                  <div className="space-y-3">
-                    {pixelMaps.slice(0, 3).map((map) => (
-                      <div
-                        key={map.id}
-                        className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
-                      >
-                        <div>
-                          <h3 className="text-white font-medium">{map.name}</h3>
-                          <p className="text-gray-400 text-sm">
-                            {map.last_edited
-                              ? `Edited ${new Date(map.last_edited).toLocaleDateString()}`
-                              : `Created ${new Date(map.created_at).toLocaleDateString()}`}
-                          </p>
-                        </div>
-                        <div className="flex space-x-2">
-                          <button
-                            className="p-2 text-gray-400 hover:text-indigo-400"
-                            title="Edit"
-                            onClick={() => handleEditPixelMap(map.id)}
-                          >
-                            <Edit className="h-5 w-5" />
-                          </button>
-                          <button
-                            className="p-2 text-gray-400 hover:text-red-400"
-                            title="Delete"
-                            onClick={() => handleDeleteRequest(map.id, map.name)}
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 bg-gray-700 rounded-lg text-center">
-                    <p className="text-gray-300 mb-4">You haven't created any pixel maps yet</p>
-                  </div>
-                )}
-                <div className="pt-3 text-center">
-                  <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
-                    <button
-                      className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                      onClick={handleCreatePixelMap}
+            <div className="space-y-4">
+              {pixelMaps.length > 0 ? (
+                <div className="space-y-3">
+                  {pixelMaps.slice(0, 3).map((map) => (
+                    <div
+                      key={map.id}
+                      className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
                     >
-                      <PlusCircle className="h-5 w-5 mr-2" />
-                      New Pixel Map
-                    </button>
-                    {pixelMaps.length > 0 && (
-                      <button
-                        className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                        onClick={() => navigate("/all-pixel-maps")}
-                      >
-                        <List className="h-5 w-5 mr-2" />
-                        View All ({pixelMaps.length})
-                      </button>
-                    )}
-                  </div>
+                      <div>
+                        <h3 className="text-white font-medium">{map.name}</h3>
+                        <p className="text-gray-400 text-sm">
+                          {map.last_edited
+                            ? `Edited ${new Date(map.last_edited).toLocaleDateString()}`
+                            : `Created ${new Date(map.created_at).toLocaleDateString()}`}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Edit"
+                          onClick={() => handleEditPixelMap(map.id)}
+                        >
+                          <Edit className="h-5 w-5" />
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-red-400"
+                          title="Delete"
+                          onClick={() => handleDeleteRequest(map.id, map.name)}
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            </div>
-
-            {/* Lens Calculator Card */}
-            <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-xl font-semibold text-white mb-2">Lens Calculator</h2>
-                  <p className="text-gray-400">Calculate projection lens requirements</p>
+              ) : (
+                <div className="p-4 bg-gray-700 rounded-lg text-center">
+                  <p className="text-gray-300 mb-4">You haven't created any pixel maps yet</p>
                 </div>
-                <Calculator className="h-8 w-8 text-indigo-400" />
-              </div>
-              <div className="space-y-4">
-                <div className="p-4 bg-gray-700 rounded-lg">
-                  <h3 className="text-white font-medium mb-2">Professional Projection Planning</h3>
-                  <p className="text-gray-300 text-sm mb-4">
-                    Calculate optimal lens options for your projection setup with our comprehensive
-                    database of professional projectors and lenses.
-                  </p>
-                  <ul className="text-gray-400 text-sm space-y-1 mb-4">
-                    <li>• Screen size and throw distance calculations</li>
-                    <li>• Compatible lens recommendations</li>
-                    <li>• Brightness and image quality analysis</li>
-                    <li>• Support for all major manufacturers</li>
-                  </ul>
-                </div>
-                <div className="pt-3 text-center">
+              )}
+              <div className="pt-3 text-center">
+                <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
                   <button
-                    className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 w-full justify-center"
-                    onClick={() => navigate("/video/lens-calculator/new")}
+                    className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                    onClick={handleCreatePixelMap}
                   >
-                    <Calculator className="h-5 w-5 mr-2" />
-                    Open Calculator
+                    <PlusCircle className="h-5 w-5 mr-2" />
+                    New Pixel Map
                   </button>
+                  {pixelMaps.length > 0 && (
+                    <button
+                      className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                      onClick={() => navigate("/all-pixel-maps")}
+                    >
+                      <List className="h-5 w-5 mr-2" />
+                      View All ({pixelMaps.length})
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
           </div>
-        </main>
 
-        {showDeleteConfirm && documentToDelete && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl">
-              <div className="flex items-start">
-                <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-500/20 sm:mx-0 sm:h-10 sm:w-10">
-                  <AlertTriangle className="h-6 w-6 text-red-400" aria-hidden="true" />
-                </div>
-                <div className="ml-4 text-left">
-                  <h3 className="text-lg font-medium text-white" id="modal-title">
-                    Delete Pixel Map
-                  </h3>
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-300">
-                      Are you sure you want to delete "{documentToDelete.name}"? This action cannot
-                      be undone.
-                    </p>
-                  </div>
-                </div>
+          {/* Lens Calculator Card */}
+          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-2">Lens Calculator</h2>
+                <p className="text-gray-400">Calculate projection lens requirements</p>
               </div>
-              <div className="mt-6 sm:mt-8 sm:flex sm:flex-row-reverse">
+              <Calculator className="h-8 w-8 text-indigo-400" />
+            </div>
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-700 rounded-lg">
+                <h3 className="text-white font-medium mb-2">Professional Projection Planning</h3>
+                <p className="text-gray-300 text-sm mb-4">
+                  Calculate optimal lens options for your projection setup with our comprehensive
+                  database of professional projectors and lenses.
+                </p>
+                <ul className="text-gray-400 text-sm space-y-1 mb-4">
+                  <li>• Screen size and throw distance calculations</li>
+                  <li>• Compatible lens recommendations</li>
+                  <li>• Brightness and image quality analysis</li>
+                  <li>• Support for all major manufacturers</li>
+                </ul>
+              </div>
+              <div className="pt-3 text-center">
                 <button
-                  type="button"
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
-                  onClick={confirmDelete}
+                  className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 w-full justify-center"
+                  onClick={() => navigate("/video/lens-calculator/new")}
                 >
-                  Delete
-                </button>
-                <button
-                  type="button"
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-600 shadow-sm px-4 py-2 bg-gray-700 text-base font-medium text-gray-300 hover:bg-gray-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors"
-                  onClick={cancelDelete}
-                >
-                  Cancel
+                  <Calculator className="h-5 w-5 mr-2" />
+                  Open Calculator
                 </button>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      </main>
 
-        <Footer />
-      </div>
-    </>
+      {showDeleteConfirm && documentToDelete && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl">
+            <div className="flex items-start">
+              <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-500/20 sm:mx-0 sm:h-10 sm:w-10">
+                <AlertTriangle className="h-6 w-6 text-red-400" aria-hidden="true" />
+              </div>
+              <div className="ml-4 text-left">
+                <h3 className="text-lg font-medium text-white" id="modal-title">
+                  Delete Pixel Map
+                </h3>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-300">
+                    Are you sure you want to delete "{documentToDelete.name}"? This action cannot be
+                    undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 sm:mt-8 sm:flex sm:flex-row-reverse">
+              <button
+                type="button"
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
+                onClick={confirmDelete}
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-600 shadow-sm px-4 py-2 bg-gray-700 text-base font-medium text-gray-300 hover:bg-gray-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors"
+                onClick={cancelDelete}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Footer />
+    </div>
   );
 };
 

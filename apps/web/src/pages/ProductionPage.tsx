@@ -1,10 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Helmet } from "react-helmet";
 import { supabase } from "../lib/supabase";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { getCanonicalUrl } from "../utils/canonical-url";
 import {
   PlusCircle,
   Trash2,
@@ -1394,486 +1392,439 @@ const ProductionPage = () => {
   }
 
   return (
-    <>
-      <Helmet>
-        <title>Production Schedule & Run of Show Software | SoundDocs</title>
-        <meta
-          name="description"
-          content="Professional production schedule and run of show management tools. Create timelines, cue sheets, and technical riders for live events. Free forever for production managers."
-        />
-        <meta
-          name="keywords"
-          content="production schedule, run of show, cue sheet, technical rider, event timeline, production management, show flow, event production software"
-        />
+    <div className="min-h-screen bg-gray-900 flex flex-col">
+      <Header onSignOut={handleSignOut} />
 
-        {/* Canonical URL */}
-        <link rel="canonical" href={getCanonicalUrl()} />
+      {supabaseError && (
+        <div className="bg-red-500 text-white px-4 py-3 shadow-sm">
+          <div className="container mx-auto flex items-center">
+            <Info className="h-5 w-5 mr-2" />
+            <div>
+              <p className="font-medium">Error</p>
+              <p className="text-sm">{supabaseError}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
-        {/* Open Graph - Social Media */}
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://sounddocs.org/production" />
-        <meta
-          property="og:title"
-          content="Production Schedule & Run of Show Software | SoundDocs"
-        />
-        <meta
-          property="og:description"
-          content="Professional production schedule and run of show management tools. Create timelines, cue sheets, and technical riders. Free forever."
-        />
-        <meta property="og:image" content="https://i.postimg.cc/c448TSnj/New-Project-3.png" />
+      <main className="flex-grow container mx-auto px-4 py-12 mt-12">
+        <div className="mb-8">
+          <Link
+            to="/dashboard"
+            className="inline-flex items-center text-indigo-400 hover:text-indigo-300 transition-colors duration-200 mb-4 group"
+          >
+            <ArrowLeftCircle className="h-5 w-5 mr-2 transform group-hover:-translate-x-1 transition-transform duration-200" />
+            Back to Dashboard
+          </Link>
+          <h1 className="text-4xl font-bold text-white mb-4">Production Documents</h1>
+          <p className="text-lg text-gray-300">
+            Manage your production schedules, run of shows, and technical riders.
+          </p>
+        </div>
 
-        {/* Twitter Card */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta
-          name="twitter:title"
-          content="Production Schedule & Run of Show Software | SoundDocs"
-        />
-        <meta
-          name="twitter:description"
-          content="Professional production schedule and run of show management tools. Create timelines, cue sheets, and technical riders. Free forever."
-        />
-        <meta name="twitter:image" content="https://i.postimg.cc/c448TSnj/New-Project-3.png" />
-      </Helmet>
-
-      <div className="min-h-screen bg-gray-900 flex flex-col">
-        <Header onSignOut={handleSignOut} />
-
-        {supabaseError && (
-          <div className="bg-red-500 text-white px-4 py-3 shadow-sm">
-            <div className="container mx-auto flex items-center">
-              <Info className="h-5 w-5 mr-2" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+          {/* My Production Schedules Card */}
+          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
+            <div className="flex justify-between items-start mb-6">
               <div>
-                <p className="font-medium">Error</p>
-                <p className="text-sm">{supabaseError}</p>
+                <h2 className="text-xl font-semibold text-white mb-2">My Production Schedules</h2>
+                <p className="text-gray-400">Plan and track your event timelines</p>
               </div>
+              <CalendarDays className="h-8 w-8 text-indigo-400" />
             </div>
-          </div>
-        )}
-
-        <main className="flex-grow container mx-auto px-4 py-12 mt-12">
-          <div className="mb-8">
-            <Link
-              to="/dashboard"
-              className="inline-flex items-center text-indigo-400 hover:text-indigo-300 transition-colors duration-200 mb-4 group"
-            >
-              <ArrowLeftCircle className="h-5 w-5 mr-2 transform group-hover:-translate-x-1 transition-transform duration-200" />
-              Back to Dashboard
-            </Link>
-            <h1 className="text-4xl font-bold text-white mb-4">Production Documents</h1>
-            <p className="text-lg text-gray-300">
-              Manage your production schedules, run of shows, and technical riders.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-            {/* My Production Schedules Card */}
-            <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-xl font-semibold text-white mb-2">My Production Schedules</h2>
-                  <p className="text-gray-400">Plan and track your event timelines</p>
-                </div>
-                <CalendarDays className="h-8 w-8 text-indigo-400" />
-              </div>
-              <div className="space-y-4">
-                {productionSchedules.length > 0 ? (
-                  <div className="space-y-3">
-                    {productionSchedules.slice(0, 3).map((schedule) => (
-                      <div
-                        key={schedule.id}
-                        className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
-                      >
-                        <div>
-                          <h3 className="text-white font-medium">{schedule.name}</h3>
-                          <p className="text-gray-400 text-sm">
-                            {schedule.last_edited
-                              ? `Edited ${new Date(schedule.last_edited).toLocaleDateString()}`
-                              : `Created ${new Date(schedule.created_at).toLocaleDateString()}`}
-                          </p>
-                        </div>
-                        <div className="flex space-x-2">
-                          <button
-                            className="p-2 text-gray-400 hover:text-indigo-400"
-                            title="Download"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleExportClick(schedule.id, "schedule");
-                            }}
-                            disabled={exportingItemId === schedule.id}
-                          >
-                            {exportingItemId === schedule.id ? (
-                              <Loader className="h-5 w-5 animate-spin" />
-                            ) : (
-                              <Download className="h-5 w-5" />
-                            )}
-                          </button>
-                          <button
-                            className="p-2 text-gray-400 hover:text-indigo-400"
-                            title="Edit"
-                            onClick={() => handleEditProductionSchedule(schedule.id)}
-                          >
-                            <Edit className="h-5 w-5" />
-                          </button>
-                          <button
-                            className="p-2 text-gray-400 hover:text-red-400"
-                            title="Delete"
-                            onClick={() =>
-                              handleDeleteRequest(schedule.id, "schedule", schedule.name)
-                            }
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 bg-gray-700 rounded-lg text-center">
-                    <p className="text-gray-300 mb-4">
-                      You haven't created any production schedules yet
-                    </p>
-                  </div>
-                )}
-                <div className="pt-3 text-center">
-                  <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
-                    <button
-                      className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                      onClick={handleCreateProductionSchedule}
+            <div className="space-y-4">
+              {productionSchedules.length > 0 ? (
+                <div className="space-y-3">
+                  {productionSchedules.slice(0, 3).map((schedule) => (
+                    <div
+                      key={schedule.id}
+                      className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
                     >
-                      <PlusCircle className="h-5 w-5 mr-2" />
-                      New Production Schedule
-                    </button>
-                    {productionSchedules.length > 0 && (
-                      <button
-                        className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                        onClick={() => navigate("/all-production-schedules")}
-                      >
-                        <List className="h-5 w-5 mr-2" />
-                        View All{" "}
-                        {productionSchedules.length > 0 && `(${productionSchedules.length})`}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* My Run of Shows Card */}
-            <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-xl font-semibold text-white mb-2">My Run of Shows</h2>
-                  <p className="text-gray-400">Organize and detail your show sequences</p>
-                </div>
-                <ClipboardList className="h-8 w-8 text-indigo-400" />
-              </div>
-              <div className="space-y-4">
-                {runOfShows.length > 0 ? (
-                  <div className="space-y-3">
-                    {runOfShows.slice(0, 3).map((ros) => (
-                      <div
-                        key={ros.id}
-                        className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
-                      >
-                        <div>
-                          <h3 className="text-white font-medium">{ros.name}</h3>
-                          <p className="text-gray-400 text-sm">
-                            {ros.last_edited
-                              ? `Edited ${new Date(ros.last_edited).toLocaleDateString()}`
-                              : `Created ${new Date(ros.created_at).toLocaleDateString()}`}
-                          </p>
-                        </div>
-                        <div className="flex space-x-2">
-                          <button
-                            className="p-2 text-gray-400 hover:text-indigo-400"
-                            title="Download"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleExportClick(ros.id, "runofshow");
-                            }}
-                            disabled={exportingItemId === ros.id}
-                          >
-                            {exportingItemId === ros.id ? (
-                              <Loader className="h-5 w-5 animate-spin" />
-                            ) : (
-                              <Download className="h-5 w-5" />
-                            )}
-                          </button>
-                          <button
-                            className="p-2 text-gray-400 hover:text-indigo-400"
-                            title="Edit"
-                            onClick={() => handleEditRunOfShow(ros.id)}
-                          >
-                            <Edit className="h-5 w-5" />
-                          </button>
-                          <button
-                            className="p-2 text-gray-400 hover:text-red-400"
-                            title="Delete"
-                            onClick={() => handleDeleteRequest(ros.id, "runofshow", ros.name)}
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        </div>
+                      <div>
+                        <h3 className="text-white font-medium">{schedule.name}</h3>
+                        <p className="text-gray-400 text-sm">
+                          {schedule.last_edited
+                            ? `Edited ${new Date(schedule.last_edited).toLocaleDateString()}`
+                            : `Created ${new Date(schedule.created_at).toLocaleDateString()}`}
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 bg-gray-700 rounded-lg text-center">
-                    <p className="text-gray-300 mb-4">You haven't created any run of shows yet</p>
-                  </div>
-                )}
-                <div className="pt-3 text-center">
-                  <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
-                    <button
-                      className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                      onClick={handleCreateRunOfShow}
-                    >
-                      <PlusCircle className="h-5 w-5 mr-2" />
-                      New Run of Show
-                    </button>
-                    {runOfShows.length > 0 && (
-                      <button
-                        className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                        onClick={() => navigate("/all-run-of-shows")}
-                      >
-                        <List className="h-5 w-5 mr-2" />
-                        View All {runOfShows.length > 0 && `(${runOfShows.length})`}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* My Technical Riders Card */}
-            <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 md:col-span-2 md:mx-auto md:w-full md:max-w-3xl">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-xl font-semibold text-white mb-2">My Technical Riders</h2>
-                  <p className="text-gray-400">Create and manage artist technical riders</p>
-                </div>
-                <FileText className="h-8 w-8 text-indigo-400" />
-              </div>
-              <div className="space-y-4">
-                {riders.length > 0 ? (
-                  <div className="space-y-3">
-                    {riders.slice(0, 3).map((rider) => (
-                      <div
-                        key={rider.id}
-                        className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
-                      >
-                        <div>
-                          <h3 className="text-white font-medium">{rider.name}</h3>
-                          <p className="text-gray-400 text-sm">
-                            {rider.last_edited
-                              ? `Edited ${new Date(rider.last_edited).toLocaleDateString()}`
-                              : `Created ${new Date(rider.created_at).toLocaleDateString()}`}
-                          </p>
-                        </div>
-                        <div className="flex space-x-2">
-                          <button
-                            className="p-2 text-gray-400 hover:text-indigo-400"
-                            title="Download"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleExportClick(rider.id, "rider");
-                            }}
-                            disabled={exportingItemId === rider.id}
-                          >
-                            {exportingItemId === rider.id ? (
-                              <Loader className="h-5 w-5 animate-spin" />
-                            ) : (
-                              <Download className="h-5 w-5" />
-                            )}
-                          </button>
-                          <button
-                            className="p-2 text-gray-400 hover:text-indigo-400"
-                            title="Edit"
-                            onClick={() => handleEditRider(rider.id)}
-                          >
-                            <Edit className="h-5 w-5" />
-                          </button>
-                          <button
-                            className="p-2 text-gray-400 hover:text-red-400"
-                            title="Delete"
-                            onClick={() => handleDeleteRequest(rider.id, "rider", rider.name)}
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        </div>
+                      <div className="flex space-x-2">
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Download"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleExportClick(schedule.id, "schedule");
+                          }}
+                          disabled={exportingItemId === schedule.id}
+                        >
+                          {exportingItemId === schedule.id ? (
+                            <Loader className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Download className="h-5 w-5" />
+                          )}
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Edit"
+                          onClick={() => handleEditProductionSchedule(schedule.id)}
+                        >
+                          <Edit className="h-5 w-5" />
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-red-400"
+                          title="Delete"
+                          onClick={() =>
+                            handleDeleteRequest(schedule.id, "schedule", schedule.name)
+                          }
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 bg-gray-700 rounded-lg text-center">
-                    <p className="text-gray-300 mb-4">
-                      You haven't created any technical riders yet
-                    </p>
-                  </div>
-                )}
-                <div className="pt-3 text-center">
-                  <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 bg-gray-700 rounded-lg text-center">
+                  <p className="text-gray-300 mb-4">
+                    You haven't created any production schedules yet
+                  </p>
+                </div>
+              )}
+              <div className="pt-3 text-center">
+                <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
+                  <button
+                    className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                    onClick={handleCreateProductionSchedule}
+                  >
+                    <PlusCircle className="h-5 w-5 mr-2" />
+                    New Production Schedule
+                  </button>
+                  {productionSchedules.length > 0 && (
                     <button
-                      className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                      onClick={handleCreateRider}
+                      className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                      onClick={() => navigate("/all-production-schedules")}
                     >
-                      <PlusCircle className="h-5 w-5 mr-2" />
-                      New Tech Rider
+                      <List className="h-5 w-5 mr-2" />
+                      View All {productionSchedules.length > 0 && `(${productionSchedules.length})`}
                     </button>
-                    {riders.length > 0 && (
-                      <button
-                        className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                        onClick={() => navigate("/all-riders")}
-                      >
-                        <List className="h-5 w-5 mr-2" />
-                        View All {riders.length > 0 && `(${riders.length})`}
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
-        </main>
 
-        <ExportModal
-          isOpen={showProductionScheduleExportModal}
-          onClose={() => {
-            if (!exportingItemId) setShowProductionScheduleExportModal(false);
-          }}
-          onExportColor={() =>
-            exportProductionScheduleId &&
-            prepareAndExecuteProductionScheduleExport(exportProductionScheduleId, "color")
-          }
-          onExportPrintFriendly={() =>
-            exportProductionScheduleId &&
-            prepareAndExecuteProductionScheduleExport(exportProductionScheduleId, "print")
-          }
-          title="Production Schedule"
-          isExporting={!!exportingItemId && !!exportProductionScheduleId}
-        />
-
-        <ExportModal
-          isOpen={showRunOfShowExportModal}
-          onClose={() => {
-            if (!exportingItemId) setShowRunOfShowExportModal(false);
-          }}
-          onExportColor={() =>
-            exportRunOfShowId && prepareAndExecuteRunOfShowExport(exportRunOfShowId, "color")
-          }
-          onExportPrintFriendly={() =>
-            exportRunOfShowId && prepareAndExecuteRunOfShowExport(exportRunOfShowId, "print")
-          }
-          title="Run of Show"
-          isExporting={!!exportingItemId && !!exportRunOfShowId}
-        />
-
-        {currentExportProductionSchedule && (
-          <>
-            <ProductionScheduleExport
-              key={`export-ps-${currentExportProductionSchedule.id}-${currentExportProductionSchedule.last_edited || currentExportProductionSchedule.created_at}`}
-              ref={productionScheduleExportRef}
-              schedule={currentExportProductionSchedule}
-            />
-            <PrintProductionScheduleExport
-              key={`print-export-ps-${currentExportProductionSchedule.id}-${currentExportProductionSchedule.last_edited || currentExportProductionSchedule.created_at}`}
-              ref={printProductionScheduleExportRef}
-              schedule={currentExportProductionSchedule}
-            />
-          </>
-        )}
-
-        {currentExportRunOfShow && (
-          <>
-            <RunOfShowExport
-              key={`export-ros-${currentExportRunOfShow.id}-${currentExportRunOfShow.last_edited || currentExportRunOfShow.created_at}`}
-              ref={runOfShowExportRef}
-              schedule={currentExportRunOfShow}
-            />
-            <PrintRunOfShowExport
-              key={`print-export-ros-${currentExportRunOfShow.id}-${currentExportRunOfShow.last_edited || currentExportRunOfShow.created_at}`}
-              ref={printRunOfShowExportRef}
-              schedule={currentExportRunOfShow}
-            />
-          </>
-        )}
-
-        <ExportModal
-          isOpen={showRiderExportModal}
-          onClose={() => {
-            if (!exportingItemId) setShowRiderExportModal(false);
-          }}
-          onExportColor={() =>
-            exportRiderId && prepareAndExecuteRiderExport(exportRiderId, "color")
-          }
-          onExportPrintFriendly={() =>
-            exportRiderId && prepareAndExecuteRiderExport(exportRiderId, "print")
-          }
-          title="Technical Rider"
-          isExporting={!!exportingItemId && !!exportRiderId}
-        />
-
-        {currentExportRider && (
-          <>
-            <RiderExport
-              key={`export-rider-${currentExportRider.id}-${currentExportRider.last_edited || currentExportRider.created_at}`}
-              ref={riderExportRef}
-              rider={currentExportRider}
-            />
-            <PrintRiderExport
-              key={`print-export-rider-${currentExportRider.id}-${currentExportRider.last_edited || currentExportRider.created_at}`}
-              ref={printRiderExportRef}
-              rider={currentExportRider}
-            />
-          </>
-        )}
-
-        {showDeleteConfirm && documentToDelete && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl">
-              <div className="flex items-start">
-                <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-500/20 sm:mx-0 sm:h-10 sm:w-10">
-                  <AlertTriangle className="h-6 w-6 text-red-400" aria-hidden="true" />
-                </div>
-                <div className="ml-4 text-left">
-                  <h3 className="text-lg font-medium text-white" id="modal-title">
-                    Delete{" "}
-                    {documentToDelete.type === "schedule"
-                      ? "Production Schedule"
-                      : documentToDelete.type === "runofshow"
-                        ? "Run of Show"
-                        : "Technical Rider"}
-                  </h3>
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-300">
-                      Are you sure you want to delete "{documentToDelete.name}"? This action cannot
-                      be undone.
-                    </p>
-                  </div>
-                </div>
+          {/* My Run of Shows Card */}
+          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-2">My Run of Shows</h2>
+                <p className="text-gray-400">Organize and detail your show sequences</p>
               </div>
-              <div className="mt-6 sm:mt-8 sm:flex sm:flex-row-reverse">
-                <button
-                  type="button"
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
-                  onClick={confirmDelete}
-                >
-                  Delete
-                </button>
-                <button
-                  type="button"
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-600 shadow-sm px-4 py-2 bg-gray-700 text-base font-medium text-gray-300 hover:bg-gray-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors"
-                  onClick={cancelDelete}
-                >
-                  Cancel
-                </button>
+              <ClipboardList className="h-8 w-8 text-indigo-400" />
+            </div>
+            <div className="space-y-4">
+              {runOfShows.length > 0 ? (
+                <div className="space-y-3">
+                  {runOfShows.slice(0, 3).map((ros) => (
+                    <div
+                      key={ros.id}
+                      className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
+                    >
+                      <div>
+                        <h3 className="text-white font-medium">{ros.name}</h3>
+                        <p className="text-gray-400 text-sm">
+                          {ros.last_edited
+                            ? `Edited ${new Date(ros.last_edited).toLocaleDateString()}`
+                            : `Created ${new Date(ros.created_at).toLocaleDateString()}`}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Download"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleExportClick(ros.id, "runofshow");
+                          }}
+                          disabled={exportingItemId === ros.id}
+                        >
+                          {exportingItemId === ros.id ? (
+                            <Loader className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Download className="h-5 w-5" />
+                          )}
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Edit"
+                          onClick={() => handleEditRunOfShow(ros.id)}
+                        >
+                          <Edit className="h-5 w-5" />
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-red-400"
+                          title="Delete"
+                          onClick={() => handleDeleteRequest(ros.id, "runofshow", ros.name)}
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 bg-gray-700 rounded-lg text-center">
+                  <p className="text-gray-300 mb-4">You haven't created any run of shows yet</p>
+                </div>
+              )}
+              <div className="pt-3 text-center">
+                <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
+                  <button
+                    className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                    onClick={handleCreateRunOfShow}
+                  >
+                    <PlusCircle className="h-5 w-5 mr-2" />
+                    New Run of Show
+                  </button>
+                  {runOfShows.length > 0 && (
+                    <button
+                      className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                      onClick={() => navigate("/all-run-of-shows")}
+                    >
+                      <List className="h-5 w-5 mr-2" />
+                      View All {runOfShows.length > 0 && `(${runOfShows.length})`}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        )}
-        <Footer />
-      </div>
-    </>
+
+          {/* My Technical Riders Card */}
+          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 md:col-span-2 md:mx-auto md:w-full md:max-w-3xl">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-2">My Technical Riders</h2>
+                <p className="text-gray-400">Create and manage artist technical riders</p>
+              </div>
+              <FileText className="h-8 w-8 text-indigo-400" />
+            </div>
+            <div className="space-y-4">
+              {riders.length > 0 ? (
+                <div className="space-y-3">
+                  {riders.slice(0, 3).map((rider) => (
+                    <div
+                      key={rider.id}
+                      className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
+                    >
+                      <div>
+                        <h3 className="text-white font-medium">{rider.name}</h3>
+                        <p className="text-gray-400 text-sm">
+                          {rider.last_edited
+                            ? `Edited ${new Date(rider.last_edited).toLocaleDateString()}`
+                            : `Created ${new Date(rider.created_at).toLocaleDateString()}`}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Download"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleExportClick(rider.id, "rider");
+                          }}
+                          disabled={exportingItemId === rider.id}
+                        >
+                          {exportingItemId === rider.id ? (
+                            <Loader className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Download className="h-5 w-5" />
+                          )}
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Edit"
+                          onClick={() => handleEditRider(rider.id)}
+                        >
+                          <Edit className="h-5 w-5" />
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-red-400"
+                          title="Delete"
+                          onClick={() => handleDeleteRequest(rider.id, "rider", rider.name)}
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 bg-gray-700 rounded-lg text-center">
+                  <p className="text-gray-300 mb-4">You haven't created any technical riders yet</p>
+                </div>
+              )}
+              <div className="pt-3 text-center">
+                <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
+                  <button
+                    className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                    onClick={handleCreateRider}
+                  >
+                    <PlusCircle className="h-5 w-5 mr-2" />
+                    New Tech Rider
+                  </button>
+                  {riders.length > 0 && (
+                    <button
+                      className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                      onClick={() => navigate("/all-riders")}
+                    >
+                      <List className="h-5 w-5 mr-2" />
+                      View All {riders.length > 0 && `(${riders.length})`}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <ExportModal
+        isOpen={showProductionScheduleExportModal}
+        onClose={() => {
+          if (!exportingItemId) setShowProductionScheduleExportModal(false);
+        }}
+        onExportColor={() =>
+          exportProductionScheduleId &&
+          prepareAndExecuteProductionScheduleExport(exportProductionScheduleId, "color")
+        }
+        onExportPrintFriendly={() =>
+          exportProductionScheduleId &&
+          prepareAndExecuteProductionScheduleExport(exportProductionScheduleId, "print")
+        }
+        title="Production Schedule"
+        isExporting={!!exportingItemId && !!exportProductionScheduleId}
+      />
+
+      <ExportModal
+        isOpen={showRunOfShowExportModal}
+        onClose={() => {
+          if (!exportingItemId) setShowRunOfShowExportModal(false);
+        }}
+        onExportColor={() =>
+          exportRunOfShowId && prepareAndExecuteRunOfShowExport(exportRunOfShowId, "color")
+        }
+        onExportPrintFriendly={() =>
+          exportRunOfShowId && prepareAndExecuteRunOfShowExport(exportRunOfShowId, "print")
+        }
+        title="Run of Show"
+        isExporting={!!exportingItemId && !!exportRunOfShowId}
+      />
+
+      {currentExportProductionSchedule && (
+        <>
+          <ProductionScheduleExport
+            key={`export-ps-${currentExportProductionSchedule.id}-${currentExportProductionSchedule.last_edited || currentExportProductionSchedule.created_at}`}
+            ref={productionScheduleExportRef}
+            schedule={currentExportProductionSchedule}
+          />
+          <PrintProductionScheduleExport
+            key={`print-export-ps-${currentExportProductionSchedule.id}-${currentExportProductionSchedule.last_edited || currentExportProductionSchedule.created_at}`}
+            ref={printProductionScheduleExportRef}
+            schedule={currentExportProductionSchedule}
+          />
+        </>
+      )}
+
+      {currentExportRunOfShow && (
+        <>
+          <RunOfShowExport
+            key={`export-ros-${currentExportRunOfShow.id}-${currentExportRunOfShow.last_edited || currentExportRunOfShow.created_at}`}
+            ref={runOfShowExportRef}
+            schedule={currentExportRunOfShow}
+          />
+          <PrintRunOfShowExport
+            key={`print-export-ros-${currentExportRunOfShow.id}-${currentExportRunOfShow.last_edited || currentExportRunOfShow.created_at}`}
+            ref={printRunOfShowExportRef}
+            schedule={currentExportRunOfShow}
+          />
+        </>
+      )}
+
+      <ExportModal
+        isOpen={showRiderExportModal}
+        onClose={() => {
+          if (!exportingItemId) setShowRiderExportModal(false);
+        }}
+        onExportColor={() => exportRiderId && prepareAndExecuteRiderExport(exportRiderId, "color")}
+        onExportPrintFriendly={() =>
+          exportRiderId && prepareAndExecuteRiderExport(exportRiderId, "print")
+        }
+        title="Technical Rider"
+        isExporting={!!exportingItemId && !!exportRiderId}
+      />
+
+      {currentExportRider && (
+        <>
+          <RiderExport
+            key={`export-rider-${currentExportRider.id}-${currentExportRider.last_edited || currentExportRider.created_at}`}
+            ref={riderExportRef}
+            rider={currentExportRider}
+          />
+          <PrintRiderExport
+            key={`print-export-rider-${currentExportRider.id}-${currentExportRider.last_edited || currentExportRider.created_at}`}
+            ref={printRiderExportRef}
+            rider={currentExportRider}
+          />
+        </>
+      )}
+
+      {showDeleteConfirm && documentToDelete && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl">
+            <div className="flex items-start">
+              <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-500/20 sm:mx-0 sm:h-10 sm:w-10">
+                <AlertTriangle className="h-6 w-6 text-red-400" aria-hidden="true" />
+              </div>
+              <div className="ml-4 text-left">
+                <h3 className="text-lg font-medium text-white" id="modal-title">
+                  Delete{" "}
+                  {documentToDelete.type === "schedule"
+                    ? "Production Schedule"
+                    : documentToDelete.type === "runofshow"
+                      ? "Run of Show"
+                      : "Technical Rider"}
+                </h3>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-300">
+                    Are you sure you want to delete "{documentToDelete.name}"? This action cannot be
+                    undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 sm:mt-8 sm:flex sm:flex-row-reverse">
+              <button
+                type="button"
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
+                onClick={confirmDelete}
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-600 shadow-sm px-4 py-2 bg-gray-700 text-base font-medium text-gray-300 hover:bg-gray-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors"
+                onClick={cancelDelete}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <Footer />
+    </div>
   );
 };
 

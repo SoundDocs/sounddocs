@@ -1,10 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Helmet } from "react-helmet";
 import { supabase } from "../lib/supabase";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { getCanonicalUrl } from "../utils/canonical-url";
 import {
   PlusCircle,
   FileText,
@@ -1469,677 +1467,628 @@ const AudioPage = () => {
   }
 
   return (
-    <>
-      <Helmet>
-        <title>Audio Documentation Tools | Patch Sheets & Mic Plots | SoundDocs</title>
-        <meta
-          name="description"
-          content="Professional audio documentation tools for live events. Create patch sheets, mic plots, input lists, and stage plots. Free forever for audio engineers and FOH technicians."
-        />
-        <meta
-          name="keywords"
-          content="audio documentation, patch sheet, mic plot, input list, stage plot, audio engineer tools, FOH, monitor engineer, wireless mic management"
-        />
+    <div className="min-h-screen bg-gray-900 flex flex-col">
+      <Header onSignOut={handleSignOut} />
 
-        {/* Canonical URL */}
-        <link rel="canonical" href={getCanonicalUrl()} />
+      {supabaseError && (
+        <div className="bg-red-500 text-white px-4 py-3 shadow-sm">
+          <div className="container mx-auto flex items-center">
+            <Info className="h-5 w-5 mr-2" />
+            <div>
+              <p className="font-medium">Error</p>
+              <p className="text-sm">{supabaseError}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
-        {/* Open Graph - Social Media */}
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://sounddocs.org/audio" />
-        <meta property="og:title" content="Audio Documentation Tools | SoundDocs" />
-        <meta
-          property="og:description"
-          content="Professional audio documentation tools for live events. Create patch sheets, mic plots, and input lists. Free forever."
-        />
-        <meta property="og:image" content="https://i.postimg.cc/c448TSnj/New-Project-3.png" />
+      <main className="flex-grow container mx-auto px-4 py-12 mt-12">
+        <div className="mb-8">
+          <Link
+            to="/dashboard"
+            className="inline-flex items-center text-indigo-400 hover:text-indigo-300 transition-colors duration-200 mb-4 group"
+          >
+            <ArrowLeftCircle className="h-5 w-5 mr-2 transform group-hover:-translate-x-1 transition-transform duration-200" />
+            Back to Dashboard
+          </Link>
+          <h1 className="text-4xl font-bold text-white mb-4">Audio Documents</h1>
+          <p className="text-lg text-gray-300">
+            Manage your patch lists, stage plots, and mic plots.
+          </p>
+        </div>
 
-        {/* Twitter Card */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Audio Documentation Tools | SoundDocs" />
-        <meta
-          name="twitter:description"
-          content="Professional audio documentation tools for live events. Create patch sheets, mic plots, and input lists. Free forever."
-        />
-        <meta name="twitter:image" content="https://i.postimg.cc/c448TSnj/New-Project-3.png" />
-      </Helmet>
-
-      <div className="min-h-screen bg-gray-900 flex flex-col">
-        <Header onSignOut={handleSignOut} />
-
-        {supabaseError && (
-          <div className="bg-red-500 text-white px-4 py-3 shadow-sm">
-            <div className="container mx-auto flex items-center">
-              <Info className="h-5 w-5 mr-2" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+          {/* My Patch Lists Card */}
+          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
+            <div className="flex justify-between items-start mb-6">
               <div>
-                <p className="font-medium">Error</p>
-                <p className="text-sm">{supabaseError}</p>
+                <h2 className="text-xl font-semibold text-white mb-2">My Patch Lists</h2>
+                <p className="text-gray-400">Manage your input lists and signal routing</p>
+              </div>
+              <FileText className="h-8 w-8 text-indigo-400" />
+            </div>
+            <div className="space-y-4">
+              {patchLists.length > 0 ? (
+                <div className="space-y-3">
+                  {patchLists.slice(0, 3).map((patchList) => (
+                    <div
+                      key={patchList.id}
+                      className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
+                    >
+                      <div>
+                        <h3 className="text-white font-medium">{patchList.name}</h3>
+                        <p className="text-gray-400 text-sm">
+                          {patchList.last_edited
+                            ? `Edited ${new Date(patchList.last_edited).toLocaleDateString()}`
+                            : `Created ${new Date(patchList.created_at).toLocaleDateString()}`}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Download"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleExportClick(patchList.id, "patch");
+                          }}
+                          disabled={exportingItemId === patchList.id}
+                        >
+                          {exportingItemId === patchList.id ? (
+                            <Loader className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Download className="h-5 w-5" />
+                          )}
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Edit"
+                          onClick={() => handleEditPatchList(patchList.id)}
+                        >
+                          <Edit className="h-5 w-5" />
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-red-400"
+                          title="Delete"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteRequest(patchList.id, "patch", patchList.name);
+                          }}
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 bg-gray-700 rounded-lg text-center">
+                  <p className="text-gray-300 mb-4">You haven't created any patch lists yet</p>
+                </div>
+              )}
+              <div className="pt-3 text-center">
+                <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
+                  <button
+                    className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                    onClick={handleCreatePatchList}
+                  >
+                    <PlusCircle className="h-5 w-5 mr-2" />
+                    New Patch List
+                  </button>
+                  {patchLists.length > 0 && (
+                    <button
+                      className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                      onClick={() => navigate("/all-patch-sheets")}
+                    >
+                      <List className="h-5 w-5 mr-2" />
+                      View All {patchLists.length > 0 && `(${patchLists.length})`}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        )}
 
-        <main className="flex-grow container mx-auto px-4 py-12 mt-12">
-          <div className="mb-8">
-            <Link
-              to="/dashboard"
-              className="inline-flex items-center text-indigo-400 hover:text-indigo-300 transition-colors duration-200 mb-4 group"
-            >
-              <ArrowLeftCircle className="h-5 w-5 mr-2 transform group-hover:-translate-x-1 transition-transform duration-200" />
-              Back to Dashboard
-            </Link>
-            <h1 className="text-4xl font-bold text-white mb-4">Audio Documents</h1>
-            <p className="text-lg text-gray-300">
-              Manage your patch lists, stage plots, and mic plots.
+          {/* My Stage Plots Card */}
+          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-2">My Stage Plots</h2>
+                <p className="text-gray-400">Design and manage your stage layouts</p>
+              </div>
+              <Layout className="h-8 w-8 text-indigo-400" />
+            </div>
+            <div className="space-y-4">
+              {stagePlots.length > 0 ? (
+                <div className="space-y-3">
+                  {stagePlots.slice(0, 3).map((stagePlot) => (
+                    <div
+                      key={stagePlot.id}
+                      className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
+                    >
+                      <div>
+                        <h3 className="text-white font-medium">{stagePlot.name}</h3>
+                        <p className="text-gray-400 text-sm">
+                          {stagePlot.last_edited
+                            ? `Edited ${new Date(stagePlot.last_edited).toLocaleDateString()}`
+                            : `Created ${new Date(stagePlot.created_at).toLocaleDateString()}`}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Download"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleExportClick(stagePlot.id, "stage");
+                          }}
+                          disabled={exportingItemId === stagePlot.id}
+                        >
+                          {exportingItemId === stagePlot.id ? (
+                            <Loader className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Download className="h-5 w-5" />
+                          )}
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Edit"
+                          onClick={() => handleEditStagePlot(stagePlot.id)}
+                        >
+                          <Edit className="h-5 w-5" />
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-red-400"
+                          title="Delete"
+                          onClick={() => handleDeleteRequest(stagePlot.id, "stage", stagePlot.name)}
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 bg-gray-700 rounded-lg text-center">
+                  <p className="text-gray-300 mb-4">You haven't created any stage plots yet</p>
+                </div>
+              )}
+              <div className="pt-3 text-center">
+                <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
+                  <button
+                    className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                    onClick={handleCreateStagePlot}
+                  >
+                    <PlusCircle className="h-5 w-5 mr-2" />
+                    New Stage Plot
+                  </button>
+                  {stagePlots.length > 0 && (
+                    <button
+                      className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                      onClick={() => navigate("/all-stage-plots")}
+                    >
+                      <List className="h-5 w-5 mr-2" />
+                      View All {stagePlots.length > 0 && `(${stagePlots.length})`}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Cards Section - Mic Plots and Comms Plans */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+          {/* My Mic Plots Card */}
+          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-2">My Mic Plots</h2>
+                <p className="text-gray-400">Visualize and manage microphone placements</p>
+              </div>
+              <Mic className="h-8 w-8 text-indigo-400" />
+            </div>
+            <div className="space-y-4">
+              {micPlots.length > 0 ? (
+                <div className="space-y-3">
+                  {micPlots.slice(0, 3).map((micPlot) => (
+                    <div
+                      key={micPlot.id}
+                      className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
+                    >
+                      <div>
+                        <h3 className="text-white font-medium">{micPlot.name}</h3>
+                        <p className="text-gray-400 text-sm">
+                          Type: <span className="capitalize">{micPlot.plot_type}</span> |
+                          {micPlot.last_edited
+                            ? ` Edited ${new Date(micPlot.last_edited).toLocaleDateString()}`
+                            : ` Created ${new Date(micPlot.created_at).toLocaleDateString()}`}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Download Mic Plot"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleExportClick(micPlot.id, "mic", micPlot.plot_type);
+                          }}
+                          disabled={exportingMicPlotItemId === micPlot.id}
+                        >
+                          {exportingMicPlotItemId === micPlot.id ? (
+                            <Loader className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Download className="h-5 w-5" />
+                          )}
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Edit"
+                          onClick={() => handleEditMicPlot(micPlot.id, micPlot.plot_type)}
+                        >
+                          <Edit className="h-5 w-5" />
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-red-400"
+                          title="Delete"
+                          onClick={() =>
+                            handleDeleteRequest(micPlot.id, "mic", micPlot.name, micPlot.plot_type)
+                          }
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 bg-gray-700 rounded-lg text-center">
+                  <p className="text-gray-300 mb-4">You haven't created any mic plots yet</p>
+                </div>
+              )}
+              <div className="pt-3 text-center">
+                <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
+                  <button
+                    className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                    onClick={handleCreateMicPlot}
+                  >
+                    <PlusCircle className="h-5 w-5 mr-2" />
+                    New Mic Plot
+                  </button>
+                  {micPlots.length > 0 && (
+                    <button
+                      className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                      onClick={() => navigate("/all-mic-plots")}
+                    >
+                      <List className="h-5 w-5 mr-2" />
+                      View All {micPlots.length > 0 && `(${micPlots.length})`}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* My Comms Plans Card */}
+          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-2">My Comms Plans</h2>
+                <p className="text-gray-400">Design and manage your RF comms systems</p>
+              </div>
+              <Radio className="h-8 w-8 text-indigo-400" />
+            </div>
+            <div className="space-y-4">
+              {commsPlans.length > 0 ? (
+                <div className="space-y-3">
+                  {commsPlans.slice(0, 3).map((plan) => (
+                    <div
+                      key={plan.id}
+                      className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
+                    >
+                      <div>
+                        <h3 className="text-white font-medium">{plan.name}</h3>
+                        <p className="text-gray-400 text-sm">
+                          {plan.last_edited
+                            ? `Edited ${new Date(plan.last_edited).toLocaleDateString()}`
+                            : `Created ${new Date(plan.created_at).toLocaleDateString()}`}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Download"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExportCommsPlanId(plan.id);
+                            setShowCommsPlanExportModal(true);
+                          }}
+                          disabled={exportingItemId === plan.id}
+                        >
+                          {exportingItemId === plan.id ? (
+                            <Loader className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Download className="h-5 w-5" />
+                          )}
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Edit"
+                          onClick={() =>
+                            navigate(`/comms-planner/${plan.id}`, { state: { from: "/audio" } })
+                          }
+                        >
+                          <Edit className="h-5 w-5" />
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-red-400"
+                          title="Delete"
+                          onClick={() => handleDeleteRequest(plan.id, "comms", plan.name)}
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 bg-gray-700 rounded-lg text-center">
+                  <p className="text-gray-300 mb-4">You haven't created any comms plans yet</p>
+                </div>
+              )}
+              <div className="pt-3 text-center">
+                <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
+                  <button
+                    className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                    onClick={() => navigate("/comms-planner/new", { state: { from: "/audio" } })}
+                  >
+                    <PlusCircle className="h-5 w-5 mr-2" />
+                    New Comms Plan
+                  </button>
+                  {commsPlans.length > 0 && (
+                    <button
+                      className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                      onClick={() => navigate("/all-comms-plans")}
+                    >
+                      <List className="h-5 w-5 mr-2" />
+                      View All {commsPlans.length > 0 && `(${commsPlans.length})`}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <ExportModal
+        isOpen={showPatchSheetExportModal}
+        onClose={() => {
+          if (!(exportingItemId && exportPatchSheetId)) setShowPatchSheetExportModal(false);
+        }}
+        onExportColor={() =>
+          exportPatchSheetId && prepareAndExecutePatchSheetExport(exportPatchSheetId, "color")
+        }
+        onExportPrintFriendly={() =>
+          exportPatchSheetId && prepareAndExecutePatchSheetExport(exportPatchSheetId, "print")
+        }
+        title="Patch Sheet"
+        isExporting={!!(exportingItemId && exportPatchSheetId)}
+      />
+
+      <ExportModal
+        isOpen={showStagePlotExportModal}
+        onClose={() => {
+          if (!exportingItemId) setShowStagePlotExportModal(false);
+        }}
+        onExportColor={() =>
+          exportStagePlotId && prepareAndExecuteStagePlotExport(exportStagePlotId, "color")
+        }
+        onExportPrintFriendly={() =>
+          exportStagePlotId && prepareAndExecuteStagePlotExport(exportStagePlotId, "print")
+        }
+        title="Stage Plot"
+        isExporting={!!(exportingItemId && exportStagePlotId)}
+      />
+
+      <ExportModal
+        isOpen={showMicPlotExportModal}
+        onClose={() => {
+          if (!exportingMicPlotItemId) {
+            setShowMicPlotExportModal(false);
+            setExportMicPlotId(null);
+            setExportMicPlotActualType(null);
+          }
+        }}
+        onExportColor={() =>
+          exportMicPlotId &&
+          exportMicPlotActualType &&
+          prepareAndExecuteMicPlotExport(exportMicPlotId, exportMicPlotActualType, "image")
+        }
+        onExportPrintFriendly={() =>
+          exportMicPlotId &&
+          exportMicPlotActualType &&
+          prepareAndExecuteMicPlotExport(exportMicPlotId, exportMicPlotActualType, "print")
+        }
+        title="Mic Plot"
+        isExporting={!!exportingMicPlotItemId}
+      />
+
+      <ExportModal
+        isOpen={showCommsPlanExportModal}
+        onClose={() => {
+          if (!exportingItemId) {
+            setShowCommsPlanExportModal(false);
+            setExportCommsPlanId(null);
+          }
+        }}
+        onExportColor={() =>
+          exportCommsPlanId && prepareAndExecuteCommsPlanExport(exportCommsPlanId, "color")
+        }
+        onExportPrintFriendly={() =>
+          exportCommsPlanId && prepareAndExecuteCommsPlanExport(exportCommsPlanId, "print")
+        }
+        title="Comms Plan"
+        isExporting={!!(exportingItemId && exportCommsPlanId)}
+      />
+
+      {currentExportPatchSheet && (
+        <>
+          <PatchSheetExport ref={patchSheetExportRef} patchSheet={currentExportPatchSheet} />
+          <PrintPatchSheetExport
+            ref={printPatchSheetExportRef}
+            patchSheet={currentExportPatchSheet}
+          />
+        </>
+      )}
+
+      {currentExportStagePlot && (
+        <>
+          <StagePlotExport ref={stagePlotExportRef} stagePlot={currentExportStagePlot} />
+          <PrintStagePlotExport ref={printStagePlotExportRef} stagePlot={currentExportStagePlot} />
+        </>
+      )}
+
+      {currentExportingMicPlotData && exportMicPlotActualType === "corporate" && (
+        <>
+          <CorporateMicPlotExport
+            ref={corporateMicPlotExportRef}
+            micPlot={currentExportingMicPlotData as CorporateMicPlotFullData}
+          />
+          <PrintCorporateMicPlotExport
+            ref={printCorporateMicPlotExportRef}
+            micPlot={currentExportingMicPlotData as CorporateMicPlotFullData}
+          />
+        </>
+      )}
+
+      {currentExportingMicPlotData && exportMicPlotActualType === "theater" && (
+        <>
+          <TheaterMicPlotExport
+            ref={theaterMicPlotExportRef}
+            micPlot={currentExportingMicPlotData as TheaterMicPlotFullData}
+          />
+          <PrintTheaterMicPlotExport
+            ref={printTheaterMicPlotExportRef}
+            micPlot={currentExportingMicPlotData as TheaterMicPlotFullData}
+          />
+        </>
+      )}
+
+      {currentExportCommsPlan && (
+        <>
+          <CommsPlanExport ref={commsPlanExportRef} commsPlan={currentExportCommsPlan} />
+          <PrintCommsPlanExport ref={printCommsPlanExportRef} commsPlan={currentExportCommsPlan} />
+        </>
+      )}
+
+      {showDeleteConfirm && documentToDelete && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl">
+            <div className="flex items-start">
+              <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-500/20 sm:mx-0 sm:h-10 sm:w-10">
+                <AlertTriangle className="h-6 w-6 text-red-400" aria-hidden="true" />
+              </div>
+              <div className="ml-4 text-left">
+                <h3 className="text-lg font-medium text-white" id="modal-title">
+                  Delete{" "}
+                  {documentToDelete.type === "patch"
+                    ? "Patch List"
+                    : documentToDelete.type === "stage"
+                      ? "Stage Plot"
+                      : "Mic Plot"}
+                </h3>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-300">
+                    Are you sure you want to delete "{documentToDelete.name}"? This action cannot be
+                    undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 sm:mt-8 sm:flex sm:flex-row-reverse">
+              <button
+                type="button"
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
+                onClick={confirmDelete}
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-600 shadow-sm px-4 py-2 bg-gray-700 text-base font-medium text-gray-300 hover:bg-gray-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors"
+                onClick={cancelDelete}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMicPlotTypeModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-2xl text-white">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-white">Select Mic Plot Type</h3>
+              <button
+                onClick={() => setShowMicPlotTypeModal(false)}
+                className="text-gray-400 hover:text-white transition-colors p-1 rounded-full hover:bg-gray-700"
+                aria-label="Close modal"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <p className="text-gray-300 mb-6">
+              Choose the type of mic plot you want to create. This will determine the initial
+              template and available tools.
             </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-            {/* My Patch Lists Card */}
-            <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
-              <div className="flex justify-between items-start mb-6">
+            <div className="space-y-4">
+              <button
+                onClick={() => handleSelectMicPlotType("corporate")}
+                className="w-full flex items-center justify-center text-left p-4 bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-all duration-200 group"
+              >
+                <Briefcase
+                  size={28}
+                  className="mr-4 text-indigo-300 group-hover:text-white transition-colors"
+                />
                 <div>
-                  <h2 className="text-xl font-semibold text-white mb-2">My Patch Lists</h2>
-                  <p className="text-gray-400">Manage your input lists and signal routing</p>
+                  <h4 className="text-lg font-semibold text-white">Corporate</h4>
+                  <p className="text-sm text-indigo-200 group-hover:text-indigo-100 transition-colors">
+                    For conferences, presentations, and panel discussions.
+                  </p>
                 </div>
-                <FileText className="h-8 w-8 text-indigo-400" />
-              </div>
-              <div className="space-y-4">
-                {patchLists.length > 0 ? (
-                  <div className="space-y-3">
-                    {patchLists.slice(0, 3).map((patchList) => (
-                      <div
-                        key={patchList.id}
-                        className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
-                      >
-                        <div>
-                          <h3 className="text-white font-medium">{patchList.name}</h3>
-                          <p className="text-gray-400 text-sm">
-                            {patchList.last_edited
-                              ? `Edited ${new Date(patchList.last_edited).toLocaleDateString()}`
-                              : `Created ${new Date(patchList.created_at).toLocaleDateString()}`}
-                          </p>
-                        </div>
-                        <div className="flex space-x-2">
-                          <button
-                            className="p-2 text-gray-400 hover:text-indigo-400"
-                            title="Download"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleExportClick(patchList.id, "patch");
-                            }}
-                            disabled={exportingItemId === patchList.id}
-                          >
-                            {exportingItemId === patchList.id ? (
-                              <Loader className="h-5 w-5 animate-spin" />
-                            ) : (
-                              <Download className="h-5 w-5" />
-                            )}
-                          </button>
-                          <button
-                            className="p-2 text-gray-400 hover:text-indigo-400"
-                            title="Edit"
-                            onClick={() => handleEditPatchList(patchList.id)}
-                          >
-                            <Edit className="h-5 w-5" />
-                          </button>
-                          <button
-                            className="p-2 text-gray-400 hover:text-red-400"
-                            title="Delete"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteRequest(patchList.id, "patch", patchList.name);
-                            }}
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 bg-gray-700 rounded-lg text-center">
-                    <p className="text-gray-300 mb-4">You haven't created any patch lists yet</p>
-                  </div>
-                )}
-                <div className="pt-3 text-center">
-                  <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
-                    <button
-                      className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                      onClick={handleCreatePatchList}
-                    >
-                      <PlusCircle className="h-5 w-5 mr-2" />
-                      New Patch List
-                    </button>
-                    {patchLists.length > 0 && (
-                      <button
-                        className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                        onClick={() => navigate("/all-patch-sheets")}
-                      >
-                        <List className="h-5 w-5 mr-2" />
-                        View All {patchLists.length > 0 && `(${patchLists.length})`}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* My Stage Plots Card */}
-            <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
-              <div className="flex justify-between items-start mb-6">
+              </button>
+              <button
+                onClick={() => handleSelectMicPlotType("theater")}
+                className="w-full flex items-center justify-center text-left p-4 bg-purple-600 hover:bg-purple-700 rounded-lg transition-all duration-200 group"
+              >
+                <Drama
+                  size={28}
+                  className="mr-4 text-purple-300 group-hover:text-white transition-colors"
+                />
                 <div>
-                  <h2 className="text-xl font-semibold text-white mb-2">My Stage Plots</h2>
-                  <p className="text-gray-400">Design and manage your stage layouts</p>
+                  <h4 className="text-lg font-semibold text-white">Theater</h4>
+                  <p className="text-sm text-purple-200 group-hover:text-purple-100 transition-colors">
+                    For stage plays, musicals, and live performances.
+                  </p>
                 </div>
-                <Layout className="h-8 w-8 text-indigo-400" />
-              </div>
-              <div className="space-y-4">
-                {stagePlots.length > 0 ? (
-                  <div className="space-y-3">
-                    {stagePlots.slice(0, 3).map((stagePlot) => (
-                      <div
-                        key={stagePlot.id}
-                        className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
-                      >
-                        <div>
-                          <h3 className="text-white font-medium">{stagePlot.name}</h3>
-                          <p className="text-gray-400 text-sm">
-                            {stagePlot.last_edited
-                              ? `Edited ${new Date(stagePlot.last_edited).toLocaleDateString()}`
-                              : `Created ${new Date(stagePlot.created_at).toLocaleDateString()}`}
-                          </p>
-                        </div>
-                        <div className="flex space-x-2">
-                          <button
-                            className="p-2 text-gray-400 hover:text-indigo-400"
-                            title="Download"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleExportClick(stagePlot.id, "stage");
-                            }}
-                            disabled={exportingItemId === stagePlot.id}
-                          >
-                            {exportingItemId === stagePlot.id ? (
-                              <Loader className="h-5 w-5 animate-spin" />
-                            ) : (
-                              <Download className="h-5 w-5" />
-                            )}
-                          </button>
-                          <button
-                            className="p-2 text-gray-400 hover:text-indigo-400"
-                            title="Edit"
-                            onClick={() => handleEditStagePlot(stagePlot.id)}
-                          >
-                            <Edit className="h-5 w-5" />
-                          </button>
-                          <button
-                            className="p-2 text-gray-400 hover:text-red-400"
-                            title="Delete"
-                            onClick={() =>
-                              handleDeleteRequest(stagePlot.id, "stage", stagePlot.name)
-                            }
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 bg-gray-700 rounded-lg text-center">
-                    <p className="text-gray-300 mb-4">You haven't created any stage plots yet</p>
-                  </div>
-                )}
-                <div className="pt-3 text-center">
-                  <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
-                    <button
-                      className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                      onClick={handleCreateStagePlot}
-                    >
-                      <PlusCircle className="h-5 w-5 mr-2" />
-                      New Stage Plot
-                    </button>
-                    {stagePlots.length > 0 && (
-                      <button
-                        className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                        onClick={() => navigate("/all-stage-plots")}
-                      >
-                        <List className="h-5 w-5 mr-2" />
-                        View All {stagePlots.length > 0 && `(${stagePlots.length})`}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
+              </button>
+            </div>
+            <div className="mt-8 text-right">
+              <button
+                type="button"
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-md font-medium transition-colors text-sm"
+                onClick={() => setShowMicPlotTypeModal(false)}
+              >
+                Cancel
+              </button>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Cards Section - Mic Plots and Comms Plans */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-            {/* My Mic Plots Card */}
-            <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-xl font-semibold text-white mb-2">My Mic Plots</h2>
-                  <p className="text-gray-400">Visualize and manage microphone placements</p>
-                </div>
-                <Mic className="h-8 w-8 text-indigo-400" />
-              </div>
-              <div className="space-y-4">
-                {micPlots.length > 0 ? (
-                  <div className="space-y-3">
-                    {micPlots.slice(0, 3).map((micPlot) => (
-                      <div
-                        key={micPlot.id}
-                        className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
-                      >
-                        <div>
-                          <h3 className="text-white font-medium">{micPlot.name}</h3>
-                          <p className="text-gray-400 text-sm">
-                            Type: <span className="capitalize">{micPlot.plot_type}</span> |
-                            {micPlot.last_edited
-                              ? ` Edited ${new Date(micPlot.last_edited).toLocaleDateString()}`
-                              : ` Created ${new Date(micPlot.created_at).toLocaleDateString()}`}
-                          </p>
-                        </div>
-                        <div className="flex space-x-2">
-                          <button
-                            className="p-2 text-gray-400 hover:text-indigo-400"
-                            title="Download Mic Plot"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleExportClick(micPlot.id, "mic", micPlot.plot_type);
-                            }}
-                            disabled={exportingMicPlotItemId === micPlot.id}
-                          >
-                            {exportingMicPlotItemId === micPlot.id ? (
-                              <Loader className="h-5 w-5 animate-spin" />
-                            ) : (
-                              <Download className="h-5 w-5" />
-                            )}
-                          </button>
-                          <button
-                            className="p-2 text-gray-400 hover:text-indigo-400"
-                            title="Edit"
-                            onClick={() => handleEditMicPlot(micPlot.id, micPlot.plot_type)}
-                          >
-                            <Edit className="h-5 w-5" />
-                          </button>
-                          <button
-                            className="p-2 text-gray-400 hover:text-red-400"
-                            title="Delete"
-                            onClick={() =>
-                              handleDeleteRequest(
-                                micPlot.id,
-                                "mic",
-                                micPlot.name,
-                                micPlot.plot_type,
-                              )
-                            }
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 bg-gray-700 rounded-lg text-center">
-                    <p className="text-gray-300 mb-4">You haven't created any mic plots yet</p>
-                  </div>
-                )}
-                <div className="pt-3 text-center">
-                  <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
-                    <button
-                      className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                      onClick={handleCreateMicPlot}
-                    >
-                      <PlusCircle className="h-5 w-5 mr-2" />
-                      New Mic Plot
-                    </button>
-                    {micPlots.length > 0 && (
-                      <button
-                        className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                        onClick={() => navigate("/all-mic-plots")}
-                      >
-                        <List className="h-5 w-5 mr-2" />
-                        View All {micPlots.length > 0 && `(${micPlots.length})`}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* My Comms Plans Card */}
-            <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-xl font-semibold text-white mb-2">My Comms Plans</h2>
-                  <p className="text-gray-400">Design and manage your RF comms systems</p>
-                </div>
-                <Radio className="h-8 w-8 text-indigo-400" />
-              </div>
-              <div className="space-y-4">
-                {commsPlans.length > 0 ? (
-                  <div className="space-y-3">
-                    {commsPlans.slice(0, 3).map((plan) => (
-                      <div
-                        key={plan.id}
-                        className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
-                      >
-                        <div>
-                          <h3 className="text-white font-medium">{plan.name}</h3>
-                          <p className="text-gray-400 text-sm">
-                            {plan.last_edited
-                              ? `Edited ${new Date(plan.last_edited).toLocaleDateString()}`
-                              : `Created ${new Date(plan.created_at).toLocaleDateString()}`}
-                          </p>
-                        </div>
-                        <div className="flex space-x-2">
-                          <button
-                            className="p-2 text-gray-400 hover:text-indigo-400"
-                            title="Download"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setExportCommsPlanId(plan.id);
-                              setShowCommsPlanExportModal(true);
-                            }}
-                            disabled={exportingItemId === plan.id}
-                          >
-                            {exportingItemId === plan.id ? (
-                              <Loader className="h-5 w-5 animate-spin" />
-                            ) : (
-                              <Download className="h-5 w-5" />
-                            )}
-                          </button>
-                          <button
-                            className="p-2 text-gray-400 hover:text-indigo-400"
-                            title="Edit"
-                            onClick={() =>
-                              navigate(`/comms-planner/${plan.id}`, { state: { from: "/audio" } })
-                            }
-                          >
-                            <Edit className="h-5 w-5" />
-                          </button>
-                          <button
-                            className="p-2 text-gray-400 hover:text-red-400"
-                            title="Delete"
-                            onClick={() => handleDeleteRequest(plan.id, "comms", plan.name)}
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-4 bg-gray-700 rounded-lg text-center">
-                    <p className="text-gray-300 mb-4">You haven't created any comms plans yet</p>
-                  </div>
-                )}
-                <div className="pt-3 text-center">
-                  <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
-                    <button
-                      className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                      onClick={() => navigate("/comms-planner/new", { state: { from: "/audio" } })}
-                    >
-                      <PlusCircle className="h-5 w-5 mr-2" />
-                      New Comms Plan
-                    </button>
-                    {commsPlans.length > 0 && (
-                      <button
-                        className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
-                        onClick={() => navigate("/all-comms-plans")}
-                      >
-                        <List className="h-5 w-5 mr-2" />
-                        View All {commsPlans.length > 0 && `(${commsPlans.length})`}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </main>
-
-        <ExportModal
-          isOpen={showPatchSheetExportModal}
-          onClose={() => {
-            if (!(exportingItemId && exportPatchSheetId)) setShowPatchSheetExportModal(false);
-          }}
-          onExportColor={() =>
-            exportPatchSheetId && prepareAndExecutePatchSheetExport(exportPatchSheetId, "color")
-          }
-          onExportPrintFriendly={() =>
-            exportPatchSheetId && prepareAndExecutePatchSheetExport(exportPatchSheetId, "print")
-          }
-          title="Patch Sheet"
-          isExporting={!!(exportingItemId && exportPatchSheetId)}
-        />
-
-        <ExportModal
-          isOpen={showStagePlotExportModal}
-          onClose={() => {
-            if (!exportingItemId) setShowStagePlotExportModal(false);
-          }}
-          onExportColor={() =>
-            exportStagePlotId && prepareAndExecuteStagePlotExport(exportStagePlotId, "color")
-          }
-          onExportPrintFriendly={() =>
-            exportStagePlotId && prepareAndExecuteStagePlotExport(exportStagePlotId, "print")
-          }
-          title="Stage Plot"
-          isExporting={!!(exportingItemId && exportStagePlotId)}
-        />
-
-        <ExportModal
-          isOpen={showMicPlotExportModal}
-          onClose={() => {
-            if (!exportingMicPlotItemId) {
-              setShowMicPlotExportModal(false);
-              setExportMicPlotId(null);
-              setExportMicPlotActualType(null);
-            }
-          }}
-          onExportColor={() =>
-            exportMicPlotId &&
-            exportMicPlotActualType &&
-            prepareAndExecuteMicPlotExport(exportMicPlotId, exportMicPlotActualType, "image")
-          }
-          onExportPrintFriendly={() =>
-            exportMicPlotId &&
-            exportMicPlotActualType &&
-            prepareAndExecuteMicPlotExport(exportMicPlotId, exportMicPlotActualType, "print")
-          }
-          title="Mic Plot"
-          isExporting={!!exportingMicPlotItemId}
-        />
-
-        <ExportModal
-          isOpen={showCommsPlanExportModal}
-          onClose={() => {
-            if (!exportingItemId) {
-              setShowCommsPlanExportModal(false);
-              setExportCommsPlanId(null);
-            }
-          }}
-          onExportColor={() =>
-            exportCommsPlanId && prepareAndExecuteCommsPlanExport(exportCommsPlanId, "color")
-          }
-          onExportPrintFriendly={() =>
-            exportCommsPlanId && prepareAndExecuteCommsPlanExport(exportCommsPlanId, "print")
-          }
-          title="Comms Plan"
-          isExporting={!!(exportingItemId && exportCommsPlanId)}
-        />
-
-        {currentExportPatchSheet && (
-          <>
-            <PatchSheetExport ref={patchSheetExportRef} patchSheet={currentExportPatchSheet} />
-            <PrintPatchSheetExport
-              ref={printPatchSheetExportRef}
-              patchSheet={currentExportPatchSheet}
-            />
-          </>
-        )}
-
-        {currentExportStagePlot && (
-          <>
-            <StagePlotExport ref={stagePlotExportRef} stagePlot={currentExportStagePlot} />
-            <PrintStagePlotExport
-              ref={printStagePlotExportRef}
-              stagePlot={currentExportStagePlot}
-            />
-          </>
-        )}
-
-        {currentExportingMicPlotData && exportMicPlotActualType === "corporate" && (
-          <>
-            <CorporateMicPlotExport
-              ref={corporateMicPlotExportRef}
-              micPlot={currentExportingMicPlotData as CorporateMicPlotFullData}
-            />
-            <PrintCorporateMicPlotExport
-              ref={printCorporateMicPlotExportRef}
-              micPlot={currentExportingMicPlotData as CorporateMicPlotFullData}
-            />
-          </>
-        )}
-
-        {currentExportingMicPlotData && exportMicPlotActualType === "theater" && (
-          <>
-            <TheaterMicPlotExport
-              ref={theaterMicPlotExportRef}
-              micPlot={currentExportingMicPlotData as TheaterMicPlotFullData}
-            />
-            <PrintTheaterMicPlotExport
-              ref={printTheaterMicPlotExportRef}
-              micPlot={currentExportingMicPlotData as TheaterMicPlotFullData}
-            />
-          </>
-        )}
-
-        {currentExportCommsPlan && (
-          <>
-            <CommsPlanExport ref={commsPlanExportRef} commsPlan={currentExportCommsPlan} />
-            <PrintCommsPlanExport
-              ref={printCommsPlanExportRef}
-              commsPlan={currentExportCommsPlan}
-            />
-          </>
-        )}
-
-        {showDeleteConfirm && documentToDelete && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl">
-              <div className="flex items-start">
-                <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-500/20 sm:mx-0 sm:h-10 sm:w-10">
-                  <AlertTriangle className="h-6 w-6 text-red-400" aria-hidden="true" />
-                </div>
-                <div className="ml-4 text-left">
-                  <h3 className="text-lg font-medium text-white" id="modal-title">
-                    Delete{" "}
-                    {documentToDelete.type === "patch"
-                      ? "Patch List"
-                      : documentToDelete.type === "stage"
-                        ? "Stage Plot"
-                        : "Mic Plot"}
-                  </h3>
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-300">
-                      Are you sure you want to delete "{documentToDelete.name}"? This action cannot
-                      be undone.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-6 sm:mt-8 sm:flex sm:flex-row-reverse">
-                <button
-                  type="button"
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
-                  onClick={confirmDelete}
-                >
-                  Delete
-                </button>
-                <button
-                  type="button"
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-600 shadow-sm px-4 py-2 bg-gray-700 text-base font-medium text-gray-300 hover:bg-gray-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm transition-colors"
-                  onClick={cancelDelete}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showMicPlotTypeModal && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-2xl text-white">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-white">Select Mic Plot Type</h3>
-                <button
-                  onClick={() => setShowMicPlotTypeModal(false)}
-                  className="text-gray-400 hover:text-white transition-colors p-1 rounded-full hover:bg-gray-700"
-                  aria-label="Close modal"
-                >
-                  <X size={24} />
-                </button>
-              </div>
-              <p className="text-gray-300 mb-6">
-                Choose the type of mic plot you want to create. This will determine the initial
-                template and available tools.
-              </p>
-              <div className="space-y-4">
-                <button
-                  onClick={() => handleSelectMicPlotType("corporate")}
-                  className="w-full flex items-center justify-center text-left p-4 bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-all duration-200 group"
-                >
-                  <Briefcase
-                    size={28}
-                    className="mr-4 text-indigo-300 group-hover:text-white transition-colors"
-                  />
-                  <div>
-                    <h4 className="text-lg font-semibold text-white">Corporate</h4>
-                    <p className="text-sm text-indigo-200 group-hover:text-indigo-100 transition-colors">
-                      For conferences, presentations, and panel discussions.
-                    </p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => handleSelectMicPlotType("theater")}
-                  className="w-full flex items-center justify-center text-left p-4 bg-purple-600 hover:bg-purple-700 rounded-lg transition-all duration-200 group"
-                >
-                  <Drama
-                    size={28}
-                    className="mr-4 text-purple-300 group-hover:text-white transition-colors"
-                  />
-                  <div>
-                    <h4 className="text-lg font-semibold text-white">Theater</h4>
-                    <p className="text-sm text-purple-200 group-hover:text-purple-100 transition-colors">
-                      For stage plays, musicals, and live performances.
-                    </p>
-                  </div>
-                </button>
-              </div>
-              <div className="mt-8 text-right">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-md font-medium transition-colors text-sm"
-                  onClick={() => setShowMicPlotTypeModal(false)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <Footer />
-      </div>
-    </>
+      <Footer />
+    </div>
   );
 };
 
