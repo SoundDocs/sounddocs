@@ -4,8 +4,9 @@ import { supabase } from "../lib/supabase";
 import { getSharedResource, SharedRunOfShowData } from "../lib/shareUtils";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { Loader, Clock, AlertTriangle } from "lucide-react";
+import { Loader, Clock, AlertTriangle, WifiOff, RefreshCw } from "lucide-react";
 import { RunOfShowItem, CustomColumnDefinition } from "./RunOfShowEditor"; // Assuming these types are exported
+import { useRealtimeSubscription } from "../hooks/useRealtimeSubscription";
 
 // Utility functions (can be moved to a shared util file later)
 const parseDurationToSeconds = (durationStr?: string): number | null => {
@@ -86,47 +87,30 @@ const SharedShowModePage: React.FC = () => {
     fetchSharedData();
   }, [shareCode]);
 
-  useEffect(() => {
-    if (!sharedData || !sharedData.id) return;
-
-    const channel = supabase
-      .channel(`public:run_of_shows:id=eq.${sharedData.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "run_of_shows",
-          filter: `id=eq.${sharedData.id}`,
-        },
-        (payload) => {
-          console.log("Real-time update received:", payload);
-          const updatedRunOfShow = payload.new as SharedRunOfShowData;
-          setSharedData((prevData) => {
-            if (!prevData) return null;
-            return {
-              ...prevData,
-              live_show_data: updatedRunOfShow.live_show_data,
-              items: updatedRunOfShow.items || prevData.items,
-              last_edited: updatedRunOfShow.last_edited || prevData.last_edited,
-            };
-          });
-        },
-      )
-      .subscribe((status, err) => {
-        if (status === "SUBSCRIBED") {
-          console.log("Subscribed to real-time updates for Run of Show ID:", sharedData.id);
-        }
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          console.error("Real-time subscription error:", status, err);
-          setError("Connection lost. Please refresh to see live updates.");
-        }
+  // Real-time subscription with automatic reconnection
+  const {
+    status: realtimeStatus,
+    retryCount,
+    reconnect,
+  } = useRealtimeSubscription({
+    table: "run_of_shows",
+    event: "UPDATE",
+    filter: sharedData?.id ? `id=eq.${sharedData.id}` : undefined,
+    enabled: !!sharedData?.id,
+    onUpdate: (payload) => {
+      console.log("Real-time update received:", payload);
+      const updatedRunOfShow = payload.new as SharedRunOfShowData;
+      setSharedData((prevData) => {
+        if (!prevData) return null;
+        return {
+          ...prevData,
+          live_show_data: updatedRunOfShow.live_show_data,
+          items: updatedRunOfShow.items || prevData.items,
+          last_edited: updatedRunOfShow.last_edited || prevData.last_edited,
+        };
       });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [sharedData]);
+    },
+  });
 
   // Auto-scroll to current item
   useEffect(() => {
@@ -274,14 +258,57 @@ const SharedShowModePage: React.FC = () => {
           </div>
         </div>
 
-        <div className="my-3 flex justify-start items-center gap-x-4 text-xs text-gray-400 bg-gray-800/50 p-2 rounded-md">
-          <div className="flex items-center">
-            <span className="h-3 w-3 rounded-full bg-green-500 mr-1.5 border border-green-300 shadow-sm"></span>
-            <span>Current Cue</span>
+        <div className="my-3 flex justify-between items-center gap-x-4 text-xs text-gray-400 bg-gray-800/50 p-2 rounded-md">
+          <div className="flex items-center gap-x-4">
+            <div className="flex items-center">
+              <span className="h-3 w-3 rounded-full bg-green-500 mr-1.5 border border-green-300 shadow-sm"></span>
+              <span>Current Cue</span>
+            </div>
+            <div className="flex items-center">
+              <span className="h-3 w-3 rounded-full bg-orange-500 mr-1.5 border border-orange-300 shadow-sm"></span>
+              <span>Next Cue</span>
+            </div>
           </div>
-          <div className="flex items-center">
-            <span className="h-3 w-3 rounded-full bg-orange-500 mr-1.5 border border-orange-300 shadow-sm"></span>
-            <span>Next Cue</span>
+
+          {/* Connection Status Indicator */}
+          <div className="flex items-center gap-x-2">
+            {realtimeStatus === "connected" && (
+              <div className="flex items-center text-green-400">
+                <span className="h-2 w-2 rounded-full bg-green-500 mr-1.5 animate-pulse"></span>
+                <span className="text-xs">Live</span>
+              </div>
+            )}
+            {realtimeStatus === "connecting" && (
+              <div className="flex items-center text-blue-400">
+                <Loader className="h-3 w-3 mr-1.5 animate-spin" />
+                <span className="text-xs">Connecting...</span>
+              </div>
+            )}
+            {realtimeStatus === "reconnecting" && (
+              <div className="flex items-center text-yellow-400">
+                <RefreshCw className="h-3 w-3 mr-1.5 animate-spin" />
+                <span className="text-xs">Reconnecting ({retryCount})...</span>
+              </div>
+            )}
+            {realtimeStatus === "disconnected" && (
+              <div className="flex items-center text-gray-500">
+                <WifiOff className="h-3 w-3 mr-1.5" />
+                <span className="text-xs">Offline</span>
+              </div>
+            )}
+            {realtimeStatus === "error" && (
+              <div className="flex items-center text-red-400">
+                <AlertTriangle className="h-3 w-3 mr-1.5" />
+                <span className="text-xs">Connection failed</span>
+                <button
+                  onClick={reconnect}
+                  className="ml-2 px-2 py-0.5 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
+                  title="Retry connection"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
