@@ -1,6 +1,36 @@
 # www.robotstxt.org
+# SoundDocs Robots.txt - SEO Optimized
 
 User-agent: *
 Allow: /
 
+# Disallow protected routes (saves crawl budget)
+Disallow: /dashboard
+Disallow: /profile
+Disallow: /shared-with-me
+Disallow: /patch-sheet/
+Disallow: /stage-plot/
+Disallow: /production-schedule/
+Disallow: /run-of-show/
+Disallow: /rider/
+Disallow: /corporate-mic-plot/
+Disallow: /theater-mic-plot/
+Disallow: /pixel-map/
+Disallow: /comms-planner/
+Disallow: /all-patch-sheets
+Disallow: /all-stage-plots
+Disallow: /all-mic-plots
+Disallow: /all-pixel-maps
+Disallow: /all-comms-plans
+Disallow: /all-production-schedules
+Disallow: /all-run-of-shows
+Disallow: /all-riders
+
+# Allow shared public documents (optional - can be indexed)
+Allow: /shared/
+
+# Crawl delay to prevent aggressive crawling
+Crawl-delay: 1
+
+# Sitemap reference
 Sitemap: https://sounddocs.org/sitemap.xml

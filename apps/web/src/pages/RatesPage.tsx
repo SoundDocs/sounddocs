@@ -12,9 +12,11 @@
       */
 }
 import React from "react";
+import { Helmet } from "react-helmet";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { Link as RouterLink } from "react-router-dom";
+import { generatePageSEO, pageSEO } from "../utils/seo-helpers";
 import {
   ArrowLeft,
   AlertTriangle,
@@ -87,6 +89,7 @@ const ConsiderationItem: React.FC<{
 );
 
 const RatesPage: React.FC = () => {
+  const seo = generatePageSEO(pageSEO.rates);
   const ratesData: RateCardProps[] = [
     {
       roleFamily: "Lead Technician / Tier 1",
@@ -194,97 +197,116 @@ const RatesPage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
-      <Header />
-      <main className="flex-grow container mx-auto px-4 py-16 sm:py-24">
-        <div className="mb-8">
-          <RouterLink
-            to="/resources"
-            className="inline-flex items-center text-indigo-400 hover:text-indigo-300 transition-colors duration-200 group"
-          >
-            <ArrowLeft className="mr-2 h-5 w-5 group-hover:-translate-x-1 transition-transform" />
-            Back to Resources
-          </RouterLink>
-        </div>
-        <h1 className="text-4xl sm:text-5xl font-bold mb-6 text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-500">
-          Typical Freelance Production Rates
-        </h1>
-        <p className="text-lg text-gray-400 text-center mb-12 max-w-3xl mx-auto">
-          A guide to common day rates for audio, video, lighting, rigging, and production roles in
-          the live event industry. These are primarily based on the US market and can vary. All
-          rates are generally for a 10-hour day unless specified otherwise.
-        </p>
+    <>
+      <Helmet>
+        <title>{seo.title}</title>
+        <meta name="description" content={seo.description} />
+        {seo.keywords && <meta name="keywords" content={seo.keywords} />}
+        <link rel="canonical" href={seo.canonical} />
+        <meta property="og:type" content={seo.ogType} />
+        <meta property="og:url" content={seo.ogUrl} />
+        <meta property="og:title" content={seo.ogTitle} />
+        <meta property="og:description" content={seo.ogDescription} />
+        <meta property="og:image" content={seo.ogImage} />
+        <meta property="og:site_name" content={seo.ogSiteName} />
+        <meta name="twitter:card" content={seo.twitterCard} />
+        <meta name="twitter:title" content={seo.twitterTitle} />
+        <meta name="twitter:description" content={seo.twitterDescription} />
+        <meta name="twitter:image" content={seo.twitterImage} />
+      </Helmet>
 
-        <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-8">
-          {ratesData.map((rateInfo) => (
-            <RateCard key={rateInfo.roleFamily} {...rateInfo} />
-          ))}
-        </div>
-
-        <div className="mt-16 pt-8 border-t border-gray-700">
-          <h2 className="text-3xl font-semibold text-center text-indigo-400 mb-10">
-            Important Considerations
-          </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            <ConsiderationItem
-              icon={<MapPin size={28} />}
-              title="Market & Location"
-              description="Rates vary significantly between countries, states, and cities. Major metropolitan areas or event hubs often have higher rates. Always research local market conditions."
-            />
-            <ConsiderationItem
-              icon={<Users size={28} />}
-              title="Union vs. Non-Union"
-              description="Union rates (e.g., IATSE) are typically standardized, often higher, and come with specific work rules, benefits, and overtime calculations. Non-union rates are more variable."
-            />
-            <ConsiderationItem
-              icon={<Briefcase size={28} />}
-              title="Experience & Specialization"
-              description="Highly experienced individuals or those with specialized skills (e.g., specific console operation, complex system design, certifications) command higher rates."
-            />
-            <ConsiderationItem
-              icon={<Clock size={28} />}
-              title="Project Scope & Duration"
-              description="Large-scale, complex, or long-duration projects might involve different rate structures (e.g., weekly rates, project fees). Short notice or rush calls may also command a premium."
-            />
-            <ConsiderationItem
-              icon={<DollarSign size={28} />}
-              title="Currency & International Markets"
-              description="The rates listed are in USD. For non-US markets, convert and adjust based on local economic factors, cost of living, and industry standards. European, Asian, and other markets have their own distinct rate structures."
-            />
-            <ConsiderationItem
-              icon={<Plane size={28} />}
-              title="Travel, Accommodation & Per Diems"
-              description="For work requiring travel, it's standard for clients to cover travel costs, provide accommodation, and offer a daily per diem for meals and incidentals. These should be agreed upon in advance."
-            />
-            <ConsiderationItem
-              icon={<Briefcase size={28} />} /* Re-using briefcase, suitable for "kit" */
-              title="Kit / Gear Rental Fees"
-              description="Technicians providing their own specialized equipment (e.g., specific tools, laptops with software, consoles) may charge a 'kit fee' or 'gear rental' in addition to their day rate."
-            />
-            <ConsiderationItem
-              icon={<FileText size={28} />}
-              title="Cancellation Policies"
-              description="Freelancers often have cancellation policies (e.g., 50% fee if cancelled within 48 hours, 100% within 24 hours). These protect against last-minute changes and should be part of the agreement."
-            />
-            <ConsiderationItem
-              icon={<ShieldCheck size={28} />}
-              title="Insurance & Liability"
-              description="Clarify insurance responsibilities. Production companies usually carry general liability, but freelancers may need their own professional liability or workers' compensation depending on location and client requirements."
-            />
-            <ConsiderationItem
-              icon={<AlertTriangle size={28} />}
-              title="Disclaimer"
-              description="This information is for general guidance only. Actual rates should be negotiated based on specific project requirements, your experience, local market conditions, and a clear scope of work."
-            />
+      <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+        <Header />
+        <main className="flex-grow container mx-auto px-4 py-16 sm:py-24">
+          <div className="mb-8">
+            <RouterLink
+              to="/resources"
+              className="inline-flex items-center text-indigo-400 hover:text-indigo-300 transition-colors duration-200 group"
+            >
+              <ArrowLeft className="mr-2 h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+              Back to Resources
+            </RouterLink>
           </div>
-        </div>
-        <p className="text-gray-500 mt-12 text-center">
-          This guide provides estimates. Always confirm rates, overtime policies, and all other
-          terms in writing before committing to a project.
-        </p>
-      </main>
-      <Footer />
-    </div>
+          <h1 className="text-4xl sm:text-5xl font-bold mb-6 text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-500">
+            Typical Freelance Production Rates
+          </h1>
+          <p className="text-lg text-gray-400 text-center mb-12 max-w-3xl mx-auto">
+            A guide to common day rates for audio, video, lighting, rigging, and production roles in
+            the live event industry. These are primarily based on the US market and can vary. All
+            rates are generally for a 10-hour day unless specified otherwise.
+          </p>
+
+          <div className="grid md:grid-cols-1 lg:grid-cols-2 gap-8">
+            {ratesData.map((rateInfo) => (
+              <RateCard key={rateInfo.roleFamily} {...rateInfo} />
+            ))}
+          </div>
+
+          <div className="mt-16 pt-8 border-t border-gray-700">
+            <h2 className="text-3xl font-semibold text-center text-indigo-400 mb-10">
+              Important Considerations
+            </h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <ConsiderationItem
+                icon={<MapPin size={28} />}
+                title="Market & Location"
+                description="Rates vary significantly between countries, states, and cities. Major metropolitan areas or event hubs often have higher rates. Always research local market conditions."
+              />
+              <ConsiderationItem
+                icon={<Users size={28} />}
+                title="Union vs. Non-Union"
+                description="Union rates (e.g., IATSE) are typically standardized, often higher, and come with specific work rules, benefits, and overtime calculations. Non-union rates are more variable."
+              />
+              <ConsiderationItem
+                icon={<Briefcase size={28} />}
+                title="Experience & Specialization"
+                description="Highly experienced individuals or those with specialized skills (e.g., specific console operation, complex system design, certifications) command higher rates."
+              />
+              <ConsiderationItem
+                icon={<Clock size={28} />}
+                title="Project Scope & Duration"
+                description="Large-scale, complex, or long-duration projects might involve different rate structures (e.g., weekly rates, project fees). Short notice or rush calls may also command a premium."
+              />
+              <ConsiderationItem
+                icon={<DollarSign size={28} />}
+                title="Currency & International Markets"
+                description="The rates listed are in USD. For non-US markets, convert and adjust based on local economic factors, cost of living, and industry standards. European, Asian, and other markets have their own distinct rate structures."
+              />
+              <ConsiderationItem
+                icon={<Plane size={28} />}
+                title="Travel, Accommodation & Per Diems"
+                description="For work requiring travel, it's standard for clients to cover travel costs, provide accommodation, and offer a daily per diem for meals and incidentals. These should be agreed upon in advance."
+              />
+              <ConsiderationItem
+                icon={<Briefcase size={28} />} /* Re-using briefcase, suitable for "kit" */
+                title="Kit / Gear Rental Fees"
+                description="Technicians providing their own specialized equipment (e.g., specific tools, laptops with software, consoles) may charge a 'kit fee' or 'gear rental' in addition to their day rate."
+              />
+              <ConsiderationItem
+                icon={<FileText size={28} />}
+                title="Cancellation Policies"
+                description="Freelancers often have cancellation policies (e.g., 50% fee if cancelled within 48 hours, 100% within 24 hours). These protect against last-minute changes and should be part of the agreement."
+              />
+              <ConsiderationItem
+                icon={<ShieldCheck size={28} />}
+                title="Insurance & Liability"
+                description="Clarify insurance responsibilities. Production companies usually carry general liability, but freelancers may need their own professional liability or workers' compensation depending on location and client requirements."
+              />
+              <ConsiderationItem
+                icon={<AlertTriangle size={28} />}
+                title="Disclaimer"
+                description="This information is for general guidance only. Actual rates should be negotiated based on specific project requirements, your experience, local market conditions, and a clear scope of work."
+              />
+            </div>
+          </div>
+          <p className="text-gray-500 mt-12 text-center">
+            This guide provides estimates. Always confirm rates, overtime policies, and all other
+            terms in writing before committing to a project.
+          </p>
+        </main>
+        <Footer />
+      </div>
+    </>
   );
 };
 

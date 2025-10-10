@@ -6,6 +6,8 @@ import Features from "../components/Features";
 import TrustedBy from "../components/TrustedBy";
 import GetStarted from "../components/GetStarted";
 import Footer from "../components/Footer";
+import { getCanonicalUrl } from "../utils/canonical-url";
+import { organizationSchema } from "../schemas/organization-schema";
 
 const Landing: React.FC = () => {
   // On page load or when changing themes, best practice for accessibility
@@ -19,12 +21,44 @@ const Landing: React.FC = () => {
         <title>SoundDocs | Pro Audio & Event Production Documentation</title>
         <meta
           name="description"
-          content="Professional audio & event documentation platform featuring advanced math traces for measurement analysis. Create patch lists, stage plots, run of shows, and analyze audio with the first browser-based FFT analyzer supporting coherence-weighted averaging and transfer function mathematics."
+          content="Professional audio & event production platform. Create patch sheets, stage plots, run of shows, LED pixel maps, and analyze audio. 100% free forever."
         />
         <meta
           name="keywords"
-          content="audio analyzer, acoustiq, rta, spl meter, transfer function, math traces, measurement averaging, coherence weighting, frequency analysis, event production, pixel map, LED wall designer, video mapping, audio documentation, video documentation, lighting documentation, production schedule, run of show, stage plot, patch list, mic plot, corporate mic plot, theater mic plot, wireless mic management, audio engineer, video technician, lighting designer, production management, input list, output list, sound documentation, video signal flow, lighting plot, DMX chart, audio production software, stage layout tool, concert planning, FOH, monitor engineer tools, event timeline, cue sheet, typical rates, technical formulas, audio formulas, video formulas, lighting formulas, reference guides, pinouts, frequency bands, decibel chart, industry glossaries, measurement mathematics, transfer function analysis, room averaging, system optimization"
+          content="audio analyzer, event production documentation, stage plot software, patch sheet, run of show template, LED pixel mapping, audio documentation, browser-based analyzer"
         />
+
+        {/* Canonical URL */}
+        <link rel="canonical" href={getCanonicalUrl()} />
+
+        {/* Open Graph - Social Media */}
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://sounddocs.org/" />
+        <meta
+          property="og:title"
+          content="SoundDocs | Pro Audio & Event Production Documentation"
+        />
+        <meta
+          property="og:description"
+          content="Professional audio & event documentation platform. Create patch sheets, stage plots, run of shows, and analyze audio. 100% free forever."
+        />
+        <meta property="og:image" content="https://i.postimg.cc/c448TSnj/New-Project-3.png" />
+        <meta property="og:site_name" content="SoundDocs" />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="SoundDocs | Pro Audio & Event Production Documentation"
+        />
+        <meta
+          name="twitter:description"
+          content="Professional audio & event documentation platform. Create patch sheets, stage plots, run of shows, and analyze audio. 100% free forever."
+        />
+        <meta name="twitter:image" content="https://i.postimg.cc/c448TSnj/New-Project-3.png" />
+
+        {/* Organization Structured Data */}
+        <script type="application/ld+json">{JSON.stringify(organizationSchema)}</script>
       </Helmet>
       <Header />
       <main>

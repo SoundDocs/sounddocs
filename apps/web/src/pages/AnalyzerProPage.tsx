@@ -1,8 +1,12 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet";
 import { ArrowLeftCircle, Server, Save, FolderOpen } from "lucide-react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import { getCanonicalUrl } from "../utils/canonical-url";
+import { generateBreadcrumbSchema, createBreadcrumbs } from "../utils/breadcrumb-schema";
+import { acoustiqProSchema } from "../schemas/software-schemas";
 import AgentConnectionManager from "../components/analyzer/AgentConnectionManager";
 import AgentDownload from "../components/analyzer/AgentDownload";
 import AgentUpdateNotification from "../components/analyzer/AgentUpdateNotification";
@@ -428,129 +432,176 @@ const AnalyzerProPage: React.FC = () => {
     }
   };
 
+  const breadcrumbs = createBreadcrumbs.analyzer("pro");
+
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col">
-      <Header onSignOut={handleSignOut} />
+    <>
+      <Helmet>
+        <title>
+          AcoustIQ Pro - Professional Dual-Channel Audio Analyzer | Transfer Function | SoundDocs
+        </title>
+        <meta
+          name="description"
+          content="Professional dual-channel audio analyzer with transfer function analysis, coherence measurement, phase analysis, and advanced acoustics tools. Free download for macOS and Windows."
+        />
+        <meta
+          name="keywords"
+          content="transfer function analyzer, dual channel analyzer, coherence measurement, phase analyzer, professional audio analyzer, acoustic measurement software, system tuning software"
+        />
 
-      <main className="flex-grow container mx-auto px-4 py-12 mt-12">
-        <div className="mb-8">
-          <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center text-indigo-400 hover:text-indigo-300 transition-colors duration-200 mb-4 group"
-          >
-            <ArrowLeftCircle className="h-5 w-5 mr-2 transform group-hover:-translate-x-1 transition-transform duration-200" />
-            Back to AcoustIQ Hub
-          </button>
-          <div className="flex items-center mb-4">
-            <Server className="h-8 w-8 text-indigo-400 mr-3" />
-            <h1 className="text-4xl font-bold text-white">AcoustIQ Pro</h1>
-          </div>
-          <p className="text-lg text-gray-300">
-            Connect to the local capture agent for multi-channel analysis, transfer functions, and
-            more.
-          </p>
-        </div>
+        {/* Canonical URL */}
+        <link rel="canonical" href={getCanonicalUrl()} />
 
-        <div className="max-w-4xl mx-auto space-y-8">
-          <AgentConnectionManager />
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://sounddocs.org/analyzer/pro" />
+        <meta property="og:title" content="AcoustIQ Pro - Professional Audio Analyzer" />
+        <meta
+          property="og:description"
+          content="Professional dual-channel audio analyzer with transfer function, coherence, and phase analysis. Free download for macOS and Windows."
+        />
+        <meta property="og:image" content="https://i.postimg.cc/c448TSnj/New-Project-3.png" />
 
-          {status === "connected" && agentVersion && agentVersion !== "0.1.8" && (
-            <AgentUpdateNotification connectedVersion={agentVersion} latestVersion="0.1.8" />
-          )}
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="AcoustIQ Pro - Professional Audio Analyzer" />
+        <meta
+          name="twitter:description"
+          content="Professional dual-channel audio analyzer with transfer function, coherence, and phase analysis."
+        />
+        <meta name="twitter:image" content="https://i.postimg.cc/c448TSnj/New-Project-3.png" />
 
-          {status !== "connected" && <AgentDownload />}
-          {status === "connected" && (
-            <ProSettings
-              devices={devices}
-              onStartCapture={(config) => {
-                sendMessage({ type: "start", ...config });
-                setIsCapturing(true);
-              }}
-              onStopCapture={() => {
-                sendMessage({ type: "stop" });
-                setIsCapturing(false);
-              }}
-              onFreezeDelay={(enable) =>
-                sendMessage({ type: "delay_freeze", enable, applied_ms: appliedDelayMs })
-              }
-              delayMode={delayMode}
-              appliedDelayMs={appliedDelayMs}
-              isCapturing={isCapturing}
-              signalGeneratorConfig={signalGeneratorConfig}
-              selectedDeviceId={selectedDeviceId}
-              onDeviceSelect={setSelectedDeviceId}
-            />
-          )}
-          {status === "connected" && selectedDevice && selectedDevice.outputs > 0 && (
-            <SignalGeneratorSettings
-              deviceChannels={selectedDevice.outputs}
-              onConfigChange={handleGeneratorConfigChange}
-              isCapturing={isCapturing}
-            />
-          )}
-          <div className="bg-gray-800 p-4 rounded-lg shadow-inner">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-lg font-semibold text-white">Measurements</h3>
-              <div className="flex items-center space-x-2">
-                {status === "connected" && (
-                  <button
-                    className="bg-indigo-500 text-white hover:bg-indigo-600 font-semibold py-2 px-4 rounded-md inline-flex items-center transition-all duration-300 ease-in-out shadow-md hover:shadow-lg transform hover:-translate-y-px"
-                    onClick={handleSaveMeasurement}
-                    disabled={isSaving}
-                  >
-                    <Save className="h-5 w-5 mr-2" />
-                    {isSaving ? "Saving..." : "Save Measurement"}
-                  </button>
-                )}
-                <button
-                  className="bg-transparent text-indigo-400 hover:text-white hover:bg-indigo-500 border border-indigo-400 font-semibold py-2 px-4 rounded-md inline-flex items-center transition-all duration-300 ease-in-out"
-                  onClick={() => setIsModalOpen(true)}
-                >
-                  <FolderOpen className="h-5 w-5 mr-2" />
-                  View Saved
-                </button>
-              </div>
+        {/* Structured Data */}
+        <script type="application/ld+json">
+          {JSON.stringify(generateBreadcrumbSchema(breadcrumbs))}
+        </script>
+        <script type="application/ld+json">{JSON.stringify(acoustiqProSchema)}</script>
+      </Helmet>
+
+      <div className="min-h-screen bg-gray-900 flex flex-col">
+        <Header onSignOut={handleSignOut} />
+
+        <main className="flex-grow container mx-auto px-4 py-12 mt-12">
+          <div className="mb-8">
+            <button
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center text-indigo-400 hover:text-indigo-300 transition-colors duration-200 mb-4 group"
+            >
+              <ArrowLeftCircle className="h-5 w-5 mr-2 transform group-hover:-translate-x-1 transition-transform duration-200" />
+              Back to AcoustIQ Hub
+            </button>
+            <div className="flex items-center mb-4">
+              <Server className="h-8 w-8 text-indigo-400 mr-3" />
+              <h1 className="text-4xl font-bold text-white">AcoustIQ Pro</h1>
             </div>
+            <p className="text-lg text-gray-300">
+              Connect to the local capture agent for multi-channel analysis, transfer functions, and
+              more.
+            </p>
+          </div>
+
+          <div className="max-w-4xl mx-auto space-y-8">
+            <AgentConnectionManager />
+
+            {status === "connected" && agentVersion && agentVersion !== "0.1.8" && (
+              <AgentUpdateNotification connectedVersion={agentVersion} latestVersion="0.1.8" />
+            )}
+
+            {status !== "connected" && <AgentDownload />}
             {status === "connected" && (
-              <div className="flex items-center space-x-4">
-                <div className="text-center">
-                  <div className="text-3xl font-mono text-green-400">
-                    {appliedDelayMs.toFixed(2)}
-                  </div>
-                  <div className="text-sm text-gray-400">Applied Delay (ms)</div>
+              <ProSettings
+                devices={devices}
+                onStartCapture={(config) => {
+                  sendMessage({ type: "start", ...config });
+                  setIsCapturing(true);
+                }}
+                onStopCapture={() => {
+                  sendMessage({ type: "stop" });
+                  setIsCapturing(false);
+                }}
+                onFreezeDelay={(enable) =>
+                  sendMessage({ type: "delay_freeze", enable, applied_ms: appliedDelayMs })
+                }
+                delayMode={delayMode}
+                appliedDelayMs={appliedDelayMs}
+                isCapturing={isCapturing}
+                signalGeneratorConfig={signalGeneratorConfig}
+                selectedDeviceId={selectedDeviceId}
+                onDeviceSelect={setSelectedDeviceId}
+              />
+            )}
+            {status === "connected" && selectedDevice && selectedDevice.outputs > 0 && (
+              <SignalGeneratorSettings
+                deviceChannels={selectedDevice.outputs}
+                onConfigChange={handleGeneratorConfigChange}
+                isCapturing={isCapturing}
+              />
+            )}
+            <div className="bg-gray-800 p-4 rounded-lg shadow-inner">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-lg font-semibold text-white">Measurements</h3>
+                <div className="flex items-center space-x-2">
+                  {status === "connected" && (
+                    <button
+                      className="bg-indigo-500 text-white hover:bg-indigo-600 font-semibold py-2 px-4 rounded-md inline-flex items-center transition-all duration-300 ease-in-out shadow-md hover:shadow-lg transform hover:-translate-y-px"
+                      onClick={handleSaveMeasurement}
+                      disabled={isSaving}
+                    >
+                      <Save className="h-5 w-5 mr-2" />
+                      {isSaving ? "Saving..." : "Save Measurement"}
+                    </button>
+                  )}
+                  <button
+                    className="bg-transparent text-indigo-400 hover:text-white hover:bg-indigo-500 border border-indigo-400 font-semibold py-2 px-4 rounded-md inline-flex items-center transition-all duration-300 ease-in-out"
+                    onClick={() => setIsModalOpen(true)}
+                  >
+                    <FolderOpen className="h-5 w-5 mr-2" />
+                    View Saved
+                  </button>
                 </div>
               </div>
-            )}
+              {status === "connected" && (
+                <div className="flex items-center space-x-4">
+                  <div className="text-center">
+                    <div className="text-3xl font-mono text-green-400">
+                      {appliedDelayMs.toFixed(2)}
+                    </div>
+                    <div className="text-sm text-gray-400">Applied Delay (ms)</div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <TransferFunctionVisualizer
+              tfData={tfData}
+              sampleRate={sampleRate}
+              saved={[...savedMeasurements, ...computedMathTraces]
+                .filter((m) => visibleIds.has(m.id))
+                .map((m) => {
+                  const adjustments = measurementAdjustments[m.id] || {
+                    gain: 0,
+                    delay: 0,
+                    phaseFlipped: false,
+                  };
+                  return {
+                    id: m.id,
+                    tf: m.tf_data,
+                    label: m.name,
+                    color: m.color,
+                    sample_rate: m.sample_rate,
+                    phaseFlipped: adjustments.phaseFlipped,
+                  };
+                })}
+              onChartClick={(chartName) => {
+                setSelectedChart(chartName);
+                setIsDetailModalOpen(true);
+              }}
+            />
           </div>
-          <TransferFunctionVisualizer
-            tfData={tfData}
-            sampleRate={sampleRate}
-            saved={[...savedMeasurements, ...computedMathTraces]
-              .filter((m) => visibleIds.has(m.id))
-              .map((m) => {
-                const adjustments = measurementAdjustments[m.id] || {
-                  gain: 0,
-                  delay: 0,
-                  phaseFlipped: false,
-                };
-                return {
-                  id: m.id,
-                  tf: m.tf_data,
-                  label: m.name,
-                  color: m.color,
-                  sample_rate: m.sample_rate,
-                  phaseFlipped: adjustments.phaseFlipped,
-                };
-              })}
-            onChartClick={(chartName) => {
-              setSelectedChart(chartName);
-              setIsDetailModalOpen(true);
-            }}
-          />
-        </div>
-      </main>
+        </main>
 
-      <Footer />
+        <Footer />
+      </div>
+
       <SavedMeasurementsModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -591,7 +642,7 @@ const AnalyzerProPage: React.FC = () => {
         onEqMeasurementIdChange={setEqMeasurementId}
         onEqChange={handleEqChange}
       />
-    </div>
+    </>
   );
 };
 
