@@ -1,14 +1,15 @@
 import { supabase } from "./supabase";
 import { nanoid } from "nanoid";
 
-// Updated ResourceType to include 'corporate_mic_plot' and 'theater_mic_plot'
+// Updated ResourceType to include 'corporate_mic_plot', 'theater_mic_plot', and 'technical_rider'
 export type ResourceType =
   | "patch_sheet"
   | "stage_plot"
   | "production_schedule"
   | "run_of_show"
   | "corporate_mic_plot"
-  | "theater_mic_plot";
+  | "theater_mic_plot"
+  | "technical_rider";
 
 export interface SharedLink {
   id: string; // This is shared_links.id
@@ -27,12 +28,12 @@ export interface SharedLink {
 export interface SharedRunOfShowData {
   id: string; // run_of_shows.id
   name: string;
-  items: any[]; // Sanitized items
-  custom_column_definitions: any[];
+  items: Record<string, unknown>[]; // Sanitized items
+  custom_column_definitions: Record<string, unknown>[];
   default_column_colors?: Record<string, string>; // Store colors for default columns
   created_at: string;
   last_edited: string | null;
-  live_show_data: any | null; // To store { currentItemIndex, isTimerActive, timeRemaining }
+  live_show_data: Record<string, unknown> | null; // To store { currentItemIndex, isTimerActive, timeRemaining }
   resource_id: string; // Corresponds to SharedLink.resource_id
   resource_type: string; // Should be 'run_of_show'
   link_id: string; // Corresponds to SharedLink.id
@@ -196,7 +197,7 @@ export const verifyShareLink = async (shareCode: string): Promise<SharedLink> =>
 
 export const getSharedResource = async (
   shareCode: string,
-): Promise<{ resource: any; shareLink: SharedLink }> => {
+): Promise<{ resource: Record<string, unknown>; shareLink: SharedLink }> => {
   try {
     if (!shareCode) throw new Error("Share code is required");
 
@@ -230,7 +231,8 @@ export const getSharedResource = async (
 
     let resourceData;
 
-    if (verifiedLink.resource_type === "run_of_show") {
+    // For view-only Run of Show links, use the special RPC that sanitizes privateNotes
+    if (verifiedLink.resource_type === "run_of_show" && verifiedLink.link_type === "view") {
       const { data: rosData, error: rosError } = await supabase.rpc(
         "get_public_run_of_show_by_share_code",
         {
@@ -263,8 +265,14 @@ export const getSharedResource = async (
         case "corporate_mic_plot":
           tableName = "corporate_mic_plots";
           break;
-        case "theater_mic_plot": // Added case for theater_mic_plot
+        case "theater_mic_plot":
           tableName = "theater_mic_plots";
+          break;
+        case "technical_rider": // Added case for technical_rider
+          tableName = "technical_riders";
+          break;
+        case "run_of_show": // Added for edit-mode Run of Show links
+          tableName = "run_of_shows";
           break;
         default:
           console.error(`Unsupported resource type encountered: ${verifiedLink.resource_type}`);
@@ -346,6 +354,12 @@ export const getShareUrl = (
       return `${baseUrl}/shared/theater-mic-plot/edit/${shareCode}`;
     }
     return `${baseUrl}/shared/theater-mic-plot/${shareCode}`;
+  } else if (resourceType === "technical_rider") {
+    // Added case for technical_rider
+    if (linkType === "edit") {
+      return `${baseUrl}/shared/technical-rider/edit/${shareCode}`;
+    }
+    return `${baseUrl}/shared/technical-rider/${shareCode}`;
   }
 
   console.warn(
@@ -357,31 +371,12 @@ export const getShareUrl = (
 export const updateSharedResource = async (
   shareCode: string,
   resourceType: ResourceType,
-  updates: any,
+  updates: Record<string, unknown>,
 ) => {
   try {
     if (!shareCode) throw new Error("Share code is required");
 
-    if (resourceType === "run_of_show") {
-      console.warn(
-        "Run of Show updates should be handled by RunOfShowEditor's save logic directly.",
-      );
-      throw new Error(
-        "Direct update for Run of Show via this generic function is not recommended.",
-      );
-    }
-
-    const verifiedLink = await verifyShareLink(shareCode);
-
-    if (verifiedLink.link_type !== "edit") {
-      throw new Error("This link does not have edit permissions");
-    }
-    if (verifiedLink.resource_type !== resourceType) {
-      throw new Error("Resource type mismatch");
-    }
-
-    const updatesWithTimestamp = { ...updates, last_edited: new Date().toISOString() };
-
+    // Map resource type to table name
     let tableName: string;
     switch (resourceType) {
       case "patch_sheet":
@@ -393,26 +388,52 @@ export const updateSharedResource = async (
       case "production_schedule":
         tableName = "production_schedules";
         break;
+      case "run_of_show":
+        tableName = "run_of_shows";
+        break;
       case "corporate_mic_plot":
         tableName = "corporate_mic_plots";
         break;
-      case "theater_mic_plot": // Added case for theater_mic_plot
+      case "theater_mic_plot":
         tableName = "theater_mic_plots";
+        break;
+      case "technical_rider":
+        tableName = "technical_riders";
         break;
       default:
         console.error(`Unsupported resource type for update: ${resourceType}`);
         throw new Error(`Unsupported resource type for update: ${resourceType}`);
     }
 
-    const { data, error } = await supabase
-      .from(tableName)
-      .update(updatesWithTimestamp)
-      .eq("id", verifiedLink.resource_id)
-      .select()
-      .single();
+    console.log(`[updateSharedResource] Calling RPC with:`, {
+      shareCode,
+      resourceType,
+      tableName,
+      updateKeys: Object.keys(updates),
+    });
 
-    if (error) throw new Error(`Error updating shared resource: ${error.message}`);
-    if (!data) throw new Error("Failed to update shared resource: No data returned.");
+    // Call the RPC function which bypasses RLS with SECURITY DEFINER
+    const { data, error } = await supabase.rpc("update_shared_resource", {
+      p_share_code: shareCode,
+      p_resource_type: resourceType,
+      p_table_name: tableName,
+      p_updates: updates,
+    });
+
+    if (error) {
+      console.error(`[updateSharedResource] RPC error:`, error);
+      throw new Error(`Error updating shared resource: ${error.message}`);
+    }
+    if (!data) {
+      throw new Error("Failed to update shared resource: No data returned.");
+    }
+
+    console.log(`[updateSharedResource] Update successful:`, {
+      resourceType,
+      tableName,
+      version: data.version,
+    });
+
     return data;
   } catch (error) {
     console.error("Error updating shared resource:", error);
@@ -426,7 +447,10 @@ export const updateSharedResource = async (
  * @param sharedLinkId The ID of the shared_links record.
  * @returns The newly created user_claimed_shares record.
  */
-export const addClaimedShare = async (userId: string, sharedLinkId: string): Promise<any> => {
+export const addClaimedShare = async (
+  userId: string,
+  sharedLinkId: string,
+): Promise<{ success: boolean; user_id: string; shared_link_id: string; claimed_at: string }> => {
   if (!userId || !sharedLinkId) {
     throw new Error("User ID and Shared Link ID are required to claim a share.");
   }

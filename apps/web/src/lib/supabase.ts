@@ -120,20 +120,47 @@ export interface PixelMapPayload {
  * @param payload The data for the pixel map.
  */
 export const savePixelMap = async (payload: PixelMapPayload) => {
-  const { error } = await supabase.from("pixel_maps").insert({
-    user_id: payload.userId,
-    map_type: payload.mapType,
-    project_name: payload.projectName,
-    screen_name: payload.screenName,
-    aspect_ratio_w: payload.aspectRatioW,
-    aspect_ratio_h: payload.aspectRatioH,
-    resolution_w: payload.resolutionW,
-    resolution_h: payload.resolutionH,
-    settings: payload.settings,
-  });
+  const { data, error } = await supabase
+    .from("pixel_maps")
+    .insert({
+      user_id: payload.userId,
+      map_type: payload.mapType,
+      project_name: payload.projectName,
+      screen_name: payload.screenName,
+      aspect_ratio_w: payload.aspectRatioW,
+      aspect_ratio_h: payload.aspectRatioH,
+      resolution_w: payload.resolutionW,
+      resolution_h: payload.resolutionH,
+      settings: payload.settings,
+    })
+    .select()
+    .single();
 
   if (error) {
     console.error("Error saving pixel map:", error);
     throw error;
+  }
+
+  return data;
+};
+
+/**
+ * Fetches the total count of registered users by counting unique users who created documents.
+ * @returns The total number of unique users or null if query fails.
+ */
+export const fetchUserCount = async (): Promise<number | null> => {
+  try {
+    // Use RPC function to count unique users across all document types
+    const { data, error } = await supabase.rpc("get_total_user_count");
+
+    if (error) {
+      console.error("Error fetching user count:", error);
+      return null;
+    }
+
+    return data;
+  } catch (err) {
+    console.error("Error fetching user count:", err);
+    return null;
   }
 };

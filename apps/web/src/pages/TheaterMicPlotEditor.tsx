@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { v4 as uuidv4 } from "uuid";
@@ -20,7 +20,15 @@ import {
   updateSharedResource,
   verifyShareLink,
   SharedLink,
-} from "../lib/shareUtils"; // Import share utilities
+} from "../lib/shareUtils";
+import { useAuth } from "../lib/AuthContext";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { useCollaboration } from "@/hooks/useCollaboration";
+import { usePresence } from "@/hooks/usePresence";
+import { CollaborationToolbar } from "@/components/CollaborationToolbar";
+import { DocumentHistory } from "@/components/History/DocumentHistory";
+import { ConflictResolution } from "@/components/ConflictResolution";
+import type { DocumentConflict } from "@/types/collaboration";
 
 interface TheaterMicPlot {
   id: string;
@@ -35,22 +43,153 @@ const TheaterMicPlotEditor: React.FC = () => {
   const { id: routeId, shareCode } = useParams<{ id?: string; shareCode?: string }>(); // id can be 'new' or actual id, shareCode for shared edits
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [micPlot, setMicPlot] = useState<TheaterMicPlot | null>(null);
-  const [user, setUser] = useState<any>(null); // Current authenticated user
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSharedEdit, setIsSharedEdit] = useState(false);
   const [sharedLinkInfo, setSharedLinkInfo] = useState<SharedLink | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showConflict, setShowConflict] = useState(false);
+  const [conflict, setConflict] = useState<DocumentConflict | null>(null);
+
+  // For unauthenticated shared edit users, generate a temporary ID
+  const [anonymousUserId] = useState(() => `anonymous-${uuidv4()}`);
+  const effectiveUserId = user?.id || (isSharedEdit ? anonymousUserId : "");
+  const effectiveUserEmail = user?.email || (isSharedEdit ? `${anonymousUserId}@shared` : "");
+  const effectiveUserName = user?.user_metadata?.name || (isSharedEdit ? "Anonymous User" : "");
+
+  // Enable collaboration for existing documents (including edit-mode shared links)
+  // For shared links, routeId will be undefined, so we check micPlot?.id instead
+  // For edit-mode shared links, allow collaboration even without authentication
+  const collaborationEnabled =
+    (routeId ? routeId !== "new" : true) && // Allow if no routeId param (shared link) or if routeId !== "new"
+    (!isSharedEdit || sharedLinkInfo?.link_type === "edit") &&
+    !!micPlot?.id &&
+    (!!user || (isSharedEdit && sharedLinkInfo?.link_type === "edit")); // Allow unauthenticated for edit-mode shared links
+
+  // Debug: Log collaboration status
+  useEffect(() => {
+    const status = {
+      collaborationEnabled,
+      routeId,
+      idCheck: routeId ? routeId !== "new" : true,
+      isNew: routeId === "new",
+      isSharedEdit,
+      sharedLinkType: sharedLinkInfo?.link_type,
+      shareEditCheck: !isSharedEdit || sharedLinkInfo?.link_type === "edit",
+      hasMicPlotId: !!micPlot?.id,
+      hasUser: !!user,
+      userId: user?.id,
+      micPlotId: micPlot?.id,
+    };
+    console.log("[TheaterMicPlotEditor] Collaboration status:");
+    console.log(JSON.stringify(status, null, 2));
+  }, [collaborationEnabled, routeId, isSharedEdit, sharedLinkInfo, micPlot?.id, user]);
+
+  const {
+    saveStatus,
+    lastSavedAt,
+    forceSave,
+    error: autoSaveError,
+  } = useAutoSave({
+    documentId: micPlot?.id || "",
+    documentType: "theater_mic_plots",
+    userId: effectiveUserId,
+    data: micPlot,
+    enabled: collaborationEnabled,
+    debounceMs: 1500,
+    shareCode: isSharedEdit && shareCode ? shareCode : undefined,
+    onBeforeSave: async (data) => {
+      if (!data.name || data.name.trim() === "") return false;
+      return true;
+    },
+  });
+
+  const {
+    activeUsers,
+    broadcast,
+    status: connectionStatus,
+  } = useCollaboration({
+    documentId: micPlot?.id || "",
+    documentType: "theater_mic_plots",
+    userId: effectiveUserId,
+    userEmail: effectiveUserEmail,
+    userName: effectiveUserName,
+    enabled: collaborationEnabled,
+    onRemoteUpdate: (payload) => {
+      if (payload.type === "field_update" && payload.field) {
+        setMicPlot((prev: any) => (prev ? { ...prev, [payload.field!]: payload.value } : prev));
+      }
+    },
+  });
+
+  const { setEditingField } = usePresence({ channel: null, userId: effectiveUserId });
+
+  // Real-time database subscription for syncing changes across users
+  useEffect(() => {
+    if (!collaborationEnabled || !micPlot?.id) {
+      return;
+    }
+
+    console.log(
+      "[TheaterMicPlotEditor] Setting up real-time subscription for mic plot:",
+      micPlot.id,
+    );
+
+    const channel = supabase
+      .channel(`theater_mic_plot_db_${micPlot.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "theater_mic_plots",
+          filter: `id=eq.${micPlot.id}`,
+        },
+        (payload) => {
+          console.log("[TheaterMicPlotEditor] Received database UPDATE event:", payload);
+          // Update local state with the new data
+          // IMPORTANT: Exclude metadata fields (version, last_edited, metadata) to prevent
+          // triggering auto-save, which would create an infinite loop
+          if (payload.new) {
+            const { version, last_edited, metadata, ...userEditableFields } = payload.new as any;
+            setMicPlot((prev: any) => ({
+              ...prev,
+              ...userEditableFields,
+              // Keep existing metadata to avoid triggering auto-save
+              version: prev?.version,
+              last_edited: prev?.last_edited,
+              metadata: prev?.metadata,
+            }));
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      console.log("[TheaterMicPlotEditor] Cleaning up real-time subscription");
+      supabase.removeChannel(channel);
+    };
+  }, [collaborationEnabled, micPlot?.id]);
+
+  // Keyboard shortcut for manual save (Cmd/Ctrl+S)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        forceSave();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [forceSave]);
 
   useEffect(() => {
     const initializeEditor = async () => {
       setLoading(true);
-      const {
-        data: { user: currentUser },
-      } = await supabase.auth.getUser();
-      setUser(currentUser); // Set current user regardless of shared or owned
 
       if (shareCode) {
         // Handling shared edit link
@@ -73,14 +212,14 @@ const TheaterMicPlotEditor: React.FC = () => {
       } else {
         // Handling owned document or new document
         setIsSharedEdit(false);
-        if (!currentUser) {
+        if (!user) {
           navigate("/login", { state: { from: location.pathname } });
           return;
         }
         if (routeId === "new") {
           setMicPlot({
             id: uuidv4(),
-            user_id: currentUser.id,
+            user_id: user.id,
             name: "Untitled Theater Mic Plot",
             created_at: new Date().toISOString(),
             last_edited: new Date().toISOString(),
@@ -93,7 +232,7 @@ const TheaterMicPlotEditor: React.FC = () => {
               .from("theater_mic_plots")
               .select("*")
               .eq("id", routeId)
-              .eq("user_id", currentUser.id) // Ensure ownership for direct edits
+              .eq("user_id", user.id) // Ensure ownership for direct edits
               .single();
 
             if (error && error.code !== "PGRST116") throw error; // PGRST116: single row not found
@@ -120,10 +259,25 @@ const TheaterMicPlotEditor: React.FC = () => {
       }
     };
     initializeEditor();
-  }, [routeId, shareCode, navigate, location.pathname]);
+  }, [routeId, shareCode, navigate, location.pathname, user]);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (micPlot) setMicPlot({ ...micPlot, name: e.target.value });
+    if (micPlot) {
+      const newName = e.target.value;
+      setMicPlot({ ...micPlot, name: newName });
+
+      // Broadcast name change to other collaborators
+      if (collaborationEnabled && broadcast) {
+        broadcast({
+          type: "field_update",
+          field: "name",
+          value: newName,
+          userId: effectiveUserId,
+        }).catch((err) =>
+          console.error("[TheaterMicPlotEditor] Failed to broadcast name change:", err),
+        );
+      }
+    }
   };
 
   const handleAddActor = () => {
@@ -142,27 +296,72 @@ const TheaterMicPlotEditor: React.FC = () => {
         costume_notes: "",
         wig_hair_notes: "",
       };
-      setMicPlot({ ...micPlot, actors: [...micPlot.actors, newActor] });
+      const updatedActors = [...micPlot.actors, newActor];
+      setMicPlot({ ...micPlot, actors: updatedActors });
+
+      // Broadcast actor addition to other collaborators
+      if (collaborationEnabled && broadcast) {
+        broadcast({
+          type: "field_update",
+          field: "actors",
+          value: updatedActors,
+          userId: effectiveUserId,
+        }).catch((err) =>
+          console.error("[TheaterMicPlotEditor] Failed to broadcast actor addition:", err),
+        );
+      }
     }
   };
 
   const handleUpdateActor = (id: string, field: keyof ActorEntry, value: any) => {
     if (micPlot) {
+      const updatedActors = micPlot.actors.map((a) => (a.id === id ? { ...a, [field]: value } : a));
       setMicPlot({
         ...micPlot,
-        actors: micPlot.actors.map((a) => (a.id === id ? { ...a, [field]: value } : a)),
+        actors: updatedActors,
       });
+
+      // Broadcast actor update to other collaborators
+      if (collaborationEnabled && broadcast) {
+        broadcast({
+          type: "field_update",
+          field: "actors",
+          value: updatedActors,
+          userId: effectiveUserId,
+        }).catch((err) =>
+          console.error("[TheaterMicPlotEditor] Failed to broadcast actor update:", err),
+        );
+      }
     }
   };
 
   const handleDeleteActor = (id: string) => {
     if (micPlot) {
-      setMicPlot({ ...micPlot, actors: micPlot.actors.filter((a) => a.id !== id) });
+      const updatedActors = micPlot.actors.filter((a) => a.id !== id);
+      setMicPlot({ ...micPlot, actors: updatedActors });
+
+      // Broadcast actor deletion to other collaborators
+      if (collaborationEnabled && broadcast) {
+        broadcast({
+          type: "field_update",
+          field: "actors",
+          value: updatedActors,
+          userId: effectiveUserId,
+        }).catch((err) =>
+          console.error("[TheaterMicPlotEditor] Failed to broadcast actor deletion:", err),
+        );
+      }
     }
   };
 
   const handleSave = async () => {
     if (!micPlot) return;
+
+    if (collaborationEnabled) {
+      await forceSave();
+      return;
+    }
+
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
@@ -250,7 +449,21 @@ const TheaterMicPlotEditor: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      <Header dashboard={!isSharedEdit} /> {/* Show dashboard header only if not shared edit */}
+      <Header dashboard={!isSharedEdit} />
+      {collaborationEnabled && (
+        <CollaborationToolbar
+          saveStatus={saveStatus}
+          lastSavedAt={lastSavedAt ? new Date(lastSavedAt) : undefined}
+          saveError={autoSaveError || undefined}
+          onRetry={forceSave}
+          activeUsers={activeUsers}
+          currentUserId={user?.id}
+          connectionStatus={connectionStatus}
+          onOpenHistory={() => setShowHistory(true)}
+          showHistory={true}
+          position="top-right"
+        />
+      )}
       {isSharedEdit && (
         <div className="fixed top-0 left-0 right-0 z-40 bg-gray-900/95 shadow-md backdrop-blur-sm py-3">
           <div className="container mx-auto px-4 flex items-center justify-between">
@@ -302,20 +515,22 @@ const TheaterMicPlotEditor: React.FC = () => {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 fixed bottom-4 right-4 z-20 md:static md:z-auto sm:ml-auto flex-shrink-0">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="inline-flex items-center bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg md:shadow-none"
-            >
-              {saving ? (
-                <Loader className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
-              )}
-              {saving ? "Saving..." : "Save Plot"}
-            </button>
-          </div>
+          {routeId === "new" && (
+            <div className="flex items-center gap-2 fixed bottom-4 right-4 z-20 md:static md:z-auto sm:ml-auto flex-shrink-0">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="inline-flex items-center bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg md:shadow-none"
+              >
+                {saving ? (
+                  <Loader className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                {saving ? "Saving..." : "Save Plot"}
+              </button>
+            </div>
+          )}
         </div>
 
         {saveError && (
@@ -363,22 +578,43 @@ const TheaterMicPlotEditor: React.FC = () => {
           ))}
         </div>
 
-        <div className="flex justify-center py-8">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="inline-flex items-center bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg text-base"
-          >
-            {saving ? (
-              <Loader className="h-5 w-5 mr-2 animate-spin" />
-            ) : (
-              <Save className="h-5 w-5 mr-2" />
-            )}
-            {saving ? "Saving Mic Plot..." : "Save Mic Plot"}
-          </button>
-        </div>
+        {routeId === "new" && (
+          <div className="flex justify-center py-8">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg text-base"
+            >
+              {saving ? (
+                <Loader className="h-5 w-5 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-5 w-5 mr-2" />
+              )}
+              {saving ? "Saving Mic Plot..." : "Save Mic Plot"}
+            </button>
+          </div>
+        )}
       </main>
       <Footer />
+      {collaborationEnabled && (
+        <>
+          <DocumentHistory
+            isOpen={showHistory}
+            onClose={() => setShowHistory(false)}
+            documentId={micPlot?.id || ""}
+            documentType="theater_mic_plots"
+          />
+          <ConflictResolution
+            isOpen={showConflict}
+            onClose={() => setShowConflict(false)}
+            conflict={conflict}
+            onResolve={(resolution) => {
+              setShowConflict(false);
+              setConflict(null);
+            }}
+          />
+        </>
+      )}
     </div>
   );
 };

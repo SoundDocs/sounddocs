@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { User } from "@supabase/supabase-js";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import ImportShowFlowModal from "../components/ImportShowFlowModal";
 import {
   Loader,
   ArrowLeft,
+  ArrowUp,
+  ArrowDown,
   Save,
   Plus,
   Trash2,
@@ -16,9 +20,18 @@ import {
   MonitorPlay,
   Palette,
   AlertTriangle,
+  FileJson,
+  Copy,
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
-import { verifyShareLink, SharedLink } from "../lib/shareUtils";
+import { getSharedResource, SharedLink } from "../lib/shareUtils";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { useCollaboration } from "@/hooks/useCollaboration";
+import { usePresence } from "@/hooks/usePresence";
+import { CollaborationToolbar } from "@/components/CollaborationToolbar";
+import { DocumentHistory } from "@/components/History/DocumentHistory";
+import { ConflictResolution } from "@/components/ConflictResolution";
+import type { DocumentConflict } from "@/types/collaboration";
 
 // Interfaces
 export interface RunOfShowItem {
@@ -37,7 +50,7 @@ export interface RunOfShowItem {
   audio?: string;
   video?: string;
   lights?: string;
-  [customKey: string]: any;
+  [customKey: string]: string | number | boolean | undefined;
 }
 
 export interface CustomColumnDefinition {
@@ -56,7 +69,7 @@ interface RunOfShowData {
   default_column_colors?: Record<string, string>; // Store colors for default columns
   created_at?: string;
   last_edited?: string;
-  live_show_data?: any | null; // Added for consistency with shared data
+  live_show_data?: Record<string, unknown> | null; // Added for consistency with shared data
 }
 
 // Time calculation utilities
@@ -138,7 +151,7 @@ const RunOfShowEditor: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [runOfShow, setRunOfShow] = useState<RunOfShowData | null>(null);
-  const [user, setUser] = useState<any>(null); // Authenticated user
+  const [user, setUser] = useState<User | null>(null); // Authenticated user
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -155,7 +168,157 @@ const RunOfShowEditor: React.FC = () => {
   const colorPickerModalRef = useRef<HTMLDivElement>(null);
 
   const [currentIsSharedEdit, setCurrentIsSharedEdit] = useState(false);
-  const [sharedLinkData, setSharedLinkData] = useState<SharedLink | null>(null);
+  const [currentShareLink, setCurrentShareLink] = useState<SharedLink | null>(null);
+
+  // For unauthenticated shared edit users, generate a temporary ID
+  const [anonymousUserId] = useState(() => `anonymous-${uuidv4()}`);
+  const effectiveUserId = user?.id || (currentIsSharedEdit ? anonymousUserId : "");
+  const effectiveUserEmail =
+    user?.email || (currentIsSharedEdit ? `${anonymousUserId}@shared` : "");
+  const effectiveUserName =
+    user?.user_metadata?.name || (currentIsSharedEdit ? "Anonymous User" : "");
+  const [showHistory, setShowHistory] = useState(false);
+  const [showConflict, setShowConflict] = useState(false);
+  const [conflict, setConflict] = useState<DocumentConflict | null>(null);
+
+  // State for import modal
+  const [showImportModal, setShowImportModal] = useState(false);
+
+  // Enable collaboration for existing documents (including edit-mode shared links)
+  // For shared links, id will be undefined, so we check runOfShow?.id instead
+  // For edit-mode shared links, allow collaboration even without authentication
+  const collaborationEnabled =
+    (id ? id !== "new" : true) && // Allow if no id param (shared link) or if id !== "new"
+    (!currentIsSharedEdit || currentShareLink?.link_type === "edit") &&
+    !!runOfShow?.id &&
+    (!!user || (currentIsSharedEdit && currentShareLink?.link_type === "edit")); // Allow unauthenticated for edit-mode shared links
+
+  // Debug: Log collaboration status and history modal state
+  useEffect(() => {
+    const status = {
+      collaborationEnabled,
+      id,
+      idCheck: id ? id !== "new" : true,
+      isNew: id === "new",
+      currentIsSharedEdit,
+      currentShareLinkType: currentShareLink?.link_type,
+      shareEditCheck: !currentIsSharedEdit || currentShareLink?.link_type === "edit",
+      hasDocumentId: !!runOfShow?.id,
+      hasUser: !!user,
+      userId: user?.id,
+      documentId: runOfShow?.id,
+      showHistory,
+    };
+    console.log("[RunOfShowEditor] Collaboration status:");
+    console.log(JSON.stringify(status, null, 2));
+  }, [
+    collaborationEnabled,
+    id,
+    currentIsSharedEdit,
+    currentShareLink,
+    runOfShow?.id,
+    user,
+    showHistory,
+  ]);
+
+  const {
+    saveStatus,
+    lastSavedAt,
+    forceSave,
+    error: autoSaveError,
+  } = useAutoSave({
+    documentId: runOfShow?.id || "",
+    documentType: "run_of_shows",
+    userId: effectiveUserId,
+    data: runOfShow,
+    enabled: collaborationEnabled,
+    debounceMs: 1500,
+    shareCode:
+      currentIsSharedEdit && currentShareLink?.link_type === "edit" ? shareCode : undefined,
+    onBeforeSave: async (data) => {
+      if (!data.name || data.name.trim() === "") return false;
+      return true;
+    },
+  });
+
+  const { activeUsers, status: connectionStatus } = useCollaboration({
+    documentId: runOfShow?.id || "",
+    documentType: "run_of_shows",
+    userId: effectiveUserId,
+    userEmail: effectiveUserEmail,
+    userName: effectiveUserName,
+    enabled: collaborationEnabled,
+    onRemoteUpdate: (payload) => {
+      if (payload.type === "field_update" && payload.field) {
+        setRunOfShow((prev) => (prev ? { ...prev, [payload.field!]: payload.value } : prev));
+      }
+    },
+  });
+
+  // Presence tracking (currently not used but will be needed for cursor/field tracking)
+  usePresence({ channel: null, userId: effectiveUserId });
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        forceSave();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [forceSave]);
+
+  // Real-time database subscription for syncing changes across users
+  useEffect(() => {
+    if (!collaborationEnabled || !runOfShow?.id) {
+      return;
+    }
+
+    console.log(
+      "[RunOfShowEditor] Setting up real-time subscription for run_of_show:",
+      runOfShow.id,
+    );
+
+    const channel = supabase
+      .channel(`run_of_show_db_${runOfShow.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "run_of_shows",
+          filter: `id=eq.${runOfShow.id}`,
+        },
+        (payload) => {
+          console.log("[RunOfShowEditor] Received database UPDATE event:", payload);
+          // Update local state with the new data
+          // IMPORTANT: Exclude metadata fields (version, last_edited, metadata) to prevent
+          // triggering auto-save, which would create an infinite loop
+          if (payload.new) {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { version, last_edited, metadata, ...userEditableFields } = payload.new as Record<
+              string,
+              unknown
+            >;
+            setRunOfShow((prev) => ({
+              ...prev,
+              ...userEditableFields,
+              // Keep existing metadata to avoid triggering auto-save
+              version: prev?.version,
+              last_edited: prev?.last_edited,
+              metadata: prev?.metadata,
+            }));
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      console.log("[RunOfShowEditor] Cleaning up real-time subscription");
+      supabase.removeChannel(channel);
+    };
+  }, [collaborationEnabled, runOfShow?.id]);
 
   // Effect 1: Determine and set currentIsSharedEdit
   useEffect(() => {
@@ -183,19 +346,27 @@ const RunOfShowEditor: React.FC = () => {
 
       try {
         let data: RunOfShowData | null = null;
-        let error: any = null;
+        let error: unknown = null;
 
-        if (currentIsSharedEdit && shareCode && resourceIdToFetch) {
-          console.log(
-            `[RoSEditor] Fetching shared RoS by resource_id: ${resourceIdToFetch} via shareCode: ${shareCode}`,
-          );
-          const response = await supabase
-            .from("run_of_shows")
-            .select("*")
-            .eq("id", resourceIdToFetch)
-            .single();
-          data = response.data;
-          error = response.error;
+        if (currentIsSharedEdit && shareCode) {
+          console.log(`[RoSEditor] Fetching shared RoS via shareCode: ${shareCode}`);
+          const { resource, shareLink: fetchedShareLink } = await getSharedResource(shareCode);
+          if (resource && fetchedShareLink) {
+            // Validate resource type and link type
+            if (fetchedShareLink.resource_type !== "run_of_show") {
+              throw new Error("Invalid share link: not a Run of Show");
+            }
+            if (fetchedShareLink.link_type !== "edit") {
+              throw new Error("This share link is view-only, not editable");
+            }
+            setCurrentShareLink(fetchedShareLink);
+            data = {
+              ...(resource as RunOfShowData),
+              id: fetchedShareLink.resource_id, // Ensure id is set
+            };
+          } else {
+            error = new Error("Shared resource not found");
+          }
         } else if (id === "new") {
           console.log("[RoSEditor] Creating new RoS");
           setRunOfShow({
@@ -227,7 +398,7 @@ const RunOfShowEditor: React.FC = () => {
         if (error) throw error;
 
         if (data) {
-          const migratedItems = (data.items || []).map((item: any) => ({
+          const migratedItems = (data.items || []).map((item: RunOfShowItem) => ({
             ...item,
             type: item.type || "item",
             highlightColor: item.highlightColor || undefined,
@@ -235,10 +406,12 @@ const RunOfShowEditor: React.FC = () => {
           setRunOfShow({
             ...data,
             items: migratedItems,
-            custom_column_definitions: (data.custom_column_definitions || []).map((col: any) => ({
-              ...col,
-              type: col.type || "text",
-            })),
+            custom_column_definitions: (data.custom_column_definitions || []).map(
+              (col: CustomColumnDefinition) => ({
+                ...col,
+                type: col.type || "text",
+              }),
+            ),
             default_column_colors: data.default_column_colors || {},
           });
         } else {
@@ -250,9 +423,11 @@ const RunOfShowEditor: React.FC = () => {
             navigate("/dashboard");
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error fetching run of show:", err);
-        setSaveError(`Failed to load run of show data: ${err.message}`);
+        setSaveError(
+          `Failed to load run of show data: ${err instanceof Error ? err.message : String(err)}`,
+        );
         if (!currentIsSharedEdit) {
           console.log(
             "[RoSEditor] fetchAndSetRunOfShow: Caught error, !currentIsSharedEdit -> navigating to dashboard.",
@@ -293,20 +468,13 @@ const RunOfShowEditor: React.FC = () => {
 
       if (currentIsSharedEdit && shareCode) {
         try {
-          console.log(
-            `[RoSEditor] Verifying shareCode for shared edit: ${shareCode}. currentIsSharedEdit is true.`,
-          );
-          const verifiedLink = await verifyShareLink(shareCode);
-          if (verifiedLink.resource_type === "run_of_show" && verifiedLink.link_type === "edit") {
-            setSharedLinkData(verifiedLink);
-            await fetchAndSetRunOfShow(undefined, verifiedLink.resource_id);
-          } else {
-            throw new Error("Invalid share link type or resource for editing.");
-          }
-        } catch (err: any) {
-          console.error("Error verifying share link for RoS edit:", err);
+          console.log(`[RoSEditor] Loading shared edit via shareCode: ${shareCode}`);
+          // fetchAndSetRunOfShow will call getSharedResource which validates and sets currentShareLink
+          await fetchAndSetRunOfShow();
+        } catch (err: unknown) {
+          console.error("Error loading shared Run of Show:", err);
           setSaveError(
-            `Error: ${err.message}. You may not have permission to edit this document or the link is invalid.`,
+            `Error: ${err instanceof Error ? err.message : String(err)}. You may not have permission to edit this document or the link is invalid.`,
           );
           setLoading(false);
         }
@@ -431,26 +599,33 @@ const RunOfShowEditor: React.FC = () => {
 
     // Only calculate if both start time and duration are valid
     if (currentStartTime !== null && currentDuration !== null) {
-      const nextStartTimeSeconds = currentStartTime + currentDuration;
-      const nextStartTime = formatSecondsToTime(nextStartTimeSeconds);
+      // Initialize cumulative end time with the current item's end time
+      let cumulativeEndTimeSeconds = currentStartTime + currentDuration;
 
-      // Find and update all immediately following items (both headers and regular items)
+      // Update all following items in cascade
       for (let i = currentIndex + 1; i < updatedItems.length; i++) {
         const nextItem = updatedItems[i];
 
         if (nextItem.type === "header") {
-          // Update section header start time
+          // Update section header start time to match running time
           updatedItems[i] = {
             ...updatedItems[i],
-            startTime: nextStartTime,
+            startTime: formatSecondsToTime(cumulativeEndTimeSeconds),
           };
+          // Headers don't have duration, so cumulative time stays the same
         } else if (nextItem.type === "item") {
-          // Update next regular item start time and stop (only update the first regular item)
+          // Update regular item start time to previous item's end time
           updatedItems[i] = {
             ...updatedItems[i],
-            startTime: nextStartTime,
+            startTime: formatSecondsToTime(cumulativeEndTimeSeconds),
           };
-          break; // Stop after the first regular item
+
+          // Calculate this item's end time for the next iteration
+          const itemDuration = parseDurationToSeconds(nextItem.duration || "");
+          if (itemDuration !== null) {
+            cumulativeEndTimeSeconds += itemDuration;
+          }
+          // Continue to next item (no break - this is the fix!)
         }
       }
     }
@@ -458,7 +633,11 @@ const RunOfShowEditor: React.FC = () => {
     return updatedItems;
   };
 
-  const handleItemChange = (itemId: string, field: keyof RunOfShowItem | string, value: any) => {
+  const handleItemChange = (
+    itemId: string,
+    field: keyof RunOfShowItem | string,
+    value: string | number | boolean | undefined,
+  ) => {
     if (runOfShow) {
       const updatedItems = runOfShow.items.map((item) =>
         item.id === itemId ? { ...item, [field]: value } : item,
@@ -484,6 +663,219 @@ const RunOfShowEditor: React.FC = () => {
         items: runOfShow.items.filter((item) => item.id !== itemId),
       });
     }
+  };
+
+  const handleDuplicateItem = (itemId: string) => {
+    if (!runOfShow) return;
+
+    const itemIndex = runOfShow.items.findIndex((item) => item.id === itemId);
+    if (itemIndex === -1) return;
+
+    const originalItem = runOfShow.items[itemIndex];
+
+    // Create a deep copy of the item with a new UUID
+    const duplicatedItem: RunOfShowItem = {
+      ...originalItem,
+      id: uuidv4(),
+    };
+
+    // Handle item number for regular items
+    if (originalItem.type === "item" && originalItem.itemNumber) {
+      const itemNumber = originalItem.itemNumber;
+
+      // Check if itemNumber is a pure number
+      const parsedNumber = parseInt(itemNumber, 10);
+      if (!isNaN(parsedNumber) && parsedNumber.toString() === itemNumber) {
+        // Pure number: increment by 1
+        duplicatedItem.itemNumber = (parsedNumber + 1).toString();
+      } else {
+        // Contains text: append "(copy)"
+        duplicatedItem.itemNumber = `${itemNumber} (copy)`;
+      }
+    }
+
+    // For headers, keep the same headerTitle but could optionally append "(copy)"
+    // if (originalItem.type === "header" && originalItem.headerTitle) {
+    //   duplicatedItem.headerTitle = `${originalItem.headerTitle} (copy)`;
+    // }
+
+    // Insert the duplicated item immediately after the original
+    const newItems = [
+      ...runOfShow.items.slice(0, itemIndex + 1),
+      duplicatedItem,
+      ...runOfShow.items.slice(itemIndex + 1),
+    ];
+
+    setRunOfShow({
+      ...runOfShow,
+      items: newItems,
+    });
+  };
+
+  const handleMoveItem = (itemId: string, direction: "up" | "down") => {
+    if (!runOfShow) return;
+
+    const items = [...runOfShow.items];
+    const currentIndex = items.findIndex((item) => item.id === itemId);
+
+    if (currentIndex === -1) return;
+
+    let targetIndex: number;
+    if (direction === "up") {
+      targetIndex = currentIndex - 1;
+      if (targetIndex < 0) return;
+    } else {
+      targetIndex = currentIndex + 1;
+      if (targetIndex >= items.length) return;
+    }
+
+    // Step 1: Calculate gaps BEFORE reordering
+    // This captures the gap each item has relative to its IMMEDIATE previous item
+    const itemsWithGaps = items.map((item, index) => {
+      let gap = 0;
+
+      if (item.type === "item") {
+        const itemStartTime = parseTimeToSeconds(item.startTime || "");
+
+        if (itemStartTime === null) {
+          // Without a valid start time we cannot compute a reliable gap
+          return { ...item, calculatedGap: 0 };
+        }
+
+        // Walk backwards to find the previous item's end time, skipping headers
+        let prevEndTime: number | null = null;
+        for (let i = index - 1; i >= 0; i--) {
+          const prev = items[i];
+          if (prev.type !== "item") continue;
+
+          const prevStart = parseTimeToSeconds(prev.startTime || "");
+          const prevDuration = parseDurationToSeconds(prev.duration || "");
+
+          if (prevStart !== null) {
+            prevEndTime = prevStart + (prevDuration ?? 0);
+            break;
+          }
+
+          // If no start, but we have duration, keep looking further back
+          // However, don't add duration without a known anchor start.
+          if (prevStart === null) continue;
+        }
+
+        if (prevEndTime !== null) {
+          gap = itemStartTime - prevEndTime;
+          if (gap < 0) gap = 0;
+        } else {
+          // No previous item with a valid start; treat as no gap to preserve
+          gap = 0;
+        }
+      }
+
+      return { ...item, calculatedGap: gap };
+    });
+
+    // Step 2: Swap items
+    [itemsWithGaps[currentIndex], itemsWithGaps[targetIndex]] = [
+      itemsWithGaps[targetIndex],
+      itemsWithGaps[currentIndex],
+    ];
+
+    // Establish initial cumulative time from earliest anchored start (header or item)
+    const firstAnchoredStart = (() => {
+      for (const it of itemsWithGaps) {
+        const t = parseTimeToSeconds(it.startTime || "");
+        if (t !== null) return t;
+      }
+      return 0;
+    })();
+
+    // Step 3: Recalculate start times using stored gaps
+    let cumulativeEndTimeSeconds = firstAnchoredStart;
+
+    const recalculatedItems = itemsWithGaps.map((item) => {
+      if (item.type === "header") {
+        const existingStartTime = parseTimeToSeconds(item.startTime || "");
+        let newHeaderStart: string;
+
+        if (existingStartTime !== null) {
+          // Advance pointer to header time if it's ahead, clamp if behind
+          if (existingStartTime > cumulativeEndTimeSeconds) {
+            cumulativeEndTimeSeconds = existingStartTime;
+            newHeaderStart = item.startTime!;
+          } else {
+            newHeaderStart = formatSecondsToTime(cumulativeEndTimeSeconds);
+          }
+        } else {
+          newHeaderStart = formatSecondsToTime(cumulativeEndTimeSeconds);
+        }
+
+        // Return header without calculatedGap property
+        return {
+          id: item.id,
+          type: item.type,
+          itemNumber: item.itemNumber,
+          startTime: newHeaderStart,
+          highlightColor: item.highlightColor,
+          headerTitle: item.headerTitle,
+        } as RunOfShowItem;
+      }
+
+      // Items - extract gap and other properties
+      const itemWithGap = item as RunOfShowItem & { calculatedGap?: number };
+      const gap = itemWithGap.calculatedGap || 0;
+      const newStartTime = cumulativeEndTimeSeconds + gap;
+      const durationSeconds = parseDurationToSeconds(item.duration || "");
+
+      cumulativeEndTimeSeconds = newStartTime;
+      if (durationSeconds !== null) {
+        cumulativeEndTimeSeconds += durationSeconds;
+      }
+
+      // Return item without calculatedGap property
+      return {
+        id: item.id,
+        type: item.type,
+        itemNumber: item.itemNumber, // Preserve original itemNumber (user's custom name)
+        startTime: formatSecondsToTime(newStartTime),
+        highlightColor: item.highlightColor,
+        preset: item.preset,
+        duration: item.duration,
+        privateNotes: item.privateNotes,
+        productionNotes: item.productionNotes,
+        audio: item.audio,
+        video: item.video,
+        lights: item.lights,
+        // Include custom column values
+        ...Object.keys(item)
+          .filter(
+            (key) =>
+              ![
+                "id",
+                "type",
+                "itemNumber",
+                "startTime",
+                "highlightColor",
+                "preset",
+                "duration",
+                "privateNotes",
+                "productionNotes",
+                "audio",
+                "video",
+                "lights",
+                "calculatedGap",
+                "headerTitle",
+              ].includes(key),
+          )
+          .reduce(
+            (acc, key) => {
+              acc[key] = item[key as keyof RunOfShowItem];
+              return acc;
+            },
+            {} as Record<string, string | number | boolean | undefined>,
+          ),
+      } as RunOfShowItem;
+    });
+
+    setRunOfShow({ ...runOfShow, items: recalculatedItems });
   };
 
   const handleAddCustomColumn = () => {
@@ -520,7 +912,7 @@ const RunOfShowEditor: React.FC = () => {
       );
       const updatedItems: RunOfShowItem[] = runOfShow.items.map((item) => {
         if (item.type === "header") return item;
-        if (oldName !== newName.trim() && item.hasOwnProperty(oldName)) {
+        if (oldName !== newName.trim() && Object.prototype.hasOwnProperty.call(item, oldName)) {
           const { [oldName]: value, ...rest } = item;
           return { ...rest, [newName.trim()]: value } as RunOfShowItem;
         }
@@ -547,7 +939,8 @@ const RunOfShowEditor: React.FC = () => {
       );
       const updatedItems: RunOfShowItem[] = runOfShow.items.map((item) => {
         if (item.type === "header") return item;
-        const { [columnToDelete.name]: _, ...rest } = item;
+        const { [columnToDelete.name]: deletedValue, ...rest } = item;
+        void deletedValue; // Mark as intentionally unused
         return rest as RunOfShowItem;
       });
       setRunOfShow({
@@ -560,6 +953,11 @@ const RunOfShowEditor: React.FC = () => {
 
   const handleSave = async () => {
     if (!runOfShow) return;
+
+    if (collaborationEnabled) {
+      await forceSave();
+      return;
+    }
 
     if (!user && currentIsSharedEdit) {
       setSaveError(
@@ -597,8 +995,8 @@ const RunOfShowEditor: React.FC = () => {
 
     try {
       let savedData;
-      if (currentIsSharedEdit && runOfShow.id && sharedLinkData) {
-        // Ensure sharedLinkData and runOfShow.id (resource_id) are present
+      if (currentIsSharedEdit && runOfShow.id && currentShareLink) {
+        // Ensure currentShareLink and runOfShow.id (resource_id) are present
         console.log(`[RoSEditor] Saving shared RoS ID: ${runOfShow.id}`);
         const { data, error } = await supabase
           .from("run_of_shows")
@@ -634,7 +1032,7 @@ const RunOfShowEditor: React.FC = () => {
       }
 
       if (savedData) {
-        const migratedItems = (savedData.items || []).map((item: any) => ({
+        const migratedItems = (savedData.items || []).map((item: RunOfShowItem) => ({
           ...item,
           type: item.type || "item",
           highlightColor: item.highlightColor || undefined,
@@ -643,16 +1041,16 @@ const RunOfShowEditor: React.FC = () => {
           ...(savedData as RunOfShowData), // Cast to ensure type compatibility
           items: migratedItems,
           custom_column_definitions: (savedData.custom_column_definitions || []).map(
-            (col: any) => ({ ...col, type: col.type || "text" }),
+            (col: CustomColumnDefinition) => ({ ...col, type: col.type || "text" }),
           ),
         });
       }
 
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error saving run of show:", error);
-      setSaveError(`Error saving: ${error.message || "Please try again."}`);
+      setSaveError(`Error saving: ${error instanceof Error ? error.message : "Please try again."}`);
       setTimeout(() => setSaveError(null), 5000);
     } finally {
       setSaving(false);
@@ -660,7 +1058,7 @@ const RunOfShowEditor: React.FC = () => {
   };
 
   const handleNavigateToShowMode = () => {
-    const targetId = currentIsSharedEdit ? sharedLinkData?.resource_id : id;
+    const targetId = currentIsSharedEdit ? currentShareLink?.resource_id : id;
     if (targetId && targetId !== "new") {
       navigate(`/show-mode/${targetId}`);
     } else {
@@ -732,6 +1130,37 @@ const RunOfShowEditor: React.FC = () => {
       } else {
         navigate("/all-run-of-shows"); // Default for existing if no 'from'
       }
+    }
+  };
+
+  const handleImportShowFlow = (
+    name: string,
+    items: RunOfShowItem[],
+    customColumns: CustomColumnDefinition[],
+  ) => {
+    if (runOfShow) {
+      // Check if there are existing items that would be replaced
+      const hasExistingContent = runOfShow.items.length > 0;
+
+      if (hasExistingContent) {
+        const confirmMessage =
+          "Are you sure you want to import this show flow?\n\n" +
+          "This will replace all current items in your run of show. " +
+          "This action cannot be undone.";
+
+        if (!window.confirm(confirmMessage)) {
+          return;
+        }
+      }
+
+      // Replace the existing show content
+      setRunOfShow({
+        ...runOfShow,
+        name: name || runOfShow.name,
+        items: items,
+        custom_column_definitions: customColumns,
+      });
+      setShowImportModal(false);
     }
   };
 
@@ -822,7 +1251,27 @@ const RunOfShowEditor: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-      <Header dashboard={true} />
+      <Header
+        dashboard={true}
+        collaborationToolbar={
+          collaborationEnabled
+            ? {
+                saveStatus,
+                lastSavedAt: lastSavedAt ? new Date(lastSavedAt) : undefined,
+                saveError: autoSaveError || undefined,
+                onRetry: forceSave,
+                activeUsers,
+                currentUserId: effectiveUserId,
+                connectionStatus,
+                onOpenHistory: () => {
+                  console.log("[RunOfShowEditor] Opening history modal");
+                  setShowHistory(true);
+                },
+                showHistory: true,
+              }
+            : undefined
+        }
+      />
       <main className="flex-grow container mx-auto px-2 sm:px-4 py-6 md:py-12 mt-16 md:mt-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-4">
           <div className="flex items-center flex-grow min-w-0">
@@ -841,8 +1290,8 @@ const RunOfShowEditor: React.FC = () => {
                 placeholder="Enter Run of Show Name"
               />
               <p className="text-xs sm:text-sm text-gray-400 truncate">
-                {currentIsSharedEdit && sharedLinkData
-                  ? `Editing shared document (Owner ID: ${sharedLinkData.user_id || "Unknown"})`
+                {currentIsSharedEdit && currentShareLink
+                  ? `Editing shared document (Owner ID: ${currentShareLink.user_id || "Unknown"})`
                   : runOfShow.last_edited
                     ? `Last edited: ${new Date(runOfShow.last_edited).toLocaleString()}`
                     : `Created: ${new Date(runOfShow.created_at || Date.now()).toLocaleString()}`}
@@ -857,23 +1306,25 @@ const RunOfShowEditor: React.FC = () => {
               <MonitorPlay className="h-4 w-4 mr-2" />
               Show Mode
             </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg md:shadow-none"
-            >
-              {saving ? (
-                <>
-                  <Loader className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
-                </>
-              )}
-            </button>
+            {id === "new" && (
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg md:shadow-none"
+              >
+                {saving ? (
+                  <>
+                    <Loader className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
@@ -892,6 +1343,13 @@ const RunOfShowEditor: React.FC = () => {
           <div className="p-4 md:p-6 border-b border-gray-700 flex justify-between items-center">
             <h2 className="text-lg font-medium text-white">Show Content</h2>
             <div className="flex gap-2">
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+              >
+                <FileJson className="h-4 w-4 mr-1.5" />
+                Import
+              </button>
               <button
                 onClick={() => handleAddItem("header")}
                 className="inline-flex items-center bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
@@ -1100,7 +1558,7 @@ const RunOfShowEditor: React.FC = () => {
                     return (
                       <tr
                         key={item.id}
-                        className="bg-gray-700 hover:bg-gray-600 transition-colors sticky top-[49px] z-10 border-t-0"
+                        className="bg-gray-700 hover:bg-gray-600 transition-colors sticky top-[40px] z-10"
                       >
                         <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-100 pl-4 md:pl-6">
                           <input
@@ -1138,13 +1596,41 @@ const RunOfShowEditor: React.FC = () => {
                         })}
                         <td className="px-3 py-2"></td>
                         <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6">
-                          <button
-                            onClick={() => handleDeleteItem(item.id)}
-                            className="text-red-400 hover:text-red-300 p-1"
-                            title="Delete Header"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => handleMoveItem(item.id, "up")}
+                              disabled={runOfShow.items.findIndex((i) => i.id === item.id) === 0}
+                              className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                              title="Move Up"
+                            >
+                              <ArrowUp className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleMoveItem(item.id, "down")}
+                              disabled={
+                                runOfShow.items.findIndex((i) => i.id === item.id) ===
+                                runOfShow.items.length - 1
+                              }
+                              className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                              title="Move Down"
+                            >
+                              <ArrowDown className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDuplicateItem(item.id)}
+                              className="text-blue-400 hover:text-blue-300 p-1"
+                              title="Duplicate Header"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteItem(item.id)}
+                              className="text-red-400 hover:text-red-300 p-1"
+                              title="Delete Header"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1204,11 +1690,37 @@ const RunOfShowEditor: React.FC = () => {
                       <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium pr-4 md:pr-6 relative">
                         <div className="flex items-center justify-end gap-1">
                           <button
+                            onClick={() => handleMoveItem(item.id, "up")}
+                            disabled={runOfShow.items.findIndex((i) => i.id === item.id) === 0}
+                            className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                            title="Move Up"
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleMoveItem(item.id, "down")}
+                            disabled={
+                              runOfShow.items.findIndex((i) => i.id === item.id) ===
+                              runOfShow.items.length - 1
+                            }
+                            className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                            title="Move Down"
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => handleOpenColorPickerModal(item.id)}
                             className="text-indigo-400 hover:text-indigo-300 p-1"
                             title="Highlight Row"
                           >
                             <Palette className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDuplicateItem(item.id)}
+                            className="text-blue-400 hover:text-blue-300 p-1"
+                            title="Duplicate Item"
+                          >
+                            <Copy className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteItem(item.id)}
@@ -1255,13 +1767,41 @@ const RunOfShowEditor: React.FC = () => {
                         className="bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded p-1 w-full placeholder-gray-400 text-lg font-bold"
                         placeholder="Section Header Title"
                       />
-                      <button
-                        onClick={() => handleDeleteItem(item.id)}
-                        className="text-red-400 hover:text-red-300 p-1"
-                        title="Delete Header"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleMoveItem(item.id, "up")}
+                          disabled={runOfShow.items.findIndex((i) => i.id === item.id) === 0}
+                          className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                          title="Move Up"
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleMoveItem(item.id, "down")}
+                          disabled={
+                            runOfShow.items.findIndex((i) => i.id === item.id) ===
+                            runOfShow.items.length - 1
+                          }
+                          className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                          title="Move Down"
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDuplicateItem(item.id)}
+                          className="text-blue-400 hover:text-blue-300 p-1"
+                          title="Duplicate Header"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="text-red-400 hover:text-red-300 p-1"
+                          title="Delete Header"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -1275,11 +1815,37 @@ const RunOfShowEditor: React.FC = () => {
                         />
                         <div className="flex items-center gap-1">
                           <button
+                            onClick={() => handleMoveItem(item.id, "up")}
+                            disabled={runOfShow.items.findIndex((i) => i.id === item.id) === 0}
+                            className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                            title="Move Up"
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleMoveItem(item.id, "down")}
+                            disabled={
+                              runOfShow.items.findIndex((i) => i.id === item.id) ===
+                              runOfShow.items.length - 1
+                            }
+                            className="text-gray-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                            title="Move Down"
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => handleOpenColorPickerModal(item.id)}
                             className="text-indigo-400 hover:text-indigo-300 p-1"
                             title="Highlight Row"
                           >
                             <Palette className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDuplicateItem(item.id)}
+                            className="text-blue-400 hover:text-blue-300 p-1"
+                            title="Duplicate Item"
+                          >
+                            <Copy className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteItem(item.id)}
@@ -1324,34 +1890,59 @@ const RunOfShowEditor: React.FC = () => {
           </div>
         </div>
 
-        <div className="mt-8 flex justify-center items-center gap-4">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg"
-          >
-            {saving ? (
-              <>
-                <Loader className="h-5 w-5 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="h-5 w-5 mr-2" />
-                Save Run of Show
-              </>
-            )}
-          </button>
-          <button
-            onClick={handleNavigateToShowMode}
-            className="inline-flex items-center bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-6 py-3 rounded-md font-medium transition-all duration-200 shadow-lg"
-          >
-            <MonitorPlay className="h-5 w-5 mr-2" />
-            Show Mode
-          </button>
-        </div>
+        {id === "new" && (
+          <div className="mt-8 flex justify-center items-center gap-4">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg"
+            >
+              {saving ? (
+                <>
+                  <Loader className="h-5 w-5 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-5 w-5 mr-2" />
+                  Save Run of Show
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleNavigateToShowMode}
+              className="inline-flex items-center bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-6 py-3 rounded-md font-medium transition-all duration-200 shadow-lg"
+            >
+              <MonitorPlay className="h-5 w-5 mr-2" />
+              Show Mode
+            </button>
+          </div>
+        )}
       </main>
       <Footer />
+      {collaborationEnabled && (
+        <>
+          <DocumentHistory
+            open={showHistory}
+            onOpenChange={setShowHistory}
+            versions={[]}
+            onRestore={(versionId) => {
+              console.log("[RunOfShowEditor] Restore version:", versionId);
+              // TODO: Implement version restore
+            }}
+            loading={false}
+          />
+          <ConflictResolution
+            isOpen={showConflict}
+            onClose={() => setShowConflict(false)}
+            conflict={conflict}
+            onResolve={() => {
+              setShowConflict(false);
+              setConflict(null);
+            }}
+          />
+        </>
+      )}
 
       {/* Color Picker Modal */}
       {(colorPickerModalTargetItemId || colorPickerModalTargetColumnId) && (
@@ -1428,6 +2019,13 @@ const RunOfShowEditor: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Import Show Flow Modal */}
+      <ImportShowFlowModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImport={handleImportShowFlow}
+      />
     </div>
   );
 };

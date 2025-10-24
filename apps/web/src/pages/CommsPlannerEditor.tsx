@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "../lib/AuthContext";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import {
@@ -24,6 +26,20 @@ import CommsPlanExport from "../components/CommsPlanExport";
 import PrintCommsPlanExport from "../components/PrintCommsPlanExport";
 import ExportModal from "../components/ExportModal";
 import { CommsPlan } from "../lib/commsTypes";
+import { v4 as uuidv4 } from "uuid";
+import {
+  getSharedResource,
+  updateSharedResource,
+  getShareUrl,
+  SharedLink,
+} from "../lib/shareUtils";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { useCollaboration } from "@/hooks/useCollaboration";
+import { usePresence } from "@/hooks/usePresence";
+import { CollaborationToolbar } from "@/components/CollaborationToolbar";
+import { DocumentHistory } from "@/components/History/DocumentHistory";
+import { ConflictResolution } from "@/components/ConflictResolution";
+import type { DocumentConflict, VersionHistory } from "@/types/collaboration";
 import {
   SystemType,
   SystemModel,
@@ -38,16 +54,34 @@ import {
   ValidationResult,
 } from "../lib/commsTypes";
 import { saveCommsPlan, getCommsPlan } from "../lib/commsPlannerUtils";
-import { v4 as uuidv4 } from "uuid";
 
 const CommsPlannerEditor = () => {
-  const { id } = useParams();
+  const { id, shareCode } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSharedEdit, setIsSharedEdit] = useState(false);
+  const [currentShareLink, setCurrentShareLink] = useState<SharedLink | null>(null);
+
+  // Collaboration state
+  const [showHistory, setShowHistory] = useState(false);
+  const [showConflict, setShowConflict] = useState(false);
+  const [conflict, setConflict] = useState<DocumentConflict | null>(null);
+
+  // Version history state
+  const [versionHistory, setVersionHistory] = useState<VersionHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  // For unauthenticated shared edit users, generate a temporary ID
+  const [anonymousUserId] = useState(() => `anonymous-${uuidv4()}`);
+  const effectiveUserId = user?.id || (isSharedEdit ? anonymousUserId : "");
+  const effectiveUserEmail = user?.email || (isSharedEdit ? `${anonymousUserId}@shared` : "");
+  const effectiveUserName = user?.user_metadata?.name || (isSharedEdit ? "Anonymous User" : "");
   const {
     planName,
     elements,
@@ -78,6 +112,37 @@ const CommsPlannerEditor = () => {
   const [totalPoELoad, setTotalPoELoad] = useState(0);
   const isInitialMount = useRef(true);
 
+  // Get actual document ID from store (for collaboration)
+  const [documentId, setDocumentId] = useState<string | null>(null);
+
+  // Enable collaboration for existing documents (including edit-mode shared links)
+  // For shared links, id will be undefined, so we check documentId instead
+  // For edit-mode shared links, allow collaboration even without authentication
+  const collaborationEnabled =
+    (id ? id !== "new" : true) && // Allow if no id param (shared link) or if id !== "new"
+    (!isSharedEdit || currentShareLink?.link_type === "edit") &&
+    !!documentId &&
+    (!!user || (isSharedEdit && currentShareLink?.link_type === "edit")); // Allow unauthenticated for edit-mode shared links
+
+  // Debug: Log collaboration status
+  useEffect(() => {
+    const status = {
+      collaborationEnabled,
+      id,
+      idCheck: id ? id !== "new" : true,
+      isNew: id === "new",
+      isSharedEdit,
+      currentShareLinkType: currentShareLink?.link_type,
+      shareEditCheck: !isSharedEdit || currentShareLink?.link_type === "edit",
+      hasDocumentId: !!documentId,
+      hasUser: !!user,
+      userId: user?.id,
+      documentId,
+    };
+    console.log("[CommsPlannerEditor] Collaboration status:");
+    console.log(JSON.stringify(status, null, 2));
+  }, [collaborationEnabled, id, isSharedEdit, currentShareLink, documentId, user]);
+
   // Export state
   const [exporting, setExporting] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -90,6 +155,167 @@ const CommsPlannerEditor = () => {
   const [showCoverage, setShowCoverage] = useState(true);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [fitMode, setFitMode] = useState<"fit" | "fill">("fit");
+
+  // Auto-save hook - Create a document data object for auto-save
+  const documentData = documentId
+    ? {
+        id: documentId,
+        name: planName,
+        venue_geometry: {
+          width: venueWidth,
+          height: venueHeight,
+        },
+        zones,
+        elements: elements.map((el) => ({
+          ...el,
+          system_type: el.systemType,
+          channel_set: el.channels,
+        })),
+        beltpacks,
+        dfs_enabled: dfsEnabled,
+        poe_budget_total: poeBudget,
+      }
+    : null;
+
+  const {
+    saveStatus,
+    lastSavedAt,
+    forceSave,
+    error: autoSaveError,
+  } = useAutoSave({
+    documentId: documentId || "",
+    documentType: "comms_planners",
+    userId: effectiveUserId,
+    data: documentData,
+    enabled: collaborationEnabled,
+    debounceMs: 1500,
+    onBeforeSave: async (data) => {
+      // Validate data before saving
+      if (!data.name || data.name.trim() === "") {
+        return false;
+      }
+      return true;
+    },
+  });
+
+  // Collaboration hook
+  const {
+    activeUsers,
+    broadcast,
+    status: connectionStatus,
+  } = useCollaboration({
+    documentId: documentId || "",
+    documentType: "comms_planners",
+    userId: effectiveUserId,
+    userEmail: effectiveUserEmail,
+    userName: effectiveUserName,
+    enabled: collaborationEnabled,
+    onRemoteUpdate: (payload) => {
+      if (payload.type === "field_update" && payload.field) {
+        // Handle field updates from remote users
+        console.log("[CommsPlannerEditor] Remote field update:", payload.field, payload.value);
+        // Update will be handled by database subscription
+      }
+    },
+  });
+
+  // Presence hook
+  const { setEditingField } = usePresence({
+    channel: null, // Will be set up when collaboration channels are ready
+    userId: effectiveUserId,
+  });
+
+  // Real-time database subscription for syncing changes across users
+  useEffect(() => {
+    if (!collaborationEnabled || !documentId) {
+      return;
+    }
+
+    console.log("[CommsPlannerEditor] Setting up real-time subscription for document:", documentId);
+
+    const channel = supabase
+      .channel(`comms_planner_db_${documentId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "comms_planners",
+          filter: `id=eq.${documentId}`,
+        },
+        (payload) => {
+          console.log("[CommsPlannerEditor] Received database UPDATE event:", payload);
+          // Update local state with the new data
+          // IMPORTANT: Exclude metadata fields (version, last_edited, metadata) to prevent
+          // triggering auto-save, which would create an infinite loop
+          if (payload.new) {
+            const { version, last_edited, metadata, ...userEditableFields } = payload.new as any;
+
+            // Update store with new data
+            if (userEditableFields.name) {
+              setPlanName(userEditableFields.name);
+            }
+            if (userEditableFields.venue_geometry) {
+              setVenueWidth(userEditableFields.venue_geometry.width);
+              setVenueHeight(userEditableFields.venue_geometry.height);
+            }
+            if (userEditableFields.zones) {
+              setZones(userEditableFields.zones);
+            }
+            if (userEditableFields.elements) {
+              const loadedElements = userEditableFields.elements.map((el: any) => ({
+                ...el,
+                systemType: el.system_type,
+                channels: el.channel_set,
+              }));
+              setElements(loadedElements);
+            }
+            if (userEditableFields.beltpacks) {
+              setBeltpacks(userEditableFields.beltpacks);
+            }
+            if (typeof userEditableFields.dfs_enabled !== "undefined") {
+              setDfsEnabled(userEditableFields.dfs_enabled);
+            }
+            if (typeof userEditableFields.poe_budget_total !== "undefined") {
+              setPoeBudget(userEditableFields.poe_budget_total);
+            }
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      console.log("[CommsPlannerEditor] Cleaning up real-time subscription");
+      supabase.removeChannel(channel);
+    };
+  }, [
+    collaborationEnabled,
+    documentId,
+    setPlanName,
+    setVenueWidth,
+    setVenueHeight,
+    setZones,
+    setElements,
+    setBeltpacks,
+    setDfsEnabled,
+    setPoeBudget,
+  ]);
+
+  // Keyboard shortcut for manual save (Cmd/Ctrl+S)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        if (collaborationEnabled) {
+          forceSave();
+        } else {
+          handleSave(false);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [collaborationEnabled, forceSave]);
 
   const getDefaultModel = (systemType: SystemType): SystemModel => {
     switch (systemType) {
@@ -151,156 +377,161 @@ const CommsPlannerEditor = () => {
     setBeltpacks(assignedBeltpacks);
   };
 
-  const runAssignmentLogic = (
-    currentBeltpacks: CommsBeltpackProps[],
-    currentElements: CommsElementProps[],
-  ): CommsBeltpackProps[] => {
-    const transceivers = currentElements.filter(
-      (el) => el.systemType === "FSII" || el.systemType === "Edge" || el.systemType === "Bolero",
-    );
+  const runAssignmentLogic = useCallback(
+    (
+      currentBeltpacks: CommsBeltpackProps[],
+      currentElements: CommsElementProps[],
+    ): CommsBeltpackProps[] => {
+      const transceivers = currentElements.filter(
+        (el) => el.systemType === "FSII" || el.systemType === "Edge" || el.systemType === "Bolero",
+      );
 
-    // Calculate signal strength based on distance and path loss
-    const calculateSignalStrength = (distance: number, coverageRadius: number): number => {
-      if (distance > coverageRadius) return 0;
-      // Simple inverse distance model with some attenuation
-      const signal = Math.max(0, 100 * (1 - distance / coverageRadius));
-      return Math.round(signal);
-    };
+      // Calculate signal strength based on distance and path loss
+      const calculateSignalStrength = (distance: number, coverageRadius: number): number => {
+        if (distance > coverageRadius) return 0;
+        // Simple inverse distance model with some attenuation
+        const signal = Math.max(0, 100 * (1 - distance / coverageRadius));
+        return Math.round(signal);
+      };
 
-    // Get best transceiver for a beltpack (prioritize signal strength)
-    const getBestTransceiverForBeltpack = (
-      bp: CommsBeltpackProps,
-      availableTransceivers: CommsElementProps[],
-    ) => {
-      const candidates = availableTransceivers
-        .map((t) => {
-          const distance = Math.hypot(t.x - bp.x, t.y - bp.y);
-          const coverageRadius =
-            t.coverageRadius || getCoverageRadius(t.systemType, t.band, t.model);
-          const signalStrength = calculateSignalStrength(distance, coverageRadius);
-          return { transceiver: t, distance, signalStrength };
-        })
-        .filter((c) => c.signalStrength > 0) // Only consider transceivers with signal
-        .sort((a, b) => b.signalStrength - a.signalStrength); // Best signal first
+      // Get best transceiver for a beltpack (prioritize signal strength)
+      const getBestTransceiverForBeltpack = (
+        bp: CommsBeltpackProps,
+        availableTransceivers: CommsElementProps[],
+      ) => {
+        const candidates = availableTransceivers
+          .map((t) => {
+            const distance = Math.hypot(t.x - bp.x, t.y - bp.y);
+            const coverageRadius =
+              t.coverageRadius || getCoverageRadius(t.systemType, t.band, t.model);
+            const signalStrength = calculateSignalStrength(distance, coverageRadius);
+            return { transceiver: t, distance, signalStrength };
+          })
+          .filter((c) => c.signalStrength > 0) // Only consider transceivers with signal
+          .sort((a, b) => b.signalStrength - a.signalStrength); // Best signal first
 
-      return candidates[0] || null;
-    };
+        return candidates[0] || null;
+      };
 
-    const assignments: { [beltpackId: string]: string | undefined } = {};
-    const transceiverLoads: { [transceiverId: string]: string[] } = {};
-    transceivers.forEach((t) => (transceiverLoads[t.id] = []));
+      const assignments: { [beltpackId: string]: string | undefined } = {};
+      const transceiverLoads: { [transceiverId: string]: string[] } = {};
+      transceivers.forEach((t) => (transceiverLoads[t.id] = []));
 
-    // Phase 1: Assign beltpacks to their best available transceiver
-    currentBeltpacks.forEach((bp) => {
-      const bestOption = getBestTransceiverForBeltpack(bp, transceivers);
-      if (bestOption) {
-        const maxCapacity = bestOption.transceiver.maxBeltpacks ?? 5;
-        if (transceiverLoads[bestOption.transceiver.id].length < maxCapacity) {
-          assignments[bp.id] = bestOption.transceiver.id;
-          transceiverLoads[bestOption.transceiver.id].push(bp.id);
-        }
-      }
-    });
-
-    // Phase 2: Roaming - allow beltpacks to move to better options if transceivers become full
-    const unassignedBeltpacks = currentBeltpacks.filter((bp) => !assignments[bp.id]);
-    let hasChanges = true;
-    let iterations = 0;
-
-    while (hasChanges && iterations < 10) {
-      // Prevent infinite loops
-      hasChanges = false;
-      iterations++;
-
-      // Try to find better assignments for unassigned beltpacks
-      for (const bp of [...unassignedBeltpacks]) {
+      // Phase 1: Assign beltpacks to their best available transceiver
+      currentBeltpacks.forEach((bp) => {
         const bestOption = getBestTransceiverForBeltpack(bp, transceivers);
         if (bestOption) {
-          const maxCapacity =
-            bestOption.transceiver.maxBeltpacks ??
-            MODEL_DEFAULTS[bestOption.transceiver.model!]?.maxBeltpacks ??
-            5;
+          const maxCapacity = bestOption.transceiver.maxBeltpacks ?? 5;
           if (transceiverLoads[bestOption.transceiver.id].length < maxCapacity) {
             assignments[bp.id] = bestOption.transceiver.id;
             transceiverLoads[bestOption.transceiver.id].push(bp.id);
-            unassignedBeltpacks.splice(unassignedBeltpacks.indexOf(bp), 1);
-            hasChanges = true;
-            break;
           }
         }
-      }
+      });
 
-      // Try to displace lower-signal beltpacks to make room for higher-signal ones
-      for (const transceiver of transceivers) {
-        const maxCapacity = transceiver.maxBeltpacks ?? 5;
-        const currentLoad = transceiverLoads[transceiver.id];
+      // Phase 2: Roaming - allow beltpacks to move to better options if transceivers become full
+      const unassignedBeltpacks = currentBeltpacks.filter((bp) => !assignments[bp.id]);
+      let hasChanges = true;
+      let iterations = 0;
 
-        if (currentLoad.length >= maxCapacity) {
-          // Find the beltpack with the weakest signal to this transceiver
-          let weakestBpId: string | null = null;
-          let weakestSignal = 100;
+      while (hasChanges && iterations < 10) {
+        // Prevent infinite loops
+        hasChanges = false;
+        iterations++;
 
-          currentLoad.forEach((bpId) => {
-            const bp = currentBeltpacks.find((b) => b.id === bpId);
-            if (bp) {
-              const distance = Math.hypot(transceiver.x - bp.x, transceiver.y - bp.y);
-              const coverageRadius =
-                transceiver.coverageRadius ||
-                getCoverageRadius(transceiver.systemType, transceiver.band, transceiver.model);
-              const signalStrength = calculateSignalStrength(distance, coverageRadius);
-              if (signalStrength < weakestSignal) {
-                weakestSignal = signalStrength;
-                weakestBpId = bpId;
-              }
+        // Try to find better assignments for unassigned beltpacks
+        for (const bp of [...unassignedBeltpacks]) {
+          const bestOption = getBestTransceiverForBeltpack(bp, transceivers);
+          if (bestOption) {
+            const maxCapacity =
+              bestOption.transceiver.maxBeltpacks ??
+              MODEL_DEFAULTS[bestOption.transceiver.model!]?.maxBeltpacks ??
+              5;
+            if (transceiverLoads[bestOption.transceiver.id].length < maxCapacity) {
+              assignments[bp.id] = bestOption.transceiver.id;
+              transceiverLoads[bestOption.transceiver.id].push(bp.id);
+              unassignedBeltpacks.splice(unassignedBeltpacks.indexOf(bp), 1);
+              hasChanges = true;
+              break;
             }
-          });
+          }
+        }
 
-          // Try to reassign the weakest beltpack to a better alternative
-          if (weakestBpId) {
-            const weakestBp = currentBeltpacks.find((b) => b.id === weakestBpId);
-            if (weakestBp) {
-              const altTransceivers = transceivers.filter((t) => t.id !== transceiver.id);
-              const bestAlt = getBestTransceiverForBeltpack(weakestBp, altTransceivers);
+        // Try to displace lower-signal beltpacks to make room for higher-signal ones
+        for (const transceiver of transceivers) {
+          const maxCapacity = transceiver.maxBeltpacks ?? 5;
+          const currentLoad = transceiverLoads[transceiver.id];
 
-              if (bestAlt && bestAlt.signalStrength > weakestSignal) {
-                const altMaxCapacity = bestAlt.transceiver.maxBeltpacks ?? 5;
-                if (transceiverLoads[bestAlt.transceiver.id].length < altMaxCapacity) {
-                  // Move the beltpack to the better transceiver
-                  transceiverLoads[transceiver.id] = currentLoad.filter((id) => id !== weakestBpId);
-                  transceiverLoads[bestAlt.transceiver.id].push(weakestBpId);
-                  assignments[weakestBpId] = bestAlt.transceiver.id;
-                  hasChanges = true;
+          if (currentLoad.length >= maxCapacity) {
+            // Find the beltpack with the weakest signal to this transceiver
+            let weakestBpId: string | null = null;
+            let weakestSignal = 100;
+
+            currentLoad.forEach((bpId) => {
+              const bp = currentBeltpacks.find((b) => b.id === bpId);
+              if (bp) {
+                const distance = Math.hypot(transceiver.x - bp.x, transceiver.y - bp.y);
+                const coverageRadius =
+                  transceiver.coverageRadius ||
+                  getCoverageRadius(transceiver.systemType, transceiver.band, transceiver.model);
+                const signalStrength = calculateSignalStrength(distance, coverageRadius);
+                if (signalStrength < weakestSignal) {
+                  weakestSignal = signalStrength;
+                  weakestBpId = bpId;
+                }
+              }
+            });
+
+            // Try to reassign the weakest beltpack to a better alternative
+            if (weakestBpId) {
+              const weakestBp = currentBeltpacks.find((b) => b.id === weakestBpId);
+              if (weakestBp) {
+                const altTransceivers = transceivers.filter((t) => t.id !== transceiver.id);
+                const bestAlt = getBestTransceiverForBeltpack(weakestBp, altTransceivers);
+
+                if (bestAlt && bestAlt.signalStrength > weakestSignal) {
+                  const altMaxCapacity = bestAlt.transceiver.maxBeltpacks ?? 5;
+                  if (transceiverLoads[bestAlt.transceiver.id].length < altMaxCapacity) {
+                    // Move the beltpack to the better transceiver
+                    transceiverLoads[transceiver.id] = currentLoad.filter(
+                      (id) => id !== weakestBpId,
+                    );
+                    transceiverLoads[bestAlt.transceiver.id].push(weakestBpId);
+                    assignments[weakestBpId] = bestAlt.transceiver.id;
+                    hasChanges = true;
+                  }
                 }
               }
             }
           }
         }
       }
-    }
 
-    // Final pass: calculate signal strengths and update beltpack status
-    return currentBeltpacks.map((bp) => {
-      const assignedTransceiverId = assignments[bp.id];
-      if (assignedTransceiverId) {
-        const transceiver = currentElements.find((el) => el.id === assignedTransceiverId);
-        if (transceiver) {
-          const distance = Math.hypot(transceiver.x - bp.x, transceiver.y - bp.y);
-          const coverageRadius =
-            transceiver.coverageRadius ||
-            getCoverageRadius(transceiver.systemType, transceiver.band, transceiver.model);
-          const signalStrength = calculateSignalStrength(distance, coverageRadius);
+      // Final pass: calculate signal strengths and update beltpack status
+      return currentBeltpacks.map((bp) => {
+        const assignedTransceiverId = assignments[bp.id];
+        if (assignedTransceiverId) {
+          const transceiver = currentElements.find((el) => el.id === assignedTransceiverId);
+          if (transceiver) {
+            const distance = Math.hypot(transceiver.x - bp.x, transceiver.y - bp.y);
+            const coverageRadius =
+              transceiver.coverageRadius ||
+              getCoverageRadius(transceiver.systemType, transceiver.band, transceiver.model);
+            const signalStrength = calculateSignalStrength(distance, coverageRadius);
 
-          return {
-            ...bp,
-            transceiverRef: assignedTransceiverId,
-            signalStrength,
-            online: signalStrength > 10, // Consider online if signal > 10%
-          };
+            return {
+              ...bp,
+              transceiverRef: assignedTransceiverId,
+              signalStrength,
+              online: signalStrength > 10, // Consider online if signal > 10%
+            };
+          }
         }
-      }
-      return { ...bp, transceiverRef: undefined, signalStrength: 0, online: false };
-    });
-  };
+        return { ...bp, transceiverRef: undefined, signalStrength: 0, online: false };
+      });
+    },
+    [],
+  );
 
   const handleBeltpackDragStop = (beltpackId: string, xFt: number, yFt: number) => {
     const updatedBeltpacks = beltpacks.map((bp) =>
@@ -338,7 +569,7 @@ const CommsPlannerEditor = () => {
     setSelectedElementId(null);
   };
 
-  const handlePropertyChange = (elementId: string, property: string, value: any) => {
+  const handlePropertyChange = (elementId: string, property: string, value: unknown) => {
     // Check if it's a beltpack or element
     const beltpack = beltpacks.find((bp) => bp.id === elementId);
 
@@ -452,59 +683,160 @@ const CommsPlannerEditor = () => {
         setBeltpacks(assignedBeltpacks);
       }
     }
-  }, [elements, runAssignmentLogic]); // Re-run when elements change
+  }, [elements, runAssignmentLogic, beltpacks, setBeltpacks]); // Re-run when elements change
 
   useEffect(() => {
     const loadPlan = async () => {
-      if (id && id !== "new") {
+      setLoading(true);
+
+      // Check if this is a shared edit path
+      const currentPathIsSharedEdit = location.pathname.includes("/shared/comms-planner/edit/");
+      console.log(
+        `[CommsPlannerEditor] Path: ${location.pathname}, shareCode: ${shareCode}, currentPathIsSharedEdit: ${currentPathIsSharedEdit}`,
+      );
+
+      if (currentPathIsSharedEdit && shareCode) {
+        // Load shared resource
+        console.log(
+          "[CommsPlannerEditor] Attempting to fetch SHARED resource with shareCode:",
+          shareCode,
+        );
         try {
-          setLoading(true);
-          const plan = await getCommsPlan(id);
-          setPlanName(plan.name);
-          setVenueWidth(plan.venue_geometry.width);
-          setVenueHeight(plan.venue_geometry.height);
-          setZones(plan.zones || []);
-          setDfsEnabled(plan.dfs_enabled);
-          setPoeBudget(plan.poe_budget_total);
-          const loadedElements =
-            plan.elements.map((el: any) => ({
-              ...el,
-              systemType: el.system_type,
-              channels: el.channel_set,
-            })) || [];
+          const { resource, shareLink: fetchedShareLink } = await getSharedResource(shareCode);
+
+          console.log(
+            "[CommsPlannerEditor] DEBUG: Fetched Shared Link Details:",
+            JSON.stringify(fetchedShareLink, null, 2),
+          );
+          console.log(
+            "[CommsPlannerEditor] DEBUG: Fetched Resource Details:",
+            JSON.stringify(resource, null, 2),
+          );
+
+          if (fetchedShareLink.resource_type !== "comms_planner") {
+            console.error(
+              "[CommsPlannerEditor] Share code is for a different resource type:",
+              fetchedShareLink.resource_type,
+              "Expected: comms_planner",
+            );
+            navigate("/dashboard");
+            setLoading(false);
+            return;
+          }
+
+          if (fetchedShareLink.link_type !== "edit") {
+            console.warn(
+              `[CommsPlannerEditor] Link type is '${fetchedShareLink.link_type}', not 'edit'. Redirecting to view page.`,
+            );
+            window.location.href = getShareUrl(shareCode, "comms_planner", "view");
+            return;
+          }
+
+          // Load the shared plan data
+          setPlanName(resource.name || "Untitled Comms Plan");
+          setDocumentId(resource.id);
+          setVenueWidth(resource.venue_geometry?.width || 100);
+          setVenueHeight(resource.venue_geometry?.height || 100);
+          setZones(resource.zones || []);
+          setDfsEnabled(resource.dfs_enabled || false);
+          setPoeBudget(resource.poe_budget_total || 1000);
+
+          const loadedElements = (resource.elements || []).map((el: any) => ({
+            ...el,
+            systemType: el.system_type,
+            channels: el.channel_set,
+          }));
           setElements(loadedElements);
-          const loadedBeltpacks = plan.beltpacks || [];
-          // Only run assignment logic if beltpacks don't already have assignments
+
+          const loadedBeltpacks = resource.beltpacks || [];
           const hasExistingAssignments = loadedBeltpacks.some((bp: any) => bp.transceiverRef);
           if (hasExistingAssignments) {
             setBeltpacks(loadedBeltpacks);
           } else {
             setBeltpacks(runAssignmentLogic(loadedBeltpacks, loadedElements));
           }
+
+          setCurrentShareLink(fetchedShareLink);
+          setIsSharedEdit(true);
+          console.log(
+            "[CommsPlannerEditor] SHARED comms_planner resource loaded successfully for editing.",
+          );
+        } catch (error: any) {
+          console.error(
+            "[CommsPlannerEditor] Error fetching SHARED comms plan:",
+            error.message,
+            error,
+          );
+          navigate("/dashboard");
+        } finally {
+          setLoading(false);
+        }
+      } else if (id && id !== "new") {
+        // Load owned resource
+        if (!user) {
+          navigate("/login");
+          return;
+        }
+
+        try {
+          const plan = await getCommsPlan(id);
+          setPlanName(plan.name);
+          setDocumentId(plan.id);
+          setVenueWidth(plan.venue_geometry.width);
+          setVenueHeight(plan.venue_geometry.height);
+          setZones(plan.zones || []);
+          setDfsEnabled(plan.dfs_enabled);
+          setPoeBudget(plan.poe_budget_total);
+          const loadedElements =
+            plan.elements.map(
+              (el: {
+                id: string;
+                system_type: SystemType;
+                channel_set: string[];
+                [key: string]: unknown;
+              }) => ({
+                ...el,
+                systemType: el.system_type,
+                channels: el.channel_set,
+              }),
+            ) || [];
+          setElements(loadedElements);
+          const loadedBeltpacks = plan.beltpacks || [];
+          // Only run assignment logic if beltpacks don't already have assignments
+          const hasExistingAssignments = loadedBeltpacks.some(
+            (bp: { transceiverRef?: string }) => bp.transceiverRef,
+          );
+          if (hasExistingAssignments) {
+            setBeltpacks(loadedBeltpacks);
+          } else {
+            setBeltpacks(runAssignmentLogic(loadedBeltpacks, loadedElements));
+          }
+          setIsSharedEdit(false);
         } catch (error) {
           console.error("Failed to load comms plan:", error);
           navigate("/all-comms-plans");
         } finally {
           setLoading(false);
         }
-      } else {
+      } else if (id === "new") {
+        // New document
+        if (!user) {
+          navigate("/login");
+          return;
+        }
         reset();
+        setDocumentId(null);
+        setIsSharedEdit(false);
+        setLoading(false);
+      } else {
+        console.error("[CommsPlannerEditor] Invalid route state. No id, no shareCode, not 'new'.");
+        navigate("/dashboard");
         setLoading(false);
       }
     };
     loadPlan();
-  }, [
-    id,
-    reset,
-    setPlanName,
-    setVenueWidth,
-    setVenueHeight,
-    setZones,
-    setDfsEnabled,
-    setPoeBudget,
-    setElements,
-    navigate,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, shareCode, navigate, location.pathname, user]);
 
   // Handle keyboard shortcuts for deleting elements
   useEffect(() => {
@@ -523,12 +855,245 @@ const CommsPlannerEditor = () => {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedElementId]);
 
-  // Auto-save logic
+  const handleSave = useCallback(
+    async (isAutoSave = false) => {
+      // For existing documents with collaboration enabled, use forceSave
+      if (collaborationEnabled && !isAutoSave) {
+        await forceSave();
+        return;
+      }
+
+      if (!user && !isSharedEdit) {
+        setSaveError("You must be logged in to save.");
+        setTimeout(() => setSaveError(null), 5000);
+        return;
+      }
+
+      setSaving(true);
+      setSaveError(null);
+      if (!isAutoSave) {
+        setSaveSuccess(false);
+      }
+      try {
+        if (isSharedEdit && shareCode) {
+          // Save shared resource
+          console.log("[CommsPlannerEditor] Saving SHARED comms plan with shareCode:", shareCode);
+          const baseDataToSave = {
+            name: planName,
+            venue_geometry: {
+              width: venueWidth,
+              height: venueHeight,
+            },
+            zones,
+            elements: elements.map((el) => ({
+              ...el,
+              system_type: el.systemType,
+              channel_set: el.channels,
+            })),
+            beltpacks,
+            dfs_enabled: dfsEnabled,
+            poe_budget_total: poeBudget,
+            last_edited: new Date().toISOString(),
+          };
+          await updateSharedResource(shareCode, "comms_planner", baseDataToSave);
+        } else {
+          // Save owned resource
+          const planId = await saveCommsPlan(id ?? null);
+          if (id === "new" && planId) {
+            setDocumentId(planId);
+            navigate(`/comms-planner/${planId}`, { replace: true });
+          }
+        }
+        if (!isAutoSave) {
+          setSaveSuccess(true);
+          setTimeout(() => setSaveSuccess(false), 3000);
+        }
+      } catch (error: unknown) {
+        console.error("Failed to save comms plan:", error);
+        setSaveError(
+          `Error saving comms plan: ${error instanceof Error ? error.message : "Please try again."}`,
+        );
+        setTimeout(() => setSaveError(null), 5000);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [
+      id,
+      navigate,
+      collaborationEnabled,
+      forceSave,
+      user,
+      isSharedEdit,
+      shareCode,
+      planName,
+      venueWidth,
+      venueHeight,
+      zones,
+      elements,
+      beltpacks,
+      dfsEnabled,
+      poeBudget,
+    ],
+  );
+
+  /**
+   * Fetch version history for the current document
+   */
+  const fetchVersionHistory = async () => {
+    if (!documentId) return;
+
+    setHistoryLoading(true);
+    setHistoryError(null);
+
+    try {
+      // Query the comms_planner_history table
+      const { data, error } = await supabase
+        .from("comms_planner_history")
+        .select(
+          `
+          id,
+          version,
+          changed_fields,
+          created_at,
+          created_by,
+          save_type,
+          content
+        `,
+        )
+        .eq("comms_planner_id", documentId)
+        .order("version", { ascending: false })
+        .limit(50); // Limit to last 50 versions
+
+      if (error) throw error;
+
+      // Transform the data to match VersionHistory interface
+      // We need to join with users table to get email
+      const versionsWithUsers = await Promise.all(
+        (data || []).map(async (version: any) => {
+          let userEmail = "Unknown User";
+
+          if (version.created_by) {
+            try {
+              const { data: userData } = await supabase
+                .from("profiles")
+                .select("email")
+                .eq("id", version.created_by)
+                .single();
+
+              if (userData?.email) {
+                userEmail = userData.email;
+              }
+            } catch (err) {
+              console.warn("Could not fetch user email:", err);
+            }
+          }
+
+          return {
+            id: version.id,
+            version: version.version,
+            userEmail,
+            createdAt: version.created_at,
+            changedFields: version.changed_fields || [],
+            description: `${version.save_type} save`,
+          } as VersionHistory;
+        }),
+      );
+
+      setVersionHistory(versionsWithUsers);
+    } catch (error: any) {
+      console.error("Error fetching version history:", error);
+      setHistoryError(error.message || "Failed to load version history");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  /**
+   * Restore a previous version of the document
+   */
+  const handleRestoreVersion = async (versionId: string) => {
+    if (!documentId) return;
+
+    try {
+      // Fetch the full content from the history table
+      const { data: historyData, error: historyError } = await supabase
+        .from("comms_planner_history")
+        .select("content, version")
+        .eq("id", versionId)
+        .single();
+
+      if (historyError) throw historyError;
+      if (!historyData) throw new Error("Version not found");
+
+      // Update the current document with the historical content
+      const restoredContent = historyData.content as any;
+
+      // Update in the database
+      const { error: updateError } = await supabase
+        .from("comms_planners")
+        .update({
+          ...restoredContent,
+          last_edited: new Date().toISOString(),
+        })
+        .eq("id", documentId);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      if (restoredContent.name) setPlanName(restoredContent.name);
+      if (restoredContent.venue_geometry) {
+        setVenueWidth(restoredContent.venue_geometry.width);
+        setVenueHeight(restoredContent.venue_geometry.height);
+      }
+      if (restoredContent.zones) setZones(restoredContent.zones);
+      if (restoredContent.elements) {
+        const loadedElements = restoredContent.elements.map((el: any) => ({
+          ...el,
+          systemType: el.system_type,
+          channels: el.channel_set,
+        }));
+        setElements(loadedElements);
+      }
+      if (restoredContent.beltpacks) setBeltpacks(restoredContent.beltpacks);
+      if (typeof restoredContent.dfs_enabled !== "undefined")
+        setDfsEnabled(restoredContent.dfs_enabled);
+      if (typeof restoredContent.poe_budget_total !== "undefined")
+        setPoeBudget(restoredContent.poe_budget_total);
+
+      // Close the history modal
+      setShowHistory(false);
+
+      // Show success message
+      alert(`Successfully restored version ${historyData.version}`);
+
+      // Refresh history to show the restoration
+      await fetchVersionHistory();
+    } catch (error: any) {
+      console.error("Error restoring version:", error);
+      alert(`Failed to restore version: ${error.message}`);
+    }
+  };
+
+  // Fetch version history when modal opens
+  useEffect(() => {
+    if (showHistory && documentId) {
+      fetchVersionHistory();
+    }
+  }, [showHistory, documentId]);
+
+  // Auto-save logic (only for new documents without collaboration)
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
+      return;
+    }
+
+    // Skip auto-save if collaboration is enabled (handled by useAutoSave hook)
+    if (collaborationEnabled) {
       return;
     }
 
@@ -543,31 +1108,21 @@ const CommsPlannerEditor = () => {
     return () => {
       clearTimeout(handler);
     };
-  }, [planName, elements, beltpacks, zones, venueWidth, venueHeight, dfsEnabled, poeBudget]);
-
-  const handleSave = async (isAutoSave = false) => {
-    setSaving(true);
-    setSaveError(null);
-    if (!isAutoSave) {
-      setSaveSuccess(false);
-    }
-    try {
-      const planId = await saveCommsPlan(id ?? null);
-      if (id === "new" && planId) {
-        navigate(`/comms-planner/${planId}`, { replace: true });
-      }
-      if (!isAutoSave) {
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      }
-    } catch (error: any) {
-      console.error("Failed to save comms plan:", error);
-      setSaveError(`Error saving schedule: ${error.message || "Please try again."}`);
-      setTimeout(() => setSaveError(null), 5000);
-    } finally {
-      setSaving(false);
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    planName,
+    elements,
+    beltpacks,
+    zones,
+    venueWidth,
+    venueHeight,
+    dfsEnabled,
+    poeBudget,
+    id,
+    loading,
+    saving,
+    collaborationEnabled,
+  ]);
 
   const exportAsPdf = async (
     targetRef: React.RefObject<HTMLDivElement>,
@@ -605,10 +1160,10 @@ const CommsPlannerEditor = () => {
           styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
           clonedDoc.head.appendChild(styleGlobal);
           clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
-          Array.from(clonedDoc.querySelectorAll("*")).forEach((el: any) => {
-            if (el.style) {
-              el.style.fontFamily = `${font}, sans-serif`;
-              el.style.verticalAlign = "baseline";
+          Array.from(clonedDoc.querySelectorAll("*")).forEach((el) => {
+            if ((el as HTMLElement).style) {
+              (el as HTMLElement).style.fontFamily = `${font}, sans-serif`;
+              (el as HTMLElement).style.verticalAlign = "baseline";
             }
           });
         },
@@ -728,7 +1283,7 @@ const CommsPlannerEditor = () => {
             doc.setFont("helvetica", "bold");
             doc.text("SoundDocs", 40, pageHeight - 20);
             doc.setFont("helvetica", "normal");
-            doc.text("| Professional Audio Documentation", 95, pageHeight - 20);
+            doc.text("| Professional Event Documentation", 95, pageHeight - 20);
             const pageNumText = `Page ${i} of ${pageCount}`;
             doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: "center" });
             const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
@@ -747,7 +1302,12 @@ const CommsPlannerEditor = () => {
           doc.setFont("helvetica", "bold");
           doc.text(title, 40, lastY);
 
-          (doc as any).autoTable({
+          (
+            doc as jsPDF & {
+              autoTable?: (options: object) => void;
+              lastAutoTable?: { finalY: number };
+            }
+          ).autoTable!({
             body: data,
             startY: lastY + 5,
             theme: "plain",
@@ -761,7 +1321,8 @@ const CommsPlannerEditor = () => {
             },
             margin: { left: 40 },
           });
-          lastY = (doc as any).lastAutoTable.finalY + 15;
+          lastY =
+            (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable!.finalY + 15;
         };
 
         const eventDetails: [string, string][] = [
@@ -785,10 +1346,10 @@ const CommsPlannerEditor = () => {
 
           const transceiversHead = [["Label", "Model", "Band", "Coverage", "Connected Beltpacks"]];
           const transceiversBody = commsPlanData.transceivers
-            .filter((tx: any) => tx.systemType !== "FSII-Base")
-            .map((tx: any) => {
+            .filter((tx: Transceiver) => tx.systemType !== "FSII-Base")
+            .map((tx: Transceiver) => {
               const connectedBeltpacks = commsPlanData.beltpacks.filter(
-                (bp: any) => bp.transceiverRef === tx.id,
+                (bp: { transceiverRef?: string }) => bp.transceiverRef === tx.id,
               );
               return [
                 tx.label,
@@ -799,7 +1360,12 @@ const CommsPlannerEditor = () => {
               ];
             });
 
-          (doc as any).autoTable({
+          (
+            doc as jsPDF & {
+              autoTable?: (options: object) => void;
+              lastAutoTable?: { finalY: number };
+            }
+          ).autoTable!({
             head: transceiversHead,
             body: transceiversBody,
             startY: lastY,
@@ -815,7 +1381,8 @@ const CommsPlannerEditor = () => {
             alternateRowStyles: { fillColor: [248, 249, 250] },
             margin: { left: 40, right: 40 },
           });
-          lastY = (doc as any).lastAutoTable.finalY + 30;
+          lastY =
+            (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable!.finalY + 30;
         }
 
         if (commsPlanData.beltpacks && commsPlanData.beltpacks.length > 0) {
@@ -825,21 +1392,31 @@ const CommsPlannerEditor = () => {
           lastY += 20;
 
           const beltpacksHead = [["Label", "Connected To", "Channel Assignments"]];
-          const beltpacksBody = commsPlanData.beltpacks.map((bp: any) => {
-            const transceiver = commsPlanData.transceivers.find(
-              (tx: any) => tx.id === bp.transceiverRef,
-            );
-            const assignments =
-              bp.channelAssignments && bp.channelAssignments.length > 0
-                ? bp.channelAssignments
-                    .map((ca: any) => `${ca.channel}:${ca.assignment}`)
-                    .join(", ")
-                : "No assignments";
+          const beltpacksBody = commsPlanData.beltpacks.map(
+            (bp: {
+              id: string;
+              label: string;
+              transceiverRef?: string;
+              channelAssignments?: Array<{ channel: string; assignment: string }>;
+            }) => {
+              const transceiver = commsPlanData.transceivers.find(
+                (tx: Transceiver) => tx.id === bp.transceiverRef,
+              );
+              const assignments =
+                bp.channelAssignments && bp.channelAssignments.length > 0
+                  ? bp.channelAssignments.map((ca) => `${ca.channel}:${ca.assignment}`).join(", ")
+                  : "No assignments";
 
-            return [bp.label, transceiver ? transceiver.label : "Not Connected", assignments];
-          });
+              return [bp.label, transceiver ? transceiver.label : "Not Connected", assignments];
+            },
+          );
 
-          (doc as any).autoTable({
+          (
+            doc as jsPDF & {
+              autoTable?: (options: object) => void;
+              lastAutoTable?: { finalY: number };
+            }
+          ).autoTable!({
             head: beltpacksHead,
             body: beltpacksBody,
             startY: lastY,
@@ -880,6 +1457,23 @@ const CommsPlannerEditor = () => {
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       <Header />
+
+      {/* Collaboration Toolbar (for existing documents) */}
+      {collaborationEnabled && (
+        <CollaborationToolbar
+          saveStatus={saveStatus}
+          lastSavedAt={lastSavedAt ? new Date(lastSavedAt) : undefined}
+          saveError={autoSaveError || undefined}
+          onRetry={forceSave}
+          activeUsers={activeUsers}
+          currentUserId={user?.id}
+          connectionStatus={connectionStatus}
+          onOpenHistory={() => setShowHistory(true)}
+          showHistory={true}
+          position="top-right"
+        />
+      )}
+
       <main className="flex-grow container mx-auto px-4 py-8 mt-16">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center">
@@ -917,34 +1511,38 @@ const CommsPlannerEditor = () => {
                 </>
               )}
             </button>
-            <button
-              onClick={() => handleSave(false)}
-              disabled={saving}
-              className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {saving ? (
-                <>
-                  <Loader className="animate-spin h-4 w-4 mr-2" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
-                </>
-              )}
-            </button>
+            {/* Manual Save button (only for new documents or shared edits without collaboration) */}
+            {!collaborationEnabled && (
+              <button
+                onClick={() => handleSave(false)}
+                disabled={saving}
+                className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {saving ? (
+                  <>
+                    <Loader className="animate-spin h-4 w-4 mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
-        {saveError && (
+        {/* Error messages (for new documents or manual save errors) */}
+        {!collaborationEnabled && saveError && (
           <div className="bg-red-400/10 border border-red-400 rounded-lg p-4 mb-4 flex items-start">
             <AlertCircle className="h-5 w-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
             <p className="text-red-400 text-sm">{saveError}</p>
           </div>
         )}
 
-        {saveSuccess && (
+        {!collaborationEnabled && saveSuccess && (
           <div className="bg-green-400/10 border border-green-400 rounded-lg p-4 mb-4 flex items-start">
             <Save className="h-5 w-5 text-green-400 mr-3 mt-0.5 flex-shrink-0" />
             <p className="text-green-400 text-sm">Comms plan saved successfully!</p>
@@ -1231,6 +1829,33 @@ const CommsPlannerEditor = () => {
         <>
           <CommsPlanExport ref={exportRef} commsPlan={currentExportCommsPlan} />
           <PrintCommsPlanExport ref={printExportRef} commsPlan={currentExportCommsPlan} />
+        </>
+      )}
+
+      {/* Collaboration Modals */}
+      {collaborationEnabled && (
+        <>
+          <DocumentHistory
+            open={showHistory}
+            onOpenChange={setShowHistory}
+            versions={versionHistory}
+            onRestore={handleRestoreVersion}
+            loading={historyLoading}
+            error={historyError || undefined}
+          />
+
+          <ConflictResolution
+            open={showConflict}
+            onOpenChange={setShowConflict}
+            conflicts={conflict ? [conflict] : []}
+            documentId={documentId || ""}
+            onResolve={(resolution) => {
+              // Handle conflict resolution
+              console.log("Conflict resolved with strategy:", resolution);
+              setShowConflict(false);
+              setConflict(null);
+            }}
+          />
         </>
       )}
 

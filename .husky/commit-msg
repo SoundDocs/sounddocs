@@ -1,0 +1,31 @@
+#!/usr/bin/env sh
+
+# Get the commit message
+commit_msg=$(cat "$1")
+
+# Conventional commit regex pattern
+# Allows: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+# Format: type(optional scope): description
+pattern="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .{1,}"
+
+if ! echo "$commit_msg" | grep -qE "$pattern"; then
+  echo "❌ Commit message validation failed!"
+  echo ""
+  echo "Your commit message:"
+  echo "  $commit_msg"
+  echo ""
+  echo "Expected format (Conventional Commits):"
+  echo "  <type>(<optional scope>): <description>"
+  echo ""
+  echo "Examples:"
+  echo "  feat: add new feature"
+  echo "  fix(api): resolve auth bug"
+  echo "  docs: update README"
+  echo ""
+  echo "Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+  echo ""
+  echo "💡 To bypass this check (not recommended): git commit --no-verify"
+  exit 1
+fi
+
+echo "✅ Commit message format valid"

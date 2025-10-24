@@ -12,6 +12,7 @@ import {
   List,
   AlertTriangle,
   Info,
+  Calculator,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -26,7 +27,6 @@ interface PixelMap {
 const VideoPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
   const [pixelMaps, setPixelMaps] = useState<PixelMap[]>([]);
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -42,7 +42,6 @@ const VideoPage = () => {
         if (error) throw error;
 
         if (data.user) {
-          setUser(data.user);
           await fetchPixelMaps(data.user.id);
         } else {
           navigate("/login");
@@ -169,8 +168,9 @@ const VideoPage = () => {
           </p>
         </div>
 
-        <div className="flex justify-center mb-12">
-          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 w-full md:max-w-lg">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+          {/* Pixel Maps Card */}
+          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h2 className="text-xl font-semibold text-white mb-2">My Pixel Maps</h2>
@@ -237,6 +237,41 @@ const VideoPage = () => {
                     </button>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Lens Calculator Card */}
+          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-2">Lens Calculator</h2>
+                <p className="text-gray-400">Calculate projection lens requirements</p>
+              </div>
+              <Calculator className="h-8 w-8 text-indigo-400" />
+            </div>
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-700 rounded-lg">
+                <h3 className="text-white font-medium mb-2">Professional Projection Planning</h3>
+                <p className="text-gray-300 text-sm mb-4">
+                  Calculate optimal lens options for your projection setup with our comprehensive
+                  database of professional projectors and lenses.
+                </p>
+                <ul className="text-gray-400 text-sm space-y-1 mb-4">
+                  <li>• Screen size and throw distance calculations</li>
+                  <li>• Compatible lens recommendations</li>
+                  <li>• Brightness and image quality analysis</li>
+                  <li>• Support for all major manufacturers</li>
+                </ul>
+              </div>
+              <div className="pt-3 text-center">
+                <button
+                  className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200 w-full justify-center"
+                  onClick={() => navigate("/video/lens-calculator/new")}
+                >
+                  <Calculator className="h-5 w-5 mr-2" />
+                  Open Calculator
+                </button>
               </div>
             </div>
           </div>

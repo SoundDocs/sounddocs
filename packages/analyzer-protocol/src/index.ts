@@ -25,6 +25,17 @@ export type WindowType = "hann" | "kaiser" | "blackman";
 export type AvgType = "power" | "linear" | "exp";
 export type LpfMode = "lpf" | "none";
 
+export interface SignalGeneratorConfig {
+  enabled: boolean;
+  signalType: "sine" | "white" | "pink" | "brown" | "blue" | "violet" | "sine_sweep";
+  outputChannels?: number[] | null;
+  frequency: number;
+  startFreq: number;
+  endFreq: number;
+  sweepDuration: number;
+  amplitude: number;
+}
+
 export interface CaptureConfig {
   deviceId: string;
   sampleRate: number;
@@ -41,6 +52,10 @@ export interface CaptureConfig {
   // Smoothing
   lpfMode: LpfMode;
   lpfFreq: number;
+
+  // Signal Generator & Loopback
+  useLoopback?: boolean;
+  generator?: SignalGeneratorConfig;
 }
 
 // Message types from client to agent
@@ -78,6 +93,11 @@ export interface DelayFreezeMessage {
   applied_ms?: number;
 }
 
+export interface UpdateGeneratorMessage {
+  type: "update_generator";
+  config: SignalGeneratorConfig;
+}
+
 export type ClientMessage =
   | HelloMessage
   | ListDevicesMessage
@@ -85,7 +105,8 @@ export type ClientMessage =
   | StopCaptureMessage
   | CalibrateMessage
   | GetVersionMessage
-  | DelayFreezeMessage;
+  | DelayFreezeMessage
+  | UpdateGeneratorMessage;
 
 // Message types from agent to client
 export interface HelloAckMessage {
@@ -164,6 +185,7 @@ export function isClientMessage(msg: ProtocolMessage): msg is ClientMessage {
     "calibrate",
     "get_version",
     "delay_freeze",
+    "update_generator",
   ].includes(msg.type);
 }
 

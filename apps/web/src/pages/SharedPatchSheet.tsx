@@ -16,10 +16,14 @@ import {
 } from "lucide-react";
 import { getSharedResource, updateSharedResource } from "../lib/shareUtils";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../lib/AuthContext";
 import PatchSheetExport from "../components/PatchSheetExport";
 import PrintPatchSheetExport from "../components/PrintPatchSheetExport";
 import ExportModal from "../components/ExportModal";
 import html2canvas from "html2canvas";
+import { useCollaboration } from "@/hooks/useCollaboration";
+import { ActiveUsers } from "@/components/Presence/ActiveUsers";
+import { PresenceIndicator } from "@/components/Presence/PresenceIndicator";
 
 // Empty Header component for shared views
 const SharedHeader = ({ docName }: { docName: string }) => (
@@ -40,6 +44,7 @@ const SharedHeader = ({ docName }: { docName: string }) => (
 const SharedPatchSheet = () => {
   const { shareCode } = useParams<{ shareCode: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [patchSheet, setPatchSheet] = useState<any | null>(null);
@@ -52,6 +57,25 @@ const SharedPatchSheet = () => {
   const exportRef = useRef<HTMLDivElement>(null);
   const printExportRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
+
+  // Collaboration (view-only mode)
+  const { activeUsers, status: connectionStatus } = useCollaboration({
+    documentId: patchSheet?.id || "",
+    documentType: "patch_sheets",
+    userId: user?.id || "anonymous",
+    userEmail: user?.email || "anonymous@viewer.com",
+    userName: user?.user_metadata?.name || "Anonymous Viewer",
+    enabled: !!patchSheet?.id,
+    onRemoteUpdate: (payload) => {
+      // Listen for remote updates and refresh the view
+      if (payload.type === "field_update" && payload.field) {
+        setPatchSheet((prev: any) => ({
+          ...prev,
+          [payload.field!]: payload.value,
+        }));
+      }
+    },
+  });
 
   useEffect(() => {
     const loadSharedPatchSheet = async () => {
@@ -608,12 +632,20 @@ const SharedPatchSheet = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">{patchSheet.name}</h1>
-            <div className="flex items-center text-gray-400 text-sm">
-              <Calendar className="h-4 w-4 mr-1" />
-              <span>
-                Last edited:{" "}
-                {new Date(patchSheet.last_edited || patchSheet.created_at).toLocaleDateString()}
-              </span>
+            <div className="flex items-center gap-3 text-gray-400 text-sm">
+              <div className="flex items-center">
+                <Calendar className="h-4 w-4 mr-1" />
+                <span>
+                  Last edited:{" "}
+                  {new Date(patchSheet.last_edited || patchSheet.created_at).toLocaleDateString()}
+                </span>
+              </div>
+              {/* Connection Status */}
+              <PresenceIndicator status={connectionStatus} />
+              {/* Active Viewers */}
+              {activeUsers.length > 0 && (
+                <ActiveUsers users={activeUsers} currentUserId={user?.id} maxVisible={3} />
+              )}
             </div>
           </div>
 

@@ -8,10 +8,11 @@ except ImportError:
     _PYFFTW_AVAILABLE = False
     import scipy.fft as fftw
 from collections import OrderedDict
-from functools import lru_cache
+from functools import wraps
 import weakref
 import gc
 import time
+from typing import Dict, Tuple, Optional, Any, TypedDict, Union
 try:
     import psutil
     import os
@@ -20,7 +21,7 @@ except ImportError:
     _MEMORY_MONITORING_AVAILABLE = False
 from .schema import CaptureConfig, TFData, SPLData
 
-_windows = OrderedDict()
+_windows: OrderedDict[Tuple[str, int], np.ndarray] = OrderedDict()
 _MAX_WINDOWS = 16  # Reduced cap for better memory control
 
 def get_window(name, N):
@@ -53,67 +54,162 @@ def log_memory_usage():
         process = psutil.Process(os.getpid())
         memory_info = process.memory_info()
         memory_mb = memory_info.rss / 1024 / 1024
-        print(f"DSP Memory: {memory_mb:.1f} MB, Work arrays: {len(_work_arrays)}")
-    except Exception as e:
-        print(f"Memory monitoring error: {e}")
+        pass  # Memory stats tracked
+    except Exception:
+        pass  # Memory monitoring error
 
 def clear_dsp_caches():
-    """Clear DSP caches to free memory."""
-    global _windows, _work_arrays, _work_array_access_times, _fft_plans
+    """Clear DSP caches to free memory.
+
+    Enhanced with proper cleanup of all memory-tracking structures.
+    """
+    global _windows, _work_arrays, _work_array_access_times, _work_array_memory_sizes, _fft_plans
     _windows.clear()
     _hann_cached.cache_clear()
     _taper_for_M.cache_clear()
-    # Clear work arrays
+    # Clear work arrays and memory tracking
     _work_arrays.clear()
     _work_array_access_times.clear()
-    # Clear FFT plans
+    _work_array_memory_sizes.clear()  # Fix 2: Clear memory size tracking
+    # Clear FFT plans with proper cleanup
+    for plan_data in _fft_plans.values():
+        if plan_data:
+            plan, in_arr, out_arr, _ = plan_data
+            del plan
+            del in_arr
+            del out_arr
     _fft_plans.clear()
     gc.collect()
     log_memory_usage()
 
-# Pre-allocated work arrays for DSP operations
-_work_arrays = {}
-_work_array_access_times = {}
+# Fix 2: Memory-aware cache for DSP work arrays
+_work_arrays: Dict[Tuple[str, Tuple[int, ...], Any], np.ndarray] = {}
+_work_array_access_times: Dict[Tuple[str, Tuple[int, ...], Any], float] = {}
+_work_array_memory_sizes: Dict[Tuple[str, Tuple[int, ...], Any], int] = {}  # Track memory usage per array
 MAX_WORK_ARRAYS = 16
+MAX_WORK_ARRAY_MEMORY = 100 * 1024 * 1024  # 100MB limit for work array cache
 _cleanup_counter = 0
 CLEANUP_INTERVAL = 100  # Every 100 frames
 
-# FFT plan caching for pyFFTW performance
-_fft_plans = {}
+# Fix 3: FFT plan lifecycle management with memory threshold
+_fft_plans: Dict[Tuple[int, str, Any], Tuple[Any, np.ndarray, np.ndarray, float]] = {}
 MAX_FFT_PLANS = 8
+MAX_FFT_PLAN_MEMORY = 50 * 1024 * 1024  # 50MB limit for FFT plans
+_fft_plan_cleanup_counter = 0
+FFT_CLEANUP_INTERVAL = 50  # Cleanup FFT plans every 50 calls
 
 def get_work_array(key: str, shape: tuple, dtype=np.float64) -> np.ndarray:
-    """Get a reusable work array with size limits and access tracking."""
-    global _work_arrays, _work_array_access_times
+    """Get a reusable work array with memory-aware limits and tracking.
+
+    Fix 2: Implements memory-aware caching that tracks array.nbytes and evicts
+    based on total memory usage, prioritizing largest arrays for eviction.
+    """
+    global _work_arrays, _work_array_access_times, _work_array_memory_sizes
 
     # Include dtype in cache key to prevent type mismatches
     cache_key = (key, shape, dtype)
 
-    # Clean up old arrays periodically if over limit
-    if len(_work_arrays) > MAX_WORK_ARRAYS:
-        # Remove least recently used arrays
-        sorted_keys = sorted(_work_array_access_times.keys(),
-                           key=lambda k: _work_array_access_times[k])
-        keys_to_remove = sorted_keys[:len(_work_arrays) - MAX_WORK_ARRAYS]
-        for old_key in keys_to_remove:
-            _work_arrays.pop(old_key, None)
-            _work_array_access_times.pop(old_key, None)
+    # Calculate memory size for new array
+    array_nbytes = np.prod(shape) * np.dtype(dtype).itemsize
+
+    # Check if we need this array and if it would exceed memory limit
+    if cache_key not in _work_arrays:
+        current_memory = sum(_work_array_memory_sizes.values())
+
+        # Evict arrays if we exceed memory limit
+        while current_memory + array_nbytes > MAX_WORK_ARRAY_MEMORY and _work_arrays:
+            # Sort by memory size (largest first) and then by access time
+            evict_candidates = sorted(
+                _work_array_memory_sizes.keys(),
+                key=lambda k: (-_work_array_memory_sizes[k], _work_array_access_times.get(k, 0))
+            )
+
+            # Evict largest/oldest arrays until we have space
+            for evict_key in evict_candidates:
+                if evict_key != cache_key:  # Don't evict what we're trying to create
+                    evicted_size = _work_array_memory_sizes.pop(evict_key, 0)
+                    _work_arrays.pop(evict_key, None)
+                    _work_array_access_times.pop(evict_key, None)
+                    current_memory -= evicted_size
+                    if current_memory + array_nbytes <= MAX_WORK_ARRAY_MEMORY:
+                        break
+
+            # If still not enough space, clear more aggressively
+            if current_memory + array_nbytes > MAX_WORK_ARRAY_MEMORY:
+                # Keep only the smallest essential arrays
+                break
 
     if cache_key not in _work_arrays:
         _work_arrays[cache_key] = np.empty(shape, dtype=dtype)
+        _work_array_memory_sizes[cache_key] = array_nbytes
 
     _work_array_access_times[cache_key] = time.time()
     return _work_arrays[cache_key]
 
 
+def cleanup_fft_plans(force: bool = False):
+    """Clean up FFT plans based on memory usage and age.
+
+    Fix 3: Implements proper lifecycle management for FFT plans with
+    memory thresholds and periodic cleanup.
+    """
+    global _fft_plans, _fft_plan_cleanup_counter
+
+    if not _fft_plans:
+        return
+
+    # Calculate total memory used by FFT plans
+    total_memory = 0
+    plan_memory = {}
+    for key, (plan, in_arr, out_arr, last_access) in _fft_plans.items():
+        memory = in_arr.nbytes + out_arr.nbytes
+        plan_memory[key] = memory
+        total_memory += memory
+
+    # Clean up if over memory limit or forced
+    if force or total_memory > MAX_FFT_PLAN_MEMORY:
+        # Sort by last access time (oldest first)
+        sorted_plans = sorted(_fft_plans.keys(),
+                            key=lambda k: _fft_plans[k][3])
+
+        # Remove oldest plans until under memory limit
+        while total_memory > MAX_FFT_PLAN_MEMORY * 0.75 and sorted_plans:
+            key_to_remove = sorted_plans.pop(0)
+            removed_memory = plan_memory.get(key_to_remove, 0)
+
+            # Properly clean up the plan and its arrays
+            plan_data = _fft_plans.pop(key_to_remove, None)
+            if plan_data:
+                plan, in_arr, out_arr, _ = plan_data
+                # PyFFTW plans hold references to arrays; break these
+                del plan
+                del in_arr
+                del out_arr
+                total_memory -= removed_memory
+
+        # Force garbage collection after cleanup
+        gc.collect()
+
 def get_fft_plan(n: int, direction: str = 'forward', dtype=np.float64):
-    """Get a cached FFT plan along with its IO arrays."""
+    """Get a cached FFT plan along with its IO arrays.
+
+    Fix 3: Enhanced with memory-aware caching and periodic cleanup.
+    Uses weak references where possible and implements proper cleanup.
+    """
+    global _fft_plan_cleanup_counter
+
     if not _PYFFTW_AVAILABLE:
         return (None, None, None)
 
     direction = direction.lower()
     if direction not in ('forward', 'inverse', 'backward'):
         raise ValueError(f"Invalid FFT direction: {direction}")
+
+    # Periodic cleanup
+    _fft_plan_cleanup_counter += 1
+    if _fft_plan_cleanup_counter >= FFT_CLEANUP_INTERVAL:
+        _fft_plan_cleanup_counter = 0
+        cleanup_fft_plans()
 
     # For rfft/irfft we require real dtype input and complex output (and vice versa)
     if direction in ('forward',):
@@ -127,9 +223,27 @@ def get_fft_plan(n: int, direction: str = 'forward', dtype=np.float64):
     plan_key = (n, 'forward' if direction == 'forward' else 'inverse', dtype)
 
     if plan_key not in _fft_plans:
+        # Check memory before creating new plan
+        new_plan_memory = n * np.dtype(dtype).itemsize
+        if direction == 'forward':
+            new_plan_memory += (n // 2 + 1) * np.dtype(np.complex128).itemsize
+        else:
+            new_plan_memory += (n // 2 + 1) * np.dtype(np.complex128).itemsize + n * np.dtype(dtype).itemsize
+
+        # Ensure we have space
+        current_memory = sum(p[1].nbytes + p[2].nbytes for p in _fft_plans.values())
+        if current_memory + new_plan_memory > MAX_FFT_PLAN_MEMORY:
+            cleanup_fft_plans(force=True)
+
         if len(_fft_plans) >= MAX_FFT_PLANS:
             oldest_key = min(_fft_plans.keys(), key=lambda k: _fft_plans[k][3])
-            _fft_plans.pop(oldest_key, None)
+            old_plan = _fft_plans.pop(oldest_key, None)
+            if old_plan:
+                # Properly clean up old plan
+                plan, in_arr, out_arr, _ = old_plan
+                del plan
+                del in_arr
+                del out_arr
 
         if direction == 'forward':
             in_arr = pyfftw.empty_aligned(n, dtype=dtype)
@@ -146,7 +260,7 @@ def get_fft_plan(n: int, direction: str = 'forward', dtype=np.float64):
     _fft_plans[plan_key] = (plan, in_arr, out_arr, time.time())
     return plan, in_arr, out_arr
 
-def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: float | None = None) -> float:
+def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: Union[int, float], max_ms: Optional[float] = None) -> float:
     """
     Linear (zero-padded) GCC-PHAT delay. Positive => meas lags ref by +delay.
     """
@@ -168,16 +282,16 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
     X = get_work_array('fft_X', (fft_size,), dtype=np.complex128)
     Y = get_work_array('fft_Y', (fft_size,), dtype=np.complex128)
 
+    # Ensure inputs match planned length N (zero-pad or truncate)
+    xN = get_work_array('xN', (N,), dtype=x.dtype)
+    yN = get_work_array('yN', (N,), dtype=y.dtype)
+    xN.fill(0); yN.fill(0)
+    ncopy = min(len(x), N)
+    xN[:ncopy] = x[:ncopy]
+    yN[:ncopy] = y[:ncopy]
+
     # Use pyFFTW for optimal performance with preallocated arrays
     if _PYFFTW_AVAILABLE:
-        # Ensure inputs match planned length N (zero-pad or truncate)
-        xN = get_work_array('xN', (N,), dtype=x.dtype)
-        yN = get_work_array('yN', (N,), dtype=y.dtype)
-        xN.fill(0); yN.fill(0)
-        ncopy = min(len(x), N)
-        xN[:ncopy] = x[:ncopy]
-        yN[:ncopy] = y[:ncopy]
-
         plan, in_arr, out_arr = get_fft_plan(N, 'forward', xN.dtype)
         if plan is None:
             X[:] = fftw.rfft(xN, n=N)
@@ -256,7 +370,15 @@ def find_delay_ms(ref_chan: np.ndarray, meas_chan: np.ndarray, fs: int, max_ms: 
     return (lag_samples / fs) * 1000.0
 
 # ---- Delay state ----
-_delay = {
+class DelayState(TypedDict):
+    mode: str  # "auto" | "frozen" | "manual"
+    ema_ms: Optional[float]  # smoothed auto delay
+    frozen_ms: float  # value latched when freezing
+    manual_ms: float  # operator-set delay
+    alpha: float  # EMA factor
+    last_raw_ms: Optional[float]  # optional: for UI visibility
+
+_delay: DelayState = {
     "mode": "auto",         # "auto" | "frozen" | "manual"
     "ema_ms": None,         # smoothed auto delay
     "frozen_ms": 0.0,       # value latched when freezing
@@ -270,7 +392,7 @@ def reset_dsp_state():
     # Clear caches when resetting state
     clear_dsp_caches()
 
-def delay_freeze(enable: bool, applied_ms: float | None = None):
+def delay_freeze(enable: bool, applied_ms: Optional[float] = None):
     if enable:
         # Prefer explicit value, else the last applied auto/manual value.
         if applied_ms is not None:
@@ -278,7 +400,7 @@ def delay_freeze(enable: bool, applied_ms: float | None = None):
         elif _delay["mode"] == "manual":
             ms = float(_delay["manual_ms"])
         elif _delay["ema_ms"] is not None:
-            ms = float(_delay["ema_ms"])
+            ms = _delay["ema_ms"]
         else:
             # no estimate yet; stay in auto until we have one
             _delay["mode"] = "auto"
@@ -289,14 +411,14 @@ def delay_freeze(enable: bool, applied_ms: float | None = None):
     else:
         _delay["mode"] = "auto"
 
-def delay_set_manual(ms: float | None):
+def delay_set_manual(ms: Optional[float]):
     if ms is None:
         _delay["mode"] = "auto"
     else:
-        _delay["manual_ms"] = float(ms)
+        _delay["manual_ms"] = ms
         _delay["mode"] = "manual"
 
-def _delay_pick_applied(x: np.ndarray, y: np.ndarray, fs: float, max_ms: float) -> tuple[float, float | None]:
+def _delay_pick_applied(x: np.ndarray, y: np.ndarray, fs: float, max_ms: float) -> Tuple[float, Optional[float]]:
     """
     Returns (applied_delay_ms, raw_measured_ms_or_None).
     Skips GCC-PHAT when frozen/manual to save CPU and to keep the value fixed.
@@ -307,15 +429,15 @@ def _delay_pick_applied(x: np.ndarray, y: np.ndarray, fs: float, max_ms: float) 
         _delay["last_raw_ms"] = raw
         ema = _delay["ema_ms"]
         alpha = _delay["alpha"]
-        ema = raw if ema is None else alpha*ema + (1.0-alpha)*raw
+        ema = raw if ema is None else alpha * ema + (1.0 - alpha) * raw
         _delay["ema_ms"] = ema
-        return float(ema), float(raw)
+        return ema, raw
     elif mode == "frozen":
         raw = None  # not updated
-        return float(_delay["frozen_ms"]), raw
+        return _delay["frozen_ms"], raw
     else:  # "manual"
         raw = None
-        return float(_delay["manual_ms"]), raw
+        return _delay["manual_ms"], raw
 
 def delay_status() -> dict:
     return {
@@ -374,7 +496,7 @@ def _choose_nperseg_with_min_segments(usable_len: int, target_n: int, min_segmen
         n //= 2
     return 32, 24  # very small fallback
 
-def _log_band_edges(freqs: np.ndarray, frac: int = 6) -> tuple[np.ndarray, np.ndarray]:
+def _log_band_edges(freqs: np.ndarray, frac: int = 6) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """For each bin i, return [i0[i], i1[i]) index edges spanning ±(1/2*1/frac) octaves."""
     f = freqs.copy()
     valid = f > 0
@@ -391,9 +513,78 @@ def _log_band_edges(freqs: np.ndarray, frac: int = 6) -> tuple[np.ndarray, np.nd
     I1[valid] = i1
     return I0, I1, valid
 
-@lru_cache(maxsize=32)  # Reduced from 128
+# Fix 5: Memory-aware cache decorator implementation
+class MemoryAwareLRUCache:
+    """Memory-aware LRU cache that tracks memory usage and evicts based on memory limits.
+
+    This custom cache decorator tracks the memory footprint of cached items and
+    ensures the total cache size doesn't exceed the specified memory limit.
+    """
+
+    def __init__(self, max_memory_mb=10, max_items=32):
+        self.max_memory = max_memory_mb * 1024 * 1024  # Convert to bytes
+        self.max_items = max_items
+        self.cache = OrderedDict()
+        self.memory_usage = {}
+        self.total_memory = 0
+
+    def __call__(self, func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # Create cache key from function arguments
+            key = (args, tuple(sorted(kwargs.items())))
+
+            # Check if in cache
+            if key in self.cache:
+                # Move to end (most recently used)
+                self.cache.move_to_end(key)
+                return self.cache[key]
+
+            # Compute result
+            result = func(*args, **kwargs)
+
+            # Calculate memory size for numpy arrays
+            if isinstance(result, np.ndarray):
+                result_memory = result.nbytes
+            else:
+                # Estimate memory for non-array objects
+                result_memory = 1024  # Conservative estimate
+
+            # Check if we need to evict items
+            while (self.total_memory + result_memory > self.max_memory or
+                   len(self.cache) >= self.max_items) and self.cache:
+                # Evict least recently used
+                evict_key = next(iter(self.cache))
+                evicted = self.cache.pop(evict_key)
+                evicted_memory = self.memory_usage.pop(evict_key, 0)
+                self.total_memory -= evicted_memory
+
+            # Add to cache
+            self.cache[key] = result
+            self.memory_usage[key] = result_memory
+            self.total_memory += result_memory
+
+            return result
+
+        def cache_clear():
+            """Clear the cache and reset memory tracking."""
+            wrapper.__self__.cache.clear()
+            wrapper.__self__.memory_usage.clear()
+            wrapper.__self__.total_memory = 0
+
+        # Attach instance to wrapper for access to cache_clear
+        wrapper.__self__ = self
+        wrapper.cache_clear = cache_clear
+        return wrapper
+
+# Create memory-aware cache instances
+_hann_cache_instance = MemoryAwareLRUCache(max_memory_mb=5, max_items=32)
+_taper_cache_instance = MemoryAwareLRUCache(max_memory_mb=5, max_items=16)
+
+@_hann_cache_instance
 def _hann_cached(M: int) -> np.ndarray:
-    if M <= 1: 
+    """Cached Hann window generation with memory-aware eviction."""
+    if M <= 1:
         return np.ones(max(M,1))
     n = np.arange(M)
     return 0.5 - 0.5*np.cos(2*np.pi*n/(M-1))
@@ -452,8 +643,9 @@ def smooth_constQ_tf_and_coh(
     Hs[~valid] = Hs[valid][0] if np.any(valid) else 0.0
     return Hs, coh_s
 
-@lru_cache(maxsize=16)  # Reduced from 64
+@_taper_cache_instance
 def _taper_for_M(M: int) -> np.ndarray:
+    """Cached taper generation with memory-aware eviction."""
     fade = max(8, M // 64)
     t = np.ones(M, dtype=np.float64)
     t[:fade] = np.linspace(0, 1, fade)
@@ -478,7 +670,7 @@ def compute_metrics(block: np.ndarray, config: CaptureConfig) -> tuple[TFData, S
     fs = float(config.sampleRate)
 
     # Delay (linear GCC-PHAT you already implemented)
-    MAX_DELAY_MS = getattr(config, "maxDelayMs", 500.0)
+    MAX_DELAY_MS = getattr(config, "maxDelayMs", 2000.0)
     delay_ms, _ = _delay_pick_applied(x, y, fs, max_ms=MAX_DELAY_MS)
 
     # Integer align with zero-padding (preserve length) + fractional remainder

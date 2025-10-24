@@ -10,11 +10,17 @@
 
 ## 🎵 **Free and Open Source**
 
-SoundDocs is a modern web application meticulously crafted for audio engineers, production managers, and event technicians. Streamline your workflow by creating comprehensive patch lists, intuitive stage plots, detailed run of shows, and production schedules with ease. Now featuring advanced measurement mathematics for professional audio analysis. Share your setups seamlessly with venues, artists, and production teams.
+SoundDocs is a modern web application meticulously crafted for audio engineers, production managers, and event technicians. Streamline your workflow by creating comprehensive patch lists, intuitive stage plots, technical riders, detailed run of shows, and production schedules with ease. Now featuring advanced measurement mathematics for professional audio analysis. Share your setups seamlessly with venues, artists, and production teams.
 
 SoundDocs is provided free of charge and is open source under the AGPL v3 license.
 
+**Privacy Promise**: Just because SoundDocs is free with no ads doesn't mean you are the product. We are committed to never selling, sharing, or monetizing your personal data. Your projects, documents, and information remain yours, always.
+
 ![SoundDocs Hero Preview](https://i.postimg.cc/bJdc5Hmz/Screenshot-2025-06-05-at-19-21-01.png)
+
+## 🌍 Trusted Worldwide
+
+SoundDocs is trusted by production companies, freelancers, and event professionals around the globe. From national tours and corporate events to theatrical productions and broadcast operations, professionals rely on SoundDocs to streamline their documentation workflow and deliver exceptional results.
 
 ## ✨ Core Features
 
@@ -26,6 +32,8 @@ SoundDocs empowers you to manage event audio documentation efficiently:
   Visually construct stage layouts using a library of draggable elements including instruments, microphones, monitors, DI boxes, and risers. Clearly communicate stage needs.
 - **🎤 Mic Plot Designer:**
   Craft detailed Corporate and Theater mic plots. Manage presenters, actors, wireless assignments, photos, and notes with ease.
+- **📋 Technical Rider Manager:**
+  Create comprehensive technical riders for touring artists and production teams. Include artist information, band members, input/channel lists, sound system requirements, backline needs, technical staff requirements, and hospitality riders. Share riders with venues and production teams via secure links, with professional PDF exports.
 - **📊 Pixel Map Designer:**
   Design and visualize LED video wall layouts, then export clear, detailed plans for your video team.
 - **📻 Comms Planner:**
@@ -99,11 +107,15 @@ For experienced developers, here are the essential commands to get the project r
     python3 generate_cert.py
     cd ../..
     ```
-6.  **Start the Web App**:
+6.  **Build the Project**:
+    ```bash
+    pnpm build
+    ```
+7.  **Start the Web App**:
     ```bash
     pnpm dev
     ```
-7.  **(Optional) Run Capture Agent for Development**:
+8.  **(Optional) Run Capture Agent for Development**:
     If developing agent-related features, run from source:
 
     ```bash
@@ -172,7 +184,12 @@ First, set up the main web application.
 
     This script uses `mkcert` to generate the necessary certificate files.
 
-6.  **Start the Development Server**:
+6.  **Build the Project**:
+    Build the project before starting development.
+    ```bash
+    pnpm build
+    ```
+7.  **Start the Development Server**:
     Now you can start the web app.
     ```bash
     pnpm dev
@@ -258,6 +275,18 @@ To self-host SoundDocs, you will need a remote Supabase project.
 ## 🤝 Contributing
 
 We welcome contributions from the community! Whether it's bug fixes, feature enhancements, or documentation improvements, your help is appreciated.
+
+### 🤖 AI-Assisted Development
+
+If you're using AI-assisted coding tools or "vibe coding", we **strongly recommend using [Claude Code](https://claude.ai/claude-code)** for contributing to SoundDocs. This project includes:
+
+- **Extensive [CLAUDE.md](.claude/CLAUDE.md) documentation** with comprehensive project architecture, patterns, and guidelines
+- **60+ specialized sub-agents** for different development tasks (frontend, backend, testing, database, security, etc.)
+- **Optimized workflows** for our specific tech stack (React, TypeScript, Supabase, pnpm workspaces)
+
+Using Claude Code ensures better code quality, adherence to project conventions, and faster development cycles through intelligent agent delegation.
+
+---
 
 Please review our [Contributing Guidelines](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests.
 

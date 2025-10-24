@@ -15,6 +15,7 @@ import {
   Loader,
   Info,
   ArrowLeftCircle,
+  FileText,
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -24,7 +25,9 @@ import ProductionScheduleExport from "../components/production-schedule/Producti
 import PrintProductionScheduleExport from "../components/production-schedule/PrintProductionScheduleExport";
 import RunOfShowExport from "../components/run-of-show/RunOfShowExport";
 import PrintRunOfShowExport from "../components/run-of-show/PrintRunOfShowExport";
-import { ScheduleForExport } from "../lib/types";
+import RiderExport from "../components/rider/RiderExport";
+import PrintRiderExport from "../components/rider/PrintRiderExport";
+import { ScheduleForExport, RiderForExport } from "../lib/types";
 import { DetailedScheduleItem } from "../components/production-schedule/ProductionScheduleDetail";
 import { LaborScheduleItem } from "../components/production-schedule/ProductionScheduleLabor";
 import { RunOfShowItem, CustomColumnDefinition } from "./RunOfShowEditor";
@@ -57,6 +60,13 @@ interface FullProductionScheduleData {
 }
 
 interface RunOfShowSummary {
+  id: string;
+  name: string;
+  created_at: string;
+  last_edited?: string;
+}
+
+interface RiderSummary {
   id: string;
   name: string;
   created_at: string;
@@ -143,6 +153,7 @@ const ProductionPage = () => {
   const [, setUser] = useState<unknown>(null);
   const [productionSchedules, setProductionSchedules] = useState<ProductionScheduleSummary[]>([]);
   const [runOfShows, setRunOfShows] = useState<RunOfShowSummary[]>([]);
+  const [riders, setRiders] = useState<RiderSummary[]>([]);
 
   const [exportingItemId, setExportingItemId] = useState<string | null>(null);
 
@@ -157,10 +168,14 @@ const ProductionPage = () => {
   const [showRunOfShowExportModal, setShowRunOfShowExportModal] = useState(false);
   const [exportRunOfShowId, setExportRunOfShowId] = useState<string | null>(null);
 
+  const [currentExportRider, setCurrentExportRider] = useState<RiderForExport | null>(null);
+  const [showRiderExportModal, setShowRiderExportModal] = useState(false);
+  const [exportRiderId, setExportRiderId] = useState<string | null>(null);
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<{
     id: string;
-    type: "schedule" | "runofshow";
+    type: "schedule" | "runofshow" | "rider";
     name: string;
   } | null>(null);
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
@@ -169,6 +184,8 @@ const ProductionPage = () => {
   const printProductionScheduleExportRef = useRef<HTMLDivElement>(null);
   const runOfShowExportRef = useRef<HTMLDivElement>(null);
   const printRunOfShowExportRef = useRef<HTMLDivElement>(null);
+  const riderExportRef = useRef<HTMLDivElement>(null);
+  const printRiderExportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -181,6 +198,7 @@ const ProductionPage = () => {
           await Promise.all([
             fetchProductionSchedules(data.user.id),
             fetchRunOfShows(data.user.id),
+            fetchRiders(data.user.id),
           ]);
         } else {
           navigate("/login");
@@ -236,12 +254,32 @@ const ProductionPage = () => {
     }
   };
 
+  const fetchRiders = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("technical_riders")
+        .select("id, name, created_at, last_edited")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      if (data) setRiders(data as RiderSummary[]);
+    } catch (error) {
+      console.error("Error fetching technical riders:", error);
+      setSupabaseError("Failed to fetch technical riders.");
+    }
+  };
+
   const handleCreateProductionSchedule = () =>
     navigate("/production-schedule/new", { state: { from: "/production" } });
   const handleCreateRunOfShow = () =>
     navigate("/run-of-show/new", { state: { from: "/production" } });
+  const handleCreateRider = () => navigate("/rider/new", { state: { from: "/production" } });
 
-  const handleDeleteRequest = (id: string, type: "schedule" | "runofshow", name: string) => {
+  const handleDeleteRequest = (
+    id: string,
+    type: "schedule" | "runofshow" | "rider",
+    name: string,
+  ) => {
     setDocumentToDelete({ id, type, name });
     setShowDeleteConfirm(true);
   };
@@ -252,6 +290,7 @@ const ProductionPage = () => {
       let tableName = "";
       if (documentToDelete.type === "schedule") tableName = "production_schedules";
       else if (documentToDelete.type === "runofshow") tableName = "run_of_shows";
+      else if (documentToDelete.type === "rider") tableName = "technical_riders";
 
       if (tableName) {
         const { error } = await supabase.from(tableName).delete().eq("id", documentToDelete.id);
@@ -263,6 +302,8 @@ const ProductionPage = () => {
           );
         } else if (documentToDelete.type === "runofshow") {
           setRunOfShows(runOfShows.filter((item) => item.id !== documentToDelete.id));
+        } else if (documentToDelete.type === "rider") {
+          setRiders(riders.filter((item) => item.id !== documentToDelete.id));
         }
       }
     } catch (error) {
@@ -283,14 +324,19 @@ const ProductionPage = () => {
     navigate(`/production-schedule/${id}`, { state: { from: "/production" } });
   const handleEditRunOfShow = (id: string) =>
     navigate(`/run-of-show/${id}`, { state: { from: "/production" } });
+  const handleEditRider = (id: string) =>
+    navigate(`/rider/${id}`, { state: { from: "/production" } });
 
-  const handleExportClick = (id: string, type: "schedule" | "runofshow") => {
+  const handleExportClick = (id: string, type: "schedule" | "runofshow" | "rider") => {
     if (type === "schedule") {
       setExportProductionScheduleId(id);
       setShowProductionScheduleExportModal(true);
     } else if (type === "runofshow") {
       setExportRunOfShowId(id);
       setShowRunOfShowExportModal(true);
+    } else if (type === "rider") {
+      setExportRiderId(id);
+      setShowRiderExportModal(true);
     }
   };
 
@@ -415,7 +461,7 @@ const ProductionPage = () => {
               doc.setFont("helvetica", "bold");
               doc.text("SoundDocs", 40, pageHeight - 20);
               doc.setFont("helvetica", "normal");
-              doc.text("| Professional Audio Documentation", 95, pageHeight - 20);
+              doc.text("| Professional Event Documentation", 95, pageHeight - 20);
               const pageNumText = `Page ${i} of ${pageCount}`;
               doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: "center" });
               const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
@@ -788,7 +834,7 @@ const ProductionPage = () => {
               doc.setFont("helvetica", "bold");
               doc.text("SoundDocs", 40, pageHeight - 20);
               doc.setFont("helvetica", "normal");
-              doc.text("| Professional Audio Documentation", 95, pageHeight - 20);
+              doc.text("| Professional Event Documentation", 95, pageHeight - 20);
               const pageNumText = `Page ${i} of ${pageCount}`;
               doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: "center" });
               const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
@@ -888,6 +934,455 @@ const ProductionPage = () => {
     }
   };
 
+  const prepareAndExecuteRiderExport = async (riderId: string, type: "color" | "print") => {
+    setExportingItemId(riderId);
+    setShowRiderExportModal(false);
+    try {
+      const { data, error } = await supabase
+        .from("technical_riders")
+        .select("*")
+        .eq("id", riderId)
+        .single();
+      if (error || !data) throw error || new Error("Technical Rider not found");
+
+      const riderData = {
+        ...data,
+        band_members: data.band_members || [],
+        input_list: data.input_list || [],
+        backline_requirements: data.backline_requirements || [],
+        artist_provided_gear: data.artist_provided_gear || [],
+        required_staff: data.required_staff || [],
+      } as RiderForExport;
+
+      if (type === "color") {
+        setCurrentExportRider(riderData);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        await exportAsPdf(
+          riderExportRef,
+          riderData.name,
+          "technical-rider-color",
+          "#111827",
+          "Inter",
+        );
+      } else {
+        // Use jsPDF directly with autoTable for print-friendly version
+        try {
+          const pdf = new jsPDF("p", "pt", "letter");
+
+          const addPageHeader = (doc: jsPDF, title: string) => {
+            doc.setFontSize(24);
+            doc.setFont("helvetica", "bold");
+            doc.text("SoundDocs", 40, 50);
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(100, 100, 100);
+            doc.text("Technical Rider", 40, 68);
+            doc.setFontSize(16);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(0, 0, 0);
+            doc.text(title, 40, 90);
+            doc.setDrawColor(221, 221, 221);
+            doc.line(40, 100, doc.internal.pageSize.width - 40, 100);
+          };
+
+          const addPageFooter = (doc: jsPDF) => {
+            const pageCount = doc.getNumberOfPages();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+
+            for (let i = 1; i <= pageCount; i++) {
+              doc.setPage(i);
+              doc.setDrawColor(221, 221, 221);
+              doc.line(40, pageHeight - 35, pageWidth - 40, pageHeight - 35);
+              doc.setFontSize(8);
+              doc.setTextColor(128, 128, 128);
+              doc.setFont("helvetica", "bold");
+              doc.text("SoundDocs", 40, pageHeight - 20);
+              doc.setFont("helvetica", "normal");
+              doc.text("| Professional Event Documentation", 95, pageHeight - 20);
+              const pageNumText = `Page ${i} of ${pageCount}`;
+              doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: "center" });
+              const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
+              doc.text(dateStr, pageWidth - 40, pageHeight - 20, { align: "right" });
+            }
+          };
+
+          addPageHeader(pdf, riderData.artist_name || "Artist Name");
+
+          let lastY = 120;
+
+          // Contact Information
+          const contactInfo: [string, string][] = [
+            ["Contact Name:", riderData.contact_name || "N/A"],
+            ["Email:", riderData.contact_email || "N/A"],
+            ["Phone:", riderData.contact_phone || "N/A"],
+            ["Genre:", riderData.genre || "N/A"],
+          ];
+
+          pdf.setFontSize(12);
+          pdf.setFont("helvetica", "bold");
+          pdf.text("Primary Contact", 40, lastY);
+
+          (
+            pdf as unknown as {
+              autoTable: (opts: unknown) => void;
+              lastAutoTable: { finalY: number };
+            }
+          ).autoTable({
+            body: contactInfo,
+            startY: lastY + 10,
+            theme: "plain",
+            styles: {
+              font: "helvetica",
+              fontSize: 10,
+              cellPadding: { top: 3, right: 5, bottom: 3, left: 0 },
+            },
+            columnStyles: {
+              0: { fontStyle: "bold", cellWidth: 100 },
+            },
+            margin: { left: 40 },
+          });
+          lastY =
+            (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20;
+
+          // Band Members
+          if (riderData.band_members && riderData.band_members.length > 0) {
+            pdf.setFontSize(12);
+            pdf.setFont("helvetica", "bold");
+            pdf.text("Band Members", 40, lastY);
+
+            (
+              pdf as unknown as {
+                autoTable: (opts: unknown) => void;
+                lastAutoTable: { finalY: number };
+              }
+            ).autoTable({
+              head: [["Name", "Instrument", "Input Needs"]],
+              body: riderData.band_members.map((m) => [
+                m.name || "-",
+                m.instrument || "-",
+                m.input_needs || "-",
+              ]),
+              startY: lastY + 10,
+              theme: "grid",
+              headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: "bold" },
+              styles: {
+                font: "helvetica",
+                fontSize: 9,
+                cellPadding: 5,
+              },
+              margin: { left: 40, right: 40 },
+            });
+            lastY =
+              (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20;
+          }
+
+          // Input List
+          if (riderData.input_list && riderData.input_list.length > 0) {
+            // Check if we need a new page
+            if (lastY > 600) {
+              pdf.addPage();
+              lastY = 60;
+            }
+
+            pdf.setFontSize(12);
+            pdf.setFont("helvetica", "bold");
+            pdf.text("Input/Channel List", 40, lastY);
+
+            (
+              pdf as unknown as {
+                autoTable: (opts: unknown) => void;
+                lastAutoTable: { finalY: number };
+              }
+            ).autoTable({
+              head: [["Ch", "Name", "Type", "Mic", "48V", "DI", "Notes"]],
+              body: riderData.input_list.map((input) => [
+                input.channel_number || "-",
+                input.name || "-",
+                input.type || "-",
+                input.mic_type || "-",
+                input.phantom_power ? "✓" : "",
+                input.di_needed ? "✓" : "",
+                input.notes || "",
+              ]),
+              startY: lastY + 10,
+              theme: "grid",
+              headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: "bold" },
+              styles: {
+                font: "helvetica",
+                fontSize: 8,
+                cellPadding: 4,
+              },
+              columnStyles: {
+                0: { cellWidth: 30 },
+                4: { halign: "center", cellWidth: 30 },
+                5: { halign: "center", cellWidth: 30 },
+              },
+              margin: { left: 40, right: 40 },
+            });
+            lastY =
+              (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20;
+          }
+
+          // Sound System Requirements
+          if (lastY > 650) {
+            pdf.addPage();
+            lastY = 60;
+          }
+
+          pdf.setFontSize(12);
+          pdf.setFont("helvetica", "bold");
+          pdf.text("Sound System Requirements", 40, lastY);
+          lastY += 15;
+
+          pdf.setFontSize(10);
+          pdf.setFont("helvetica", "bold");
+          pdf.text("PA System:", 40, lastY);
+          pdf.setFont("helvetica", "normal");
+          const paLines = pdf.splitTextToSize(
+            riderData.pa_requirements || "Not specified",
+            pdf.internal.pageSize.width - 80,
+          );
+          pdf.text(paLines, 40, lastY + 15);
+          lastY += 15 + paLines.length * 12 + 10;
+
+          pdf.setFont("helvetica", "bold");
+          pdf.text("Monitor System:", 40, lastY);
+          pdf.setFont("helvetica", "normal");
+          const monitorLines = pdf.splitTextToSize(
+            riderData.monitor_requirements || "Not specified",
+            pdf.internal.pageSize.width - 80,
+          );
+          pdf.text(monitorLines, 40, lastY + 15);
+          lastY += 15 + monitorLines.length * 12 + 10;
+
+          pdf.setFont("helvetica", "bold");
+          pdf.text("Console Requirements:", 40, lastY);
+          pdf.setFont("helvetica", "normal");
+          const consoleLines = pdf.splitTextToSize(
+            riderData.console_requirements || "Not specified",
+            pdf.internal.pageSize.width - 80,
+          );
+          pdf.text(consoleLines, 40, lastY + 15);
+          lastY += 15 + consoleLines.length * 12 + 20;
+
+          // Backline Requirements
+          if (riderData.backline_requirements && riderData.backline_requirements.length > 0) {
+            if (lastY > 650) {
+              pdf.addPage();
+              lastY = 60;
+            }
+
+            pdf.setFontSize(12);
+            pdf.setFont("helvetica", "bold");
+            pdf.text("Venue Provided Backline", 40, lastY);
+
+            (
+              pdf as unknown as {
+                autoTable: (opts: unknown) => void;
+                lastAutoTable: { finalY: number };
+              }
+            ).autoTable({
+              head: [["Item", "Quantity", "Specifications"]],
+              body: riderData.backline_requirements.map((item) => [
+                item.item || "-",
+                item.quantity || "-",
+                item.notes || "-",
+              ]),
+              startY: lastY + 10,
+              theme: "grid",
+              headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: "bold" },
+              styles: {
+                font: "helvetica",
+                fontSize: 9,
+                cellPadding: 5,
+              },
+              margin: { left: 40, right: 40 },
+            });
+            lastY =
+              (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20;
+          }
+
+          // Artist Provided Gear
+          if (riderData.artist_provided_gear && riderData.artist_provided_gear.length > 0) {
+            if (lastY > 650) {
+              pdf.addPage();
+              lastY = 60;
+            }
+
+            pdf.setFontSize(12);
+            pdf.setFont("helvetica", "bold");
+            pdf.text("Artist Provided Equipment", 40, lastY);
+
+            (
+              pdf as unknown as {
+                autoTable: (opts: unknown) => void;
+                lastAutoTable: { finalY: number };
+              }
+            ).autoTable({
+              head: [["Item", "Quantity", "Specifications"]],
+              body: riderData.artist_provided_gear.map((item) => [
+                item.item || "-",
+                item.quantity || "-",
+                item.notes || "-",
+              ]),
+              startY: lastY + 10,
+              theme: "grid",
+              headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: "bold" },
+              styles: {
+                font: "helvetica",
+                fontSize: 9,
+                cellPadding: 5,
+              },
+              margin: { left: 40, right: 40 },
+            });
+            lastY =
+              (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20;
+          }
+
+          // Required Staff
+          if (riderData.required_staff && riderData.required_staff.length > 0) {
+            if (lastY > 650) {
+              pdf.addPage();
+              lastY = 60;
+            }
+
+            pdf.setFontSize(12);
+            pdf.setFont("helvetica", "bold");
+            pdf.text("Required Technical Staff", 40, lastY);
+
+            (
+              pdf as unknown as {
+                autoTable: (opts: unknown) => void;
+                lastAutoTable: { finalY: number };
+              }
+            ).autoTable({
+              head: [["Role", "Quantity", "Requirements"]],
+              body: riderData.required_staff.map((staff) => [
+                staff.role || "-",
+                staff.quantity || "-",
+                staff.notes || "-",
+              ]),
+              startY: lastY + 10,
+              theme: "grid",
+              headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: "bold" },
+              styles: {
+                font: "helvetica",
+                fontSize: 9,
+                cellPadding: 5,
+              },
+              margin: { left: 40, right: 40 },
+            });
+            lastY =
+              (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20;
+          }
+
+          // Special Requirements
+          if (lastY > 650) {
+            pdf.addPage();
+            lastY = 60;
+          }
+
+          pdf.setFontSize(12);
+          pdf.setFont("helvetica", "bold");
+          pdf.text("Special Requirements", 40, lastY);
+          lastY += 15;
+
+          if (riderData.special_requirements) {
+            pdf.setFontSize(10);
+            pdf.setFont("helvetica", "bold");
+            pdf.text("Stage & Production:", 40, lastY);
+            pdf.setFont("helvetica", "normal");
+            const specialLines = pdf.splitTextToSize(
+              riderData.special_requirements,
+              pdf.internal.pageSize.width - 80,
+            );
+            pdf.text(specialLines, 40, lastY + 15);
+            lastY += 15 + specialLines.length * 12 + 10;
+          }
+
+          if (riderData.power_requirements) {
+            pdf.setFont("helvetica", "bold");
+            pdf.text("Power Requirements:", 40, lastY);
+            pdf.setFont("helvetica", "normal");
+            const powerLines = pdf.splitTextToSize(
+              riderData.power_requirements,
+              pdf.internal.pageSize.width - 80,
+            );
+            pdf.text(powerLines, 40, lastY + 15);
+            lastY += 15 + powerLines.length * 12 + 10;
+          }
+
+          if (riderData.lighting_notes) {
+            pdf.setFont("helvetica", "bold");
+            pdf.text("Lighting:", 40, lastY);
+            pdf.setFont("helvetica", "normal");
+            const lightingLines = pdf.splitTextToSize(
+              riderData.lighting_notes,
+              pdf.internal.pageSize.width - 80,
+            );
+            pdf.text(lightingLines, 40, lastY + 15);
+            lastY += 15 + lightingLines.length * 12 + 10;
+          }
+
+          // Hospitality
+          if (riderData.hospitality_notes) {
+            if (lastY > 650) {
+              pdf.addPage();
+              lastY = 60;
+            }
+
+            pdf.setFontSize(12);
+            pdf.setFont("helvetica", "bold");
+            pdf.text("Hospitality", 40, lastY);
+            pdf.setFontSize(10);
+            pdf.setFont("helvetica", "normal");
+            const hospitalityLines = pdf.splitTextToSize(
+              riderData.hospitality_notes,
+              pdf.internal.pageSize.width - 80,
+            );
+            pdf.text(hospitalityLines, 40, lastY + 15);
+            lastY += 15 + hospitalityLines.length * 12 + 10;
+          }
+
+          // Additional Notes
+          if (riderData.additional_notes) {
+            if (lastY > 650) {
+              pdf.addPage();
+              lastY = 60;
+            }
+
+            pdf.setFontSize(12);
+            pdf.setFont("helvetica", "bold");
+            pdf.text("Additional Notes", 40, lastY);
+            pdf.setFontSize(10);
+            pdf.setFont("helvetica", "normal");
+            const additionalLines = pdf.splitTextToSize(
+              riderData.additional_notes,
+              pdf.internal.pageSize.width - 80,
+            );
+            pdf.text(additionalLines, 40, lastY + 15);
+          }
+
+          addPageFooter(pdf);
+          pdf.save(
+            `${riderData.name.replace(/\s+/g, "-").toLowerCase()}-technical-rider-print.pdf`,
+          );
+        } catch (error) {
+          console.error("Error exporting print-friendly PDF:", error);
+          setSupabaseError("Failed to export print-friendly PDF. See console for details.");
+        }
+      }
+    } catch (error) {
+      console.error("Error exporting technical rider:", error);
+      setSupabaseError("Failed to export technical rider. Please try again.");
+    } finally {
+      setExportingItemId(null);
+      setCurrentExportRider(null);
+      setExportRiderId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -923,7 +1418,7 @@ const ProductionPage = () => {
           </Link>
           <h1 className="text-4xl font-bold text-white mb-4">Production Documents</h1>
           <p className="text-lg text-gray-300">
-            Manage your production schedules and run of shows.
+            Manage your production schedules, run of shows, and technical riders.
           </p>
         </div>
 
@@ -1105,6 +1600,93 @@ const ProductionPage = () => {
               </div>
             </div>
           </div>
+
+          {/* My Technical Riders Card */}
+          <div className="bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 md:col-span-2 md:mx-auto md:w-full md:max-w-3xl">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-white mb-2">My Technical Riders</h2>
+                <p className="text-gray-400">Create and manage artist technical riders</p>
+              </div>
+              <FileText className="h-8 w-8 text-indigo-400" />
+            </div>
+            <div className="space-y-4">
+              {riders.length > 0 ? (
+                <div className="space-y-3">
+                  {riders.slice(0, 3).map((rider) => (
+                    <div
+                      key={rider.id}
+                      className="bg-gray-700 p-4 rounded-lg flex justify-between items-center"
+                    >
+                      <div>
+                        <h3 className="text-white font-medium">{rider.name}</h3>
+                        <p className="text-gray-400 text-sm">
+                          {rider.last_edited
+                            ? `Edited ${new Date(rider.last_edited).toLocaleDateString()}`
+                            : `Created ${new Date(rider.created_at).toLocaleDateString()}`}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Download"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleExportClick(rider.id, "rider");
+                          }}
+                          disabled={exportingItemId === rider.id}
+                        >
+                          {exportingItemId === rider.id ? (
+                            <Loader className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Download className="h-5 w-5" />
+                          )}
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-indigo-400"
+                          title="Edit"
+                          onClick={() => handleEditRider(rider.id)}
+                        >
+                          <Edit className="h-5 w-5" />
+                        </button>
+                        <button
+                          className="p-2 text-gray-400 hover:text-red-400"
+                          title="Delete"
+                          onClick={() => handleDeleteRequest(rider.id, "rider", rider.name)}
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 bg-gray-700 rounded-lg text-center">
+                  <p className="text-gray-300 mb-4">You haven't created any technical riders yet</p>
+                </div>
+              )}
+              <div className="pt-3 text-center">
+                <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3 sm:justify-center">
+                  <button
+                    className="inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                    onClick={handleCreateRider}
+                  >
+                    <PlusCircle className="h-5 w-5 mr-2" />
+                    New Tech Rider
+                  </button>
+                  {riders.length > 0 && (
+                    <button
+                      className="inline-flex items-center bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md font-medium transition-all duration-200"
+                      onClick={() => navigate("/all-riders")}
+                    >
+                      <List className="h-5 w-5 mr-2" />
+                      View All {riders.length > 0 && `(${riders.length})`}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
 
@@ -1170,6 +1752,34 @@ const ProductionPage = () => {
         </>
       )}
 
+      <ExportModal
+        isOpen={showRiderExportModal}
+        onClose={() => {
+          if (!exportingItemId) setShowRiderExportModal(false);
+        }}
+        onExportColor={() => exportRiderId && prepareAndExecuteRiderExport(exportRiderId, "color")}
+        onExportPrintFriendly={() =>
+          exportRiderId && prepareAndExecuteRiderExport(exportRiderId, "print")
+        }
+        title="Technical Rider"
+        isExporting={!!exportingItemId && !!exportRiderId}
+      />
+
+      {currentExportRider && (
+        <>
+          <RiderExport
+            key={`export-rider-${currentExportRider.id}-${currentExportRider.last_edited || currentExportRider.created_at}`}
+            ref={riderExportRef}
+            rider={currentExportRider}
+          />
+          <PrintRiderExport
+            key={`print-export-rider-${currentExportRider.id}-${currentExportRider.last_edited || currentExportRider.created_at}`}
+            ref={printRiderExportRef}
+            rider={currentExportRider}
+          />
+        </>
+      )}
+
       {showDeleteConfirm && documentToDelete && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl">
@@ -1180,7 +1790,11 @@ const ProductionPage = () => {
               <div className="ml-4 text-left">
                 <h3 className="text-lg font-medium text-white" id="modal-title">
                   Delete{" "}
-                  {documentToDelete.type === "schedule" ? "Production Schedule" : "Run of Show"}
+                  {documentToDelete.type === "schedule"
+                    ? "Production Schedule"
+                    : documentToDelete.type === "runofshow"
+                      ? "Run of Show"
+                      : "Technical Rider"}
                 </h3>
                 <div className="mt-2">
                   <p className="text-sm text-gray-300">

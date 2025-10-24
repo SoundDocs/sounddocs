@@ -211,9 +211,9 @@ const PatchSheetOutputs: React.FC<PatchSheetOutputsProps> = ({ outputs, updateOu
   useEffect(() => {
     const newEditingOutputs: { [key: string]: OutputChannel } = {};
     outputs.forEach((output) => {
-      newEditingOutputs[output.id] = editingOutputs[output.id]
-        ? { ...editingOutputs[output.id] }
-        : { ...output };
+      // CRITICAL: Always use the new output value from props
+      // This ensures remote updates are reflected in the UI
+      newEditingOutputs[output.id] = { ...output };
     });
     setEditingOutputs(newEditingOutputs);
     outputs.forEach((output) => {

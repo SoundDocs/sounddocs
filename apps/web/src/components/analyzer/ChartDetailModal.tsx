@@ -270,7 +270,7 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
         delay: 0,
         phaseFlipped: false,
       };
-      let data = trace.tf_data[series];
+      const data = trace.tf_data[series];
 
       if (selectedChart === "magnitude") {
         // baseMag = original measurement + gain trim (no EQ)

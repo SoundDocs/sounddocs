@@ -16,6 +16,8 @@ import ProductionScheduleEditor from "./pages/ProductionScheduleEditor";
 import AllProductionSchedules from "./pages/AllProductionSchedules";
 import RunOfShowEditor from "./pages/RunOfShowEditor";
 import AllRunOfShows from "./pages/AllRunOfShows";
+import RiderEditor from "./pages/RiderEditor";
+import AllRiders from "./pages/AllRiders";
 import ShowModePage from "./pages/ShowModePage";
 import SharedShowModePage from "./pages/SharedShowModePage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -23,6 +25,7 @@ import TermsOfService from "./pages/TermsOfService";
 import SharedPatchSheet from "./pages/SharedPatchSheet";
 import SharedStagePlot from "./pages/SharedStagePlot";
 import SharedProductionSchedule from "./pages/SharedProductionSchedule";
+import SharedTechnicalRider from "./pages/SharedTechnicalRider";
 import ProfilePage from "./pages/ProfilePage";
 import UpdatePasswordPage from "./pages/UpdatePasswordPage";
 import SharedWithMePage from "./pages/SharedWithMePage";
@@ -60,6 +63,7 @@ import LedPixelMapEditor from "./pages/LedPixelMapEditor"; // Import the new edi
 import AllPixelMaps from "./pages/AllPixelMaps";
 import AllCommsPlans from "./pages/AllCommsPlans";
 import CommsPlannerEditor from "./pages/CommsPlannerEditor";
+import LensCalculatorPage from "./pages/LensCalculatorPage";
 
 function App() {
   useEffect(() => {
@@ -70,7 +74,7 @@ function App() {
   return (
     <div className="bg-gray-900 min-h-screen text-white">
       <AuthProvider>
-        <Router>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/signup" element={<SignUp />} />
@@ -172,6 +176,14 @@ function App() {
               }
             />
             <Route
+              path="/video/lens-calculator/:id"
+              element={
+                <ProtectedRoute>
+                  <LensCalculatorPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/lighting"
               element={
                 <ProtectedRoute>
@@ -258,6 +270,8 @@ function App() {
               path="/shared/production-schedule/:shareCode"
               element={<SharedProductionSchedule />}
             />
+            <Route path="/shared/technical-rider/edit/:shareCode" element={<RiderEditor />} />
+            <Route path="/shared/technical-rider/:shareCode" element={<SharedTechnicalRider />} />
             <Route
               path="/all-production-schedules"
               element={
@@ -282,6 +296,23 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AllRunOfShows />
+                </ProtectedRoute>
+              }
+            />
+            {/* Technical Rider Routes */}
+            <Route
+              path="/rider/:id"
+              element={
+                <ProtectedRoute>
+                  <RiderEditor />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/all-riders"
+              element={
+                <ProtectedRoute>
+                  <AllRiders />
                 </ProtectedRoute>
               }
             />

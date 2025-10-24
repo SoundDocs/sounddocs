@@ -40,7 +40,7 @@ const Footer: React.FC = () => {
               <span className="hidden sm:inline">Discord</span>
             </a>
             <a
-              href="https://buy.stripe.com/7sIaFxgFu7ulawEbIJ"
+              href="https://buymeacoffee.com/sounddocs"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center text-pink-400 hover:text-pink-300 transition-all duration-200"

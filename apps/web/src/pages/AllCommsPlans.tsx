@@ -68,8 +68,8 @@ const AllCommsPlans = () => {
         if (error) throw error;
         setPlans(data || []);
         setFilteredPlans(data || []);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : String(err));
       } finally {
         setLoading(false);
       }
@@ -148,10 +148,10 @@ const AllCommsPlans = () => {
           styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
           clonedDoc.head.appendChild(styleGlobal);
           clonedDoc.body.style.fontFamily = `${font}, sans-serif`;
-          Array.from(clonedDoc.querySelectorAll("*")).forEach((el: any) => {
-            if (el.style) {
-              el.style.fontFamily = `${font}, sans-serif`;
-              el.style.verticalAlign = "baseline";
+          Array.from(clonedDoc.querySelectorAll("*")).forEach((el) => {
+            if ((el as HTMLElement).style) {
+              (el as HTMLElement).style.fontFamily = `${font}, sans-serif`;
+              (el as HTMLElement).style.verticalAlign = "baseline";
             }
           });
         },
@@ -227,35 +227,70 @@ const AllCommsPlans = () => {
           shape: "rectangle" as const,
         },
         zones: data.zones || [],
-        transceivers: (data.transceivers || []).map((tx: any) => ({
-          id: tx.id,
-          zoneId: tx.zone_id || "zone-1",
-          systemType: tx.system_type,
-          model: tx.model,
-          x: tx.x,
-          y: tx.y,
-          z: tx.z || 8,
-          label: tx.label,
-          band: tx.band,
-          channels: tx.channel_set,
-          dfsEnabled: tx.dfs_enabled,
-          poeClass: tx.poe_class,
-          coverageRadius: tx.coverage_radius,
-          currentBeltpacks: tx.current_beltpacks || 0,
-          maxBeltpacks: tx.max_beltpacks || 5,
-          overrideFlags: tx.override_flags,
-        })),
-        beltpacks: (data.beltpacks || []).map((bp: any) => ({
-          id: bp.id,
-          label: bp.label,
-          x: bp.x,
-          y: bp.y,
-          transceiverRef: bp.transceiverRef || bp.transceiver_ref,
-          signalStrength: bp.signalStrength || bp.signal_strength || 100,
-          batteryLevel: bp.batteryLevel || bp.battery_level || 100,
-          online: bp.online !== false,
-          channelAssignments: bp.channelAssignments || bp.channel_assignments || [],
-        })),
+        transceivers: (data.transceivers || []).map(
+          (tx: {
+            id: string;
+            zone_id?: string;
+            system_type: string;
+            model: string;
+            x: number;
+            y: number;
+            z?: number;
+            label: string;
+            band: string;
+            channel_set: string[];
+            dfs_enabled: boolean;
+            poe_class: string;
+            coverage_radius: number;
+            current_beltpacks?: number;
+            max_beltpacks?: number;
+            override_flags?: Record<string, unknown>;
+          }) => ({
+            id: tx.id,
+            zoneId: tx.zone_id || "zone-1",
+            systemType: tx.system_type,
+            model: tx.model,
+            x: tx.x,
+            y: tx.y,
+            z: tx.z || 8,
+            label: tx.label,
+            band: tx.band,
+            channels: tx.channel_set,
+            dfsEnabled: tx.dfs_enabled,
+            poeClass: tx.poe_class,
+            coverageRadius: tx.coverage_radius,
+            currentBeltpacks: tx.current_beltpacks || 0,
+            maxBeltpacks: tx.max_beltpacks || 5,
+            overrideFlags: tx.override_flags,
+          }),
+        ),
+        beltpacks: (data.beltpacks || []).map(
+          (bp: {
+            id: string;
+            label: string;
+            x: number;
+            y: number;
+            transceiverRef?: string;
+            transceiver_ref?: string;
+            signalStrength?: number;
+            signal_strength?: number;
+            batteryLevel?: number;
+            battery_level?: number;
+            online?: boolean;
+            channelAssignments?: Array<{ channel: string; assignment: string }>;
+            channel_assignments?: Array<{ channel: string; assignment: string }>;
+          }) => ({
+            id: bp.id,
+            label: bp.label,
+            x: bp.x,
+            y: bp.y,
+            transceiverRef: bp.transceiverRef || bp.transceiver_ref,
+            signalStrength: bp.signalStrength || bp.signal_strength || 100,
+            batteryLevel: bp.batteryLevel || bp.battery_level || 100,
+            online: bp.online !== false,
+            channelAssignments: bp.channelAssignments || bp.channel_assignments || [],
+          }),
+        ),
         switches: data.switches || [],
         interopConfigs: data.interop_configs || [],
         roles: data.roles || [],
@@ -298,7 +333,7 @@ const AllCommsPlans = () => {
             doc.setFont("helvetica", "bold");
             doc.text("SoundDocs", 40, pageHeight - 20);
             doc.setFont("helvetica", "normal");
-            doc.text("| Professional Audio Documentation", 95, pageHeight - 20);
+            doc.text("| Professional Event Documentation", 95, pageHeight - 20);
             const pageNumText = `Page ${i} of ${pageCount}`;
             doc.text(pageNumText, pageWidth / 2, pageHeight - 20, { align: "center" });
             const dateStr = `Generated on: ${new Date().toLocaleDateString()}`;
@@ -317,9 +352,15 @@ const AllCommsPlans = () => {
           doc.setFont("helvetica", "bold");
           doc.text(title, 40, lastY);
 
-          const hasAutoTable = typeof (doc as any).autoTable === "function";
+          const hasAutoTable =
+            typeof (
+              doc as jsPDF & {
+                autoTable?: (options: object) => void;
+                lastAutoTable?: { finalY: number };
+              }
+            ).autoTable === "function";
           if (hasAutoTable) {
-            (doc as any).autoTable({
+            (doc as jsPDF & { autoTable?: (options: object) => void }).autoTable!({
               body: data,
               startY: lastY + 5,
               theme: "plain",
@@ -331,7 +372,8 @@ const AllCommsPlans = () => {
               columnStyles: { 0: { fontStyle: "bold", cellWidth: 120 } },
               margin: { left: 40 },
             });
-            lastY = (doc as any).lastAutoTable.finalY + 15;
+            lastY =
+              (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable!.finalY + 15;
           } else {
             // Fallback simple list
             doc.setFont("helvetica", "normal");
@@ -367,9 +409,9 @@ const AllCommsPlans = () => {
           lastY += 20;
 
           const transceiversHead = [["Label", "Model", "Band", "Coverage", "Connected Beltpacks"]];
-          const transceiversBody = commsPlanData.transceivers.map((tx: any) => {
+          const transceiversBody = commsPlanData.transceivers.map((tx) => {
             const connectedBeltpacks = commsPlanData.beltpacks.filter(
-              (bp: any) => bp.transceiverRef === tx.id,
+              (bp) => bp.transceiverRef === tx.id,
             );
             return [
               tx.label,
@@ -380,7 +422,7 @@ const AllCommsPlans = () => {
             ];
           });
 
-          (doc as any).autoTable({
+          (doc as jsPDF & { autoTable?: (options: object) => void }).autoTable!({
             head: transceiversHead,
             body: transceiversBody,
             startY: lastY,
@@ -396,7 +438,8 @@ const AllCommsPlans = () => {
             alternateRowStyles: { fillColor: [248, 249, 250] },
             margin: { left: 40, right: 40 },
           });
-          lastY = (doc as any).lastAutoTable.finalY + 30;
+          lastY =
+            (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable!.finalY + 30;
         }
 
         if (commsPlanData.beltpacks && commsPlanData.beltpacks.length > 0) {
@@ -406,21 +449,19 @@ const AllCommsPlans = () => {
           lastY += 20;
 
           const beltpacksHead = [["Label", "Connected To", "Channel Assignments"]];
-          const beltpacksBody = commsPlanData.beltpacks.map((bp: any) => {
+          const beltpacksBody = commsPlanData.beltpacks.map((bp) => {
             const transceiver = commsPlanData.transceivers.find(
-              (tx: any) => tx.id === bp.transceiverRef,
+              (tx) => tx.id === bp.transceiverRef,
             );
             const assignments =
               bp.channelAssignments && bp.channelAssignments.length > 0
-                ? bp.channelAssignments
-                    .map((ca: any) => `${ca.channel}:${ca.assignment}`)
-                    .join(", ")
+                ? bp.channelAssignments.map((ca) => `${ca.channel}:${ca.assignment}`).join(", ")
                 : "No assignments";
 
             return [bp.label, transceiver ? transceiver.label : "Not Connected", assignments];
           });
 
-          (doc as any).autoTable({
+          (doc as jsPDF & { autoTable?: (options: object) => void }).autoTable!({
             head: beltpacksHead,
             body: beltpacksBody,
             startY: lastY,
@@ -458,8 +499,8 @@ const AllCommsPlans = () => {
         if (error) throw error;
         setPlans(plans.filter((p) => p.id !== planId));
         setFilteredPlans(filteredPlans.filter((p) => p.id !== planId));
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : String(err));
       }
     }
   };

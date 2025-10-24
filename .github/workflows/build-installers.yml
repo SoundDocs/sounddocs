@@ -124,7 +124,10 @@ jobs:
           echo ""
 
           # Run the actual agent executable
-          exec "APP_RESOURCES_PATH/sounddocs-capture-agent"
+          "APP_RESOURCES_PATH/sounddocs-capture-agent"
+
+          # Clean up this temp script when the agent exits
+          rm -f "$0"
           TERM_EOF
 
           # Replace the placeholder with the actual app resources path
@@ -139,8 +142,8 @@ jobs:
           end tell
           APPLESCRIPT
 
-          # Clean up temp script after a short delay
-          (sleep 2 && rm -f "$TEMP_SCRIPT") &
+          # Let the script clean up itself when it exits
+          # No need for background cleanup - Terminal will handle the script lifecycle
           EOF
 
           chmod +x "pkg-root/Applications/SoundDocs Capture Agent.app/Contents/MacOS/SoundDocs Capture Agent"
@@ -177,9 +180,9 @@ jobs:
               <key>CFBundleDisplayName</key>
               <string>SoundDocs Capture Agent</string>
               <key>CFBundleVersion</key>
-              <string>0.1.13</string>
+              <string>0.2.0</string>
               <key>CFBundleShortVersionString</key>
-              <string>0.1.13</string>
+              <string>0.2.0</string>
               <key>CFBundlePackageType</key>
               <string>APPL</string>
               <key>CFBundleIconFile</key>
@@ -193,7 +196,7 @@ jobs:
           EOF
 
           # Build package
-          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.1.13 --install-location / SoundDocsAgent-macOS.pkg
+          pkgbuild --root pkg-root --identifier org.sounddocs.capture-agent --version 0.2.0 --install-location / SoundDocsAgent-macOS.pkg
 
       - name: Upload macOS installer
         uses: actions/upload-artifact@v4
@@ -224,14 +227,24 @@ jobs:
           pyinstaller --onefile --name sounddocs-capture-agent --add-data "capture_agent:capture_agent" --add-data "generate_cert.py:." main.py
 
       - name: Install NSIS
-        run: choco install nsis -y
+        shell: pwsh
+        run: |
+          choco install nsis -y
+          if ($LASTEXITCODE -ne 0) { throw "Chocolatey failed to install NSIS. Exit code: $LASTEXITCODE" }
+          $pf86 = ${env:ProgramFiles(x86)}
+          $nsisRoot = Join-Path -Path $pf86 -ChildPath 'NSIS\Bin'
+          if (-not (Test-Path -LiteralPath $nsisRoot)) { throw "NSIS Bin folder not found at $nsisRoot" }
+          $makensis = Join-Path $nsisRoot 'makensis.exe'
+          if (-not (Test-Path -LiteralPath $makensis)) { throw "makensis.exe not found in path: $nsisRoot" }
+          & $makensis /VERSION | Out-Host
+          Add-Content -Path $env:GITHUB_PATH -Value $nsisRoot
 
       - name: Create NSIS installer script
         run: |
           cd agents/capture-agent-py
           cat > installer.nsi << 'EOF'
           !define APPNAME "SoundDocs Capture Agent"
-          !define APPVERSION "0.1.13"
+          !define APPVERSION "0.2.0"
           Name "${APPNAME}"
           OutFile "SoundDocsAgent-Windows.exe"
           InstallDir "$PROGRAMFILES\SoundDocs"

@@ -10,6 +10,7 @@ import {
   Tooltip,
   Legend,
   LogarithmicScale,
+  ScriptableLineSegmentContext,
 } from "chart.js";
 import type { TFData } from "@sounddocs/analyzer-protocol";
 
@@ -54,7 +55,7 @@ const chartOptions = {
       max: 20000,
       ticks: {
         color: "#9CA3AF",
-        callback: (value: any) => {
+        callback: (value: number | string) => {
           const numValue = Number(value);
           if (numValue < 1000) {
             if (numValue > 500) return "";
@@ -128,9 +129,11 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
       datasets.push({
         label: "Live",
         data: tfData.mag_db,
+        borderColor: "#FFFFFF",
+        backgroundColor: "#FFFFFF",
         borderWidth: 2,
         segment: {
-          borderColor: (context: any) => {
+          borderColor: (context: ScriptableLineSegmentContext) => {
             if (!coherenceAlpha) return "#FFFFFF";
             const c = tfData.coh[context.p1DataIndex];
             if (c >= 0.9) return "rgba(255, 255, 255, 1)";
@@ -154,7 +157,7 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
       labels: tfData?.freqs || saved[0]?.tf.freqs || [],
       datasets,
     };
-  }, [tfData, saved]);
+  }, [tfData, saved, coherenceAlpha, coherenceThreshold]);
 
   const phaseData = React.useMemo(() => {
     const datasets = [];
@@ -162,9 +165,11 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
       datasets.push({
         label: "Live",
         data: tfData.phase_deg,
+        borderColor: "#FFFFFF",
+        backgroundColor: "#FFFFFF",
         borderWidth: 2,
         segment: {
-          borderColor: (context: any) => {
+          borderColor: (context: ScriptableLineSegmentContext) => {
             if (!coherenceAlpha) return "#FFFFFF";
             const c = tfData.coh[context.p1DataIndex];
             if (c >= 0.9) return "rgba(255, 255, 255, 1)";
@@ -192,7 +197,7 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
         backgroundColor: trace.color || "#F472B6",
         borderWidth: 1,
         segment: {
-          borderColor: (context: any) => {
+          borderColor: (context: ScriptableLineSegmentContext) => {
             if (!coherenceAlpha) return trace.color || "#F472B6";
             const c = trace.tf.coh[context.p1DataIndex];
             if (c >= 0.9) return trace.color || "#F472B6";
@@ -210,7 +215,7 @@ export const TransferFunctionVisualizer: React.FC<TransferFunctionVisualizerProp
       labels: tfData?.freqs || saved[0]?.tf.freqs || [],
       datasets,
     };
-  }, [tfData, saved]);
+  }, [tfData, saved, coherenceAlpha, coherenceThreshold]);
 
   const coherenceData = React.useMemo(() => {
     const datasets = [];

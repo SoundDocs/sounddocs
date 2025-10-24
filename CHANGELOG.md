@@ -5,6 +5,241 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2025-10-09
+
+### Added
+
+- **Real-time Collaboration Infrastructure**: Complete real-time collaboration system for all document types
+
+  - WebSocket-based real-time updates using Supabase Realtime channels
+  - Live presence indicators showing active users and their cursor positions
+  - Broadcast-first architecture for immediate UI updates before database saves
+  - Conflict detection and resolution with version-based optimistic locking
+  - User avatars and activity indicators in collaboration toolbar
+  - Connection status monitoring with automatic reconnection
+  - Save status indicators (saving, saved, error states) with retry functionality
+  - Version history modal showing all document changes with timestamps and authors
+  - Document activity logging for audit trails and collaboration tracking
+
+- **Shared Edit Links**: Anonymous editing capabilities for all document types
+
+  - Secure share codes for view-only and edit access
+  - Anonymous users can edit documents via shared edit links without authentication
+  - RLS-bypassing RPC function (`update_shared_resource`) with SECURITY DEFINER for anonymous saves
+  - Share link access tracking (last accessed timestamps, access counts)
+  - Seamless integration with real-time collaboration for shared users
+
+- **Document Versioning System**: Comprehensive version tracking and history
+
+  - Automatic version increments on every save with optimistic locking
+  - Full document history tables for all document types (patch sheets, stage plots, technical riders, run of shows, production schedules, pixel maps, corporate mic plots, theater mic plots)
+  - Database triggers for automatic history capture on updates
+  - `last_edited` timestamp tracking on all documents
+  - Metadata JSONB columns for extensible document properties
+
+- **Collaboration Components**: Rich UI components for collaboration features
+
+  - `CollaborationToolbar`: Unified toolbar showing save status, active users, connection status, and history access
+  - `SaveIndicator`: Real-time save status with spinning indicators and error messages
+  - `PresenceIndicator`: Avatar stack showing all active users with tooltips
+  - `ConnectionStatus`: Connection health indicator with automatic reconnection
+  - `ConflictResolution`: Modal for resolving version conflicts with side-by-side comparison
+  - `History` components: Version history viewer with diff capabilities
+
+- **Offline Support Infrastructure**: Queue-based offline editing capabilities
+
+  - `pending_saves` table for queuing saves when offline
+  - Automatic retry logic when connection is restored
+  - Local state persistence using browser storage
+  - Optimistic UI updates with background synchronization
+
+- **Document Locks**: Optimistic locking to prevent concurrent edit conflicts
+  - `document_locks` table tracking active editors
+  - Lock expiration (5 minutes) to prevent stale locks
+  - Visual indicators showing who is currently editing
+  - Automatic lock cleanup on disconnect or timeout
+
+### Changed
+
+- **PatchSheetEditor**: Integrated real-time collaboration
+
+  - Added broadcast calls for all input/output channel changes
+  - Fixed infinite re-render loop in PatchSheetOutputs component
+  - Counter-based remote update detection to handle React Strict Mode
+  - Real-time propagation of channel additions, deletions, and property changes
+
+- **StagePlotEditor**: Complete collaboration integration
+
+  - Added broadcast calls for all 13 state-changing operations (add element, drag, rotate, resize, delete, duplicate, property changes, stage size, background image, name)
+  - Moved CollaborationToolbar to Header component for consistent UI
+  - Real-time element synchronization across all collaborators
+  - Shared edit link support with anonymous user editing
+
+- **TheaterMicPlotEditor**: Enabled real-time collaboration
+
+  - Added broadcast calls for all actor management operations (add, update, delete, name changes)
+  - Fixed 406 errors for anonymous users by adding shareCode parameter to useAutoSave
+  - Real-time actor list synchronization
+
+- **CorporateMicPlotEditor**: Enabled real-time collaboration
+
+  - Added broadcast calls for all presenter management operations (add, update, delete, name changes)
+  - Fixed 406 errors for anonymous users by adding shareCode parameter to useAutoSave
+  - Real-time presenter list synchronization
+
+- **Database Schema**: Major collaboration infrastructure additions
+
+  - Added `version` and `last_edited` columns to all document tables
+  - Created 8 history tables (one per document type) with automatic triggers
+  - Added `document_activity` table for audit logging
+  - Added `pending_saves` table for offline queue
+  - Added `document_locks` table for editing locks
+  - Added `metadata` JSONB columns to all document tables
+  - Enabled Supabase Realtime replication for all document tables
+  - Created 166+ RLS policies for collaboration tables
+
+- **Hooks**: New collaboration-focused React hooks
+
+  - `useCollaboration`: Central hook managing realtime subscriptions, broadcasts, and remote update handling
+  - `usePresence`: Manages user presence tracking and active user list
+  - `useAutoSave`: Enhanced with shareCode support for anonymous editing and version conflict detection
+
+- **Libraries**: New collaboration utility libraries
+
+  - `collaboration.ts`: Core collaboration logic (broadcasts, subscriptions, conflict resolution)
+  - `autoSave.ts`: Enhanced with RPC routing for shared edit links
+  - `offlineQueue.ts`: Queue management for offline editing support
+
+- **Web App Version**: Updated to `2.0.0` (major version bump for collaboration features)
+
+### Fixed
+
+- **PatchSheetOutputs Infinite Loop**: Eliminated infinite re-render cycles
+
+  - Removed unnecessary ref tracking logic that caused circular dependencies
+  - Simplified useEffect structure to match working PatchSheetInputs pattern
+  - Fixed state synchronization between parent and child components
+
+- **Shared Edit Link Saves**: Fixed 406 errors for anonymous users
+
+  - Added shareCode parameter routing through `update_shared_resource` RPC function
+  - RPC function uses SECURITY DEFINER to bypass RLS policies
+  - Anonymous users can now save edits on all shared edit documents
+
+- **JSONB Data Handling**: Fixed data corruption in shared resource updates
+  - Created helper functions (`is_jsonb_column`, `pg_typeof_column`) to detect JSONB columns
+  - Used `->` operator for JSONB columns (preserves structure), `->>` for other types
+  - Changed RETURNING clause from `to_jsonb()` to `row_to_json()` to prevent double-serialization
+  - Ensured JSONB columns maintain their structure through save/load cycles
+
+### Database Migrations
+
+- `20251007100000_add_version_columns_to_documents.sql` - Version tracking columns
+- `20251007110000_create_document_history_tables.sql` - History tables for all document types
+- `20251007120000_create_document_activity_table.sql` - Activity audit logging
+- `20251007130000_create_pending_saves_table.sql` - Offline save queue
+- `20251007140000_create_document_locks_table.sql` - Document locking system
+- `20251007145000_add_metadata_columns_to_documents.sql` - Extensible metadata storage
+- `20251007150000_add_automatic_history_triggers.sql` - Automatic history capture
+- `20251007160000_enable_realtime_replication.sql` - Realtime replication for collaboration
+- `20251007170000_add_rls_policies_for_collaboration.sql` - Security policies for collaboration tables
+- `20251008180000_add_update_shared_resource_rpc.sql` - RPC function for shared edit links
+- `20251008190000_fix_update_shared_resource_jsonb_extraction.sql` - JSONB extraction fix (attempt 1)
+- `20251008204809_fix_jsonb_extraction_in_update_shared_resource.sql` - JSONB extraction fix (attempt 2)
+- `20251008210000_fix_update_shared_resource_returning.sql` - RETURNING clause fix using row_to_json()
+
+## [1.5.6.8] - 2025-09-30
+
+### Added
+
+- **Technical Riders**: Complete technical rider management system for touring artists and production teams
+  - Create and edit comprehensive technical riders with artist information, band members, and contact details
+  - Manage input/channel lists with mic types, phantom power, and DI requirements
+  - Define sound system requirements (PA, monitors, console specifications)
+  - Track backline requirements and artist-provided equipment
+  - Specify required technical staff and special production requirements
+  - Add hospitality and additional notes sections
+  - Share riders with view and edit permissions via secure share links
+  - Print-friendly PDF exports with professional formatting and proper page breaks
+  - Available on Production page for easy access
+- **Script Import Instructions**: Added LLM prompt template for converting scripts to Run of Show format
+  - Provides structured instructions for users to convert scripts using external LLMs (ChatGPT, Claude, etc.)
+  - Template includes guidance for adding lighting cues, audio requirements, and production notes
+  - Generates JSON format compatible with SoundDocs Run of Show system
+  - Accessed via Import Show Flow modal in Run of Show editor
+- **Trusted By Section**: Added social proof component to landing page
+  - Live user count display showing platform adoption
+  - Real-time statistics from user base
+  - Professional presentation of platform credibility
+
+### Changed
+
+- **Web App Version**: Updated to `1.5.6.8`
+
+## [1.5.6.7] - 2025-09-25
+
+### Added
+
+- **Signal Generator for Capture Agent**: Added comprehensive signal generation capabilities to the capture agent
+  - Pink Noise Generator: Professional-grade pink noise (1/f spectrum) using Voss-McCartney algorithm
+  - White Noise Generator: Full-spectrum white noise for system calibration
+  - Sine Wave Generator: Pure tone generation with adjustable frequency (20Hz - 20kHz)
+  - Sine Sweep Generator: Logarithmic sweep for system testing and alignment
+  - Configurable output routing to any available audio channel
+  - Real-time signal generation with minimal latency
+  - WebSocket control interface for remote signal control from web UI
+- **Internal Loopback Measurement**: Added loopback mode for measuring systems internally
+  - Routes generated signal directly to reference channel for internal system measurement
+  - Enables measuring DSP chains, plugins, and software signal paths without physical connections
+  - Useful for analyzing digital signal processing and software-based audio systems
+
+### Changed
+
+- **Capture Agent Version**: Bumped to `0.2.0` to reflect major feature addition
+- **Web App Version**: Updated to `1.5.6.7`
+
+## [1.5.6.6] - 2025-09-21
+
+### Fixed
+
+- **Capture Agent Memory Leaks**: Eliminated critical memory leaks and improved stability in the capture agent
+  - Fixed memory leaks in buffer pool management with proper buffer return and dynamic growth limits
+  - Fixed DSP cache memory leaks by implementing proper LRU cache cleanup and FFT plan management
+  - Fixed WebSocket cleanup issues preventing proper connection handling
+  - Resolved QueueFull errors with better queue management and connection stability
+  - Improved frame drop rates and overall capture agent reliability
+- **WebSockets Compatibility**: Fixed compatibility issues with websockets v12+ library
+  - Updated connection handling to support modern WebSocket protocols
+  - Enhanced error handling and connection resilience
+- **Chart Legend Consistency**: Fixed legend white fill consistency for magnitude and phase charts
+  - Ensured consistent white background for legend color swatches across all chart types
+  - Improved visual clarity and professional appearance of chart legends
+
+### Changed
+
+- **Capture Agent Version**: Bumped capture agent version to `0.1.14`
+
+## [1.5.6.5] - 2025-09-19
+
+### Added
+
+- **Lens Calculator**: Added a comprehensive lens throw calculator tool for projection and event planning
+  - Calculate image sizes and throw distances for various projector lens configurations
+  - Support for standard and ultra-wide aspect ratios (16:9, 16:10, 4:3, 21:9)
+  - Preset lens configurations for common projector types
+  - Interactive visual diagram showing projector positioning relative to screen
+  - Professional-grade calculations for accurate event setup planning
+
+## [1.5.6.4] - 2025-09-17
+
+### Changed
+
+- Updated PDF export footer text to "Professional Event Documentation" across production schedules and related exports
+
+### Fixed
+
+- Resolved TypeScript/ESLint error in `AllRunOfShows.tsx` by typing `onclone` and safely casting html2canvas options
+
 ## [1.5.6.3] - 2025-09-15
 
 ### Fixed

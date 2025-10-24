@@ -143,17 +143,23 @@ const SharedShowModePage: React.FC = () => {
         if (currentRow) {
           const containerRect = container.getBoundingClientRect();
           const rowRect = currentRow.getBoundingClientRect();
-          const headerHeight = 49; // Height of sticky header
 
-          // Check if row is visible within container
+          // Account for both table header and any sticky section headers
+          // Table header is at top-0 with height ~49px, section headers are at top-[40px]
+          const tableHeaderHeight = 49;
+          const sectionHeaderHeight = 40;
+          const totalStickyHeight = tableHeaderHeight + sectionHeaderHeight; // ~89px
+          const paddingOffset = 20; // Extra padding for visibility
+
+          // Check if row is visible within container, accounting for sticky headers
           const rowTop = rowRect.top - containerRect.top;
           const rowBottom = rowRect.bottom - containerRect.top;
-          const visibleTop = headerHeight;
+          const visibleTop = totalStickyHeight;
           const visibleBottom = containerRect.height;
 
-          // Scroll if row is not fully visible
+          // Scroll if row is not fully visible below sticky headers
           if (rowTop < visibleTop || rowBottom > visibleBottom) {
-            const scrollOffset = rowTop - visibleTop - 20; // 20px padding
+            const scrollOffset = rowTop - visibleTop - paddingOffset;
             container.scrollTo({
               top: container.scrollTop + scrollOffset,
               behavior: "smooth",
@@ -274,7 +280,7 @@ const SharedShowModePage: React.FC = () => {
             <span>Current Cue</span>
           </div>
           <div className="flex items-center">
-            <span className="h-3 w-3 rounded-full bg-red-500 mr-1.5 border border-red-300 shadow-sm"></span>
+            <span className="h-3 w-3 rounded-full bg-orange-500 mr-1.5 border border-orange-300 shadow-sm"></span>
             <span>Next Cue</span>
           </div>
         </div>
@@ -315,11 +321,17 @@ const SharedShowModePage: React.FC = () => {
 
                   let rowClass =
                     "hover:bg-gray-700/50 transition-colors duration-150 border-t border-gray-700";
-                  let rowStyle: React.CSSProperties = {};
+                  const rowStyle: React.CSSProperties = {};
 
                   if (item.type === "header") {
-                    rowClass =
-                      "bg-gray-700 hover:bg-gray-600 font-semibold sticky top-[49px] z-10 border-t-0";
+                    // Calculate z-index based on header position to prevent text bleed-through
+                    // Each subsequent header should have a higher z-index than the previous
+                    const headerIndex = items
+                      .slice(0, index + 1)
+                      .filter((i) => i.type === "header").length;
+                    const zIndex = 10 + headerIndex;
+                    rowClass = "bg-gray-700 hover:bg-gray-600 font-semibold sticky top-[40px]";
+                    rowStyle.zIndex = zIndex;
                   } else {
                     if (item.highlightColor && !isCurrent && !isNext) {
                       rowStyle.backgroundColor = item.highlightColor;
@@ -329,7 +341,8 @@ const SharedShowModePage: React.FC = () => {
                         "bg-green-600/40 hover:bg-green-600/50 border-l-4 border-green-400";
                       delete rowStyle.backgroundColor;
                     } else if (isNext) {
-                      rowClass = "bg-red-600/40 hover:bg-red-600/50 border-l-4 border-red-400";
+                      rowClass =
+                        "bg-orange-600/40 hover:bg-orange-600/50 border-l-4 border-orange-400";
                       delete rowStyle.backgroundColor;
                     }
                   }
