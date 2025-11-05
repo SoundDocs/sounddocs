@@ -184,6 +184,10 @@ const RunOfShowEditor: React.FC = () => {
   // State for import modal
   const [showImportModal, setShowImportModal] = useState(false);
 
+  // Local state for name input to prevent collaboration reversion
+  const [localName, setLocalName] = useState<string>("");
+  const localNameInitialized = useRef(false);
+
   // Enable collaboration for existing documents (including edit-mode shared links)
   // For shared links, id will be undefined, so we check runOfShow?.id instead
   // For edit-mode shared links, allow collaboration even without authentication
@@ -249,8 +253,20 @@ const RunOfShowEditor: React.FC = () => {
     userName: effectiveUserName,
     enabled: collaborationEnabled,
     onRemoteUpdate: (payload) => {
+      // GUARD: Don't process remote updates if collaboration is disabled
+      // This prevents input reversion on NEW documents where collaboration is off
+      if (!collaborationEnabled) {
+        console.log("[RunOfShowEditor] Ignoring remote update - collaboration disabled");
+        return;
+      }
+
       if (payload.type === "field_update" && payload.field) {
-        setRunOfShow((prev) => (prev ? { ...prev, [payload.field!]: payload.value } : prev));
+        if (payload.field === "name" && typeof payload.value === "string") {
+          console.log("[RunOfShowEditor] Updating localName from remote broadcast:", payload.value);
+          setLocalName(payload.value);
+        } else {
+          setRunOfShow((prev) => (prev ? { ...prev, [payload.field!]: payload.value } : prev));
+        }
       }
     },
   });
@@ -268,6 +284,32 @@ const RunOfShowEditor: React.FC = () => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [forceSave]);
+
+  // Initialize localName from runOfShow on first load
+  useEffect(() => {
+    if (runOfShow?.name && !localNameInitialized.current) {
+      console.log("[RunOfShowEditor] Initializing localName from runOfShow:", runOfShow.name);
+      setLocalName(runOfShow.name);
+      localNameInitialized.current = true;
+    }
+  }, [runOfShow?.name]);
+
+  // Debounced sync: Update runOfShow when localName changes (after user stops typing)
+  useEffect(() => {
+    if (!localNameInitialized.current) return;
+
+    const timer = setTimeout(() => {
+      if (localName !== runOfShow?.name) {
+        console.log("[RunOfShowEditor] Syncing localName to runOfShow:", {
+          localName,
+          previousName: runOfShow?.name,
+        });
+        setRunOfShow((prev) => (prev ? { ...prev, name: localName } : prev));
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [localName, runOfShow?.name]);
 
   // Real-time database subscription for syncing changes across users
   useEffect(() => {
@@ -292,24 +334,10 @@ const RunOfShowEditor: React.FC = () => {
         },
         (payload) => {
           console.log("[RunOfShowEditor] Received database UPDATE event:", payload);
-          // Update local state with the new data
-          // IMPORTANT: Exclude metadata fields (version, last_edited, metadata) to prevent
-          // triggering auto-save, which would create an infinite loop
-          if (payload.new) {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { version, last_edited, metadata, ...userEditableFields } = payload.new as Record<
-              string,
-              unknown
-            >;
-            setRunOfShow((prev) => ({
-              ...prev,
-              ...userEditableFields,
-              // Keep existing metadata to avoid triggering auto-save
-              version: prev?.version,
-              last_edited: prev?.last_edited,
-              metadata: prev?.metadata,
-            }));
-          }
+          // NOTE: We intentionally DO NOT update local state from database UPDATE events
+          // because they include our own saves echoing back, which would overwrite user typing
+          // Real-time collaboration updates happen via the broadcast channel in useCollaboration
+          console.log("[RunOfShowEditor] Ignoring database UPDATE to prevent input reversion");
         },
       )
       .subscribe();
@@ -1284,8 +1312,8 @@ const RunOfShowEditor: React.FC = () => {
             <div className="flex-grow min-w-0">
               <input
                 type="text"
-                value={runOfShow.name}
-                onChange={handleNameChange}
+                value={localName}
+                onChange={(e) => setLocalName(e.target.value)}
                 className="text-xl md:text-2xl font-bold text-white bg-transparent border-none focus:outline-none focus:ring-0 w-full"
                 placeholder="Enter Run of Show Name"
               />

@@ -142,6 +142,10 @@ const StagePlotEditor = () => {
   const effectiveUserEmail = user?.email || (isSharedEdit ? `${anonymousUserId}@shared` : "");
   const effectiveUserName = user?.user_metadata?.name || (isSharedEdit ? "Anonymous User" : "");
 
+  // Local state for name input to prevent reversion during typing
+  const [localName, setLocalName] = useState("");
+  const [localNameInitialized, setLocalNameInitialized] = useState(false);
+
   const lastDimsRef = React.useRef(stageSizeToPx(stageSize));
   const canvasRef = useRef<HTMLDivElement>(null);
   const stagePlotRef = useRef<HTMLDivElement>(null);
@@ -153,6 +157,43 @@ const StagePlotEditor = () => {
     // isViewMode is now primarily controlled by share link type during data fetching or other explicit settings.
     // Screen size no longer forces view mode.
   }, [location.pathname]);
+
+  // Initialize local name from stagePlot.name when document loads
+  useEffect(() => {
+    if (stagePlot?.name && !localNameInitialized) {
+      setLocalName(stagePlot.name);
+      setLocalNameInitialized(true);
+    }
+  }, [stagePlot?.name, localNameInitialized]);
+
+  // Debounced sync: Update stagePlot.name after user stops typing (500ms delay)
+  useEffect(() => {
+    if (!localNameInitialized) return;
+
+    const handler = setTimeout(() => {
+      if (localName !== stagePlot?.name) {
+        setStagePlot((prev: any) => ({ ...prev, name: localName }));
+
+        // Broadcast name change to other collaborators
+        if (collaborationEnabled && broadcast) {
+          broadcast({
+            type: "field_update",
+            field: "name",
+            value: localName,
+          });
+        }
+      }
+    }, 500);
+
+    return () => clearTimeout(handler);
+  }, [
+    localName,
+    localNameInitialized,
+    stagePlot?.name,
+    setStagePlot,
+    collaborationEnabled,
+    broadcast,
+  ]);
 
   // Enable collaboration for existing documents (including edit-mode shared links)
   // For shared links, id will be undefined, so we check stagePlot?.id instead
@@ -236,10 +277,19 @@ const StagePlotEditor = () => {
     userName: effectiveUserName,
     enabled: collaborationEnabled,
     onRemoteUpdate: (payload) => {
+      // GUARD: Don't process remote updates if collaboration is disabled
+      // This prevents input reversion on NEW documents where collaboration is off
+      if (!collaborationEnabled) {
+        console.log("[StagePlotEditor] Ignoring remote update - collaboration disabled");
+        return;
+      }
+
       if (payload.type === "field_update" && payload.field) {
         // Handle different field updates
         if (payload.field === "name") {
           setStagePlot((prev: any) => ({ ...prev, name: payload.value }));
+          // Update local name state when remote changes arrive
+          setLocalName(payload.value);
         } else if (payload.field === "elements") {
           setElements(payload.value);
         } else if (payload.field === "stage_size") {
@@ -289,37 +339,10 @@ const StagePlotEditor = () => {
         },
         (payload) => {
           console.log("[StagePlotEditor] Received database UPDATE event:", payload);
-          // Update local state with the new data
-          // IMPORTANT: Exclude metadata fields (version, last_edited, metadata) to prevent
-          // triggering auto-save, which would create an infinite loop
-          if (payload.new) {
-            const { version, last_edited, metadata, ...userEditableFields } = payload.new as any;
-
-            // Update stagePlot data
-            setStagePlot((prev: any) => ({
-              ...prev,
-              ...userEditableFields,
-              // Keep existing metadata to avoid triggering auto-save
-              version: prev?.version,
-              last_edited: prev?.last_edited,
-              metadata: prev?.metadata,
-            }));
-
-            // Update individual state fields from the database payload
-            if (userEditableFields.elements) {
-              setElements(userEditableFields.elements);
-            }
-            if (userEditableFields.stage_size) {
-              setStageSize(parseStageSize(userEditableFields.stage_size));
-            }
-            if (userEditableFields.backgroundImage !== undefined) {
-              setBackgroundImage(userEditableFields.backgroundImage);
-              setImageUrl(userEditableFields.backgroundImage);
-            }
-            if (userEditableFields.backgroundOpacity !== undefined) {
-              setBackgroundOpacity(userEditableFields.backgroundOpacity);
-            }
-          }
+          // NOTE: We intentionally DO NOT update local state from database UPDATE events
+          // because they include our own saves echoing back, which would overwrite user typing
+          // Real-time collaboration updates happen via the broadcast channel in useCollaboration
+          console.log("[StagePlotEditor] Ignoring database UPDATE to prevent input reversion");
         },
       )
       .subscribe();
@@ -965,20 +988,10 @@ const StagePlotEditor = () => {
             <div>
               <input
                 type="text"
-                value={stagePlot?.name || "Untitled Stage Plot"}
+                value={localName || stagePlot?.name || "Untitled Stage Plot"}
                 onChange={(e) => {
                   if (!isViewMode) {
-                    const newName = e.target.value;
-                    setStagePlot({ ...stagePlot, name: newName });
-
-                    // Broadcast name change to other collaborators
-                    if (collaborationEnabled && broadcast) {
-                      broadcast({
-                        type: "field_update",
-                        field: "name",
-                        value: newName,
-                      });
-                    }
+                    setLocalName(e.target.value);
                   }
                 }}
                 className={`text-xl md:text-2xl font-bold text-white bg-transparent border-none focus:outline-none focus:ring-0 w-full max-w-[220px] sm:max-w-none ${isViewMode ? "cursor-default" : ""}`}

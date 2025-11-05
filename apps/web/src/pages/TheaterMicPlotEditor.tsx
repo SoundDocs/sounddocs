@@ -61,6 +61,10 @@ const TheaterMicPlotEditor: React.FC = () => {
   const effectiveUserEmail = user?.email || (isSharedEdit ? `${anonymousUserId}@shared` : "");
   const effectiveUserName = user?.user_metadata?.name || (isSharedEdit ? "Anonymous User" : "");
 
+  // Local state for name input to prevent reversion during typing
+  const [localName, setLocalName] = useState("");
+  const [localNameInitialized, setLocalNameInitialized] = useState(false);
+
   // Enable collaboration for existing documents (including edit-mode shared links)
   // For shared links, routeId will be undefined, so we check micPlot?.id instead
   // For edit-mode shared links, allow collaboration even without authentication
@@ -120,13 +124,67 @@ const TheaterMicPlotEditor: React.FC = () => {
     userName: effectiveUserName,
     enabled: collaborationEnabled,
     onRemoteUpdate: (payload) => {
+      // GUARD: Don't process remote updates if collaboration is disabled
+      // This prevents input reversion on NEW documents where collaboration is off
+      if (!collaborationEnabled) {
+        console.log("[TheaterMicPlotEditor] Ignoring remote update - collaboration disabled");
+        return;
+      }
+
       if (payload.type === "field_update" && payload.field) {
-        setMicPlot((prev: any) => (prev ? { ...prev, [payload.field!]: payload.value } : prev));
+        if (payload.field === "name") {
+          setMicPlot((prev: any) => (prev ? { ...prev, name: payload.value } : prev));
+          // Update local name state when remote changes arrive
+          setLocalName(payload.value);
+        } else {
+          setMicPlot((prev: any) => (prev ? { ...prev, [payload.field!]: payload.value } : prev));
+        }
       }
     },
   });
 
   const { setEditingField } = usePresence({ channel: null, userId: effectiveUserId });
+
+  // Initialize local name from micPlot.name when document loads
+  useEffect(() => {
+    if (micPlot?.name && !localNameInitialized) {
+      setLocalName(micPlot.name);
+      setLocalNameInitialized(true);
+    }
+  }, [micPlot?.name, localNameInitialized]);
+
+  // Debounced sync: Update micPlot.name after user stops typing (500ms delay)
+  useEffect(() => {
+    if (!localNameInitialized) return;
+
+    const handler = setTimeout(() => {
+      if (localName !== micPlot?.name) {
+        setMicPlot((prev: any) => (prev ? { ...prev, name: localName } : prev));
+
+        // Broadcast name change to other collaborators
+        if (collaborationEnabled && broadcast) {
+          broadcast({
+            type: "field_update",
+            field: "name",
+            value: localName,
+            userId: effectiveUserId,
+          }).catch((err) =>
+            console.error("[TheaterMicPlotEditor] Failed to broadcast name change:", err),
+          );
+        }
+      }
+    }, 500);
+
+    return () => clearTimeout(handler);
+  }, [
+    localName,
+    localNameInitialized,
+    micPlot?.name,
+    setMicPlot,
+    collaborationEnabled,
+    broadcast,
+    effectiveUserId,
+  ]);
 
   // Real-time database subscription for syncing changes across users
   useEffect(() => {
@@ -151,20 +209,10 @@ const TheaterMicPlotEditor: React.FC = () => {
         },
         (payload) => {
           console.log("[TheaterMicPlotEditor] Received database UPDATE event:", payload);
-          // Update local state with the new data
-          // IMPORTANT: Exclude metadata fields (version, last_edited, metadata) to prevent
-          // triggering auto-save, which would create an infinite loop
-          if (payload.new) {
-            const { version, last_edited, metadata, ...userEditableFields } = payload.new as any;
-            setMicPlot((prev: any) => ({
-              ...prev,
-              ...userEditableFields,
-              // Keep existing metadata to avoid triggering auto-save
-              version: prev?.version,
-              last_edited: prev?.last_edited,
-              metadata: prev?.metadata,
-            }));
-          }
+          // NOTE: We intentionally DO NOT update local state from database UPDATE events
+          // because they include our own saves echoing back, which would overwrite user typing
+          // Real-time collaboration updates happen via the broadcast channel in useCollaboration
+          console.log("[TheaterMicPlotEditor] Ignoring database UPDATE to prevent input reversion");
         },
       )
       .subscribe();
@@ -262,22 +310,7 @@ const TheaterMicPlotEditor: React.FC = () => {
   }, [routeId, shareCode, navigate, location.pathname, user]);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (micPlot) {
-      const newName = e.target.value;
-      setMicPlot({ ...micPlot, name: newName });
-
-      // Broadcast name change to other collaborators
-      if (collaborationEnabled && broadcast) {
-        broadcast({
-          type: "field_update",
-          field: "name",
-          value: newName,
-          userId: effectiveUserId,
-        }).catch((err) =>
-          console.error("[TheaterMicPlotEditor] Failed to broadcast name change:", err),
-        );
-      }
-    }
+    setLocalName(e.target.value);
   };
 
   const handleAddActor = () => {
@@ -505,7 +538,7 @@ const TheaterMicPlotEditor: React.FC = () => {
             <div className="flex-grow min-w-0">
               <input
                 type="text"
-                value={micPlot.name}
+                value={localName || micPlot?.name || ""}
                 onChange={handleNameChange}
                 className="text-xl md:text-2xl font-bold text-white bg-transparent border-none focus:outline-none focus:ring-0 w-full"
                 placeholder="Enter Theater Mic Plot Name"
