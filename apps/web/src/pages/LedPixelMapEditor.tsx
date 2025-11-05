@@ -63,6 +63,10 @@ const LedPixelMapEditor = () => {
   const effectiveUserEmail = user?.email || (isSharedEdit ? `${anonymousUserId}@shared` : "");
   const effectiveUserName = user?.user_metadata?.name || (isSharedEdit ? "Anonymous User" : "");
 
+  // Local state for project name input to prevent reversion during typing
+  const [localProjectName, setLocalProjectName] = useState("");
+  const [localProjectNameInitialized, setLocalProjectNameInitialized] = useState(false);
+
   const [mapData, setMapData] = useState<LedPixelMapData>({
     projectName: "My Awesome Show",
     screenName: "Main LED Wall",
@@ -138,13 +142,63 @@ const LedPixelMapEditor = () => {
     userName: effectiveUserName,
     enabled: collaborationEnabled,
     onRemoteUpdate: (payload) => {
+      // GUARD: Don't process remote updates if collaboration is disabled
+      // This prevents input reversion on NEW documents where collaboration is off
+      if (!collaborationEnabled) {
+        console.log("[LedPixelMapEditor] Ignoring remote update - collaboration disabled");
+        return;
+      }
+
       if (payload.type === "field_update" && payload.field) {
-        setMapData((prev) => (prev ? { ...prev, [payload.field!]: payload.value } : prev));
+        if (payload.field === "projectName") {
+          setMapData((prev) => (prev ? { ...prev, projectName: payload.value } : prev));
+          // Update local project name state when remote changes arrive
+          setLocalProjectName(payload.value);
+        } else {
+          setMapData((prev) => (prev ? { ...prev, [payload.field!]: payload.value } : prev));
+        }
       }
     },
   });
 
   usePresence({ channel: null, userId: effectiveUserId });
+
+  // Initialize local project name from mapData.projectName when document loads
+  useEffect(() => {
+    if (mapData.projectName && !localProjectNameInitialized) {
+      setLocalProjectName(mapData.projectName);
+      setLocalProjectNameInitialized(true);
+    }
+  }, [mapData.projectName, localProjectNameInitialized]);
+
+  // Debounced sync: Update mapData.projectName after user stops typing (500ms delay)
+  useEffect(() => {
+    if (!localProjectNameInitialized) return;
+
+    const handler = setTimeout(() => {
+      if (localProjectName !== mapData.projectName) {
+        setMapData((prev) => ({ ...prev, projectName: localProjectName }));
+
+        // Broadcast project name change to other collaborators
+        if (collaborationEnabled && broadcast) {
+          broadcast({
+            type: "field_update",
+            field: "projectName",
+            value: localProjectName,
+          });
+        }
+      }
+    }, 500);
+
+    return () => clearTimeout(handler);
+  }, [
+    localProjectName,
+    localProjectNameInitialized,
+    mapData.projectName,
+    setMapData,
+    collaborationEnabled,
+    broadcast,
+  ]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -177,16 +231,10 @@ const LedPixelMapEditor = () => {
         },
         (payload) => {
           console.log("[LedPixelMapEditor] Received database UPDATE event:", payload);
-          // Update local state with the new data
-          // IMPORTANT: Exclude metadata fields to prevent triggering auto-save
-          if (payload.new) {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { last_edited, ...userEditableFields } = payload.new as Record<string, unknown>;
-            setMapData((prev) => ({
-              ...prev,
-              ...userEditableFields,
-            }));
-          }
+          // NOTE: We intentionally DO NOT update local state from database UPDATE events
+          // because they include our own saves echoing back, which would overwrite user typing
+          // Real-time collaboration updates happen via the broadcast channel in useCollaboration
+          console.log("[LedPixelMapEditor] Ignoring database UPDATE to prevent input reversion");
         },
       )
       .subscribe();
@@ -610,8 +658,26 @@ const LedPixelMapEditor = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-1">
                 <LedPixelMapControls
-                  mapData={mapData}
-                  setMapData={setMapData}
+                  mapData={{
+                    ...mapData,
+                    projectName: localProjectName || mapData.projectName,
+                  }}
+                  setMapData={(update) => {
+                    if (typeof update === "function") {
+                      const newData = update(mapData);
+                      if (newData.projectName !== mapData.projectName) {
+                        setLocalProjectName(newData.projectName);
+                      } else {
+                        setMapData(newData);
+                      }
+                    } else {
+                      if (update.projectName !== mapData.projectName) {
+                        setLocalProjectName(update.projectName);
+                      } else {
+                        setMapData(update);
+                      }
+                    }
+                  }}
                   previewOptions={previewOptions}
                   setPreviewOptions={setPreviewOptions}
                 />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
@@ -76,6 +76,10 @@ const RiderEditor = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
+  // Local state for name input to prevent collaboration reversion
+  const [localName, setLocalName] = useState<string>("");
+  const localNameInitialized = useRef(false);
+
   // For unauthenticated shared edit users, generate a temporary ID
   const [anonymousUserId] = useState(() => `anonymous-${uuidv4()}`);
   const effectiveUserId = user?.id || (isSharedEdit ? anonymousUserId : "");
@@ -146,11 +150,23 @@ const RiderEditor = () => {
     userName: effectiveUserName,
     enabled: collaborationEnabled,
     onRemoteUpdate: (payload) => {
+      // GUARD: Don't process remote updates if collaboration is disabled
+      // This prevents input reversion on NEW documents where collaboration is off
+      if (!collaborationEnabled) {
+        console.log("[RiderEditor] Ignoring remote update - collaboration disabled");
+        return;
+      }
+
       if (payload.type === "field_update" && payload.field) {
-        setRider((prev: any) => ({
-          ...prev,
-          [payload.field!]: payload.value,
-        }));
+        if (payload.field === "name" && typeof payload.value === "string") {
+          console.log("[RiderEditor] Updating localName from remote broadcast:", payload.value);
+          setLocalName(payload.value);
+        } else {
+          setRider((prev: any) => ({
+            ...prev,
+            [payload.field!]: payload.value,
+          }));
+        }
       }
     },
   });
@@ -181,20 +197,10 @@ const RiderEditor = () => {
         },
         (payload) => {
           console.log("[RiderEditor] Received database UPDATE event:", payload);
-          // Update local state with the new data
-          // IMPORTANT: Exclude metadata fields (version, last_edited, metadata) to prevent
-          // triggering auto-save, which would create an infinite loop
-          if (payload.new) {
-            const { version, last_edited, metadata, ...userEditableFields } = payload.new as any;
-            setRider((prev: any) => ({
-              ...prev,
-              ...userEditableFields,
-              // Keep existing metadata to avoid triggering auto-save
-              version: prev?.version,
-              last_edited: prev?.last_edited,
-              metadata: prev?.metadata,
-            }));
-          }
+          // NOTE: We intentionally DO NOT update local state from database UPDATE events
+          // because they include our own saves echoing back, which would overwrite user typing
+          // Real-time collaboration updates happen via the broadcast channel in useCollaboration
+          console.log("[RiderEditor] Ignoring database UPDATE to prevent input reversion");
         },
       )
       .subscribe();
@@ -216,6 +222,32 @@ const RiderEditor = () => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [forceSave]);
+
+  // Initialize localName from rider on first load
+  useEffect(() => {
+    if (rider?.name && !localNameInitialized.current) {
+      console.log("[RiderEditor] Initializing localName from rider:", rider.name);
+      setLocalName(rider.name);
+      localNameInitialized.current = true;
+    }
+  }, [rider?.name]);
+
+  // Debounced sync: Update rider when localName changes (after user stops typing)
+  useEffect(() => {
+    if (!localNameInitialized.current) return;
+
+    const timer = setTimeout(() => {
+      if (localName !== rider?.name) {
+        console.log("[RiderEditor] Syncing localName to rider:", {
+          localName,
+          previousName: rider?.name,
+        });
+        setRider((prev) => (prev ? { ...prev, name: localName } : prev));
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [localName, rider?.name]);
 
   useEffect(() => {
     const fetchUserAndRider = async () => {
@@ -674,8 +706,8 @@ const RiderEditor = () => {
             <div className="flex-1">
               <input
                 type="text"
-                value={rider.name}
-                onChange={(e) => setRider({ ...rider, name: e.target.value })}
+                value={localName}
+                onChange={(e) => setLocalName(e.target.value)}
                 className="text-3xl md:text-4xl font-bold text-white bg-transparent border-b-2 border-gray-700 focus:border-indigo-500 focus:outline-none w-full"
                 placeholder="Rider Name"
               />

@@ -82,6 +82,11 @@ const CommsPlannerEditor = () => {
   const effectiveUserId = user?.id || (isSharedEdit ? anonymousUserId : "");
   const effectiveUserEmail = user?.email || (isSharedEdit ? `${anonymousUserId}@shared` : "");
   const effectiveUserName = user?.user_metadata?.name || (isSharedEdit ? "Anonymous User" : "");
+
+  // Local state for plan name input to prevent reversion during typing
+  const [localPlanName, setLocalPlanName] = useState("");
+  const [localPlanNameInitialized, setLocalPlanNameInitialized] = useState(false);
+
   const {
     planName,
     elements,
@@ -211,10 +216,22 @@ const CommsPlannerEditor = () => {
     userName: effectiveUserName,
     enabled: collaborationEnabled,
     onRemoteUpdate: (payload) => {
+      // GUARD: Don't process remote updates if collaboration is disabled
+      // This prevents input reversion on NEW documents where collaboration is off
+      if (!collaborationEnabled) {
+        console.log("[CommsPlannerEditor] Ignoring remote update - collaboration disabled");
+        return;
+      }
+
       if (payload.type === "field_update" && payload.field) {
         // Handle field updates from remote users
         console.log("[CommsPlannerEditor] Remote field update:", payload.field, payload.value);
-        // Update will be handled by database subscription
+        if (payload.field === "name") {
+          setPlanName(payload.value);
+          // Update local plan name state when remote changes arrive
+          setLocalPlanName(payload.value);
+        }
+        // Other field updates will be handled by database subscription
       }
     },
   });
@@ -224,6 +241,43 @@ const CommsPlannerEditor = () => {
     channel: null, // Will be set up when collaboration channels are ready
     userId: effectiveUserId,
   });
+
+  // Initialize local plan name from planName when document loads
+  useEffect(() => {
+    if (planName && !localPlanNameInitialized) {
+      setLocalPlanName(planName);
+      setLocalPlanNameInitialized(true);
+    }
+  }, [planName, localPlanNameInitialized]);
+
+  // Debounced sync: Update planName after user stops typing (500ms delay)
+  useEffect(() => {
+    if (!localPlanNameInitialized) return;
+
+    const handler = setTimeout(() => {
+      if (localPlanName !== planName) {
+        setPlanName(localPlanName);
+
+        // Broadcast plan name change to other collaborators
+        if (collaborationEnabled && broadcast) {
+          broadcast({
+            type: "field_update",
+            field: "name",
+            value: localPlanName,
+          });
+        }
+      }
+    }, 500);
+
+    return () => clearTimeout(handler);
+  }, [
+    localPlanName,
+    localPlanNameInitialized,
+    planName,
+    setPlanName,
+    collaborationEnabled,
+    broadcast,
+  ]);
 
   // Real-time database subscription for syncing changes across users
   useEffect(() => {
@@ -245,41 +299,10 @@ const CommsPlannerEditor = () => {
         },
         (payload) => {
           console.log("[CommsPlannerEditor] Received database UPDATE event:", payload);
-          // Update local state with the new data
-          // IMPORTANT: Exclude metadata fields (version, last_edited, metadata) to prevent
-          // triggering auto-save, which would create an infinite loop
-          if (payload.new) {
-            const { version, last_edited, metadata, ...userEditableFields } = payload.new as any;
-
-            // Update store with new data
-            if (userEditableFields.name) {
-              setPlanName(userEditableFields.name);
-            }
-            if (userEditableFields.venue_geometry) {
-              setVenueWidth(userEditableFields.venue_geometry.width);
-              setVenueHeight(userEditableFields.venue_geometry.height);
-            }
-            if (userEditableFields.zones) {
-              setZones(userEditableFields.zones);
-            }
-            if (userEditableFields.elements) {
-              const loadedElements = userEditableFields.elements.map((el: any) => ({
-                ...el,
-                systemType: el.system_type,
-                channels: el.channel_set,
-              }));
-              setElements(loadedElements);
-            }
-            if (userEditableFields.beltpacks) {
-              setBeltpacks(userEditableFields.beltpacks);
-            }
-            if (typeof userEditableFields.dfs_enabled !== "undefined") {
-              setDfsEnabled(userEditableFields.dfs_enabled);
-            }
-            if (typeof userEditableFields.poe_budget_total !== "undefined") {
-              setPoeBudget(userEditableFields.poe_budget_total);
-            }
-          }
+          // NOTE: We intentionally DO NOT update local state from database UPDATE events
+          // because they include our own saves echoing back, which would overwrite user typing
+          // Real-time collaboration updates happen via the broadcast channel in useCollaboration
+          console.log("[CommsPlannerEditor] Ignoring database UPDATE to prevent input reversion");
         },
       )
       .subscribe();
@@ -1488,8 +1511,8 @@ const CommsPlannerEditor = () => {
             </button>
             <input
               type="text"
-              value={planName}
-              onChange={(e) => setPlanName(e.target.value)}
+              value={localPlanName || planName}
+              onChange={(e) => setLocalPlanName(e.target.value)}
               className="text-2xl font-bold text-white bg-transparent border-none focus:outline-none focus:ring-0"
             />
           </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
@@ -154,6 +154,10 @@ const ProductionScheduleEditor = () => {
   const effectiveUserEmail = user?.email || (isSharedEdit ? `${anonymousUserId}@shared` : "");
   const effectiveUserName = user?.user_metadata?.name || (isSharedEdit ? "Anonymous User" : "");
 
+  // Local state for title input to prevent auto-save interference during typing
+  const [localName, setLocalName] = useState<string>("");
+  const localNameInitialized = useRef(false);
+
   // Enable collaboration for existing documents (including edit-mode shared links)
   // For shared links, id will be undefined, so we check schedule?.id instead
   // For edit-mode shared links, allow collaboration even without authentication
@@ -217,11 +221,27 @@ const ProductionScheduleEditor = () => {
     userName: effectiveUserName,
     enabled: collaborationEnabled,
     onRemoteUpdate: (payload) => {
+      // GUARD: Don't process remote updates if collaboration is disabled
+      // This prevents input reversion on NEW documents where collaboration is off
+      if (!collaborationEnabled) {
+        console.log("[ProductionScheduleEditor] Ignoring remote update - collaboration disabled");
+        return;
+      }
+
       if (payload.type === "field_update" && payload.field) {
-        setSchedule((prev: any) => ({
-          ...prev,
-          [payload.field!]: payload.value,
-        }));
+        // Handle name field separately to prevent input reversion
+        if (payload.field === "name" && typeof payload.value === "string") {
+          console.log(
+            "[ProductionScheduleEditor] Updating localName from remote broadcast:",
+            payload.value,
+          );
+          setLocalName(payload.value);
+        } else {
+          setSchedule((prev: any) => ({
+            ...prev,
+            [payload.field!]: payload.value,
+          }));
+        }
       }
     },
   });
@@ -255,20 +275,12 @@ const ProductionScheduleEditor = () => {
         },
         (payload) => {
           console.log("[ProductionScheduleEditor] Received database UPDATE event:", payload);
-          // Update local state with the new data
-          // IMPORTANT: Exclude metadata fields (version, last_edited, metadata) to prevent
-          // triggering auto-save, which would create an infinite loop
-          if (payload.new) {
-            const { version, last_edited, metadata, ...userEditableFields } = payload.new as any;
-            setSchedule((prev: any) => ({
-              ...prev,
-              ...userEditableFields,
-              // Keep existing metadata to avoid triggering auto-save
-              version: prev?.version,
-              last_edited: prev?.last_edited,
-              metadata: prev?.metadata,
-            }));
-          }
+          // NOTE: We intentionally DO NOT update local state from database UPDATE events
+          // because they include our own saves echoing back, which would overwrite user typing
+          // Real-time collaboration updates happen via the broadcast channel in useCollaboration
+          console.log(
+            "[ProductionScheduleEditor] Ignoring database UPDATE to prevent input reversion",
+          );
         },
       )
       .subscribe();
@@ -278,6 +290,38 @@ const ProductionScheduleEditor = () => {
       supabase.removeChannel(channel);
     };
   }, [collaborationEnabled, schedule?.id]);
+
+  // Sync local name with schedule when it loads
+  useEffect(() => {
+    if (schedule?.name && !localNameInitialized.current) {
+      console.log(
+        "[ProductionScheduleEditor] Initializing localName from schedule:",
+        schedule.name,
+      );
+      setLocalName(schedule.name);
+      localNameInitialized.current = true;
+    }
+  }, [schedule?.name]);
+
+  // Debounced sync from local name to schedule state
+  useEffect(() => {
+    if (!localNameInitialized.current) return;
+
+    const timer = setTimeout(() => {
+      if (localName !== schedule?.name) {
+        console.log("[ProductionScheduleEditor] Syncing localName to schedule:", {
+          localName,
+          previousName: schedule?.name,
+        });
+        setSchedule((prev: any) => ({
+          ...prev,
+          name: localName,
+        }));
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [localName, schedule?.name]);
 
   // Keyboard shortcut for manual save (Cmd/Ctrl+S)
   useEffect(() => {
@@ -906,8 +950,8 @@ const ProductionScheduleEditor = () => {
             <div className="flex-grow min-w-0">
               <input
                 type="text"
-                value={schedule.name}
-                onChange={handleNameChange}
+                value={localName}
+                onChange={(e) => setLocalName(e.target.value)}
                 className="text-xl md:text-2xl font-bold text-white bg-transparent border-none focus:outline-none focus:ring-0 w-full"
                 placeholder="Enter schedule name"
               />
