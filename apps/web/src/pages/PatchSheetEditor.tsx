@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
@@ -78,6 +78,10 @@ const PatchSheetEditor = () => {
   const [isSharedEdit, setIsSharedEdit] = useState(false);
   const [shareLink, setShareLink] = useState<any>(null);
   const [currentShareLink, setCurrentShareLink] = useState<SharedLink | null>(null);
+
+  // Local state for title input to prevent auto-save interference during typing
+  const [localName, setLocalName] = useState<string>("");
+  const localNameInitialized = useRef(false);
 
   // Collaboration state
   const [showHistory, setShowHistory] = useState(false);
@@ -184,6 +188,13 @@ const PatchSheetEditor = () => {
     userName: effectiveUserName,
     enabled: collaborationEnabled,
     onRemoteUpdate: (payload) => {
+      // GUARD: Don't process remote updates if collaboration is disabled
+      // This prevents title reversion on NEW patch sheets where collaboration is off
+      if (!collaborationEnabled) {
+        console.log("[PatchSheetEditor] Ignoring remote update - collaboration disabled");
+        return;
+      }
+
       if (payload.type === "field_update" && payload.field) {
         console.log(`[PatchSheetEditor] Applying remote update for field: ${payload.field}`);
 
@@ -213,6 +224,13 @@ const PatchSheetEditor = () => {
           });
           // Create a new array reference to ensure React detects the change
           setOutputs([...payload.value]);
+        } else if (payload.field === "name" && typeof payload.value === "string") {
+          console.log(
+            "[PatchSheetEditor] Updating localName from remote broadcast:",
+            payload.value,
+          );
+          // Update local name to reflect remote change
+          setLocalName(payload.value);
         }
       }
     },
@@ -235,6 +253,35 @@ const PatchSheetEditor = () => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [forceSave]);
+
+  // Sync local name with patchSheet when it loads
+  useEffect(() => {
+    if (patchSheet?.name && !localNameInitialized.current) {
+      console.log("[PatchSheetEditor] Initializing localName from patchSheet:", patchSheet.name);
+      setLocalName(patchSheet.name);
+      localNameInitialized.current = true;
+    }
+  }, [patchSheet?.name]);
+
+  // Debounced sync from local name to patchSheet state
+  useEffect(() => {
+    if (!localNameInitialized.current) return;
+
+    const timer = setTimeout(() => {
+      if (localName !== patchSheet?.name) {
+        console.log("[PatchSheetEditor] Syncing localName to patchSheet:", {
+          localName,
+          previousName: patchSheet?.name,
+        });
+        setPatchSheet((prev: any) => ({
+          ...prev,
+          name: localName,
+        }));
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [localName, patchSheet?.name]);
 
   // Real-time database subscription for syncing changes across users
   useEffect(() => {
@@ -558,8 +605,8 @@ const PatchSheetEditor = () => {
             <div>
               <input
                 type="text"
-                value={patchSheet?.name || "Untitled Patch Sheet"}
-                onChange={(e) => setPatchSheet({ ...patchSheet, name: e.target.value })}
+                value={localName || "Untitled Patch Sheet"}
+                onChange={(e) => setLocalName(e.target.value)}
                 className="text-xl md:text-2xl font-bold text-white bg-transparent border-none focus:outline-none focus:ring-0 w-full max-w-[220px] sm:max-w-none"
                 placeholder="Enter patch sheet name"
               />

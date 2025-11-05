@@ -169,7 +169,7 @@ export const useCollaboration = ({
         });
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
     // Note: onRemoteUpdate is intentionally not in deps to prevent re-subscription on callback changes
   }, [documentId, documentType, userId, userEmail, userName, enabled]);
 

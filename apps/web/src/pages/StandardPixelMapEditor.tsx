@@ -79,6 +79,10 @@ const StandardPixelMapEditor = () => {
   const effectiveUserEmail = user?.email || (isSharedEdit ? `${anonymousUserId}@shared` : "");
   const effectiveUserName = user?.user_metadata?.name || (isSharedEdit ? "Anonymous User" : "");
 
+  // Local state for project name input to prevent reversion during typing
+  const [localProjectName, setLocalProjectName] = useState("");
+  const [localProjectNameInitialized, setLocalProjectNameInitialized] = useState(false);
+
   // Enable collaboration for existing documents (including edit-mode shared links)
   // For shared links, id will be undefined, so we check document?.id instead
   // For edit-mode shared links, allow collaboration even without authentication
@@ -137,8 +141,21 @@ const StandardPixelMapEditor = () => {
     userName: effectiveUserName,
     enabled: collaborationEnabled,
     onRemoteUpdate: (payload) => {
+      // GUARD: Don't process remote updates if collaboration is disabled
+      // This prevents input reversion on NEW documents where collaboration is off
+      if (!collaborationEnabled) {
+        console.log("[StandardPixelMapEditor] Ignoring remote update - collaboration disabled");
+        return;
+      }
+
       if (payload.type === "field_update" && payload.field) {
-        setMapData((prev: any) => (prev ? { ...prev, [payload.field!]: payload.value } : prev));
+        if (payload.field === "project_name") {
+          setMapData((prev: any) => (prev ? { ...prev, project_name: payload.value } : prev));
+          // Update local project name state when remote changes arrive
+          setLocalProjectName(payload.value);
+        } else {
+          setMapData((prev: any) => (prev ? { ...prev, [payload.field!]: payload.value } : prev));
+        }
       }
     },
   });
@@ -147,6 +164,43 @@ const StandardPixelMapEditor = () => {
     channel: null,
     userId: effectiveUserId,
   });
+
+  // Initialize local project name from mapData.project_name when document loads
+  useEffect(() => {
+    if (mapData.project_name && !localProjectNameInitialized) {
+      setLocalProjectName(mapData.project_name);
+      setLocalProjectNameInitialized(true);
+    }
+  }, [mapData.project_name, localProjectNameInitialized]);
+
+  // Debounced sync: Update mapData.project_name after user stops typing (500ms delay)
+  useEffect(() => {
+    if (!localProjectNameInitialized) return;
+
+    const handler = setTimeout(() => {
+      if (localProjectName !== mapData.project_name) {
+        setMapData((prev: any) => ({ ...prev, project_name: localProjectName }));
+
+        // Broadcast project name change to other collaborators
+        if (collaborationEnabled && broadcast) {
+          broadcast({
+            type: "field_update",
+            field: "project_name",
+            value: localProjectName,
+          });
+        }
+      }
+    }, 500);
+
+    return () => clearTimeout(handler);
+  }, [
+    localProjectName,
+    localProjectNameInitialized,
+    mapData.project_name,
+    setMapData,
+    collaborationEnabled,
+    broadcast,
+  ]);
 
   // Real-time database subscription for syncing changes across users
   useEffect(() => {
@@ -171,32 +225,12 @@ const StandardPixelMapEditor = () => {
         },
         (payload) => {
           console.log("[StandardPixelMapEditor] Received database UPDATE event:", payload);
-          // Update local state with the new data
-          // IMPORTANT: Exclude metadata fields (version, last_edited, metadata) to prevent
-          // triggering auto-save, which would create an infinite loop
-          if (payload.new) {
-            const { version, last_edited, metadata, ...userEditableFields } = payload.new as any;
-            setMapData((prev: any) => ({
-              ...prev,
-              project_name: userEditableFields.project_name,
-              screen_name: userEditableFields.screen_name,
-              aspect_ratio_w: userEditableFields.aspect_ratio_w,
-              aspect_ratio_h: userEditableFields.aspect_ratio_h,
-              aspect_ratio_preset: `${userEditableFields.aspect_ratio_w}:${userEditableFields.aspect_ratio_h}`,
-              resolution_w: userEditableFields.resolution_w,
-              resolution_h: userEditableFields.resolution_h,
-              resolution_preset: `${userEditableFields.resolution_w}x${userEditableFields.resolution_h}`,
-            }));
-            // Update document state with metadata preserved
-            setDocument((prev: any) => ({
-              ...prev,
-              ...userEditableFields,
-              // Keep existing metadata to avoid triggering auto-save
-              version: prev?.version,
-              last_edited: prev?.last_edited,
-              metadata: prev?.metadata,
-            }));
-          }
+          // NOTE: We intentionally DO NOT update local state from database UPDATE events
+          // because they include our own saves echoing back, which would overwrite user typing
+          // Real-time collaboration updates happen via the broadcast channel in useCollaboration
+          console.log(
+            "[StandardPixelMapEditor] Ignoring database UPDATE to prevent input reversion",
+          );
         },
       )
       .subscribe();
@@ -634,8 +668,26 @@ const StandardPixelMapEditor = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-1">
                 <PixelMapControls
-                  mapData={mapData}
-                  setMapData={setMapData}
+                  mapData={{
+                    ...mapData,
+                    project_name: localProjectName || mapData.project_name,
+                  }}
+                  setMapData={(update) => {
+                    if (typeof update === "function") {
+                      const newData = update(mapData);
+                      if (newData.project_name !== mapData.project_name) {
+                        setLocalProjectName(newData.project_name);
+                      } else {
+                        setMapData(newData);
+                      }
+                    } else {
+                      if (update.project_name !== mapData.project_name) {
+                        setLocalProjectName(update.project_name);
+                      } else {
+                        setMapData(update);
+                      }
+                    }
+                  }}
                   showColorSwatches={showColorSwatches}
                   setShowColorSwatches={setShowColorSwatches}
                   showGrid={showGrid}
