@@ -5,6 +5,8 @@ import { useAuth } from "../lib/AuthContext";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import AcoustIqBanner from "../components/AcoustIqBanner";
+import DeprecationNoticeModal from "@/components/DeprecationNoticeModal";
+import { useDeprecationNotice } from "@/hooks/useDeprecationNotice";
 import {
   Info,
   Loader,
@@ -21,6 +23,8 @@ import {
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user: authUser, loading: authLoading } = useAuth();
+  const { isOpen: showDeprecationModal, onClose: handleDismissDeprecation } =
+    useDeprecationNotice();
 
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState<string>("");
@@ -264,6 +268,7 @@ const Dashboard = () => {
         </div>
       </main>
       <Footer />
+      <DeprecationNoticeModal isOpen={showDeprecationModal} onClose={handleDismissDeprecation} />
     </div>
   );
 };

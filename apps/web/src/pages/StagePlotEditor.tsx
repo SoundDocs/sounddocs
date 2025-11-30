@@ -158,43 +158,6 @@ const StagePlotEditor = () => {
     // Screen size no longer forces view mode.
   }, [location.pathname]);
 
-  // Initialize local name from stagePlot.name when document loads
-  useEffect(() => {
-    if (stagePlot?.name && !localNameInitialized) {
-      setLocalName(stagePlot.name);
-      setLocalNameInitialized(true);
-    }
-  }, [stagePlot?.name, localNameInitialized]);
-
-  // Debounced sync: Update stagePlot.name after user stops typing (500ms delay)
-  useEffect(() => {
-    if (!localNameInitialized) return;
-
-    const handler = setTimeout(() => {
-      if (localName !== stagePlot?.name) {
-        setStagePlot((prev: any) => ({ ...prev, name: localName }));
-
-        // Broadcast name change to other collaborators
-        if (collaborationEnabled && broadcast) {
-          broadcast({
-            type: "field_update",
-            field: "name",
-            value: localName,
-          });
-        }
-      }
-    }, 500);
-
-    return () => clearTimeout(handler);
-  }, [
-    localName,
-    localNameInitialized,
-    stagePlot?.name,
-    setStagePlot,
-    collaborationEnabled,
-    broadcast,
-  ]);
-
   // Enable collaboration for existing documents (including edit-mode shared links)
   // For shared links, id will be undefined, so we check stagePlot?.id instead
   // For edit-mode shared links, allow collaboration even without authentication
@@ -315,6 +278,43 @@ const StagePlotEditor = () => {
     channel: null, // Will be set up when collaboration channels are ready
     userId: effectiveUserId,
   });
+
+  // Initialize local name from stagePlot.name when document loads
+  useEffect(() => {
+    if (stagePlot?.name && !localNameInitialized) {
+      setLocalName(stagePlot.name);
+      setLocalNameInitialized(true);
+    }
+  }, [stagePlot?.name, localNameInitialized]);
+
+  // Debounced sync: Update stagePlot.name after user stops typing (500ms delay)
+  useEffect(() => {
+    if (!localNameInitialized) return;
+
+    const handler = setTimeout(() => {
+      if (localName !== stagePlot?.name) {
+        setStagePlot((prev: any) => ({ ...prev, name: localName }));
+
+        // Broadcast name change to other collaborators
+        if (collaborationEnabled && broadcast) {
+          broadcast({
+            type: "field_update",
+            field: "name",
+            value: localName,
+          });
+        }
+      }
+    }, 500);
+
+    return () => clearTimeout(handler);
+  }, [
+    localName,
+    localNameInitialized,
+    stagePlot?.name,
+    setStagePlot,
+    collaborationEnabled,
+    broadcast,
+  ]);
 
   // Real-time database subscription for syncing changes across users
   useEffect(() => {

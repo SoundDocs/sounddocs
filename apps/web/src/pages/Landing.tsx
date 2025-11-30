@@ -6,8 +6,13 @@ import Features from "../components/Features";
 import TrustedBy from "../components/TrustedBy";
 import GetStarted from "../components/GetStarted";
 import Footer from "../components/Footer";
+import DeprecationNoticeModal from "@/components/DeprecationNoticeModal";
+import { useDeprecationNotice } from "@/hooks/useDeprecationNotice";
 
 const Landing: React.FC = () => {
+  const { isOpen: showDeprecationModal, onClose: handleDismissDeprecation } =
+    useDeprecationNotice();
+
   // On page load or when changing themes, best practice for accessibility
   useEffect(() => {
     document.title = "SoundDocs | Pro Audio & Event Production Documentation";
@@ -34,6 +39,7 @@ const Landing: React.FC = () => {
         <GetStarted />
       </main>
       <Footer />
+      <DeprecationNoticeModal isOpen={showDeprecationModal} onClose={handleDismissDeprecation} />
     </>
   );
 };
