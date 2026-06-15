@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet";
 import { CalendarClock, Download, Server, X, ExternalLink } from "lucide-react";
 import Header from "../components/Header";
@@ -12,47 +12,30 @@ import { useDeprecationNotice } from "@/hooks/useDeprecationNotice";
 
 const SUNSET_BANNER_KEY = "sounddocs-sunset-banner-dismissed";
 
-const SunsetBanner: React.FC = () => {
-  const [visible, setVisible] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(SUNSET_BANNER_KEY) !== "true";
-    } catch {
-      return true;
-    }
-  });
+interface SunsetBannerProps {
+  onDismiss: () => void;
+}
 
-  const dismiss = (): void => {
-    try {
-      localStorage.setItem(SUNSET_BANNER_KEY, "true");
-    } catch {
-      // localStorage unavailable — dismiss in-memory only
-    }
-    setVisible(false);
-  };
-
-  if (!visible) return null;
-
+const SunsetBanner = React.forwardRef<HTMLDivElement, SunsetBannerProps>(({ onDismiss }, ref) => {
   return (
     <div
-      role="banner"
+      ref={ref}
+      role="region"
       aria-label="SoundDocs sunset notice"
-      className="w-full bg-gray-900 border-b border-amber-500/30"
+      className="fixed top-0 inset-x-0 z-[60] bg-gray-950/95 backdrop-blur-sm border-b border-amber-500/30"
     >
-      <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="relative max-w-7xl mx-auto px-4 py-2.5 pr-10 sm:pr-4 flex flex-col sm:flex-row sm:items-center gap-x-6 gap-y-1.5">
         {/* Retirement notice */}
-        <div className="flex items-start sm:items-center gap-2 text-amber-100 flex-1 min-w-0">
-          <CalendarClock
-            className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5 sm:mt-0"
-            aria-hidden="true"
-          />
+        <div className="flex items-center gap-2 text-amber-100 min-w-0">
+          <CalendarClock className="h-4 w-4 text-amber-400 flex-shrink-0" aria-hidden="true" />
           <p className="text-sm leading-snug">
             <span className="font-semibold text-white">SoundDocs retires September 1, 2026.</span>{" "}
-            Keep your work:
+            <span className="text-amber-200/90">Keep your work:</span>
           </p>
         </div>
 
         {/* Action links */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm flex-shrink-0">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm sm:ml-auto">
           <a
             href="https://eventools.io/?mode=signup"
             target="_blank"
@@ -82,25 +65,62 @@ const SunsetBanner: React.FC = () => {
 
         {/* Dismiss */}
         <button
-          onClick={dismiss}
+          onClick={onDismiss}
           aria-label="Dismiss sunset notice"
-          className="self-start sm:self-center ml-auto sm:ml-2 p-1 rounded hover:bg-gray-800 transition-colors flex-shrink-0"
+          className="absolute right-2 top-1.5 sm:static sm:ml-1 p-1 rounded hover:bg-gray-800 transition-colors flex-shrink-0"
         >
           <X className="h-4 w-4 text-gray-400 hover:text-white" aria-hidden="true" />
         </button>
       </div>
     </div>
   );
-};
+});
+SunsetBanner.displayName = "SunsetBanner";
 
 const Landing: React.FC = () => {
   const { isOpen: showDeprecationModal, onClose: handleDismissDeprecation } =
     useDeprecationNotice();
 
+  const [sunsetVisible, setSunsetVisible] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(SUNSET_BANNER_KEY) !== "true";
+    } catch {
+      return true;
+    }
+  });
+  const sunsetRef = useRef<HTMLDivElement>(null);
+  const [bannerHeight, setBannerHeight] = useState(0);
+
   // On page load or when changing themes, best practice for accessibility
   useEffect(() => {
     document.title = "SoundDocs | Pro Audio & Event Production Documentation";
   }, []);
+
+  // Measure the fixed sunset banner so the header + content clear it at every
+  // breakpoint (it wraps to multiple lines on small screens). useLayoutEffect
+  // runs before paint to avoid an initial overlap flash.
+  useLayoutEffect(() => {
+    if (!sunsetVisible) {
+      setBannerHeight(0);
+      return;
+    }
+    const el = sunsetRef.current;
+    if (!el) return;
+    const measure = () => setBannerHeight(el.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [sunsetVisible]);
+
+  const dismissSunset = (): void => {
+    try {
+      localStorage.setItem(SUNSET_BANNER_KEY, "true");
+    } catch {
+      // localStorage unavailable — dismiss in-memory only
+    }
+    setSunsetVisible(false);
+  };
 
   return (
     <>
@@ -115,9 +135,9 @@ const Landing: React.FC = () => {
           content="audio analyzer, acoustiq, rta, spl meter, transfer function, math traces, measurement averaging, coherence weighting, frequency analysis, event production, pixel map, LED wall designer, video mapping, audio documentation, video documentation, lighting documentation, production schedule, run of show, stage plot, patch list, mic plot, corporate mic plot, theater mic plot, wireless mic management, audio engineer, video technician, lighting designer, production management, input list, output list, sound documentation, video signal flow, lighting plot, DMX chart, audio production software, stage layout tool, concert planning, FOH, monitor engineer tools, event timeline, cue sheet, typical rates, technical formulas, audio formulas, video formulas, lighting formulas, reference guides, pinouts, frequency bands, decibel chart, industry glossaries, measurement mathematics, transfer function analysis, room averaging, system optimization"
         />
       </Helmet>
-      <Header />
-      <SunsetBanner />
-      <main>
+      {sunsetVisible && <SunsetBanner ref={sunsetRef} onDismiss={dismissSunset} />}
+      <Header topOffset={bannerHeight} />
+      <main style={bannerHeight ? { paddingTop: bannerHeight } : undefined}>
         <Hero />
         <Features />
         <TrustedBy />

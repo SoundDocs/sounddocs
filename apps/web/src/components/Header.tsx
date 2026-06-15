@@ -21,6 +21,8 @@ interface HeaderProps {
   scheduleForExport?: ScheduleForExport;
   scheduleType?: "production" | "run-of-show";
   collaborationToolbar?: Omit<CollaborationToolbarProps, "position">;
+  /** Vertical offset in px from the top of the viewport (e.g. to sit below an announcement bar). Defaults to 0. */
+  topOffset?: number;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -29,6 +31,7 @@ const Header: React.FC<HeaderProps> = ({
   scheduleForExport,
   scheduleType,
   collaborationToolbar,
+  topOffset = 0,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -113,7 +116,8 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out ${
+      style={{ top: topOffset }}
+      className={`fixed left-0 right-0 z-50 transition-all duration-300 ease-in-out ${
         scrolled ? "bg-gray-900/95 shadow-md backdrop-blur-sm" : "bg-transparent"
       }`}
     >
