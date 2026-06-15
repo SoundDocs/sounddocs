@@ -1,14 +1,10 @@
 import React from "react";
 import {
-  ClipboardList,
   Layout,
-  Download,
-  Zap,
   Headphones,
   ListChecks, // For Run of Show
   CalendarClock, // For Production Schedule
   FileText, // Alternative for Patch Lists if ClipboardList is too generic
-  Settings2, // For Audio-Specific Tools or Customization
   Mic, // For Mic Plots
   Grid, // For Pixel Maps
   Radio, // For Comms Planner

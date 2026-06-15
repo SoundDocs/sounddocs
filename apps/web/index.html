@@ -57,6 +57,13 @@
       rel="stylesheet"
     />
 
+    <!-- Runtime configuration (must load before the app bundle).
+         On dev/Netlify this is an empty stub (see public/config.js).
+         On self-hosted Docker, docker-entrypoint.sh overwrites this file at
+         container start to inject VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY /
+         VITE_SELF_HOSTED without requiring a rebuild. -->
+    <script src="/config.js"></script>
+
     <!-- JSON-LD Structured Data for WebApplication -->
     <script type="application/ld+json">
       {

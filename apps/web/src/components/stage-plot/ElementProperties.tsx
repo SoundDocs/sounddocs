@@ -252,7 +252,10 @@ const ElementProperties: React.FC<ElementPropertiesPanelProps> = ({
             </button>
             <button
               className="px-2 py-1 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 touch-manipulation"
-              onClick={() => setRotation(0) || onPropertyChange(selectedElement.id, "rotation", 0)}
+              onClick={() => {
+                setRotation(0);
+                onPropertyChange(selectedElement.id, "rotation", 0);
+              }}
             >
               Reset
             </button>

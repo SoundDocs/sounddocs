@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import {
@@ -71,7 +71,7 @@ const SharedCorporateMicPlot = () => {
           setLoading(false);
           return;
         }
-        setMicPlot(resource as SharedCorporateMicPlotData);
+        setMicPlot(resource as unknown as SharedCorporateMicPlotData);
         setShareLinkInfo(shareLink);
 
         if (shareLink.expires_at) {

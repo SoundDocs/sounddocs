@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
@@ -76,7 +76,7 @@ const PatchSheetEditor = () => {
   const [outputs, setOutputs] = useState<OutputChannel[]>([]);
   // const [showMobileWarning, setShowMobileWarning] = useState(false); // Removed
   const [isSharedEdit, setIsSharedEdit] = useState(false);
-  const [shareLink, setShareLink] = useState<any>(null);
+  const [, setShareLink] = useState<unknown>(null);
   const [currentShareLink, setCurrentShareLink] = useState<SharedLink | null>(null);
 
   // Local state for title input to prevent auto-save interference during typing
@@ -146,7 +146,7 @@ const PatchSheetEditor = () => {
       }
       return true;
     },
-    onSaveComplete: (success, error, changedFields) => {
+    onSaveComplete: (success, _error, changedFields) => {
       // CRITICAL: After successfully saving, broadcast the changes to other users
       // This is how real-time collaboration works - we don't rely on database UPDATE events
       if (success && patchSheet && changedFields) {
@@ -237,7 +237,7 @@ const PatchSheetEditor = () => {
   });
 
   // Presence hook
-  const { setEditingField } = usePresence({
+  const { setEditingField: _setEditingField } = usePresence({
     channel: null, // Will be set up when collaboration channels are ready
     userId: effectiveUserId,
   });
@@ -702,19 +702,20 @@ const PatchSheetEditor = () => {
       {collaborationEnabled && (
         <>
           <DocumentHistory
-            isOpen={showHistory}
-            onClose={() => setShowHistory(false)}
-            documentId={patchSheet?.id || ""}
-            documentType="patch_sheets"
+            open={showHistory}
+            onOpenChange={(open) => setShowHistory(open)}
+            versions={[]}
+            onRestore={() => {}}
           />
 
           <ConflictResolution
-            isOpen={showConflict}
-            onClose={() => setShowConflict(false)}
-            conflict={conflict}
-            onResolve={(resolution) => {
+            open={showConflict}
+            onOpenChange={(open) => setShowConflict(open)}
+            conflicts={conflict ? [conflict] : []}
+            documentId={patchSheet?.id || ""}
+            onResolve={(strategy) => {
               // Handle conflict resolution
-              console.log("Conflict resolved with strategy:", resolution);
+              console.log("Conflict resolved with strategy:", strategy);
               setShowConflict(false);
               setConflict(null);
             }}

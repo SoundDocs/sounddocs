@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useState, useRef } from "react";
+import { useParams } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import {
   Bookmark,
@@ -32,7 +32,6 @@ const SharedHeader = ({ docName }: { docName: string }) => (
 
 const SharedStagePlot = () => {
   const { shareCode } = useParams<{ shareCode: string }>();
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stagePlot, setStagePlot] = useState<any | null>(null);

@@ -14,9 +14,7 @@ import { Link as RouterLink } from "react-router-dom";
 
 import {
   ArrowLeft,
-  Clapperboard,
   Maximize,
-  Minimize,
   Film,
   HardDrive,
   Tv,

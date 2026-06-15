@@ -9,7 +9,14 @@ export type ResourceType =
   | "run_of_show"
   | "corporate_mic_plot"
   | "theater_mic_plot"
-  | "technical_rider";
+  | "technical_rider"
+  // The pixel-map and comms-planner editors reference these resource types, but
+  // sharing them is not yet wired end-to-end: the shared_links `resource_type`
+  // CHECK constraint and the `update_shared_resource` RPC allowlist do not
+  // include them. Typed here for editor type-consistency; enabling actual
+  // sharing requires adding them to those database objects.
+  | "pixel_map"
+  | "comms_planner";
 
 export interface SharedLink {
   id: string; // This is shared_links.id

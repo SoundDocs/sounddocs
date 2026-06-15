@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import autoTable, { RowInput } from "jspdf-autotable";
 import CorporateMicPlotExport from "../components/CorporateMicPlotExport";
 import PrintCorporateMicPlotExport from "../components/PrintCorporateMicPlotExport";
 import ShareModal from "../components/ShareModal";
@@ -35,6 +35,7 @@ interface CorporateMicPlot {
   created_at: string;
   last_edited?: string;
   presenters?: Array<{
+    id: string;
     presenter_name?: string;
     session_segment?: string;
     mic_type?: string;
@@ -241,7 +242,6 @@ const AllCorporateMicPlots = () => {
         backgroundColor,
         useCORS: true,
         allowTaint: true,
-        letterRendering: true,
         onclone: (clonedDoc) => {
           const styleGlobal = clonedDoc.createElement("style");
           styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
@@ -301,7 +301,7 @@ const AllCorporateMicPlots = () => {
         );
       } else if (format === "print") {
         const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
-        const brandColor = [45, 55, 72]; // A dark slate for headers
+        const brandColor: [number, number, number] = [45, 55, 72]; // A dark slate for headers
 
         const formatTime = (timeString?: string) => {
           if (!timeString) return "-";
@@ -402,16 +402,16 @@ const AllCorporateMicPlots = () => {
           ],
         );
 
-        const presenterTitle = [
+        const presenterTitle: RowInput[] = [
           [
             {
               content: "Presenters",
               colSpan: 11,
               styles: {
-                halign: "left",
-                fontStyle: "bold",
+                halign: "left" as const,
+                fontStyle: "bold" as const,
                 fontSize: 12,
-                fillColor: [255, 255, 255],
+                fillColor: [255, 255, 255] as [number, number, number],
                 textColor: brandColor,
                 cellPadding: { top: 4, bottom: 2 },
               },
@@ -420,7 +420,7 @@ const AllCorporateMicPlots = () => {
         ];
 
         autoTable(doc, {
-          head: presenterTitle.concat(head),
+          head: (presenterTitle as RowInput[]).concat(head as RowInput[]),
           body: body,
           startY: 25,
           didDrawPage: (data) => {

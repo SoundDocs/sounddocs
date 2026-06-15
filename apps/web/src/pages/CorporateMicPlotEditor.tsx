@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { useAuth } from "../lib/AuthContext";
 import { v4 as uuidv4 } from "uuid";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -101,7 +100,7 @@ const CorporateMicPlotEditor: React.FC = () => {
           if (shareLink.resource_type !== "corporate_mic_plot" || shareLink.link_type !== "edit") {
             throw new Error("Invalid or unauthorized share link for editing.");
           }
-          setMicPlot(resource as CorporateMicPlot);
+          setMicPlot(resource as unknown as CorporateMicPlot);
           setSharedLinkInfo(shareLink);
         } else if (routeId === "new" && currentUserId) {
           setMicPlot({
@@ -167,7 +166,7 @@ const CorporateMicPlotEditor: React.FC = () => {
     documentId: micPlot?.id || "",
     documentType: "corporate_mic_plots",
     userId: effectiveUserId,
-    data: micPlot,
+    data: micPlot as unknown as Record<string, any>,
     enabled: collaborationEnabled,
     debounceMs: 1500,
     shareCode: isSharedEdit && shareCode ? shareCode : undefined,
@@ -219,7 +218,7 @@ const CorporateMicPlotEditor: React.FC = () => {
   });
 
   // Presence hook
-  const { setEditingField } = usePresence({
+  const { setEditingField: _setEditingField } = usePresence({
     channel: null, // Will be set up when collaboration channels are ready
     userId: effectiveUserId,
   });
@@ -534,7 +533,7 @@ const CorporateMicPlotEditor: React.FC = () => {
             createdAt: version.created_at,
             changedFields: version.changed_fields || [],
             description: `${version.save_type} save`,
-          } as VersionHistory;
+          } as unknown as VersionHistory;
         }),
       );
 
@@ -626,9 +625,6 @@ const CorporateMicPlotEditor: React.FC = () => {
       </div>
     );
   }
-
-  // Determine if the current user is the owner, relevant for non-shared edits
-  const isOwner = user && micPlot && micPlot.user_id === user.id;
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">

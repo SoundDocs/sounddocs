@@ -1,7 +1,6 @@
 import React from "react";
 import { LedPixelMapData, PreviewOptions } from "../../pages/LedPixelMapEditor";
 import { gcd } from "../../utils/math";
-import { Eye, EyeOff } from "lucide-react";
 
 interface LedPixelMapControlsProps {
   mapData: LedPixelMapData;

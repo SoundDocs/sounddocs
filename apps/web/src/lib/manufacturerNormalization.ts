@@ -230,7 +230,11 @@ function findBestFuzzyMatch(
   score: number;
   matchType: "exact" | "alias" | "fuzzy";
 } {
-  let bestMatch = { manufacturer: "", score: 0, matchType: "fuzzy" as const };
+  let bestMatch: { manufacturer: string; score: number; matchType: "exact" | "alias" | "fuzzy" } = {
+    manufacturer: "",
+    score: 0,
+    matchType: "fuzzy",
+  };
 
   for (const [canonical, aliasList] of Object.entries(aliases)) {
     for (const alias of aliasList) {

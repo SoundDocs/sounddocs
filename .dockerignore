@@ -1,0 +1,64 @@
+# Root .dockerignore for the SoundDocs web image build.
+# The web image build context is the repo root (apps/web/Dockerfile is built
+# with context: ..). Keep the context lean: exclude heavy / irrelevant dirs.
+#
+# Do NOT add supabase/migrations or supabase/functions here just to "save space"
+# in a way that breaks the compose mounts -- but note those are bind-mounted by
+# docker-compose at RUN time and are not needed inside the web IMAGE, so it's
+# fine to exclude them from the web build context (they make the context heavier
+# for no benefit). We exclude functions (Deno) but keep migrations excluded too;
+# neither is used by `vite build`.
+
+# Dependencies / build output (reinstalled/rebuilt inside the image)
+**/node_modules
+**/dist
+**/dist-ssr
+**/.turbo
+**/.vite
+**/build
+
+# Git / CI / editor
+.git
+.github
+.husky
+.vscode
+.idea
+*.swp
+*.swo
+
+# Self-host artifacts (the image doesn't need these)
+self-host/.env
+self-host/volumes/db/data
+self-host/volumes/storage
+
+# Local env files (never bake secrets into the image)
+.env
+**/.env
+**/.env.local
+**/*.local
+
+# Logs
+*.log
+**/*.log
+
+# Python capture agent build artifacts (irrelevant to the web build)
+agents/capture-agent-py/.venv
+agents/capture-agent-py/dist
+agents/capture-agent-py/build
+agents/capture-agent-py/__pycache__
+**/__pycache__
+**/*.pyc
+agents/capture-agent-py/*.spec
+agents/capture-agent-py/localhost.pem
+agents/capture-agent-py/localhost-key.pem
+
+# Supabase server-side bits not needed inside the web image (mounted by compose)
+supabase/functions
+supabase/migrations
+supabase/.temp
+supabase/.branches
+
+# Misc
+.DS_Store
+*.tgz
+coverage

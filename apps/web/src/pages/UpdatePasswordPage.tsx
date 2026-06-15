@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { Lock, AlertCircle, CheckCircle, Eye, EyeOff, Bookmark } from "lucide-react";
-import { Session, AuthSubscription } from "@supabase/supabase-js";
+import { AlertCircle, CheckCircle, Eye, EyeOff, Bookmark } from "lucide-react";
+import { Session, Subscription } from "@supabase/supabase-js";
 
 const UpdatePasswordPage: React.FC = () => {
   const navigate = useNavigate();
@@ -16,7 +16,7 @@ const UpdatePasswordPage: React.FC = () => {
   const [checkingToken, setCheckingToken] = useState(true);
 
   useEffect(() => {
-    let authSubscription: AuthSubscription | null = null;
+    let authSubscription: Subscription | null = null;
 
     const {
       data: { subscription },

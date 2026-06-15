@@ -180,7 +180,7 @@ export const ConflictResolution: React.FC<ConflictResolutionProps> = ({
   open,
   onOpenChange,
   conflicts = [],
-  documentId,
+  documentId: _documentId,
   onResolve,
   resolving = false,
   className,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { v4 as uuidv4 } from "uuid";
@@ -15,12 +15,7 @@ import {
   Drama,
   Share2,
 } from "lucide-react";
-import {
-  getSharedResource,
-  updateSharedResource,
-  verifyShareLink,
-  SharedLink,
-} from "../lib/shareUtils";
+import { getSharedResource, updateSharedResource, SharedLink } from "../lib/shareUtils";
 import { useAuth } from "../lib/AuthContext";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useCollaboration } from "@/hooks/useCollaboration";
@@ -102,7 +97,7 @@ const TheaterMicPlotEditor: React.FC = () => {
     documentId: micPlot?.id || "",
     documentType: "theater_mic_plots",
     userId: effectiveUserId,
-    data: micPlot,
+    data: (micPlot ?? {}) as TheaterMicPlot,
     enabled: collaborationEnabled,
     debounceMs: 1500,
     shareCode: isSharedEdit && shareCode ? shareCode : undefined,
@@ -143,7 +138,10 @@ const TheaterMicPlotEditor: React.FC = () => {
     },
   });
 
-  const { setEditingField } = usePresence({ channel: null, userId: effectiveUserId });
+  const { setEditingField: _setEditingField } = usePresence({
+    channel: null,
+    userId: effectiveUserId,
+  });
 
   // Initialize local name from micPlot.name when document loads
   useEffect(() => {
@@ -249,7 +247,7 @@ const TheaterMicPlotEditor: React.FC = () => {
             setLoading(false);
             return;
           }
-          setMicPlot(resource as TheaterMicPlot);
+          setMicPlot(resource as unknown as TheaterMicPlot);
           setSharedLinkInfo(shareLink);
         } catch (error: any) {
           console.error("Error loading shared theater mic plot for editing:", error);
@@ -632,16 +630,17 @@ const TheaterMicPlotEditor: React.FC = () => {
       {collaborationEnabled && (
         <>
           <DocumentHistory
-            isOpen={showHistory}
-            onClose={() => setShowHistory(false)}
-            documentId={micPlot?.id || ""}
-            documentType="theater_mic_plots"
+            open={showHistory}
+            onOpenChange={(open) => setShowHistory(open)}
+            versions={[]}
+            onRestore={() => {}}
           />
           <ConflictResolution
-            isOpen={showConflict}
-            onClose={() => setShowConflict(false)}
-            conflict={conflict}
-            onResolve={(resolution) => {
+            open={showConflict}
+            onOpenChange={(open) => setShowConflict(open)}
+            conflicts={conflict ? [conflict] : []}
+            documentId={micPlot?.id || ""}
+            onResolve={() => {
               setShowConflict(false);
               setConflict(null);
             }}

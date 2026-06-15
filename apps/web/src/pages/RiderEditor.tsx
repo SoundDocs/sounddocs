@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
@@ -124,7 +124,7 @@ const RiderEditor = () => {
     documentId: rider?.id || "",
     documentType: "technical_riders",
     userId: effectiveUserId,
-    data: rider,
+    data: rider ?? ({} as RiderData),
     enabled: collaborationEnabled,
     debounceMs: 1500,
     shareCode: isSharedEdit ? shareCode : undefined,
@@ -138,11 +138,7 @@ const RiderEditor = () => {
   });
 
   // Collaboration hook
-  const {
-    activeUsers,
-    broadcast,
-    status: connectionStatus,
-  } = useCollaboration({
+  const { activeUsers, status: connectionStatus } = useCollaboration({
     documentId: rider?.id || "",
     documentType: "technical_riders",
     userId: effectiveUserId,
@@ -172,7 +168,7 @@ const RiderEditor = () => {
   });
 
   // Presence hook
-  const { setEditingField } = usePresence({
+  usePresence({
     channel: null, // Will be set up when collaboration channels are ready
     userId: effectiveUserId,
   });
@@ -296,31 +292,32 @@ const RiderEditor = () => {
             return;
           }
 
+          const typedResource = resource as Partial<RiderData>;
           const sharedRiderData: RiderData = {
-            id: resource.id,
-            user_id: resource.user_id,
-            name: resource.name || "Untitled Shared Rider",
-            created_at: resource.created_at,
-            last_edited: resource.last_edited,
-            artist_name: resource.artist_name || "",
-            band_members: resource.band_members || [],
-            genre: resource.genre || "",
-            contact_name: resource.contact_name || "",
-            contact_email: resource.contact_email || "",
-            contact_phone: resource.contact_phone || "",
-            stage_plot_url: resource.stage_plot_url,
-            input_list: resource.input_list || [],
-            pa_requirements: resource.pa_requirements || "",
-            monitor_requirements: resource.monitor_requirements || "",
-            console_requirements: resource.console_requirements || "",
-            backline_requirements: resource.backline_requirements || [],
-            artist_provided_gear: resource.artist_provided_gear || [],
-            required_staff: resource.required_staff || [],
-            special_requirements: resource.special_requirements || "",
-            power_requirements: resource.power_requirements || "",
-            lighting_notes: resource.lighting_notes || "",
-            hospitality_notes: resource.hospitality_notes || "",
-            additional_notes: resource.additional_notes || "",
+            id: typedResource.id,
+            user_id: typedResource.user_id,
+            name: typedResource.name || "Untitled Shared Rider",
+            created_at: typedResource.created_at,
+            last_edited: typedResource.last_edited,
+            artist_name: typedResource.artist_name || "",
+            band_members: typedResource.band_members || [],
+            genre: typedResource.genre || "",
+            contact_name: typedResource.contact_name || "",
+            contact_email: typedResource.contact_email || "",
+            contact_phone: typedResource.contact_phone || "",
+            stage_plot_url: typedResource.stage_plot_url,
+            input_list: typedResource.input_list || [],
+            pa_requirements: typedResource.pa_requirements || "",
+            monitor_requirements: typedResource.monitor_requirements || "",
+            console_requirements: typedResource.console_requirements || "",
+            backline_requirements: typedResource.backline_requirements || [],
+            artist_provided_gear: typedResource.artist_provided_gear || [],
+            required_staff: typedResource.required_staff || [],
+            special_requirements: typedResource.special_requirements || "",
+            power_requirements: typedResource.power_requirements || "",
+            lighting_notes: typedResource.lighting_notes || "",
+            hospitality_notes: typedResource.hospitality_notes || "",
+            additional_notes: typedResource.additional_notes || "",
           };
           setRider(sharedRiderData);
           setCurrentShareLink(fetchedShareLink);
@@ -562,14 +559,18 @@ const RiderEditor = () => {
             }
           }
 
-          return {
+          const versionEntry: VersionHistory = {
             id: version.id,
-            version: version.version,
+            documentId: rider?.id || "",
+            documentType: "technical_riders",
+            userId: version.created_by || "",
             userEmail,
+            snapshot: version.content || {},
             createdAt: version.created_at,
             changedFields: version.changed_fields || [],
             description: `${version.save_type} save`,
-          } as VersionHistory;
+          };
+          return versionEntry;
         }),
       );
 

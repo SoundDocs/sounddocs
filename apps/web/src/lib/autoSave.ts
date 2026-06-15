@@ -186,7 +186,7 @@ export const saveUpdate = async (update: DocumentUpdate): Promise<SaveResult> =>
       .from(documentType)
       .update(updateData)
       .eq("id", documentId)
-      .select(`version, ${timestampField}`)
+      .select("*")
       .single();
 
     if (error) {
@@ -197,16 +197,19 @@ export const saveUpdate = async (update: DocumentUpdate): Promise<SaveResult> =>
       };
     }
 
+    const dataRecord = data as Record<string, unknown>;
     console.log(`[AutoSave] Save successful for ${documentType}/${documentId}`, {
-      returnedVersion: data?.version,
+      returnedVersion: dataRecord?.["version"],
       expectedVersion: version,
     });
 
     const returnedTimestamp =
-      data?.[timestampField] || data?.updated_at || new Date().toISOString();
+      (dataRecord?.[timestampField] as string | null | undefined) ||
+      (dataRecord?.["updated_at"] as string | null | undefined) ||
+      new Date().toISOString();
     return {
       success: true,
-      version: data?.version,
+      version: dataRecord?.["version"] as number | undefined,
       timestamp: returnedTimestamp,
     };
   } catch (error) {
@@ -259,7 +262,7 @@ export const saveBatch = async (updates: DocumentUpdate[]): Promise<SaveResult[]
         .from(firstUpdate.documentType)
         .update(combinedData)
         .eq("id", firstUpdate.documentId)
-        .select(`version, ${timestampField}`)
+        .select("*")
         .single();
 
       if (error) {
@@ -272,12 +275,15 @@ export const saveBatch = async (updates: DocumentUpdate[]): Promise<SaveResult[]
         });
       } else {
         // All updates for this document succeeded
+        const batchDataRecord = data as Record<string, unknown>;
         const returnedTimestamp =
-          data?.[timestampField] || data?.updated_at || new Date().toISOString();
+          (batchDataRecord?.[timestampField] as string | null | undefined) ||
+          (batchDataRecord?.["updated_at"] as string | null | undefined) ||
+          new Date().toISOString();
         docUpdates.forEach(() => {
           results.push({
             success: true,
-            version: data?.version,
+            version: batchDataRecord?.["version"] as number | undefined,
             timestamp: returnedTimestamp,
           });
         });

@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import autoTable, { RowInput } from "jspdf-autotable";
 import ShareModal from "../components/ShareModal";
 import ExportModal from "../components/ExportModal";
 import TheaterMicPlotExport from "../components/theater-mic-plot/TheaterMicPlotExport";
@@ -238,7 +238,6 @@ const AllTheaterMicPlots = () => {
         backgroundColor,
         useCORS: true,
         allowTaint: true,
-        letterRendering: true,
         onclone: (clonedDoc) => {
           const styleGlobal = clonedDoc.createElement("style");
           styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
@@ -298,7 +297,7 @@ const AllTheaterMicPlots = () => {
         );
       } else if (format === "print") {
         const doc = new jsPDF({ orientation: "landscape", unit: "mm" });
-        const brandColor = [45, 55, 72]; // A dark slate for headers
+        const brandColor: [number, number, number] = [45, 55, 72]; // A dark slate for headers
 
         const pageHeader = () => {
           doc.setFont("helvetica", "bold");
@@ -368,7 +367,7 @@ const AllTheaterMicPlots = () => {
           ];
         });
 
-        const actorsTitle = [
+        const actorsTitle: RowInput[] = [
           [
             {
               content: "Actors & Mics",
@@ -377,7 +376,7 @@ const AllTheaterMicPlots = () => {
                 halign: "left",
                 fontStyle: "bold",
                 fontSize: 12,
-                fillColor: [255, 255, 255],
+                fillColor: [255, 255, 255] as [number, number, number],
                 textColor: brandColor,
                 cellPadding: { top: 4, bottom: 2 },
               },

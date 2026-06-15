@@ -307,7 +307,7 @@ export const useAutoSave = <T extends Record<string, any>>({
   const performSaveDirectly = useCallback(
     async (payload: {
       documentId: string;
-      documentType: string;
+      documentType: DocumentType;
       userId: string;
       fieldUpdates: Array<{ field: string; value: any; previousValue: any }>;
     }) => {
@@ -376,6 +376,14 @@ export const useAutoSave = <T extends Record<string, any>>({
           setSaveStatus("saved");
           setLastSavedAt(now);
           setError(null);
+          // Advance the change-detection baseline for the fields we just saved.
+          // Unlike performSave (which has the full document), this path only has the
+          // changed fieldUpdates, so merge their saved values into previousDataRef
+          // instead of overwriting the whole ref. Without this, already-saved fields
+          // keep being detected as changed and re-sent on subsequent cycles.
+          for (const update of updates) {
+            previousDataRef.current[update.field as keyof T] = update.value;
+          }
           // Note: versionRef is already updated in the loop above when we get the result
 
           // Call completion callback with list of changed fields
@@ -433,7 +441,7 @@ export const useAutoSave = <T extends Record<string, any>>({
     debouncedSaveRef.current = debounce(
       (payload: {
         documentId: string;
-        documentType: string;
+        documentType: DocumentType;
         userId: string;
         fieldUpdates: Array<{ field: string; value: any; previousValue: any }>;
       }) => {

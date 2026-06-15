@@ -28,7 +28,6 @@ import { getSharedResource, SharedLink } from "../lib/shareUtils";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useCollaboration } from "@/hooks/useCollaboration";
 import { usePresence } from "@/hooks/usePresence";
-import { CollaborationToolbar } from "@/components/CollaborationToolbar";
 import { DocumentHistory } from "@/components/History/DocumentHistory";
 import { ConflictResolution } from "@/components/ConflictResolution";
 import type { DocumentConflict } from "@/types/collaboration";
@@ -234,7 +233,7 @@ const RunOfShowEditor: React.FC = () => {
     documentId: runOfShow?.id || "",
     documentType: "run_of_shows",
     userId: effectiveUserId,
-    data: runOfShow,
+    data: runOfShow ?? { name: "", items: [], custom_column_definitions: [] },
     enabled: collaborationEnabled,
     debounceMs: 1500,
     shareCode:
@@ -389,7 +388,7 @@ const RunOfShowEditor: React.FC = () => {
             }
             setCurrentShareLink(fetchedShareLink);
             data = {
-              ...(resource as RunOfShowData),
+              ...(resource as unknown as RunOfShowData),
               id: fetchedShareLink.resource_id, // Ensure id is set
             };
           } else {
@@ -579,12 +578,6 @@ const RunOfShowEditor: React.FC = () => {
       document.removeEventListener("mousedown", handleClickOutsideModal);
     };
   }, [colorPickerModalTargetItemId, colorPickerModalTargetColumnId]);
-
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (runOfShow) {
-      setRunOfShow({ ...runOfShow, name: e.target.value });
-    }
-  };
 
   const handleAddItem = (type: "item" | "header" = "item") => {
     if (runOfShow) {
@@ -895,7 +888,7 @@ const RunOfShowEditor: React.FC = () => {
           )
           .reduce(
             (acc, key) => {
-              acc[key] = item[key as keyof RunOfShowItem];
+              acc[key] = (item as RunOfShowItem)[key];
               return acc;
             },
             {} as Record<string, string | number | boolean | undefined>,
@@ -1685,7 +1678,9 @@ const RunOfShowEditor: React.FC = () => {
                           >
                             <input
                               type={col.type || "text"}
-                              value={item[col.key as keyof RunOfShowItem] || ""}
+                              value={
+                                (item[col.key as keyof RunOfShowItem] || "") as string | number
+                              }
                               onChange={(e) =>
                                 handleItemChange(
                                   item.id,
@@ -1890,7 +1885,9 @@ const RunOfShowEditor: React.FC = () => {
                             <label className="text-xs text-gray-400">{col.label}</label>
                             <input
                               type={col.type || "text"}
-                              value={item[col.key as keyof RunOfShowItem] || ""}
+                              value={
+                                (item[col.key as keyof RunOfShowItem] || "") as string | number
+                              }
                               onChange={(e) =>
                                 handleItemChange(
                                   item.id,
@@ -1961,10 +1958,13 @@ const RunOfShowEditor: React.FC = () => {
             loading={false}
           />
           <ConflictResolution
-            isOpen={showConflict}
-            onClose={() => setShowConflict(false)}
-            conflict={conflict}
-            onResolve={() => {
+            open={showConflict}
+            onOpenChange={(open) => {
+              if (!open) setShowConflict(false);
+            }}
+            conflicts={conflict ? [conflict] : []}
+            documentId={runOfShow?.id || ""}
+            onResolve={(_strategy, _mergedFields) => {
               setShowConflict(false);
               setConflict(null);
             }}

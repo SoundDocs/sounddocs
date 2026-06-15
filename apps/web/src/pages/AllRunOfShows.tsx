@@ -99,7 +99,7 @@ const AllRunOfShows: React.FC = () => {
         navigate("/login");
         return;
       }
-      setUser(userData.user);
+      setUser({ id: userData.user.id });
 
       try {
         const { data, error: dbError } = await supabase
@@ -294,7 +294,6 @@ const AllRunOfShows: React.FC = () => {
         backgroundColor,
         useCORS: true,
         allowTaint: true,
-        letterRendering: true,
         onclone: (clonedDoc: Document) => {
           const styleGlobal = clonedDoc.createElement("style");
           styleGlobal.innerHTML = `* { font-family: ${font}, sans-serif !important; vertical-align: baseline !important; }`;
@@ -423,8 +422,14 @@ const AllRunOfShows: React.FC = () => {
               },
             ]);
           } else {
-            const rowData = defaultCols.map((col) => item[col.key as keyof RunOfShowItem] || "");
-            const customData = customCols.map((cc) => item[cc.name] || "");
+            const rowData = defaultCols.map((col) => {
+              const val = item[col.key as keyof RunOfShowItem];
+              return val != null ? String(val) : "";
+            });
+            const customData = customCols.map((cc) => {
+              const val = item[cc.name];
+              return val != null ? String(val) : "";
+            });
             body.push([...rowData, ...customData]);
           }
         });

@@ -1,4 +1,10 @@
-import { Resolution } from "./types";
+type Resolution = {
+  value: string;
+  label: string;
+  width: number;
+  height: number;
+  aspectRatio: string;
+};
 
 export const FIELD_TYPES = {
   // Input Fields
@@ -90,11 +96,6 @@ export const TRACE_COLORS = [
 ];
 
 // --- Target curve utils (drop-in replacement) ---
-type Filter =
-  | { type: "peak"; f: number; gain: number; q: number }
-  | { type: "highshelf"; f: number; gain: number; s: number } // shelf "S" (not Q)
-  | { type: "lpf1"; f: number }; // true 6 dB/oct
-
 type Biquad = { b0: number; b1: number; b2: number; a0: number; a1: number; a2: number };
 
 // magnitude of biquad at frequency f (Hz), fs (Hz)
@@ -172,8 +173,6 @@ function designLPF1(f0: number, fs: number): Biquad {
   const b0 = K * norm;
   const b1 = K * norm;
   const b2 = 0;
-  const a0 = 1;
-  const a1 = (1 - K) * norm - 1; // convert to H(z)= (b0+b1 z^-1)/(1 + a1 z^-1 + a2 z^-2)
   // Wait: the standard difference eq is y = b0 x + b1 x[n-1] - a1' y[n-1] with a1'=(K-1)/(1+K).
   // For transfer denominator 1 + a1 z^-1 we need a1 = (K - 1) / (1 + K).
   const a1_den = (K - 1) / (1 + K);
@@ -205,9 +204,13 @@ export const TARGET_CURVES: Record<string, Curve> = {
   custom: {
     name: "SoundDocs Curve",
     evalDb: (() => {
-      let biquads: Biquad[] | null = null;
+      const cache = new Map<number, Biquad[]>();
       return (f: number, fs: number) => {
-        if (!biquads) biquads = buildCustomCascade(fs);
+        let biquads = cache.get(fs);
+        if (!biquads) {
+          biquads = buildCustomCascade(fs);
+          cache.set(fs, biquads);
+        }
         // cascade magnitudes in linear, then convert to dB
         const db = biquads.reduce((accDb, bq) => accDb + biquadMagDbAt(f, fs, bq), 0);
         return db;

@@ -155,7 +155,7 @@ const SharedProductionSchedule: React.FC = () => {
     documentId: schedule?.id || "",
     documentType: "production_schedules",
     userId: user?.id || "",
-    data: schedule,
+    data: schedule as FullProductionScheduleData,
     enabled: collaborationEnabled,
     debounceMs: 1500,
     onBeforeSave: async (data) => {
@@ -217,7 +217,7 @@ const SharedProductionSchedule: React.FC = () => {
           throw new Error("Invalid resource type for this share link.");
         }
 
-        const fullData = resource as FullProductionScheduleData;
+        const fullData = resource as unknown as FullProductionScheduleData;
         console.log(
           "[SharedProductionSchedule] Raw fullData:",
           JSON.parse(JSON.stringify(fullData)),
@@ -242,8 +242,7 @@ const SharedProductionSchedule: React.FC = () => {
           labor_schedule_items: fullData.labor_schedule_items || [],
           detailed_schedule_items: (fullData.detailed_schedule_items || []).map((item) => ({
             ...item,
-            assigned_crew_ids:
-              item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : []),
+            assigned_crew_ids: item.assigned_crew_ids || [],
           })),
           contact_name: fullData.contact_name,
           contact_email: fullData.contact_email,
@@ -414,8 +413,8 @@ const SharedProductionSchedule: React.FC = () => {
       project_manager: schedule.project_manager,
       production_manager: schedule.production_manager,
       account_manager: schedule.account_manager,
-      set_datetime: convertLocalInputToUTCISO(schedule.set_datetime),
-      strike_datetime: convertLocalInputToUTCISO(schedule.strike_datetime),
+      set_datetime: convertLocalInputToUTCISO(schedule.set_datetime ?? null),
+      strike_datetime: convertLocalInputToUTCISO(schedule.strike_datetime ?? null),
       last_edited: new Date().toISOString(),
       crew_key: sanitizedCrewKey,
       labor_schedule_items: sanitizedLaborScheduleItems,
@@ -503,10 +502,13 @@ const SharedProductionSchedule: React.FC = () => {
 
           return {
             id: version.id,
-            version: version.version,
+            documentId: schedule?.id || "",
+            documentType: "production_schedules",
+            userId: version.created_by || "",
             userEmail,
-            createdAt: version.created_at,
+            snapshot: version.content || {},
             changedFields: version.changed_fields || [],
+            createdAt: version.created_at,
             description: `${version.save_type} save`,
           } as VersionHistory;
         }),
@@ -824,8 +826,8 @@ const SharedProductionSchedule: React.FC = () => {
                   project_manager: schedule.project_manager || "",
                   production_manager: schedule.production_manager || "",
                   account_manager: schedule.account_manager || "",
-                  set_datetime: schedule.set_datetime,
-                  strike_datetime: schedule.strike_datetime,
+                  set_datetime: schedule.set_datetime ?? null,
+                  strike_datetime: schedule.strike_datetime ?? null,
                 }}
                 updateField={handleHeaderFieldUpdate}
               />

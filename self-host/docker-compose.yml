@@ -1,0 +1,470 @@
+# =============================================================================
+# SoundDocs self-hosting stack (self-hosted Supabase + the SoundDocs web app)
+# =============================================================================
+#
+# Location: <repo>/self-host/docker-compose.yml
+# Run from this directory:  cd self-host && ./setup.sh && docker compose up -d
+#
+# Services:
+#   db                -> supabase/postgres            (PostgreSQL + Supabase bootstrap)
+#   auth              -> supabase/gotrue              (Auth; runs its own migrations -> auth schema)
+#   rest              -> postgrest/postgrest          (Database REST API)
+#   realtime          -> supabase/realtime            (Realtime websockets)
+#   storage           -> supabase/storage-api         (Object storage)
+#   imgproxy          -> darthsim/imgproxy            (Image transforms for storage)
+#   meta              -> supabase/postgres-meta       (Used by Studio)
+#   functions         -> supabase/edge-runtime        (Edge functions: ai-align-systems, led/svg-to-png)
+#   studio            -> supabase/studio              (Admin dashboard)
+#   kong              -> kong                         (API gateway; the PUBLIC Supabase URL)
+#   supabase-migrate  -> postgres (alpine)            (One-shot: applies SoundDocs migrations + seed)
+#   web               -> built from apps/web/Dockerfile (the SoundDocs React SPA via nginx)
+#
+# Service names + env var names match the OFFICIAL Supabase self-host compose:
+#   https://github.com/supabase/supabase/tree/master/docker
+#
+# This stack is intentionally LEANER than the official one: it omits the
+# Logflare `analytics`, `vector`, and `supavisor` (pooler) services. As of the
+# current official compose, no core service depends on analytics/vector, so the
+# stack runs fine without them. The web app + edge functions connect to Postgres
+# directly (no transaction pooler). If you need the pooler/analytics, add them
+# back from the official compose. See SELF_HOSTING.md.
+#
+# All images are PINNED. Tags below were taken from the official Supabase
+# self-host compose on master.
+#   # pin verified against supabase/supabase docker compose (master) on 2026-06-15;
+#   # bump these together when you update -- mixing major versions across the
+#   # Supabase services is not supported.
+# =============================================================================
+
+name: sounddocs
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL (Supabase flavored). Bundles the auth/storage/realtime role
+  # bootstrap. The auth/storage SCHEMAS are created later by their own
+  # containers; see supabase-migrate for ordering.
+  # ---------------------------------------------------------------------------
+  db:
+    container_name: supabase-db
+    image: supabase/postgres:15.8.1.085 # pin verified against official compose 2026-06-15
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: ${POSTGRES_PORT}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: postgres
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXP: ${JWT_EXPIRY}
+    volumes:
+      # Init scripts (run once, on a fresh data volume, in filename order).
+      - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
+      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
+      - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
+      # Persistent data.
+      - sounddocs-db-data:/var/lib/postgresql/data:Z
+    # Do NOT publish 5432 to the host by default (security). Uncomment to allow
+    # local pg_dump / psql from the host:
+    # ports:
+    #   - "${POSTGRES_PORT}:5432"
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      - -c
+      - log_min_messages=fatal
+
+  # ---------------------------------------------------------------------------
+  # GoTrue auth. Runs its own migrations on boot -> creates the `auth` schema
+  # and auth.users. The SoundDocs migrations depend on this existing.
+  # ---------------------------------------------------------------------------
+  auth:
+    container_name: supabase-auth
+    image: supabase/gotrue:v2.189.0 # pin verified against official compose 2026-06-15
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:9999/health",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL}
+
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+
+      GOTRUE_SITE_URL: ${SITE_URL}
+      GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS}
+      GOTRUE_DISABLE_SIGNUP: ${DISABLE_SIGNUP}
+
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: ${JWT_EXPIRY}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: ${ENABLE_EMAIL_SIGNUP}
+      GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: ${ENABLE_ANONYMOUS_USERS}
+      # IMPORTANT for offline single-user instances: when this is "true",
+      # new sign-ups are confirmed immediately (no SMTP needed). See .env.example
+      # and SELF_HOSTING.md "Email confirmation".
+      GOTRUE_MAILER_AUTOCONFIRM: ${ENABLE_EMAIL_AUTOCONFIRM}
+
+      GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL}
+      GOTRUE_SMTP_HOST: ${SMTP_HOST}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT}
+      GOTRUE_SMTP_USER: ${SMTP_USER}
+      GOTRUE_SMTP_PASS: ${SMTP_PASS}
+      GOTRUE_SMTP_SENDER_NAME: ${SMTP_SENDER_NAME}
+      GOTRUE_MAILER_URLPATHS_INVITE: ${MAILER_URLPATHS_INVITE}
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: ${MAILER_URLPATHS_CONFIRMATION}
+      GOTRUE_MAILER_URLPATHS_RECOVERY: ${MAILER_URLPATHS_RECOVERY}
+      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: ${MAILER_URLPATHS_EMAIL_CHANGE}
+
+      GOTRUE_EXTERNAL_PHONE_ENABLED: ${ENABLE_PHONE_SIGNUP}
+      GOTRUE_SMS_AUTOCONFIRM: ${ENABLE_PHONE_AUTOCONFIRM}
+
+  # ---------------------------------------------------------------------------
+  # PostgREST -> /rest/v1 and /graphql/v1
+  # ---------------------------------------------------------------------------
+  rest:
+    container_name: supabase-rest
+    image: postgrest/postgrest:v14.12 # pin verified against official compose 2026-06-15
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      PGRST_DB_SCHEMAS: ${PGRST_DB_SCHEMAS}
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
+      PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY}
+    command:
+      - postgrest
+
+  # ---------------------------------------------------------------------------
+  # Realtime websockets -> /realtime/v1
+  # ---------------------------------------------------------------------------
+  realtime:
+    container_name: realtime-dev.supabase-realtime
+    image: supabase/realtime:v2.102.3 # pin verified against official compose 2026-06-15
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-sSfL",
+          "--head",
+          "-o",
+          "/dev/null",
+          "-H",
+          "Authorization: Bearer ${ANON_KEY}",
+          "http://localhost:4000/api/tenants/realtime-dev/health",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      PORT: 4000
+      DB_HOST: ${POSTGRES_HOST}
+      DB_PORT: ${POSTGRES_PORT}
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      DB_ENC_KEY: supabaserealtime
+      API_JWT_SECRET: ${JWT_SECRET}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      METRICS_JWT_SECRET: ${JWT_SECRET}
+      ERL_AFLAGS: -proto_dist inet_tcp
+      DNS_NODES: "''"
+      RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+      SEED_SELF_HOST: "true"
+      RUN_JANITOR: "true"
+      DISABLE_HEALTHCHECK_LOGGING: "true"
+
+  # ---------------------------------------------------------------------------
+  # Storage API -> /storage/v1
+  # ---------------------------------------------------------------------------
+  storage:
+    container_name: supabase-storage
+    image: supabase/storage-api:v1.60.4 # pin verified against official compose 2026-06-15
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_started
+      imgproxy:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://storage:5000/status",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      POSTGREST_URL: http://rest:3000
+      AUTH_JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      STORAGE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL}
+      REQUEST_ALLOW_X_FORWARDED_PATH: "true"
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      GLOBAL_S3_BUCKET: ${GLOBAL_S3_BUCKET}
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: ${STORAGE_TENANT_ID}
+      REGION: ${REGION}
+      ENABLE_IMAGE_TRANSFORMATION: "true"
+      IMGPROXY_URL: http://imgproxy:5001
+    volumes:
+      - sounddocs-storage-data:/var/lib/storage:Z
+
+  imgproxy:
+    container_name: supabase-imgproxy
+    image: darthsim/imgproxy:v3.30.1 # pin verified against official compose 2026-06-15
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "imgproxy", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      IMGPROXY_BIND: ":5001"
+      IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
+      IMGPROXY_USE_ETAG: "true"
+      IMGPROXY_AUTO_WEBP: ${IMGPROXY_AUTO_WEBP}
+      IMGPROXY_MAX_SRC_RESOLUTION: "16.8"
+    volumes:
+      - sounddocs-storage-data:/var/lib/storage:Z
+
+  # ---------------------------------------------------------------------------
+  # postgres-meta (powers Studio's table editor / SQL)
+  # ---------------------------------------------------------------------------
+  meta:
+    container_name: supabase-meta
+    image: supabase/postgres-meta:v0.96.6 # pin verified against official compose 2026-06-15
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: ${POSTGRES_HOST}
+      PG_META_DB_PORT: ${POSTGRES_PORT}
+      PG_META_DB_NAME: ${POSTGRES_DB}
+      PG_META_DB_USER: supabase_admin
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+  # ---------------------------------------------------------------------------
+  # Edge functions runtime -> /functions/v1/*
+  # Serves the repo's supabase/functions (ai-align-systems, led-map-to-png,
+  # svg-to-png). None of these require external API keys/secrets.
+  # ---------------------------------------------------------------------------
+  functions:
+    container_name: supabase-edge-functions
+    image: supabase/edge-runtime:v1.74.0 # pin verified against official compose 2026-06-15
+    restart: unless-stopped
+    depends_on:
+      kong:
+        condition: service_started
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL}
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      VERIFY_JWT: ${FUNCTIONS_VERIFY_JWT}
+    volumes:
+      # The repo's three edge functions, each at /home/deno/functions/<name>.
+      - ../supabase/functions/ai-align-systems:/home/deno/functions/ai-align-systems:Z,ro
+      - ../supabase/functions/led-map-to-png:/home/deno/functions/led-map-to-png:Z,ro
+      - ../supabase/functions/svg-to-png:/home/deno/functions/svg-to-png:Z,ro
+      # The vendored "main" router (the repo doesn't ship one; the Supabase CLI
+      # normally provides it). It dispatches /functions/v1/<name> to the dirs
+      # above. See volumes/functions/main/index.ts.
+      - ./volumes/functions/main:/home/deno/functions/main:Z,ro
+    command:
+      - start
+      - --main-service
+      - /home/deno/functions/main
+
+  # ---------------------------------------------------------------------------
+  # Studio (admin dashboard). Reached through Kong at the public URL, behind
+  # HTTP basic-auth (DASHBOARD_USERNAME / DASHBOARD_PASSWORD).
+  # ---------------------------------------------------------------------------
+  studio:
+    container_name: supabase-studio
+    image: supabase/studio:2026.06.03-sha-0bca601 # pin verified against official compose 2026-06-15
+    restart: unless-stopped
+    depends_on:
+      meta:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000/api/platform/profile').then((r) => {if (r.status !== 200) throw new Error(r.status)})",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    environment:
+      HOSTNAME: 0.0.0.0
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGRST_DB_SCHEMAS: ${PGRST_DB_SCHEMAS}
+      DEFAULT_ORGANIZATION_NAME: ${STUDIO_DEFAULT_ORGANIZATION}
+      DEFAULT_PROJECT_NAME: ${STUDIO_DEFAULT_PROJECT}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL}
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      AUTH_JWT_SECRET: ${JWT_SECRET}
+
+  # ---------------------------------------------------------------------------
+  # Kong API gateway. This is the PUBLIC Supabase endpoint (default :8000).
+  # VITE_SUPABASE_URL must point here. Uses the stable `eval` substitution
+  # entrypoint -- see volumes/api/kong.yml.
+  # ---------------------------------------------------------------------------
+  kong:
+    container_name: supabase-kong
+    image: kong:2.8.1 # pin: long-term-stable Kong used by Supabase self-host; verified compatible 2026-06-15
+    restart: unless-stopped
+    depends_on:
+      studio:
+        condition: service_started
+    ports:
+      - "${KONG_HTTP_PORT}:8000/tcp"
+      - "${KONG_HTTPS_PORT}:8443/tcp"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      DASHBOARD_USERNAME: ${DASHBOARD_USERNAME}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
+    volumes:
+      - ./volumes/api/kong.yml:/home/kong/temp.yml:Z,ro
+    # Substitute $VARS in temp.yml into kong.yml, then start Kong.
+    entrypoint: bash -c 'eval "echo \"$$(cat ~/temp.yml)\"" > ~/kong.yml && /docker-entrypoint.sh kong docker-start'
+
+  # ---------------------------------------------------------------------------
+  # One-shot migration runner. Applies SoundDocs migrations + seed AFTER the
+  # auth/storage schemas exist. Exits 0 when done; safe to leave in the file
+  # (it won't restart). See volumes/db/run-migrations.sh.
+  # ---------------------------------------------------------------------------
+  supabase-migrate:
+    container_name: supabase-migrate
+    image: postgres:15-alpine # pin: stock postgres image just for the psql client
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+      storage:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ../supabase/migrations:/migrations:Z,ro
+      - ./volumes/db/run-migrations.sh:/run-migrations.sh:Z,ro
+    entrypoint: ["bash", "/run-migrations.sh"]
+
+  # ---------------------------------------------------------------------------
+  # SoundDocs web app (React SPA, served by nginx with COOP/COEP headers).
+  #
+  # PRIMARY PATH — prebuilt image from GHCR (fast, no local build required):
+  #   docker compose up -d
+  #   VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY / VITE_SELF_HOSTED are
+  #   injected at container start by docker-entrypoint.sh via the `environment`
+  #   block below. No rebuild needed when you change these values — just
+  #   `docker compose up -d web` to restart the container.
+  #
+  # FALLBACK PATH — build from source (useful for local development or forks):
+  #   docker compose build web
+  #   The `build` block below is kept so `docker compose build web` still works.
+  #   Build args are also passed so baked-in values serve as a second fallback.
+  # ---------------------------------------------------------------------------
+  web:
+    container_name: sounddocs-web
+    image: ghcr.io/sounddocs/sounddocs-web:latest
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        # Enables the in-app first-run setup wizard (backup import). Always "true"
+        # for self-hosted builds; the hosted SaaS build leaves it unset.
+        VITE_SELF_HOSTED: "true"
+    # Runtime env vars — injected into config.js by docker-entrypoint.sh at
+    # container start. These win over any values baked in at build time, so the
+    # prebuilt GHCR image is fully configured without a rebuild.
+    environment:
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+      VITE_SELF_HOSTED: "true"
+    restart: unless-stopped
+    depends_on:
+      kong:
+        condition: service_started
+    ports:
+      - "${WEB_PORT:-3000}:80"
+
+volumes:
+  sounddocs-db-data:
+  sounddocs-storage-data:

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { getSupabaseUrl, getSupabaseAnonKey } from "../lib/runtimeConfig";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import PixelMapControls from "../components/pixel-map/PixelMapControls";
@@ -36,6 +37,21 @@ export interface PixelMapData {
 interface PixelMapDocument extends PixelMapData {
   id?: string;
   user_id?: string;
+  version?: number;
+  last_edited?: string;
+  metadata?: any;
+}
+
+// Shape of a pixel_maps row as returned by getSharedResource (Record<string, unknown>)
+interface PixelMapResource {
+  id?: string;
+  user_id?: string;
+  project_name?: string;
+  screen_name?: string;
+  aspect_ratio_w?: number;
+  aspect_ratio_h?: number;
+  resolution_w?: number;
+  resolution_h?: number;
   version?: number;
   last_edited?: string;
   metadata?: any;
@@ -160,7 +176,7 @@ const StandardPixelMapEditor = () => {
     },
   });
 
-  const { setEditingField } = usePresence({
+  usePresence({
     channel: null,
     userId: effectiveUserId,
   });
@@ -185,6 +201,7 @@ const StandardPixelMapEditor = () => {
         if (collaborationEnabled && broadcast) {
           broadcast({
             type: "field_update",
+            userId: effectiveUserId,
             field: "project_name",
             value: localProjectName,
           });
@@ -275,7 +292,9 @@ const StandardPixelMapEditor = () => {
           shareCode,
         );
         try {
-          const { resource, shareLink: fetchedShareLink } = await getSharedResource(shareCode);
+          const { resource: rawResource, shareLink: fetchedShareLink } =
+            await getSharedResource(shareCode);
+          const resource = rawResource as PixelMapResource;
 
           console.log(
             "[StandardPixelMapEditor] DEBUG: Fetched Shared Link Details:",
@@ -524,12 +543,12 @@ const StandardPixelMapEditor = () => {
         throw new Error(sessionError?.message || "Authentication error: Not logged in.");
       }
 
-      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/svg-to-png`;
+      const functionUrl = `${getSupabaseUrl()}/functions/v1/svg-to-png`;
       const response = await fetch(functionUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          apikey: getSupabaseAnonKey(),
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
@@ -557,11 +576,11 @@ const StandardPixelMapEditor = () => {
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
+      const a = window.document.createElement("a");
       a.style.display = "none";
       a.href = url;
       a.download = `${mapData.project_name}_${mapData.screen_name}_${mapData.resolution_w}x${mapData.resolution_h}.png`;
-      document.body.appendChild(a);
+      window.document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       a.remove();
@@ -736,16 +755,17 @@ const StandardPixelMapEditor = () => {
       {collaborationEnabled && (
         <>
           <DocumentHistory
-            isOpen={showHistory}
-            onClose={() => setShowHistory(false)}
-            documentId={document?.id || ""}
-            documentType="pixel_maps"
+            open={showHistory}
+            onOpenChange={(open) => setShowHistory(open)}
+            versions={[]}
+            onRestore={() => {}}
           />
           <ConflictResolution
-            isOpen={showConflict}
-            onClose={() => setShowConflict(false)}
-            conflict={conflict}
-            onResolve={(resolution) => {
+            open={showConflict}
+            onOpenChange={(open) => setShowConflict(open)}
+            conflicts={conflict ? [conflict] : []}
+            documentId={document?.id || ""}
+            onResolve={() => {
               setShowConflict(false);
               setConflict(null);
             }}

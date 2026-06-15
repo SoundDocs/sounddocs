@@ -169,7 +169,7 @@ function calculateBarrelDistortion(screenWidth: number, distance: number): numbe
  * Calculate keystone correction requirements
  */
 function calculateKeyStoneRequirements(
-  config: USTConfiguration,
+  _config: USTConfiguration,
   mountingHeight: number,
   horizontalDistance: number,
 ): USTMountingResult["keyStoneCorrection"] {

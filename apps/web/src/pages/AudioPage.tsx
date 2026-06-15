@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import autoTable, { RowInput } from "jspdf-autotable";
 import PatchSheetExport from "../components/PatchSheetExport";
 import StagePlotExport from "../components/StagePlotExport";
 import PrintPatchSheetExport from "../components/PrintPatchSheetExport";
@@ -36,7 +36,11 @@ import ExportModal from "../components/ExportModal";
 import CommsPlanExport from "../components/CommsPlanExport";
 import PrintCommsPlanExport from "../components/PrintCommsPlanExport";
 import { ActorEntry } from "../components/theater-mic-plot/ActorEntryCard"; // For TheaterMicPlotFullData
-import { CommsPlan } from "../lib/commsTypes";
+import { CommsPlan, Transceiver } from "../lib/commsTypes";
+import {
+  CommsBeltpackProps,
+  BeltpackChannelAssignment,
+} from "../components/comms-planner/CommsBeltpack";
 
 // Type definitions for the component
 interface InputEntry {
@@ -83,6 +87,7 @@ interface StageElement {
 }
 
 interface PresenterEntry {
+  id: string;
   presenter_name?: string;
   session_segment?: string;
   mic_type?: string;
@@ -138,43 +143,9 @@ interface BeltpackData {
   channel_assignments?: ChannelAssignment[];
 }
 
-interface TransceiverEntry {
-  id: string;
-  label: string;
-  model: string;
-  band: string;
-  coverageRadius: number;
-  maxBeltpacks: number;
-}
-
-interface BeltpackEntry {
-  id: string;
-  label: string;
-  transceiverRef: string;
-  channelAssignments: ChannelAssignment[];
-}
-
 interface ChannelAssignment {
   channel: string;
   assignment: string;
-}
-
-interface TableRow {
-  content: string;
-  colSpan?: number;
-  styles?: {
-    halign?: string;
-    fontStyle?: string;
-    fontSize?: number;
-    fillColor?: number[];
-    textColor?: number[] | number;
-    cellPadding?: { top: number; bottom: number };
-  };
-}
-
-interface jsPDFWithAutoTable extends jsPDF {
-  autoTable: (options: unknown) => void;
-  lastAutoTable: { finalY: number };
 }
 
 interface BaseDocument {
@@ -575,17 +546,17 @@ const AudioPage = () => {
 
         const formatInputDetails = (input: InputEntry) => {
           const details = [];
-          if (["Analog Snake", "Digital Snake"].includes(input.connection)) {
+          if (["Analog Snake", "Digital Snake"].includes(input.connection || "")) {
             details.push(
               `Snake: ${input.connectionDetails?.snakeType || "-"} #${input.connectionDetails?.inputNumber || "-"}`,
             );
           }
-          if (["Analog Snake", "Console Direct"].includes(input.connection)) {
+          if (["Analog Snake", "Console Direct"].includes(input.connection || "")) {
             details.push(
               `Console: ${input.connectionDetails?.consoleType || "-"} #${input.connectionDetails?.consoleInputNumber || "-"}`,
             );
           }
-          if (["Digital Snake", "Digital Network"].includes(input.connection)) {
+          if (["Digital Snake", "Digital Network"].includes(input.connection || "")) {
             details.push(
               `Network: ${input.connectionDetails?.networkType || "-"} Patch #${input.connectionDetails?.networkPatch || "-"}`,
             );
@@ -595,17 +566,17 @@ const AudioPage = () => {
 
         const formatOutputDetails = (output: OutputEntry) => {
           const details = [];
-          if (["Analog Snake", "Digital Snake"].includes(output.sourceType)) {
+          if (["Analog Snake", "Digital Snake"].includes(output.sourceType || "")) {
             details.push(
               `Snake: ${output.sourceDetails?.snakeType || "-"} #${output.sourceDetails?.outputNumber || "-"}`,
             );
           }
-          if (["Console Output", "Analog Snake"].includes(output.sourceType)) {
+          if (["Console Output", "Analog Snake"].includes(output.sourceType || "")) {
             details.push(
               `Console: ${output.sourceDetails?.consoleType || "-"} #${output.sourceDetails?.consoleOutputNumber || "-"}`,
             );
           }
-          if (["Digital Snake", "Digital Network"].includes(output.sourceType)) {
+          if (["Digital Snake", "Digital Network"].includes(output.sourceType || "")) {
             details.push(
               `Network: ${output.sourceDetails?.networkType || "-"} Patch #${output.sourceDetails?.networkPatch || "-"}`,
             );
@@ -694,7 +665,7 @@ const AudioPage = () => {
         ]);
 
         autoTable(doc, {
-          head: inputTitle.concat(inputHead as TableRow[]) as TableRow[],
+          head: [...inputTitle, ...inputHead] as RowInput[],
           body: inputBody,
           startY: 25,
           didDrawPage: (data) => {
@@ -748,7 +719,7 @@ const AudioPage = () => {
         ]);
 
         autoTable(doc, {
-          head: outputTitle.concat(outputHead as TableRow[]) as TableRow[],
+          head: [...outputTitle, ...outputHead] as RowInput[],
           body: outputBody,
           didDrawPage: (data) => {
             pageHeader();
@@ -954,7 +925,7 @@ const AudioPage = () => {
             ],
           ];
           autoTable(doc, {
-            head: presenterTitle.concat(head as TableRow[]) as TableRow[],
+            head: [...presenterTitle, ...head] as RowInput[],
             body: body,
             startY: 25,
             didDrawPage: (data) => {
@@ -1119,7 +1090,7 @@ const AudioPage = () => {
             ],
           ];
           autoTable(doc, {
-            head: actorsTitle.concat(head as TableRow[]) as TableRow[],
+            head: [...actorsTitle, ...head] as RowInput[],
             body: body,
             startY: 25,
             didDrawPage: (data) => {
@@ -1337,7 +1308,7 @@ const AudioPage = () => {
           doc.setFont("helvetica", "bold");
           doc.text(title, 40, lastY);
 
-          (doc as jsPDFWithAutoTable).autoTable({
+          autoTable(doc, {
             body: data,
             startY: lastY + 5,
             theme: "plain",
@@ -1351,7 +1322,7 @@ const AudioPage = () => {
             },
             margin: { left: 40 },
           });
-          lastY = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 15;
+          lastY = doc.lastAutoTable.finalY + 15;
         };
 
         const eventDetails: [string, string][] = [
@@ -1374,9 +1345,9 @@ const AudioPage = () => {
           lastY += 20;
 
           const transceiversHead = [["Label", "Model", "Band", "Coverage", "Connected Beltpacks"]];
-          const transceiversBody = commsPlanData.transceivers.map((tx: TransceiverEntry) => {
+          const transceiversBody = commsPlanData.transceivers.map((tx: Transceiver) => {
             const connectedBeltpacks = commsPlanData.beltpacks.filter(
-              (bp: BeltpackEntry) => bp.transceiverRef === tx.id,
+              (bp: CommsBeltpackProps) => bp.transceiverRef === tx.id,
             );
             return [
               tx.label,
@@ -1387,7 +1358,7 @@ const AudioPage = () => {
             ];
           });
 
-          (doc as jsPDFWithAutoTable).autoTable({
+          autoTable(doc, {
             head: transceiversHead,
             body: transceiversBody,
             startY: lastY,
@@ -1403,7 +1374,7 @@ const AudioPage = () => {
             alternateRowStyles: { fillColor: [248, 249, 250] },
             margin: { left: 40, right: 40 },
           });
-          lastY = (doc as jsPDFWithAutoTable).lastAutoTable.finalY + 30;
+          lastY = doc.lastAutoTable.finalY + 30;
         }
 
         if (commsPlanData.beltpacks && commsPlanData.beltpacks.length > 0) {
@@ -1413,21 +1384,21 @@ const AudioPage = () => {
           lastY += 20;
 
           const beltpacksHead = [["Label", "Connected To", "Channel Assignments"]];
-          const beltpacksBody = commsPlanData.beltpacks.map((bp: BeltpackEntry) => {
+          const beltpacksBody = commsPlanData.beltpacks.map((bp: CommsBeltpackProps) => {
             const transceiver = commsPlanData.transceivers.find(
-              (tx: TransceiverEntry) => tx.id === bp.transceiverRef,
+              (tx: Transceiver) => tx.id === bp.transceiverRef,
             );
             const assignments =
               bp.channelAssignments && bp.channelAssignments.length > 0
                 ? bp.channelAssignments
-                    .map((ca: ChannelAssignment) => `${ca.channel}:${ca.assignment}`)
+                    .map((ca: BeltpackChannelAssignment) => `${ca.channel}:${ca.assignment}`)
                     .join(", ")
                 : "No assignments";
 
             return [bp.label, transceiver ? transceiver.label : "Not Connected", assignments];
           });
 
-          (doc as jsPDFWithAutoTable).autoTable({
+          autoTable(doc, {
             head: beltpacksHead,
             body: beltpacksBody,
             startY: lastY,

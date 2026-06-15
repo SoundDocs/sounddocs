@@ -88,7 +88,6 @@ const EqControls: React.FC<EqControlsProps> = ({ measurement, onEqChange }) => {
   };
 
   const renderFilterControls = (filter: EqSetting) => {
-    const isShelf = filter.type === "low_shelf" || filter.type === "high_shelf";
     const isPass = filter.type === "low_pass" || filter.type === "high_pass";
     const showGain = !isPass; // no Gain for HP/LP
     const showQ = filter.type === "peaking" || isPass; // hide Q for shelves (since S=1 in math)

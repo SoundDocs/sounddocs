@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
@@ -196,7 +196,7 @@ const ProductionScheduleEditor = () => {
     documentId: schedule?.id || "",
     documentType: "production_schedules",
     userId: effectiveUserId,
-    data: schedule,
+    data: schedule as ProductionScheduleData,
     enabled: collaborationEnabled,
     debounceMs: 1500,
     onBeforeSave: async (data) => {
@@ -209,11 +209,7 @@ const ProductionScheduleEditor = () => {
   });
 
   // Collaboration hook
-  const {
-    activeUsers,
-    broadcast,
-    status: connectionStatus,
-  } = useCollaboration({
+  const { activeUsers, status: connectionStatus } = useCollaboration({
     documentId: schedule?.id || "",
     documentType: "production_schedules",
     userId: effectiveUserId,
@@ -247,7 +243,7 @@ const ProductionScheduleEditor = () => {
   });
 
   // Presence hook
-  const { setEditingField } = usePresence({
+  usePresence({
     channel: null, // Will be set up when collaboration channels are ready
     userId: effectiveUserId,
   });
@@ -393,27 +389,30 @@ const ProductionScheduleEditor = () => {
             return;
           }
 
+          const typedResource = resource as Partial<ProductionScheduleData>;
           const sharedScheduleData: ProductionScheduleData = {
-            id: resource.id,
-            user_id: resource.user_id,
-            name: resource.name || "Untitled Shared Schedule",
-            created_at: resource.created_at,
-            last_edited: resource.last_edited,
-            show_name: resource.show_name || "",
-            job_number: resource.job_number || "",
-            facility_name: resource.facility_name || "",
-            project_manager: resource.project_manager || "",
-            production_manager: resource.production_manager || "",
-            account_manager: resource.account_manager || "",
-            set_datetime: resource.set_datetime || null,
-            strike_datetime: resource.strike_datetime || null,
-            crew_key: resource.crew_key || [],
-            labor_schedule_items: resource.labor_schedule_items || [],
-            detailed_schedule_items: (resource.detailed_schedule_items || []).map((item: any) => ({
-              ...item,
-              assigned_crew_ids:
-                item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : []),
-            })),
+            id: typedResource.id,
+            user_id: typedResource.user_id,
+            name: typedResource.name || "Untitled Shared Schedule",
+            created_at: typedResource.created_at,
+            last_edited: typedResource.last_edited,
+            show_name: typedResource.show_name || "",
+            job_number: typedResource.job_number || "",
+            facility_name: typedResource.facility_name || "",
+            project_manager: typedResource.project_manager || "",
+            production_manager: typedResource.production_manager || "",
+            account_manager: typedResource.account_manager || "",
+            set_datetime: typedResource.set_datetime || null,
+            strike_datetime: typedResource.strike_datetime || null,
+            crew_key: typedResource.crew_key || [],
+            labor_schedule_items: typedResource.labor_schedule_items || [],
+            detailed_schedule_items: (typedResource.detailed_schedule_items || []).map(
+              (item: any) => ({
+                ...item,
+                assigned_crew_ids:
+                  item.assigned_crew_ids || (item.assigned_crew_id ? [item.assigned_crew_id] : []),
+              }),
+            ),
           };
           setSchedule(sharedScheduleData);
           setCurrentShareLink(fetchedShareLink);
@@ -514,12 +513,6 @@ const ProductionScheduleEditor = () => {
         ...schedule,
         [field]: value || null,
       });
-    }
-  };
-
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (schedule) {
-      setSchedule({ ...schedule, name: e.target.value });
     }
   };
 
@@ -779,6 +772,10 @@ const ProductionScheduleEditor = () => {
           return {
             id: version.id,
             version: version.version,
+            documentId: schedule.id,
+            documentType: "production_schedules" as const,
+            userId: version.created_by || "",
+            snapshot: (version.content as Record<string, unknown>) || {},
             userEmail,
             createdAt: version.created_at,
             changedFields: version.changed_fields || [],
