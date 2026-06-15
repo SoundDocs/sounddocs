@@ -1,10 +1,9 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { Bookmark, AlertCircle, CheckCircle } from "lucide-react";
 
 const SignUp = () => {
-  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);

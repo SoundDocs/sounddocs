@@ -19,7 +19,6 @@ import {
   Sun,
   Ruler,
   Maximize,
-  Minimize,
   Sigma,
   Calculator,
   Zap,

@@ -1,9 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+import { getSupabaseUrl, getSupabaseAnonKey } from "@/lib/runtimeConfig";
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(getSupabaseUrl(), getSupabaseAnonKey());
 
 /**
  * Fetches all custom suggestions for a user, optionally filtered by field type prefix.
@@ -60,10 +59,10 @@ export const addUserCustomSuggestion = async (
 
   const { error } = await supabase
     .from("user_custom_suggestions")
-    .insert(
+    .upsert(
       { user_id: userId, field_type: fieldType, value: value.trim() },
-      { onConflict: "user_id, field_type, value" },
-    ); // Use onConflict to ignore duplicates
+      { onConflict: "user_id,field_type,value", ignoreDuplicates: true },
+    ); // Use upsert with onConflict to ignore duplicates
 
   if (error && error.code !== "23505") {
     // 23505 is unique_violation, which we are handling with onConflict

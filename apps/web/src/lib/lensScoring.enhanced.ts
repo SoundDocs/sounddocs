@@ -5,6 +5,7 @@
  */
 
 import type { Lens, InstallationConstraints, ScreenData } from "./lensCalculatorTypes";
+import type { USTClassification } from "./ustCalculations";
 import { isSpecialUSTLens, validateUSTCompatibility } from "./ustCalculations";
 import { validateManufacturerCompatibility } from "./manufacturerNormalization";
 
@@ -404,7 +405,7 @@ export interface EnhancedScoringResult {
     specialFeatures: { score: number; considerations: string[] };
     ustHandling: {
       score: number;
-      classification: { isUST: boolean; type?: string; confidence: number };
+      classification: USTClassification;
       warnings: string[];
     };
     manufacturerMatch: { score: number; crossManufacturer: boolean; warnings: string[] };
@@ -902,7 +903,7 @@ function scoreUSTHandlingEnhanced(
   profile: EnhancedScoringProfile,
 ): {
   score: number;
-  classification: { isUST: boolean; type?: string; confidence: number };
+  classification: USTClassification;
   warnings: string[];
 } {
   const ustClassification = isSpecialUSTLens(context.lens);

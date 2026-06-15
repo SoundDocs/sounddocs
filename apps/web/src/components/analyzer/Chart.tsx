@@ -11,7 +11,6 @@ import {
   Legend,
   LogarithmicScale,
 } from "chart.js";
-import { TFData } from "@sounddocs/analyzer-protocol";
 
 ChartJS.register(
   CategoryScale,

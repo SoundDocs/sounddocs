@@ -1,8 +1,6 @@
 import React, { forwardRef } from "react";
 import {
   Drama, // Theater icon
-  Calendar,
-  User,
   Users as CharacterIcon,
   Mic,
   Palette,
@@ -182,7 +180,7 @@ const PrintTheaterMicPlotExport = forwardRef<HTMLDivElement, PrintTheaterMicPlot
           </div>
         ) : (
           <div className="text-center py-10">
-            <Users className="mx-auto text-gray-500 mb-4 h-10 w-10" />
+            <CharacterIcon className="mx-auto text-gray-500 mb-4 h-10 w-10" />
             <p className="text-lg text-gray-500">No actors listed for this mic plot.</p>
           </div>
         )}

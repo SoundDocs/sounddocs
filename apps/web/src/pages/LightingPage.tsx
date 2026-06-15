@@ -1,8 +1,7 @@
-import React from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { Lightbulb, Construction } from "lucide-react";
+import { Construction } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 const LightingPage = () => {

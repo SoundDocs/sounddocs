@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -7,6 +7,7 @@ import LedPixelMapPreview from "../components/pixel-map/LedPixelMapPreview";
 import { ArrowLeft, Save, Download, Loader, AlertCircle } from "lucide-react";
 import { gcd } from "../utils/math";
 import { supabase } from "../lib/supabase";
+import { getSupabaseUrl, getSupabaseAnonKey } from "../lib/runtimeConfig";
 import { useAuth } from "../lib/AuthContext";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useCollaboration } from "@/hooks/useCollaboration";
@@ -39,6 +40,16 @@ export interface PreviewOptions {
   showStats: boolean;
   showFooter: boolean;
   showGuides: boolean;
+}
+
+// Shape of a pixel_map row as returned by the shared-resource fetch (dynamic DB data)
+interface SharedPixelMapResource {
+  id: string;
+  project_name?: string;
+  screen_name?: string;
+  settings?: Partial<
+    Omit<LedPixelMapData, "projectName" | "screenName"> & { previewOptions: PreviewOptions }
+  >;
 }
 
 const LedPixelMapEditor = () => {
@@ -134,7 +145,11 @@ const LedPixelMapEditor = () => {
     },
   });
 
-  const { activeUsers, status: connectionStatus } = useCollaboration({
+  const {
+    activeUsers,
+    status: connectionStatus,
+    broadcast,
+  } = useCollaboration({
     documentId: documentId || "",
     documentType: "pixel_maps",
     userId: effectiveUserId,
@@ -185,6 +200,7 @@ const LedPixelMapEditor = () => {
             type: "field_update",
             field: "projectName",
             value: localProjectName,
+            userId: effectiveUserId,
           });
         }
       }
@@ -296,10 +312,11 @@ const LedPixelMapEditor = () => {
           }
 
           // Transform database format to component state format
-          const settings = resource.settings || {};
+          const typedResource = resource as unknown as SharedPixelMapResource;
+          const settings = typedResource.settings || {};
           const sharedMapData: LedPixelMapData = {
-            projectName: resource.project_name || "My Awesome Show",
-            screenName: resource.screen_name || "Main LED Wall",
+            projectName: typedResource.project_name || "My Awesome Show",
+            screenName: typedResource.screen_name || "Main LED Wall",
             mapWidth: settings.mapWidth || 16,
             mapHeight: settings.mapHeight || 9,
             halfHeightRow: settings.halfHeightRow || false,
@@ -309,7 +326,7 @@ const LedPixelMapEditor = () => {
           };
           setMapData(sharedMapData);
           setPreviewOptions(settings.previewOptions || previewOptions);
-          setDocumentId(resource.id);
+          setDocumentId(typedResource.id);
           setCurrentShareLink(fetchedShareLink);
           setIsSharedEdit(true);
           console.log(
@@ -458,10 +475,10 @@ const LedPixelMapEditor = () => {
           ...baseDataToSave,
           user_id: user.id,
           map_type: "led" as const,
+          ...(id === "new" ? { created_at: new Date().toISOString() } : {}),
         };
 
         if (id === "new") {
-          dataForOwnedSave.created_at = new Date().toISOString();
           const { data, error } = await supabase
             .from("pixel_maps")
             .insert(dataForOwnedSave)
@@ -516,12 +533,12 @@ const LedPixelMapEditor = () => {
         throw new Error(sessionError?.message || "Authentication error: Not logged in.");
       }
 
-      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/led-map-to-png`;
+      const functionUrl = `${getSupabaseUrl()}/functions/v1/led-map-to-png`;
       const response = await fetch(functionUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          apikey: getSupabaseAnonKey(),
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
@@ -724,9 +741,10 @@ const LedPixelMapEditor = () => {
           {/* Note: DocumentHistory requires a history table (pixel_maps_history) which doesn't exist yet */}
           {/* Keeping the modal infrastructure for future implementation */}
           <ConflictResolution
-            isOpen={showConflict}
-            onClose={() => setShowConflict(false)}
-            conflict={conflict}
+            open={showConflict}
+            onOpenChange={(open) => setShowConflict(open)}
+            conflicts={conflict ? [conflict] : []}
+            documentId={documentId || ""}
             onResolve={() => {
               setShowConflict(false);
               setConflict(null);

@@ -321,10 +321,16 @@ export const useCollaborativeDocStore = create<CollaborativeDocState>((set, get)
       const anyFailed = results.some((r) => !r.success);
 
       if (allSucceeded) {
+        // Only clear the updates we actually attempted and saved. Edits that
+        // were appended to pendingUpdates while the saves were in flight must
+        // be preserved (otherwise they'd be silently lost).
+        const savedIds = new Set(
+          pendingUpdates.filter((_, i) => results[i]?.success).map((u) => u.id),
+        );
         set({
           saveStatus: "saved",
           lastSavedAt: new Date().toISOString(),
-          pendingUpdates: [],
+          pendingUpdates: get().pendingUpdates.filter((u) => !savedIds.has(u.id)),
           saveError: null,
         });
 

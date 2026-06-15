@@ -36,7 +36,8 @@ const getInitials = (name: string | undefined, email: string): string => {
 const UserAvatar: React.FC<{
   user: PresenceUser;
   className?: string;
-}> = ({ user, className }) => {
+  style?: React.CSSProperties;
+}> = ({ user, className, style }) => {
   const initials = getInitials(user.name, user.email);
   const displayName = user.name || user.email;
 
@@ -49,7 +50,7 @@ const UserAvatar: React.FC<{
               "flex h-8 w-8 items-center justify-center rounded-full border-2 border-white text-xs font-semibold text-white shadow-sm transition-transform hover:scale-110 hover:z-10",
               className,
             )}
-            style={{ backgroundColor: user.color }}
+            style={{ backgroundColor: user.color, ...style }}
             role="img"
             aria-label={`${displayName} is active`}
           >

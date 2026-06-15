@@ -6,7 +6,9 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import AcoustIqBanner from "../components/AcoustIqBanner";
 import DeprecationNoticeModal from "@/components/DeprecationNoticeModal";
+import FirstRunWizard from "@/components/FirstRunWizard";
 import { useDeprecationNotice } from "@/hooks/useDeprecationNotice";
+import { useFirstRunSetup } from "@/hooks/useFirstRunSetup";
 import {
   Info,
   Loader,
@@ -25,6 +27,7 @@ const Dashboard = () => {
   const { user: authUser, loading: authLoading } = useAuth();
   const { isOpen: showDeprecationModal, onClose: handleDismissDeprecation } =
     useDeprecationNotice();
+  const { show: showFirstRunWizard, dismiss: dismissFirstRunWizard } = useFirstRunSetup();
 
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState<string>("");
@@ -268,7 +271,16 @@ const Dashboard = () => {
         </div>
       </main>
       <Footer />
-      <DeprecationNoticeModal isOpen={showDeprecationModal} onClose={handleDismissDeprecation} />
+      {/*
+        On a self-hosted build the deprecation notice is irrelevant; the first-run
+        wizard takes precedence. It self-gates via useFirstRunSetup (only true when
+        VITE_SELF_HOSTED === "true" and setup hasn't been completed).
+      */}
+      {showFirstRunWizard ? (
+        <FirstRunWizard onComplete={dismissFirstRunWizard} />
+      ) : (
+        <DeprecationNoticeModal isOpen={showDeprecationModal} onClose={handleDismissDeprecation} />
+      )}
     </div>
   );
 };

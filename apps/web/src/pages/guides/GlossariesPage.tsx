@@ -2,7 +2,7 @@ import React from "react";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import { Link as RouterLink } from "react-router-dom";
-import { ChevronLeft, BookOpen, Mic, Video, Lightbulb, Users } from "lucide-react";
+import { ChevronLeft, Mic, Video, Lightbulb, Users } from "lucide-react";
 
 interface GlossaryTerm {
   term: string;

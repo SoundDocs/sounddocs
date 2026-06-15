@@ -1,0 +1,77 @@
+# SoundDocs -- Supabase CLI config (ALTERNATIVE self-host / local-dev path).
+#
+# This file is for the `supabase` CLI (`supabase start`), NOT for the Docker
+# Compose stack in /self-host. With this file present, `supabase start`:
+#   * boots a local Supabase stack,
+#   * applies every migration in supabase/migrations (schema + the projector/
+#     lens seed migration), and
+#   * serves the edge functions below.
+# Then run the web app with pnpm dev pointing at the local Supabase. See
+# SELF_HOSTING.md -> "Alternative: Supabase CLI path".
+#
+# Config reference: https://supabase.com/docs/guides/local-development/cli/config
+
+project_id = "sounddocs"
+
+[api]
+enabled = true
+# Port for the local API URL (http://localhost:54321).
+port = 54321
+# Schemas exposed through the REST API. Matches PGRST_DB_SCHEMAS in the
+# Docker stack (public, storage, graphql_public).
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+# Local database URL port (postgresql://...@localhost:54322/postgres).
+port = 54322
+shadow_port = 54320
+# Must match the deployed Postgres major version. SoundDocs targets Postgres 15
+# (the Docker stack uses supabase/postgres:15.x).
+major_version = 15
+
+[db.migrations]
+enabled = true
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+# Supabase Studio at http://localhost:54323
+port = 54323
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+# Where Auth redirects back to (the web app dev server).
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173", "https://localhost:5173"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+# Auto-confirm new sign-ups so account creation works without SMTP locally.
+enable_confirmations = false
+
+[edge_runtime]
+enabled = true
+
+# Edge functions shipped with SoundDocs. These are invoked from the browser
+# with the anon key (ai-align-systems via supabase.functions.invoke; led/svg
+# via fetch with an anon Authorization header). They carry an anon JWT, so JWT
+# verification can stay on (the CLI default). If you hit 401s on the PNG/align
+# functions, set verify_jwt = false for that function.
+[functions.ai-align-systems]
+verify_jwt = true
+
+[functions.led-map-to-png]
+verify_jwt = true
+
+[functions.svg-to-png]
+verify_jwt = true

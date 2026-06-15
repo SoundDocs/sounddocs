@@ -7,6 +7,24 @@ import Footer from "../components/Footer";
 import { Loader, Clock, AlertTriangle } from "lucide-react";
 import { RunOfShowItem, CustomColumnDefinition } from "./RunOfShowEditor"; // Assuming these types are exported
 
+// Narrowed view of the live show state stored in `live_show_data`.
+interface LiveShowData {
+  currentItemIndex?: number | null;
+  isTimerActive?: boolean;
+  timeRemaining?: number | null;
+  lastUpdated?: string | number;
+}
+
+// Narrowed view of SharedRunOfShowData for this read-only show page. The shared
+// resource is typed loosely (Record<string, unknown>) at the API boundary; here
+// we describe the concrete shapes this component reads.
+interface SharedShowData
+  extends Omit<SharedRunOfShowData, "items" | "custom_column_definitions" | "live_show_data"> {
+  items: RunOfShowItem[];
+  custom_column_definitions: CustomColumnDefinition[];
+  live_show_data: LiveShowData | null;
+}
+
 // Utility functions (can be moved to a shared util file later)
 const parseDurationToSeconds = (durationStr?: string): number | null => {
   if (!durationStr) return null;
@@ -50,7 +68,7 @@ const findNextPlayableItemIndex = (
 const SharedShowModePage: React.FC = () => {
   const { shareCode } = useParams<{ shareCode: string }>();
   const [loading, setLoading] = useState(true);
-  const [sharedData, setSharedData] = useState<SharedRunOfShowData | null>(null);
+  const [sharedData, setSharedData] = useState<SharedShowData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState<string>(new Date().toLocaleTimeString());
   const tableContainerRef = React.useRef<HTMLDivElement>(null);
@@ -75,7 +93,7 @@ const SharedShowModePage: React.FC = () => {
         if (shareLink.resource_type !== "run_of_show") {
           throw new Error("This share link is not for a Run of Show.");
         }
-        setSharedData(resource as SharedRunOfShowData);
+        setSharedData(resource as unknown as SharedShowData);
       } catch (err: any) {
         console.error("Error fetching shared Run of Show:", err);
         setError(err.message || "Failed to load shared Run of Show.");
@@ -101,7 +119,7 @@ const SharedShowModePage: React.FC = () => {
         },
         (payload) => {
           console.log("Real-time update received:", payload);
-          const updatedRunOfShow = payload.new as SharedRunOfShowData;
+          const updatedRunOfShow = payload.new as SharedShowData;
           setSharedData((prevData) => {
             if (!prevData) return null;
             return {
@@ -126,12 +144,12 @@ const SharedShowModePage: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [sharedData]);
+  }, [sharedData?.id]);
 
   // Auto-scroll to current item
   useEffect(() => {
     if (sharedData && tableContainerRef.current) {
-      const liveState = sharedData.live_show_data || {};
+      const liveState: LiveShowData = sharedData.live_show_data || {};
       const currentItemIndex =
         liveState.currentItemIndex !== undefined ? liveState.currentItemIndex : null;
 
@@ -244,7 +262,7 @@ const SharedShowModePage: React.FC = () => {
     })),
   ].filter((col) => col.key !== "privateNotes");
 
-  const liveState = sharedData.live_show_data || {};
+  const liveState: LiveShowData = sharedData.live_show_data || {};
   const currentItemIndex =
     liveState.currentItemIndex !== undefined ? liveState.currentItemIndex : null;
   const isTimerActive = liveState.isTimerActive || false;

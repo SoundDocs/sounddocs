@@ -99,7 +99,6 @@ const ChartDetailModal: React.FC<ChartDetailModalProps> = ({
   }, [initialChart]);
 
   const handleSelectForAlignment = (trace: "trace1" | "trace2", id: string) => {
-    const [first, second] = alignmentPair;
     const newPair: [string | null, string | null] = [...alignmentPair];
 
     if (trace === "trace1") {

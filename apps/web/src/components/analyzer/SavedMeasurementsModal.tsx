@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { X, Trash2, Eye, EyeOff, Search, Calculator } from "lucide-react";
-import { supabase } from "../../lib/supabase";
 import { Measurement } from "../../lib/types";
 
 interface SavedMeasurementsModalProps {

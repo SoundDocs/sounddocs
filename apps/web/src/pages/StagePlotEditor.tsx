@@ -218,9 +218,10 @@ const StagePlotEditor = () => {
     },
     enabled: collaborationEnabled,
     debounceMs: 1500,
-    onBeforeSave: async (data) => {
+    onBeforeSave: async () => {
       // Validate data before saving
-      if (!data.name || data.name.trim() === "") {
+      const name = stagePlot?.name;
+      if (!name || name.trim() === "") {
         return false;
       }
       return true;
@@ -274,7 +275,7 @@ const StagePlotEditor = () => {
   });
 
   // Presence hook
-  const { setEditingField } = usePresence({
+  usePresence({
     channel: null, // Will be set up when collaboration channels are ready
     userId: effectiveUserId,
   });
@@ -301,6 +302,7 @@ const StagePlotEditor = () => {
             type: "field_update",
             field: "name",
             value: localName,
+            userId: effectiveUserId,
           });
         }
       }
@@ -374,7 +376,7 @@ const StagePlotEditor = () => {
       setLoading(true);
       const currentPathIsSharedEdit = location.pathname.includes("/shared/stage-plot/edit/");
 
-      const processFetchedElements = (fetchedElements: any[] | undefined) => {
+      const processFetchedElements = (fetchedElements: unknown[] | undefined) => {
         if (fetchedElements && Array.isArray(fetchedElements)) {
           return fetchedElements.map((el: any) => ({
             ...el,
@@ -414,12 +416,16 @@ const StagePlotEditor = () => {
               ? parseStageSize(resource.stage_size)
               : { depth: "medium", width: "wide" },
           );
-          setElements(processFetchedElements(resource.elements));
-          if (resource.backgroundImage) {
+          setElements(
+            processFetchedElements(
+              Array.isArray(resource.elements) ? resource.elements : undefined,
+            ),
+          );
+          if (typeof resource.backgroundImage === "string") {
             setBackgroundImage(resource.backgroundImage);
             setImageUrl(resource.backgroundImage);
           }
-          if (resource.backgroundOpacity !== undefined) {
+          if (typeof resource.backgroundOpacity === "number") {
             setBackgroundOpacity(resource.backgroundOpacity);
           }
           // setIsSharedEdit(true); // Already set in the other useEffect
@@ -572,12 +578,14 @@ const StagePlotEditor = () => {
         type: "field_update",
         field: "stage_size",
         value: newSizeString,
+        userId: effectiveUserId,
       });
       // Also broadcast the scaled elements
       broadcast({
         type: "field_update",
         field: "elements",
         value: scaledElements,
+        userId: effectiveUserId,
       });
     }
   };
@@ -611,6 +619,7 @@ const StagePlotEditor = () => {
         type: "field_update",
         field: "elements",
         value: updatedElements,
+        userId: effectiveUserId,
       });
     }
   };
@@ -631,6 +640,7 @@ const StagePlotEditor = () => {
         type: "field_update",
         field: "elements",
         value: updatedElements,
+        userId: effectiveUserId,
       });
     }
   };
@@ -646,6 +656,7 @@ const StagePlotEditor = () => {
         type: "field_update",
         field: "elements",
         value: updatedElements,
+        userId: effectiveUserId,
       });
     }
   };
@@ -661,6 +672,7 @@ const StagePlotEditor = () => {
         type: "field_update",
         field: "elements",
         value: updatedElements,
+        userId: effectiveUserId,
       });
     }
   };
@@ -679,6 +691,7 @@ const StagePlotEditor = () => {
         type: "field_update",
         field: "elements",
         value: updatedElements,
+        userId: effectiveUserId,
       });
     }
   };
@@ -706,6 +719,7 @@ const StagePlotEditor = () => {
         type: "field_update",
         field: "elements",
         value: updatedElements,
+        userId: effectiveUserId,
       });
     }
   };
@@ -723,6 +737,7 @@ const StagePlotEditor = () => {
         type: "field_update",
         field: "elements",
         value: updatedElements,
+        userId: effectiveUserId,
       });
     }
   };
@@ -740,6 +755,7 @@ const StagePlotEditor = () => {
         type: "field_update",
         field: "elements",
         value: updatedElements,
+        userId: effectiveUserId,
       });
     }
   };
@@ -836,6 +852,7 @@ const StagePlotEditor = () => {
         type: "field_update",
         field: "backgroundImage",
         value: null,
+        userId: effectiveUserId,
       });
     }
   };
@@ -868,6 +885,7 @@ const StagePlotEditor = () => {
           type: "field_update",
           field: "backgroundImage",
           value: newImageUrl,
+          userId: effectiveUserId,
         });
       }
     };
@@ -912,6 +930,7 @@ const StagePlotEditor = () => {
           type: "field_update",
           field: "backgroundImage",
           value: newImageUrl,
+          userId: effectiveUserId,
         });
       }
     };
@@ -1143,6 +1162,7 @@ const StagePlotEditor = () => {
                             type: "field_update",
                             field: "backgroundOpacity",
                             value: newOpacity,
+                            userId: effectiveUserId,
                           });
                         }
                       }}
@@ -1196,6 +1216,7 @@ const StagePlotEditor = () => {
                           type: "field_update",
                           field: "backgroundOpacity",
                           value: newOpacity,
+                          userId: effectiveUserId,
                         });
                       }
                     }}
@@ -1322,19 +1343,20 @@ const StagePlotEditor = () => {
       {collaborationEnabled && (
         <>
           <DocumentHistory
-            isOpen={showHistory}
-            onClose={() => setShowHistory(false)}
-            documentId={stagePlot?.id || ""}
-            documentType="stage_plots"
+            open={showHistory}
+            onOpenChange={(open) => setShowHistory(open)}
+            versions={[]}
+            onRestore={() => {}}
           />
 
           <ConflictResolution
-            isOpen={showConflict}
-            onClose={() => setShowConflict(false)}
-            conflict={conflict}
-            onResolve={(resolution) => {
+            open={showConflict}
+            onOpenChange={(open) => setShowConflict(open)}
+            conflicts={conflict ? [conflict] : []}
+            documentId={stagePlot?.id || ""}
+            onResolve={(strategy) => {
               // Handle conflict resolution
-              console.log("Conflict resolved with strategy:", resolution);
+              console.log("Conflict resolved with strategy:", strategy);
               setShowConflict(false);
               setConflict(null);
             }}

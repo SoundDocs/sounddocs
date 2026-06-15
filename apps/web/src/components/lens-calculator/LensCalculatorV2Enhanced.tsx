@@ -132,7 +132,7 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
           setScreenHeight(newHeight);
           // Round to 1 decimal place for display
           const displayValue = convertFromInches(newHeight, screenUnit);
-          setScreenHeightInput(Math.round(displayValue * 10) / 10);
+          setScreenHeightInput((Math.round(displayValue * 10) / 10).toString());
         }
       }
     },
@@ -148,7 +148,7 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
           setScreenWidth(newWidth);
           // Round to 1 decimal place for display
           const displayValue = convertFromInches(newWidth, screenUnit);
-          setScreenWidthInput(Math.round(displayValue * 10) / 10);
+          setScreenWidthInput((Math.round(displayValue * 10) / 10).toString());
         }
       }
     },
@@ -185,7 +185,7 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
         setScreenWidthInput("");
       } else {
         const displayValue = convertFromInches(screenWidth, screenUnit);
-        setScreenWidthInput(Math.round(displayValue * 10) / 10);
+        setScreenWidthInput((Math.round(displayValue * 10) / 10).toString());
       }
     }
     if (!isTypingHeight) {
@@ -193,7 +193,7 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
         setScreenHeightInput("");
       } else {
         const displayValue = convertFromInches(screenHeight, screenUnit);
-        setScreenHeightInput(Math.round(displayValue * 10) / 10);
+        setScreenHeightInput((Math.round(displayValue * 10) / 10).toString());
       }
     }
   }, [screenUnit, screenWidth, screenHeight, isTypingWidth, isTypingHeight]);
@@ -1082,7 +1082,7 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                     <span>{projector.manufacturer}</span>
                     <span>•</span>
                     <span>{projector.brightness_ansi} lumens</span>
-                    {projector.specifications?.year &&
+                    {Boolean(projector.specifications?.year) &&
                       parseInt(projector.specifications.year as string) >= 2024 && (
                         <span className="px-1 py-0.5 bg-indigo-500/20 text-indigo-400 text-xs rounded">
                           2024+
@@ -1149,8 +1149,8 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                     setScreenHeight(Math.round(height));
                     const widthDisplay = convertFromInches(Math.round(width), screenUnit);
                     const heightDisplay = convertFromInches(Math.round(height), screenUnit);
-                    setScreenWidthInput(Math.round(widthDisplay * 10) / 10);
-                    setScreenHeightInput(Math.round(heightDisplay * 10) / 10);
+                    setScreenWidthInput((Math.round(widthDisplay * 10) / 10).toString());
+                    setScreenHeightInput((Math.round(heightDisplay * 10) / 10).toString());
                   }
                 }}
                 className="w-full px-3 py-2 bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -1181,8 +1181,8 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                         setScreenHeight(Math.round(height));
                         const widthDisplay = convertFromInches(Math.round(width), screenUnit);
                         const heightDisplay = convertFromInches(Math.round(height), screenUnit);
-                        setScreenWidthInput(Math.round(widthDisplay * 10) / 10);
-                        setScreenHeightInput(Math.round(heightDisplay * 10) / 10);
+                        setScreenWidthInput((Math.round(widthDisplay * 10) / 10).toString());
+                        setScreenHeightInput((Math.round(heightDisplay * 10) / 10).toString());
                       }
                     } else if (preset.width) {
                       setScreenWidth(preset.width);
@@ -1192,8 +1192,8 @@ const LensCalculatorV2Enhanced: React.FC<LensCalculatorV2EnhancedProps> = ({ onS
                         setScreenHeight(newHeight);
                         const widthDisplay = convertFromInches(preset.width, screenUnit);
                         const heightDisplay = convertFromInches(newHeight, screenUnit);
-                        setScreenWidthInput(Math.round(widthDisplay * 10) / 10);
-                        setScreenHeightInput(Math.round(heightDisplay * 10) / 10);
+                        setScreenWidthInput((Math.round(widthDisplay * 10) / 10).toString());
+                        setScreenHeightInput((Math.round(heightDisplay * 10) / 10).toString());
                       }
                     }
                   }

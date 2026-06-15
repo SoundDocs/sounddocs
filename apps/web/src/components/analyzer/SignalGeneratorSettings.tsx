@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Volume2, Waves, Activity, TrendingUp, ChevronRight } from "lucide-react";
+import { Volume2, Waves, Activity, TrendingUp } from "lucide-react";
 
 export interface SignalGeneratorConfig {
   enabled: boolean;

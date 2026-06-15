@@ -17,7 +17,7 @@ import { TransferFunctionVisualizer } from "@sounddocs/analyzer-lite";
 import { useCaptureAgent } from "../stores/agentStore";
 import { supabase } from "../lib/supabase";
 import { Device, TFData } from "@sounddocs/analyzer-protocol";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { TRACE_COLORS } from "../lib/constants";
 import { EqSetting, calculateMathTrace } from "../lib/dsp";
 import { Measurement } from "../lib/types";

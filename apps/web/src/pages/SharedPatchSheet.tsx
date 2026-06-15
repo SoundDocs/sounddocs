@@ -1,9 +1,7 @@
-import React, { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useState, useRef } from "react";
+import { useParams } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import {
-  ArrowLeft,
-  Download,
   Bookmark,
   Share2,
   ExternalLink,
@@ -14,8 +12,7 @@ import {
   Clock,
   Link,
 } from "lucide-react";
-import { getSharedResource, updateSharedResource } from "../lib/shareUtils";
-import { supabase } from "../lib/supabase";
+import { getSharedResource } from "../lib/shareUtils";
 import { useAuth } from "../lib/AuthContext";
 import PatchSheetExport from "../components/PatchSheetExport";
 import PrintPatchSheetExport from "../components/PrintPatchSheetExport";
@@ -43,14 +40,13 @@ const SharedHeader = ({ docName }: { docName: string }) => (
 
 const SharedPatchSheet = () => {
   const { shareCode } = useParams<{ shareCode: string }>();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [patchSheet, setPatchSheet] = useState<any | null>(null);
   const [shareLink, setShareLink] = useState<any | null>(null);
   const [expiryDays, setExpiryDays] = useState<number | null>(null);
-  const [downloadingSheet, setDownloadingSheet] = useState(false);
+  const [_downloadingSheet, setDownloadingSheet] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
 
   // Refs for the exportable components
@@ -108,10 +104,6 @@ const SharedPatchSheet = () => {
 
     loadSharedPatchSheet();
   }, [shareCode]);
-
-  const handleExportClick = () => {
-    setShowExportModal(true);
-  };
 
   const handleExportImage = async () => {
     if (!patchSheet) return;
@@ -212,11 +204,6 @@ const SharedPatchSheet = () => {
         month: "long",
         day: "numeric",
       });
-    };
-
-    // Helper to find linked stereo channel
-    const findStereoLink = (channelNumber: string, array: any[]) => {
-      return array.find((item) => item.channelNumber === channelNumber && item.isStereo);
     };
 
     return (
@@ -338,12 +325,6 @@ const SharedPatchSheet = () => {
                 </thead>
                 <tbody>
                   {inputs.map((input: any, index: number) => {
-                    // Find linked stereo channel if exists
-                    const linkedChannel =
-                      input.isStereo && input.stereoChannelNumber
-                        ? findStereoLink(input.stereoChannelNumber, inputs)
-                        : null;
-
                     // Extract connection details for better organization
                     const snakeType =
                       input.connection &&
@@ -464,12 +445,6 @@ const SharedPatchSheet = () => {
                 </thead>
                 <tbody>
                   {outputs.map((output: any, index: number) => {
-                    // Find linked stereo channel if exists
-                    const linkedChannel =
-                      output.isStereo && output.stereoChannelNumber
-                        ? findStereoLink(output.stereoChannelNumber, outputs)
-                        : null;
-
                     // Extract source details for better organization
                     const snakeType =
                       output.sourceType &&
@@ -686,8 +661,8 @@ const SharedPatchSheet = () => {
       <ExportModal
         isOpen={showExportModal}
         onClose={() => setShowExportModal(false)}
-        onExportImage={handleExportImage}
-        onExportPdf={handleExportPdf}
+        onExportColor={handleExportImage}
+        onExportPrintFriendly={handleExportPdf}
         title="Patch Sheet"
       />
 

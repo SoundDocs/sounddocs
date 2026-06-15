@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import Header from "../components/Header";
@@ -40,6 +40,17 @@ interface StagePlot {
   [key: string]: any; // Allow any additional properties
 }
 
+// Narrower type used when passing to export components (required fields ensured)
+interface StagePlotForExport {
+  name: string;
+  created_at: string;
+  last_edited?: string;
+  stage_size: string;
+  elements: any[];
+  backgroundImage?: string;
+  backgroundOpacity?: number;
+}
+
 const AllStagePlots = () => {
   const navigate = useNavigate();
   const screenSize = useScreenSize();
@@ -50,7 +61,9 @@ const AllStagePlots = () => {
   const [sortField, setSortField] = useState<"name" | "created_at" | "last_edited">("last_edited");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [currentExportStagePlot, setCurrentExportStagePlot] = useState<StagePlot | null>(null);
+  const [currentExportStagePlot, setCurrentExportStagePlot] = useState<StagePlotForExport | null>(
+    null,
+  );
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [selectedShareStagePlot, setSelectedShareStagePlot] = useState<StagePlot | null>(null);
@@ -236,13 +249,20 @@ const AllStagePlots = () => {
           .eq("id", stagePlotId)
           .single();
         if (error) throw error;
+        if (!data) throw new Error("Stage plot not found");
         fullStagePlot = data;
       }
 
-      const stagePlotForExport = {
-        ...fullStagePlot,
+      if (!fullStagePlot) throw new Error("Stage plot not found");
+
+      const stagePlotForExport: StagePlotForExport = {
+        name: fullStagePlot.name,
+        created_at: fullStagePlot.created_at,
+        last_edited: fullStagePlot.last_edited,
         stage_size: fullStagePlot.stage_size || "medium-wide",
         elements: fullStagePlot.elements || [],
+        backgroundImage: fullStagePlot.backgroundImage,
+        backgroundOpacity: fullStagePlot.backgroundOpacity,
       };
 
       setCurrentExportStagePlot(stagePlotForExport);
@@ -270,7 +290,7 @@ const AllStagePlots = () => {
           });
 
           pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
-          pdf.save(`${stagePlotForExport!.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot.pdf`);
+          pdf.save(`${stagePlotForExport.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot.pdf`);
 
           setCurrentExportStagePlot(null);
           setDownloadingId(null);
@@ -298,13 +318,20 @@ const AllStagePlots = () => {
           .eq("id", stagePlotId)
           .single();
         if (error) throw error;
+        if (!data) throw new Error("Stage plot not found");
         fullStagePlot = data;
       }
 
-      const stagePlotForExport = {
-        ...fullStagePlot,
+      if (!fullStagePlot) throw new Error("Stage plot not found");
+
+      const stagePlotForExport: StagePlotForExport = {
+        name: fullStagePlot.name,
+        created_at: fullStagePlot.created_at,
+        last_edited: fullStagePlot.last_edited,
         stage_size: fullStagePlot.stage_size || "medium-wide",
         elements: fullStagePlot.elements || [],
+        backgroundImage: fullStagePlot.backgroundImage,
+        backgroundOpacity: fullStagePlot.backgroundOpacity,
       };
 
       setCurrentExportStagePlot(stagePlotForExport);
@@ -333,7 +360,7 @@ const AllStagePlots = () => {
 
           pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
           pdf.save(
-            `${stagePlotForExport!.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot-print.pdf`,
+            `${stagePlotForExport.name.replace(/\s+/g, "-").toLowerCase()}-stage-plot-print.pdf`,
           );
 
           setCurrentExportStagePlot(null);

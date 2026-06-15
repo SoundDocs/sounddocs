@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Clock, ChevronDown, ChevronUp, RotateCcw, Loader2, Filter } from "lucide-react";
+import { Clock, ChevronDown, ChevronUp, RotateCcw, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Dialog,

@@ -90,11 +90,18 @@ serve(async (req) => {
     const renderedImage = resvg.render();
     const pngBuffer = renderedImage.asPng();
 
+    const sanitize = (v: unknown, fallback: string) =>
+      String(v ?? fallback)
+        .replace(/[\r\n"\\\x00-\x1f]/g, "")
+        .trim()
+        .slice(0, 100) || fallback;
+    const fileName = `${sanitize(body.project_name, "pixelmap")}_${sanitize(body.screen_name, "screen")}.png`;
+
     return new Response(pngBuffer, {
       headers: {
         ...corsHeaders,
         "Content-Type": "image/png",
-        "Content-Disposition": `attachment; filename="${body.project_name}_${body.screen_name}.png"`,
+        "Content-Disposition": `attachment; filename="${fileName}"`,
       },
       status: 200,
     });

@@ -1,0 +1,102 @@
+# =============================================================================
+# Publish the SoundDocs web app as a prebuilt Docker image to GHCR.
+#
+# The image is built WITHOUT baked Supabase credentials — runtime injection
+# via docker-entrypoint.sh handles configuration at container start time.
+# Self-hosters pull the image (fast, no local build) and pass their Supabase
+# URL + anon key as container env vars in docker-compose.yml.
+#
+# Image: ghcr.io/sounddocs/sounddocs-web
+# Tags:  latest, <git-sha>, <release-tag> (on tagged releases)
+# =============================================================================
+
+name: Publish web image to GHCR
+
+on:
+  push:
+    tags:
+      - "v*"
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    name: Build and push Docker image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Lowercase the owner (GitHub org/user names are case-insensitive but
+      # GHCR image references must be all-lowercase).
+      # github.repository_owner is passed through an env var, not interpolated
+      # directly into the shell command, to avoid injection risks.
+      - name: Compute image name (lowercase owner)
+        id: image
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |
+          OWNER_LC=$(echo "${REPO_OWNER}" | tr '[:upper:]' '[:lower:]')
+          echo "name=ghcr.io/${OWNER_LC}/sounddocs-web" >> "$GITHUB_OUTPUT"
+
+      # Determine the release tag (only set on tag push or release event).
+      # GITHUB_REF is a well-controlled server-set value (not attacker-
+      # controlled input), but we still use it via an env var for consistency.
+      - name: Extract release tag
+        id: tag
+        env:
+          GIT_REF: ${{ github.ref }}
+        run: |
+          if [[ "${GIT_REF}" == refs/tags/* ]]; then
+            echo "value=${GIT_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Capture build timestamp from the runner clock (not from commit
+      # metadata — head_commit.timestamp is attacker-controlled on push events
+      # and unavailable on release/workflow_dispatch).
+      - name: Capture build timestamp
+        id: ts
+        run: echo "value=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> "$GITHUB_OUTPUT"
+
+      # Build without VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY so the
+      # published image contains no credentials. VITE_SELF_HOSTED is also
+      # left unset at build time — the compose runtime env var handles it.
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          # BuildKit cache improves layer reuse across CI runs.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ${{ steps.image.outputs.name }}:latest
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
+            ${{ steps.tag.outputs.value != '' && format('{0}:{1}', steps.image.outputs.name, steps.tag.outputs.value) || '' }}
+          labels: |
+            org.opencontainers.image.title=SoundDocs Web
+            org.opencontainers.image.description=SoundDocs React SPA served by nginx with COOP/COEP headers
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ steps.ts.outputs.value }}

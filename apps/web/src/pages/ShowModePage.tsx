@@ -66,9 +66,10 @@ const ShowModePage: React.FC = () => {
   const [currentItemIndex, setCurrentItemIndex] = useState<number | null>(null);
   const [isTimerActive, setIsTimerActive] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
-  const [itemTimerId, setItemTimerId] = useState<NodeJS.Timeout | null>(null);
+  const itemTimerIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const lastPublishedStateRef = useRef<any>(null);
+  const isUnmountingRef = useRef(false);
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -167,51 +168,43 @@ const ShowModePage: React.FC = () => {
   }, [id, navigate]);
 
   useEffect(() => {
-    if (itemTimerId) {
-      clearInterval(itemTimerId);
-      setItemTimerId(null);
+    if (itemTimerIdRef.current) {
+      clearInterval(itemTimerIdRef.current);
+      itemTimerIdRef.current = null;
     }
 
-    if (
-      isTimerActive &&
-      currentItemIndex !== null &&
-      runOfShow &&
-      timeRemaining !== null &&
-      timeRemaining > 0
-    ) {
+    if (isTimerActive && currentItemIndex !== null && runOfShow) {
       const newTimerId = setInterval(() => {
         setTimeRemaining((prevTime) => {
           if (prevTime === null || prevTime <= 1) {
             clearInterval(newTimerId);
-            setItemTimerId(null);
+            itemTimerIdRef.current = null;
             setIsTimerActive(false);
 
             const nextIdx = findNextPlayableItemIndex(currentItemIndex);
             setCurrentItemIndex(nextIdx);
             if (nextIdx !== null && runOfShow.items[nextIdx]?.type === "item") {
-              setTimeRemaining(parseDurationToSeconds(runOfShow.items[nextIdx].duration));
-            } else {
-              setTimeRemaining(null);
+              return parseDurationToSeconds(runOfShow.items[nextIdx].duration);
             }
             return null;
           }
           return prevTime - 1;
         });
       }, 1000);
-      setItemTimerId(newTimerId);
+      itemTimerIdRef.current = newTimerId;
     }
     return () => {
-      if (itemTimerId) {
-        clearInterval(itemTimerId);
-        setItemTimerId(null);
+      if (itemTimerIdRef.current) {
+        clearInterval(itemTimerIdRef.current);
+        itemTimerIdRef.current = null;
       }
     };
-  }, [isTimerActive, currentItemIndex, runOfShow, timeRemaining, findNextPlayableItemIndex]);
+  }, [isTimerActive, currentItemIndex, runOfShow, findNextPlayableItemIndex]);
 
   // Publish live state to Supabase
   useEffect(() => {
     const publishLiveState = async () => {
-      if (!runOfShow?.id) return;
+      if (!runOfShow?.id || isUnmountingRef.current) return;
 
       const newState = {
         currentItemIndex,
@@ -248,6 +241,7 @@ const ShowModePage: React.FC = () => {
   // Clear live_show_data on unmount or if show mode is exited
   useEffect(() => {
     return () => {
+      isUnmountingRef.current = true;
       if (runOfShow?.id) {
         supabase
           .from("run_of_shows")

@@ -2,9 +2,20 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../lib/AuthContext";
+import { exportUserData, downloadBackup } from "../lib/dataBackup";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { Mail, Lock, AlertCircle, CheckCircle, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  AlertCircle,
+  CheckCircle,
+  Eye,
+  EyeOff,
+  ArrowLeft,
+  Database,
+  Download,
+} from "lucide-react";
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth();
@@ -28,6 +39,12 @@ const ProfilePage: React.FC = () => {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const [dataMessage, setDataMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [dataLoading, setDataLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -93,6 +110,31 @@ const ProfilePage: React.FC = () => {
       setPasswordMessage({ type: "error", text: `Error updating password: ${error.message}` });
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  const handleDownloadData = async () => {
+    if (!user) return;
+    setDataMessage(null);
+    setDataLoading(true);
+    try {
+      const backup = await exportUserData(user.id, user.email ?? null);
+      downloadBackup(backup);
+      const tableCount = Object.values(backup.tables).reduce(
+        (total, rows) => total + rows.length,
+        0,
+      );
+      setDataMessage({
+        type: "success",
+        text: `Your backup is downloading (${tableCount} record${
+          tableCount === 1 ? "" : "s"
+        }). Keep this file somewhere safe.`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setDataMessage({ type: "error", text: `Error preparing your backup: ${message}` });
+    } finally {
+      setDataLoading(false);
     }
   };
 
@@ -282,6 +324,65 @@ const ProfilePage: React.FC = () => {
                 {passwordLoading ? "Updating..." : "Update Password"}
               </button>
             </form>
+          </div>
+
+          {/* Your Data Section */}
+          <div className="bg-gray-800 p-6 sm:p-8 rounded-xl shadow-xl border border-gray-700">
+            <h2 className="text-2xl font-semibold text-white mb-6 flex items-center">
+              <Database className="h-6 w-6 mr-3 text-indigo-400" />
+              Your data
+            </h2>
+            <div className="space-y-4 text-gray-300">
+              <div className="flex items-start p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <AlertCircle className="h-5 w-5 mr-3 mt-0.5 flex-shrink-0 text-amber-400" />
+                <p className="text-sm text-amber-200">
+                  SoundDocs is being retired on <strong>September 1, 2026</strong>. Download a
+                  backup of everything you&apos;ve created so you don&apos;t lose your work.
+                </p>
+              </div>
+              <p className="text-sm leading-relaxed">
+                This exports all of your documents and data &mdash; patch sheets, stage plots,
+                technical riders, run of shows, production schedules, pixel maps, mic plots, comms
+                plans, measurements, and more &mdash; into a single JSON file.
+              </p>
+              <p className="text-sm leading-relaxed">
+                The backup can be imported into a self-hosted copy of SoundDocs. See the{" "}
+                <a
+                  href="https://github.com/SoundDocs/sounddocs/blob/main/SELF_HOSTING.md"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-indigo-400 hover:text-indigo-300 underline"
+                >
+                  self-hosting guide
+                </a>{" "}
+                for instructions.
+              </p>
+              {dataMessage && (
+                <div
+                  className={`flex items-center p-3 rounded-md text-sm ${
+                    dataMessage.type === "success"
+                      ? "bg-green-600/20 text-green-300"
+                      : "bg-red-600/20 text-red-300"
+                  }`}
+                >
+                  {dataMessage.type === "success" ? (
+                    <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+                  )}
+                  {dataMessage.text}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleDownloadData}
+                disabled={dataLoading}
+                className="w-full flex justify-center items-center bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-3 rounded-lg transition-colors duration-200 disabled:opacity-50"
+              >
+                <Download className="h-5 w-5 mr-2" />
+                {dataLoading ? "Preparing your backup…" : "Download my data"}
+              </button>
+            </div>
           </div>
         </div>
       </main>

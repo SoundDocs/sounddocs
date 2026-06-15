@@ -44,6 +44,8 @@ import {
   SystemType,
   SystemModel,
   RFBand,
+  Zone,
+  ChannelSet,
   validatePlacement,
   calculatePoELoad,
   allocateEdgeChannels,
@@ -54,6 +56,10 @@ import {
   ValidationResult,
 } from "../lib/commsTypes";
 import { saveCommsPlan, getCommsPlan } from "../lib/commsPlannerUtils";
+
+function isRFBand(val: unknown): val is RFBand {
+  return val === "1.9GHz" || val === "2.4GHz" || val === "5GHz";
+}
 
 const CommsPlannerEditor = () => {
   const { id, shareCode } = useParams();
@@ -162,25 +168,26 @@ const CommsPlannerEditor = () => {
   const [fitMode, setFitMode] = useState<"fit" | "fill">("fit");
 
   // Auto-save hook - Create a document data object for auto-save
-  const documentData = documentId
-    ? {
-        id: documentId,
-        name: planName,
-        venue_geometry: {
-          width: venueWidth,
-          height: venueHeight,
-        },
-        zones,
-        elements: elements.map((el) => ({
-          ...el,
-          system_type: el.systemType,
-          channel_set: el.channels,
-        })),
-        beltpacks,
-        dfs_enabled: dfsEnabled,
-        poe_budget_total: poeBudget,
-      }
-    : null;
+  const buildDocumentData = () => ({
+    id: documentId || "",
+    name: planName,
+    venue_geometry: {
+      width: venueWidth,
+      height: venueHeight,
+    },
+    zones,
+    elements: elements.map((el) => ({
+      ...el,
+      system_type: el.systemType,
+      channel_set: el.channels,
+    })),
+    beltpacks,
+    dfs_enabled: dfsEnabled,
+    poe_budget_total: poeBudget,
+  });
+  // documentData is always a valid Record shape (never null); the 'enabled' flag
+  // gates actual saving so the empty id is harmless when documentId is null.
+  const documentData = buildDocumentData();
 
   const {
     saveStatus,
@@ -237,7 +244,7 @@ const CommsPlannerEditor = () => {
   });
 
   // Presence hook
-  const { setEditingField } = usePresence({
+  usePresence({
     channel: null, // Will be set up when collaboration channels are ready
     userId: effectiveUserId,
   });
@@ -262,6 +269,7 @@ const CommsPlannerEditor = () => {
         if (collaborationEnabled && broadcast) {
           broadcast({
             type: "field_update",
+            userId: effectiveUserId,
             field: "name",
             value: localPlanName,
           });
@@ -603,7 +611,7 @@ const CommsPlannerEditor = () => {
       // Handle element property changes
       const element = elements.find((el) => el.id === elementId);
       if (element) {
-        if (property === "band") {
+        if (property === "band" && isRFBand(value)) {
           const newCoverageRadius = getCoverageRadius(element.systemType, value);
           updateElement(elementId, { band: value, coverageRadius: newCoverageRadius });
         } else if (property.includes(".")) {
@@ -756,23 +764,43 @@ const CommsPlannerEditor = () => {
           }
 
           // Load the shared plan data
-          setPlanName(resource.name || "Untitled Comms Plan");
-          setDocumentId(resource.id);
-          setVenueWidth(resource.venue_geometry?.width || 100);
-          setVenueHeight(resource.venue_geometry?.height || 100);
-          setZones(resource.zones || []);
-          setDfsEnabled(resource.dfs_enabled || false);
-          setPoeBudget(resource.poe_budget_total || 1000);
+          // Cast resource to a typed shape. CommsResourceData is assignable to Record<string,unknown>
+          // (all its values are subtypes of unknown), so this conversion is structurally valid.
+          type CommsResourceData = {
+            id?: string;
+            name?: string;
+            venue_geometry?: { width?: number; height?: number };
+            zones?: Zone[];
+            dfs_enabled?: boolean;
+            poe_budget_total?: number;
+            elements?: Array<
+              Omit<CommsElementProps, "systemType" | "channels"> & {
+                systemType?: SystemType;
+                system_type?: SystemType;
+                channels?: ChannelSet;
+                channel_set?: ChannelSet;
+              }
+            >;
+            beltpacks?: CommsBeltpackProps[];
+          };
+          const res = resource as CommsResourceData;
+          setPlanName(res.name || "Untitled Comms Plan");
+          setDocumentId(res.id || null);
+          setVenueWidth(res.venue_geometry?.width || 100);
+          setVenueHeight(res.venue_geometry?.height || 100);
+          setZones(res.zones || []);
+          setDfsEnabled(res.dfs_enabled || false);
+          setPoeBudget(res.poe_budget_total || 1000);
 
-          const loadedElements = (resource.elements || []).map((el: any) => ({
+          const loadedElements: CommsElementProps[] = (res.elements || []).map((el) => ({
             ...el,
-            systemType: el.system_type,
-            channels: el.channel_set,
+            systemType: (el.system_type ?? el.systemType) as SystemType,
+            channels: el.channel_set ?? el.channels,
           }));
           setElements(loadedElements);
 
-          const loadedBeltpacks = resource.beltpacks || [];
-          const hasExistingAssignments = loadedBeltpacks.some((bp: any) => bp.transceiverRef);
+          const loadedBeltpacks: CommsBeltpackProps[] = res.beltpacks || [];
+          const hasExistingAssignments = loadedBeltpacks.some((bp) => bp.transceiverRef);
           if (hasExistingAssignments) {
             setBeltpacks(loadedBeltpacks);
           } else {
@@ -1018,11 +1046,15 @@ const CommsPlannerEditor = () => {
           return {
             id: version.id,
             version: version.version,
+            documentId: documentId || "",
+            documentType: "comms_planners",
+            userId: version.created_by || "",
             userEmail,
+            snapshot: version.content || {},
             createdAt: version.created_at,
             changedFields: version.changed_fields || [],
             description: `${version.save_type} save`,
-          } as VersionHistory;
+          } satisfies VersionHistory & { version: number };
         }),
       );
 
@@ -1369,8 +1401,8 @@ const CommsPlannerEditor = () => {
 
           const transceiversHead = [["Label", "Model", "Band", "Coverage", "Connected Beltpacks"]];
           const transceiversBody = commsPlanData.transceivers
-            .filter((tx: Transceiver) => tx.systemType !== "FSII-Base")
-            .map((tx: Transceiver) => {
+            .filter((tx) => tx.systemType !== "FSII-Base")
+            .map((tx) => {
               const connectedBeltpacks = commsPlanData.beltpacks.filter(
                 (bp: { transceiverRef?: string }) => bp.transceiverRef === tx.id,
               );
@@ -1423,7 +1455,7 @@ const CommsPlannerEditor = () => {
               channelAssignments?: Array<{ channel: string; assignment: string }>;
             }) => {
               const transceiver = commsPlanData.transceivers.find(
-                (tx: Transceiver) => tx.id === bp.transceiverRef,
+                (tx) => tx.id === bp.transceiverRef,
               );
               const assignments =
                 bp.channelAssignments && bp.channelAssignments.length > 0

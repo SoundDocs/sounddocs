@@ -15,7 +15,7 @@ import {
   CalendarDays,
   Info,
 } from "lucide-react";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
 import {
   verifyShareLink,
@@ -25,13 +25,11 @@ import {
   ClaimedDocumentInfo,
   ResourceType,
   getShareUrl,
-  deleteShareLink,
 } from "../lib/shareUtils";
 import { supabase } from "../lib/supabase";
 
 const SharedWithMePage: React.FC = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [shareInput, setShareInput] = useState("");
   const [isClaimingLoading, setIsClaimingLoading] = useState(false);
   const [claimMessage, setClaimMessage] = useState<string | null>(null);

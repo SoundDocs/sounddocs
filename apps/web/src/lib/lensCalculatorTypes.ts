@@ -19,6 +19,7 @@ export interface Lens {
   manufacturer: string;
   model: string;
   part_number?: string;
+  mount_family?: string;
   throw_ratio_min: number;
   throw_ratio_max: number;
   lens_type: string;

@@ -881,8 +881,14 @@ const ProductionPage = () => {
                 },
               ]);
             } else {
-              const rowData = defaultCols.map((col) => item[col.key as keyof RunOfShowItem] || "");
-              const customData = customCols.map((cc) => item[cc.name] || "");
+              const rowData = defaultCols.map((col) => {
+                const val = item[col.key as keyof RunOfShowItem];
+                return typeof val === "boolean" ? String(val) : val || "";
+              });
+              const customData = customCols.map((cc) => {
+                const val = item[cc.name];
+                return typeof val === "boolean" ? String(val) : val || "";
+              });
               body.push([...rowData, ...customData]);
             }
           });

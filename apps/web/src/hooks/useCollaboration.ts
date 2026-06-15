@@ -11,6 +11,7 @@ import type {
   BroadcastPayload,
   DocumentType,
   ConnectionStatus,
+  DocumentConflict,
 } from "@/types/collaboration";
 
 interface UseCollaborationOptions {
@@ -26,6 +27,12 @@ interface UseCollaborationOptions {
   userName?: string;
   /** Callback when remote update is received */
   onRemoteUpdate?: (payload: BroadcastPayload) => void;
+  /**
+   * Callback when a document conflict is detected. Accepted by consumers for
+   * forward-compatibility; conflict detection in the hook is not yet wired, so
+   * this is currently not invoked.
+   */
+  onConflict?: (conflict: DocumentConflict) => void;
   /** Whether collaboration is enabled */
   enabled?: boolean;
 }
@@ -90,6 +97,7 @@ export const useCollaboration = ({
     }
 
     let mounted = true;
+    let createdChannels: CollaborationChannels | null = null;
 
     const setup = async () => {
       try {
@@ -144,6 +152,7 @@ export const useCollaboration = ({
           return;
         }
 
+        createdChannels = collaborationChannels;
         setChannels(collaborationChannels);
         setStatus(collaborationChannels.status);
         setError(collaborationChannels.error || null);
@@ -163,8 +172,8 @@ export const useCollaboration = ({
 
     return () => {
       mounted = false;
-      if (channels) {
-        cleanupCollaboration(channels).catch((err) => {
+      if (createdChannels) {
+        cleanupCollaboration(createdChannels).catch((err) => {
           console.error("[useCollaboration] Cleanup error:", err);
         });
       }

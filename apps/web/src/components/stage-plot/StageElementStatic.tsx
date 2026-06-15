@@ -13,7 +13,6 @@ import {
   Guitar,
   Blinds as Violin,
   Drum,
-  Drumstick,
   Plug,
   CircleEllipsis,
   Image as ImageIcon, // Added ImageIcon
@@ -79,7 +78,7 @@ const StageElementStatic: React.FC<StageElementStaticProps> = ({
     height: height || getDefaultDimensions().height,
   };
 
-  const getElementStyles = () => {
+  const getElementStyles = (): { className: string; style: React.CSSProperties } => {
     if (customImageUrl) {
       return {
         className: "rounded-md flex items-center justify-center overflow-hidden",

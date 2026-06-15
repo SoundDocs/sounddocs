@@ -72,8 +72,8 @@ export async function fetchCompatibleLenses(projectorId: string): Promise<Lens[]
     return [];
   }
 
-  // Type the response data
-  const typedData = data as Array<{
+  // Type the response data (Supabase infers joined relations as any[], cast through unknown)
+  const typedData = data as unknown as Array<{
     lens_id: string;
     lens_database: Lens;
   }> | null;
@@ -251,6 +251,7 @@ export function getTargetFootLamberts(
 // Check if lens shift is feasible using ellipse approximation
 export function shiftOK(vReq: number, hReq: number, vMax: number = 0, hMax: number = 0): boolean {
   if (!vMax && !hMax) return false;
+  if ((vReq !== 0 && !vMax) || (hReq !== 0 && !hMax)) return false;
 
   // Use ellipse equation: (v/vMax)² + (h/hMax)² ≤ 1
   const vv = vMax ? (vReq / vMax) ** 2 : 0;
